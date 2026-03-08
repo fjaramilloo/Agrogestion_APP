@@ -113,6 +113,16 @@ CREATE TABLE IF NOT EXISTS registros_cria (
     UNIQUE(id_finca, numero_unico)
 );
 
+-- 10. registros_lluvia
+CREATE TABLE IF NOT EXISTS registros_lluvia (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id_finca UUID REFERENCES fincas(id) ON DELETE CASCADE NOT NULL,
+    fecha DATE NOT NULL,
+    milimetros NUMERIC NOT NULL,
+    notas TEXT,
+    creado_en TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Funciones y Triggers para Zootecnia (GDP)
 CREATE OR REPLACE FUNCTION calcular_gdp_al_pesar()
 RETURNS TRIGGER AS $$
@@ -165,6 +175,7 @@ ALTER TABLE registros_pesaje ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mediciones_pasto ENABLE ROW LEVEL SECURITY;
 ALTER TABLE configuracion_kpi ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registros_cria ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registros_lluvia ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Activo para autenticados organizaciones" ON organizaciones FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados fincas" ON fincas FOR ALL TO authenticated USING (true);
@@ -175,3 +186,4 @@ CREATE POLICY "Activo para autenticados registros_pesaje" ON registros_pesaje FO
 CREATE POLICY "Activo para autenticados mediciones_pasto" ON mediciones_pasto FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados configuracion_kpi" ON configuracion_kpi FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados registros_cria" ON registros_cria FOR ALL TO authenticated USING (true);
+CREATE POLICY "Activo para autenticados registros_lluvia" ON registros_lluvia FOR ALL TO authenticated USING (true);

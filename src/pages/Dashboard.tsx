@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
-    LineChart, Line, CartesianGrid, Legend
+    LineChart, Line, CartesianGrid, Legend, BarChart, Bar
 } from 'recharts';
 import { Timer, TrendingUp, Activity, Scale, Skull, Home, MapPin, Users } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -22,6 +22,11 @@ interface DashboardStats {
 interface EvolucionItem {
     fecha: string;
     gmp: number;
+}
+
+interface LluviaItem {
+    fecha: string;
+    mm: number;
 }
 
 export default function Dashboard() {
@@ -43,6 +48,7 @@ export default function Dashboard() {
         ubicacion: ''
     });
     const [evolucionGmp, setEvolucionGmp] = useState<EvolucionItem[]>([]);
+    const [evolucionLluvia, setEvolucionLluvia] = useState<LluviaItem[]>([]);
 
     useEffect(() => {
         async function fetchDashboardData() {
@@ -72,7 +78,14 @@ export default function Dashboard() {
             // 3. Traer los últimos pesajes para evolucion
             const { data: pesajes } = await supabase
                 .from('registros_pesaje')
-                .select('id_animal, peso, fecha, etapa')
+                .select('id_animal, peso, fecha, etapa, gdp_calculada')
+                .order('fecha', { ascending: true });
+
+            // 3b. Traer registros de lluvia
+            const { data: lluvias } = await supabase
+                .from('registros_lluvia')
+                .select('fecha, milimetros')
+                .eq('id_finca', fincaId)
                 .order('fecha', { ascending: true });
 
             // 4. Animales fallecidos este año
@@ -208,6 +221,34 @@ export default function Dashboard() {
                         { fecha: 'Mar', gmp: 14.8 },
                         { fecha: 'Abr', gmp: 15.1 },
                         { fecha: 'May', gmp: 14.5 }
+                    ]);
+                }
+
+                // Agrupar lluvias por mes
+                const gruposLluvia: Record<string, number> = {};
+                (lluvias || []).forEach((r: any) => {
+                    const mes = r.fecha.substring(0, 7);
+                    gruposLluvia[mes] = (gruposLluvia[mes] || 0) + r.milimetros;
+                });
+
+                if (Object.keys(gruposLluvia).length > 0) {
+                    const lt: LluviaItem[] = Object.keys(gruposLluvia)
+                        .sort()
+                        .map(key => {
+                            const [anio, mes] = key.split('-');
+                            return {
+                                fecha: format(new Date(parseInt(anio), parseInt(mes) - 1), 'MMM', { locale: es }),
+                                mm: parseFloat(gruposLluvia[key].toFixed(1))
+                            };
+                        });
+                    setEvolucionLluvia(lt);
+                } else {
+                    setEvolucionLluvia([
+                        { fecha: 'Ene', mm: 120 },
+                        { fecha: 'Feb', mm: 150 },
+                        { fecha: 'Mar', mm: 80 },
+                        { fecha: 'Abr', mm: 200 },
+                        { fecha: 'May', mm: 250 }
                     ]);
                 }
             }
@@ -398,6 +439,46 @@ export default function Dashboard() {
                                             activeDot={{ r: 8, fill: 'var(--primary-light)' }}
                                         />
                                     </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: '24px' }}>
+                            <div style={{ marginBottom: '24px' }}>
+                                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Histórico de Lluvias (Pluviosidad)</h3>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Milímetros de agua registrados mensualmente</p>
+                            </div>
+                            <div style={{ width: '100%', height: '350px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={evolucionLluvia} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                        <XAxis
+                                            dataKey="fecha"
+                                            stroke="var(--text-muted)"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                                        />
+                                        <YAxis
+                                            stroke="var(--text-muted)"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                                            unit=" mm"
+                                        />
+                                        <Tooltip
+                                            cursor={{ fill: 'rgba(33, 150, 243, 0.1)' }}
+                                            contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
+                                            itemStyle={{ color: '#64B5F6' }}
+                                        />
+                                        <Bar
+                                            name="Lluvia (mm)"
+                                            dataKey="mm"
+                                            fill="#2196F3"
+                                            radius={[6, 6, 0, 0]}
+                                            barSize={40}
+                                        />
+                                    </BarChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
