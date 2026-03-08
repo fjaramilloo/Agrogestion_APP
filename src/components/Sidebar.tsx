@@ -13,9 +13,11 @@ import {
     ChevronUp,
     ShoppingCart,
     Tag,
-    CloudRain
+    CloudRain,
+    LogOut
 } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Sidebar.css';
 
 interface NavItem {
@@ -30,9 +32,15 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-    const { role, isSuperAdmin, userFincas, fincaId, setFincaId, refreshFincas, user } = useAuth();
+    const { role, isSuperAdmin, userFincas, fincaId, setFincaId, refreshFincas, user, signOut } = useAuth();
     const [showFincas, setShowFincas] = useState(true);
     const [creatingFinca, setCreatingFinca] = useState(false);
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        await signOut();
+        navigate('/login');
+    };
 
     const navItems: NavItem[] = [
         { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -163,6 +171,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         </NavLink>
                     ))}
                 </nav>
+
+                <div style={{ marginTop: 'auto', paddingTop: '24px' }}>
+                    <div className="sidebar-divider" style={{ margin: '0 14px 16px' }} />
+                    <button className="sidebar-logout-btn" onClick={handleLogout}>
+                        <LogOut size={20} />
+                        <span>Cerrar Sesión</span>
+                    </button>
+                </div>
             </aside>
         </>
     );

@@ -181,6 +181,27 @@
     align-items: center;
 }
 
+.sidebar-logout-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 10px;
+}
+
+.sidebar-logout-btn:hover {
+    background: rgba(244, 67, 54, 0.1);
+    color: var(--error);
+}
+
 .sidebar-label {
     white-space: nowrap;
     overflow: hidden;

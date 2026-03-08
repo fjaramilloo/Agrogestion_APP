@@ -1,6 +1,5 @@
-import { Leaf, LogOut, User, Menu } from 'lucide-react';
+import { Leaf, User, Menu } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import './Topbar.css';
 
 interface TopbarProps {
@@ -8,13 +7,7 @@ interface TopbarProps {
 }
 
 export default function Topbar({ onToggleSidebar }: TopbarProps) {
-    const { role, isSuperAdmin, signOut } = useAuth();
-    const navigate = useNavigate();
-
-    const handleLogout = async () => {
-        await signOut();
-        navigate('/login');
-    };
+    const { role, isSuperAdmin } = useAuth();
 
     const getRolLabel = () => {
         if (isSuperAdmin) return 'Super Admin';
@@ -43,11 +36,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                         <span className="topbar-user-role">{getRolLabel()}</span>
                     </div>
                 </div>
-
-                <button className="topbar-logout-btn" onClick={handleLogout} title="Cerrar sesión">
-                    <LogOut size={20} />
-                    <span>Salir</span>
-                </button>
             </div>
         </header>
     );
