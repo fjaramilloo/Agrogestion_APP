@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Save, PlusCircle } from 'lucide-react';
+import { Search, Save, PlusCircle, TrendingUp, History } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
 
 interface AnimalPreview {
     id: string;
     numero_chapeta: string;
     peso_ingreso: number;
+    fecha_ingreso: string;
     etapa: string;
+    ultimo_peso?: number;
+    fecha_ultimo_peso?: string;
+    gmp?: number;
 }
 
 export default function Weighing() {
@@ -56,7 +61,7 @@ export default function Weighing() {
 
         const { data, error } = await supabase
             .from('animales')
-            .select('id, numero_chapeta, peso_ingreso, etapa')
+            .select('id, numero_chapeta, peso_ingreso, fecha_ingreso, etapa')
             .eq('id_finca', fincaId)
             .eq('numero_chapeta', chapeta.trim())
             .single();
@@ -65,7 +70,33 @@ export default function Weighing() {
             setAnimalNoEncontrado(true);
             setMsjError('Animal no encontrado. Puede revisar la chapeta o crear uno nuevo.');
         } else {
-            setAnimal(data);
+            // Buscar el último pesaje
+            const { data: pesajes } = await supabase
+                .from('registros_pesaje')
+                .select('peso, fecha')
+                .eq('id_animal', data.id)
+                .order('fecha', { ascending: false });
+
+            let gmp = 0;
+            let ultimoPeso = data.peso_ingreso;
+            let fechaUltimoPeso = data.fecha_ingreso;
+
+            if (pesajes && pesajes.length > 0) {
+                const ultimo = pesajes[0];
+                ultimoPeso = ultimo.peso;
+                fechaUltimoPeso = ultimo.fecha;
+
+                const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(data.fecha_ingreso)) || 1;
+                const gananciaTotal = ultimo.peso - data.peso_ingreso;
+                gmp = (gananciaTotal / diffDias) * 30;
+            }
+
+            setAnimal({
+                ...data,
+                ultimo_peso: ultimoPeso,
+                fecha_ultimo_peso: fechaUltimoPeso,
+                gmp: gmp
+            });
         }
         setLoading(false);
     };
@@ -111,7 +142,11 @@ export default function Weighing() {
                 id: data.id,
                 numero_chapeta: data.numero_chapeta,
                 peso_ingreso: data.peso_ingreso,
-                etapa: data.etapa
+                fecha_ingreso: data.fecha_ingreso,
+                etapa: data.etapa,
+                ultimo_peso: data.peso_ingreso,
+                fecha_ultimo_peso: data.fecha_ingreso,
+                gmp: 0
             });
             setAnimalNoEncontrado(false);
             setShowCrearAnimal(false);
@@ -258,14 +293,28 @@ export default function Weighing() {
 
                 {animal && (
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '24px', marginTop: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                             <div>
                                 <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Animal Encontrado</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>#{animal.numero_chapeta}</div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
-                                <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Etapa Actual</div>
-                                <div style={{ fontSize: '1.2rem', textTransform: 'capitalize' }}>{animal.etapa}</div>
+                                <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>GMP Actual</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: animal.gmp && animal.gmp > 13 ? 'var(--success)' : 'var(--warning)' }}>
+                                    {animal.gmp ? animal.gmp.toFixed(1) : '0.0'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>kg/mes</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
+                            <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Último Pesaje</div>
+                                <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{animal.ultimo_peso} kg</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{animal.fecha_ultimo_peso ? format(new Date(animal.fecha_ultimo_peso), 'dd/MM/yyyy') : '-'}</div>
+                            </div>
+                            <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Etapa</div>
+                                <div style={{ fontSize: '1.3rem', fontWeight: 'bold', textTransform: 'capitalize' }}>{animal.etapa}</div>
                             </div>
                         </div>
 
