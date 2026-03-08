@@ -5,7 +5,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Skull } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Skull, Home, MapPin, Maximize } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -31,6 +31,12 @@ export default function Dashboard() {
         gmpLevante: 0,
         gmpTotal: 0,
         totalMuertosAno: 0
+    });
+    const [fincaInfo, setFincaInfo] = useState({
+        nombre: '',
+        proposito: '',
+        area_aprovechable: 0,
+        ubicacion: ''
     });
     const [evolucionGmp, setEvolucionGmp] = useState<EvolucionItem[]>([]);
 
@@ -68,6 +74,22 @@ export default function Dashboard() {
                 .eq('id_finca', fincaId)
                 .eq('estado', 'muerto')
                 .gte('fecha_muerte', fechaInicioAnio);
+
+            // 5. Información de la Finca
+            const { data: finca } = await supabase
+                .from('fincas')
+                .select('nombre, proposito, area_aprovechable, ubicacion')
+                .eq('id', fincaId)
+                .single();
+
+            if (finca) {
+                setFincaInfo({
+                    nombre: finca.nombre,
+                    proposito: finca.proposito || 'No Definido',
+                    area_aprovechable: finca.area_aprovechable || 0,
+                    ubicacion: finca.ubicacion || 'Sin ubicación'
+                });
+            }
 
             if (animales && animales.length > 0) {
                 let totalDiasLevante = 0;
@@ -174,6 +196,54 @@ export default function Dashboard() {
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--primary)' }}>Cargando métricas...</div>
             ) : (
                 <>
+                    {/* Widget Información de Finca */}
+                    <div className="card" style={{
+                        marginBottom: '32px',
+                        padding: '32px',
+                        background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(25, 25, 25, 0.5) 100%)',
+                        border: '1px solid rgba(76, 175, 80, 0.2)',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '32px',
+                        alignItems: 'center'
+                    }}>
+                        <div style={{
+                            padding: '24px',
+                            borderRadius: '20px',
+                            background: 'rgba(76, 175, 80, 0.2)',
+                            color: 'var(--primary-light)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <Home size={48} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: '250px' }}>
+                            <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'white', marginBottom: '8px' }}>{fincaInfo.nombre}</h2>
+                            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                                    <MapPin size={18} /> {fincaInfo.ubicacion}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                                    <Activity size={18} /> <span style={{ color: 'white', fontWeight: 'bold' }}>{fincaInfo.proposito}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            padding: '20px 32px',
+                            borderRadius: '16px',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            textAlign: 'center',
+                            minWidth: '200px'
+                        }}>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Área de Ganado</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                                {fincaInfo.area_aprovechable} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Ha</span>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* KPI Widgets */}
                     <div style={{
                         display: 'grid',
