@@ -5,7 +5,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Skull, Home, MapPin, Maximize } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Skull, Home, MapPin } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
