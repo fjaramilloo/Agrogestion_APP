@@ -170,11 +170,18 @@ export default function Weighing() {
                 throw new Error('El peso debe ser un número mayor a 0');
             }
 
+            let gdpCalculada = 0;
+            if (animal.ultimo_peso && animal.fecha_ultimo_peso) {
+                const diffDias = differenceInDays(new Date(), new Date(animal.fecha_ultimo_peso)) || 1;
+                gdpCalculada = (pesoFloat - animal.ultimo_peso) / diffDias;
+            }
+
             const { error } = await supabase.from('registros_pesaje').insert({
                 id_animal: animal.id,
                 peso: pesoFloat,
                 fecha: new Date().toISOString().split('T')[0],
-                etapa: animal.etapa
+                etapa: animal.etapa,
+                gdp_calculada: gdpCalculada
             });
 
             if (error) throw error;
