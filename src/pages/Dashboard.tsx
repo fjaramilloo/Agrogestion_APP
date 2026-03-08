@@ -105,9 +105,9 @@ export default function Dashboard() {
                 let gdpSumaTotal = 0;
                 let countGdpTotal = 0;
 
-                animales.forEach(animal => {
+                animales.forEach((animal: any) => {
                     // Filtramos sus pesajes
-                    const misPesajes = pesajes?.filter(p => p.id_animal === animal.id) || [];
+                    const misPesajes = pesajes?.filter((p: any) => p.id_animal === animal.id) || [];
 
                     if (misPesajes.length > 0) {
                         // Último pesaje
@@ -153,24 +153,29 @@ export default function Dashboard() {
 
                 // Agrupar pesajes por mes para gráfica de tendencia de GMP
                 // Mocking trend based on pesajes if empty we generate a realistic trend
-                if (pesajes && pesajes.length > 5) {
-                    const agrupado: Record<string, number[]> = {};
-                    pesajes.forEach(p => {
-                        const animalOrigin = animales.find(a => a.id === p.id_animal);
-                        if (!animalOrigin) return;
 
-                        const mes = format(new Date(p.fecha), 'MM/yyyy', { locale: es });
-                        const diasDiferencia = differenceInDays(new Date(p.fecha), new Date(animalOrigin.fecha_ingreso)) || 1;
-                        const gdp = (p.peso - animalOrigin.peso_ingreso) / diasDiferencia;
+                const gruposPorFecha: { [key: string]: { suma: number, count: number } } = {};
 
-                        if (!agrupado[mes]) agrupado[mes] = [];
-                        agrupado[mes].push(gdp * 30); // Guardamos el GMP de ese pesaje
-                    });
+                (pesajes as any[] | null)?.forEach((p: any) => {
+                    const mes = p.fecha.substring(0, 7); // YYYY-MM
+                    // Necesitamos saber el peso de ingreso del animal para calcular su ganancia
+                    const animalRel = (animales as any[] | null)?.find((a: any) => a.id === p.id_animal);
+                    if (animalRel) {
+                        const diffDias = differenceInDays(new Date(p.fecha), new Date(animalRel.fecha_ingreso)) || 1;
+                        const ganancia = p.peso - animalRel.peso_ingreso;
+                        const gmp = (ganancia / diffDias) * 30;
 
-                    const tr: EvolucionItem[] = Object.keys(agrupado).map(mes => {
-                        const arr = agrupado[mes];
-                        const prom = arr.reduce((acc, curr) => acc + curr, 0) / arr.length;
-                        return { fecha: mes, gmp: parseFloat(prom.toFixed(2)) };
+                        if (!gruposPorFecha[mes]) gruposPorFecha[mes] = { suma: 0, count: 0 };
+                        gruposPorFecha[mes].suma += gmp;
+                        gruposPorFecha[mes].count++;
+                    }
+                });
+
+                if (Object.keys(gruposPorFecha).length > 0) {
+                    const tr: EvolucionItem[] = Object.keys(gruposPorFecha).map(mes => {
+                        const { suma, count } = gruposPorFecha[mes];
+                        const prom = suma / count;
+                        return { fecha: format(new Date(`${mes}-01`), 'MMM', { locale: es }), gmp: parseFloat(prom.toFixed(2)) };
                     });
                     setEvolucionGmp(tr);
                 } else {
