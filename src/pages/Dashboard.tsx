@@ -117,40 +117,37 @@ export default function Dashboard() {
             if (animales && animales.length > 0) {
                 let totalDiasLevante = 0;
                 let countLevante = 0;
-
                 let gdpSumaLevante = 0;
                 let countGdpLevante = 0;
-
                 let gdpSumaTotal = 0;
                 let countGdpTotal = 0;
 
                 animales.forEach((animal: any) => {
-                    // Filtramos sus pesajes
+                    // KPI: Promedio de Permanencia (Solo para Levante)
+                    if (animal.etapa === 'levante') {
+                        const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
+                        totalDiasLevante += diffHoy;
+                        countLevante++;
+                    }
+
+                    // KPI: Ganancia Mensual Promedio (GMP)
                     const misPesajes = pesajes?.filter((p: any) => p.id_animal === animal.id) || [];
 
                     if (misPesajes.length > 0) {
-                        // Último pesaje
                         const ultimoPesaje = misPesajes[misPesajes.length - 1];
-                        const diffDiasTotal = differenceInDays(new Date(ultimoPesaje.fecha), new Date(animal.fecha_ingreso)) || 1;
-                        const gananciaTotal = ultimoPesaje.peso - animal.peso_ingreso;
-                        const gdpTotal = gananciaTotal / diffDiasTotal;
+                        const diffDiasTotal = differenceInDays(new Date(ultimoPesaje.fecha), new Date(animal.fecha_ingreso));
 
-                        gdpSumaTotal += gdpTotal;
-                        countGdpTotal++;
+                        if (diffDiasTotal > 0) {
+                            const gananciaTotal = ultimoPesaje.peso - animal.peso_ingreso;
+                            const gdpTotal = gananciaTotal / diffDiasTotal;
 
-                        if (animal.etapa === 'levante') {
-                            const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
-                            totalDiasLevante += diffHoy;
-                            countLevante++;
+                            gdpSumaTotal += gdpTotal;
+                            countGdpTotal++;
 
-                            gdpSumaLevante += gdpTotal;
-                            countGdpLevante++;
-                        }
-                    } else {
-                        if (animal.etapa === 'levante') {
-                            const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
-                            totalDiasLevante += diffHoy;
-                            countLevante++;
+                            if (animal.etapa === 'levante') {
+                                gdpSumaLevante += gdpTotal;
+                                countGdpLevante++;
+                            }
                         }
                     }
                 });
@@ -172,20 +169,21 @@ export default function Dashboard() {
 
                 // Agrupar pesajes por mes para gráfica de tendencia de GMP
                 const gruposPorMes: Record<string, { sumaGmp: number, count: number }> = {};
-
-                // Ordenamos por fecha para que la gráfica tenga sentido
                 const pesajesFiltro = (pesajes || []).filter((p: any) => p.fecha);
+                const animalesVistos = new Set();
 
                 pesajesFiltro.forEach((p: any) => {
-                    const fecha = new Date(p.fecha);
-                    const mesKey = format(fecha, 'yyyy-MM'); // Agrupar por Mes/Año
+                    if (!animalesVistos.has(p.id_animal)) {
+                        animalesVistos.add(p.id_animal);
+                        return;
+                    }
 
-                    // Si el pesaje ya trae la GDP, la usamos directamente (ya multiplicada por 30)
+                    const fecha = new Date(p.fecha);
+                    const mesKey = format(fecha, 'yyyy-MM');
                     let gmpDelPesaje = 0;
-                    if (p.gdp_calculada) {
+                    if (p.gdp_calculada !== undefined && p.gdp_calculada !== null) {
                         gmpDelPesaje = p.gdp_calculada * 30;
                     } else {
-                        // Si no la tiene (datos viejos), buscamos el animal para calcularla
                         const animalRel = todosAnimales?.find((a: any) => a.id === p.id_animal);
                         if (animalRel) {
                             const diffDias = differenceInDays(new Date(p.fecha), new Date(animalRel.fecha_ingreso)) || 1;
@@ -193,17 +191,14 @@ export default function Dashboard() {
                             gmpDelPesaje = (ganancia / diffDias) * 30;
                         }
                     }
-
-                    if (gmpDelPesaje > 0) {
-                        if (!gruposPorMes[mesKey]) gruposPorMes[mesKey] = { sumaGmp: 0, count: 0 };
-                        gruposPorMes[mesKey].sumaGmp += gmpDelPesaje;
-                        gruposPorMes[mesKey].count++;
-                    }
+                    if (!gruposPorMes[mesKey]) gruposPorMes[mesKey] = { sumaGmp: 0, count: 0 };
+                    gruposPorMes[mesKey].sumaGmp += gmpDelPesaje;
+                    gruposPorMes[mesKey].count++;
                 });
 
                 if (Object.keys(gruposPorMes).length > 0) {
                     const tr: EvolucionItem[] = Object.keys(gruposPorMes)
-                        .sort() // Asegurar orden cronológico
+                        .sort()
                         .map(key => {
                             const { sumaGmp, count } = gruposPorMes[key];
                             const prom = sumaGmp / count;
@@ -216,41 +211,37 @@ export default function Dashboard() {
                     setEvolucionGmp(tr);
                 } else {
                     setEvolucionGmp([
-                        { fecha: 'Ene', gmp: 12.5 },
-                        { fecha: 'Feb', gmp: 13.2 },
-                        { fecha: 'Mar', gmp: 14.8 },
-                        { fecha: 'Abr', gmp: 15.1 },
-                        { fecha: 'May', gmp: 14.5 }
+                        { fecha: 'Ene', gmp: 12.5 }, { fecha: 'Feb', gmp: 13.2 }, { fecha: 'Mar', gmp: 14.8 }, { fecha: 'Abr', gmp: 15.1 }, { fecha: 'May', gmp: 14.5 }
                     ]);
                 }
+            } else {
+                setEvolucionGmp([
+                    { fecha: 'Ene', gmp: 12.5 }, { fecha: 'Feb', gmp: 13.2 }, { fecha: 'Mar', gmp: 14.8 }, { fecha: 'Abr', gmp: 15.1 }, { fecha: 'May', gmp: 14.5 }
+                ]);
+            }
 
-                // Agrupar lluvias por mes
-                const gruposLluvia: Record<string, number> = {};
-                (lluvias || []).forEach((r: any) => {
-                    const mes = r.fecha.substring(0, 7);
-                    gruposLluvia[mes] = (gruposLluvia[mes] || 0) + r.milimetros;
-                });
+            // Agrupar lluvias por mes
+            const gruposLluvia: Record<string, number> = {};
+            (lluvias || []).forEach((r: any) => {
+                const mes = r.fecha.substring(0, 7);
+                gruposLluvia[mes] = (gruposLluvia[mes] || 0) + r.milimetros;
+            });
 
-                if (Object.keys(gruposLluvia).length > 0) {
-                    const lt: LluviaItem[] = Object.keys(gruposLluvia)
-                        .sort()
-                        .map(key => {
-                            const [anio, mes] = key.split('-');
-                            return {
-                                fecha: format(new Date(parseInt(anio), parseInt(mes) - 1), 'MMM', { locale: es }),
-                                mm: parseFloat(gruposLluvia[key].toFixed(1))
-                            };
-                        });
-                    setEvolucionLluvia(lt);
-                } else {
-                    setEvolucionLluvia([
-                        { fecha: 'Ene', mm: 120 },
-                        { fecha: 'Feb', mm: 150 },
-                        { fecha: 'Mar', mm: 80 },
-                        { fecha: 'Abr', mm: 200 },
-                        { fecha: 'May', mm: 250 }
-                    ]);
-                }
+            if (Object.keys(gruposLluvia).length > 0) {
+                const lt: LluviaItem[] = Object.keys(gruposLluvia)
+                    .sort()
+                    .map(key => {
+                        const [anio, mes] = key.split('-');
+                        return {
+                            fecha: format(new Date(parseInt(anio), parseInt(mes) - 1), 'MMM', { locale: es }),
+                            mm: parseFloat(gruposLluvia[key].toFixed(1))
+                        };
+                    });
+                setEvolucionLluvia(lt);
+            } else {
+                setEvolucionLluvia([
+                    { fecha: 'Ene', mm: 120 }, { fecha: 'Feb', mm: 150 }, { fecha: 'Mar', mm: 80 }, { fecha: 'Abr', mm: 200 }, { fecha: 'May', mm: 250 }
+                ]);
             }
             setLoading(false);
         }
