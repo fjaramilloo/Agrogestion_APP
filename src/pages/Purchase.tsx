@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar } from 'lucide-react';
+import PurchaseReport from '../components/PurchaseReport';
 
 interface AnimalCompra {
     numero_chapeta: string;
@@ -10,7 +11,7 @@ interface AnimalCompra {
 }
 
 export default function Purchase() {
-    const { fincaId, role } = useAuth();
+    const { fincaId, role, userFincas } = useAuth();
     const [cantidad, setCantidad] = useState('1');
     const [fechaIngreso, setFechaIngreso] = useState(new Date().toISOString().split('T')[0]);
     const [animales, setAnimales] = useState<AnimalCompra[]>([]);
@@ -19,6 +20,10 @@ export default function Purchase() {
     const [loading, setLoading] = useState(false);
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
+
+    // Reporte
+    const [showReport, setShowReport] = useState(false);
+    const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalCompra[] } | null>(null);
 
     useEffect(() => {
         if (!fincaId) return;
@@ -114,6 +119,14 @@ export default function Purchase() {
             }
 
             setMsjExito(`¡Éxito! Se crearon ${records.length} animales con su pesaje inicial.`);
+
+            // Guardar para el reporte antes de limpiar
+            setReportData({
+                fecha: fechaIngreso,
+                animales: [...animales]
+            });
+            setShowReport(true);
+
             setAnimales([]);
             setCantidad('1');
         } catch (err: any) {
@@ -280,6 +293,15 @@ export default function Purchase() {
                         </button>
                     </div>
                 </div>
+            )}
+
+            {showReport && reportData && (
+                <PurchaseReport
+                    fincaNombre={userFincas.find((f: any) => f.id_finca === fincaId)?.nombre_finca || 'Finca'}
+                    fechaIngreso={reportData.fecha}
+                    animales={reportData.animales}
+                    onClose={() => setShowReport(false)}
+                />
             )}
         </div>
     );
