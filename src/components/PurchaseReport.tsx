@@ -79,8 +79,8 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                     background: white;
                     color: #333;
                     width: 100%;
-                    max-width: 800px;
-                    padding: 40px;
+                    max-width: 750px;
+                    padding: 30px;
                     border-radius: 4px;
                     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
                     height: fit-content;
@@ -88,42 +88,56 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                 }
                 .report-header {
                     text-align: center;
-                    margin-bottom: 30px;
+                    margin-bottom: 20px;
                 }
                 .report-title {
-                    font-size: 24px;
+                    font-size: 22px;
                     font-weight: 800;
-                    margin-bottom: 8px;
+                    margin-bottom: 5px;
                     color: black;
                 }
                 .report-subtitle {
-                    font-size: 16px;
-                    margin-bottom: 20px;
+                    font-size: 14px;
+                    margin-bottom: 15px;
+                }
+                .report-tables-wrapper {
+                    display: flex;
+                    width: 100%;
+                    border: 1px solid #333;
                 }
                 .report-table {
-                    width: 100%;
+                    width: 50%;
                     border-collapse: collapse;
-                    font-size: 13px;
+                    font-size: 12px;
                 }
                 .report-table th, .report-table td {
-                    border: 1px solid #ddd;
-                    padding: 6px 10px;
-                    text-align: left;
+                    border: 1px solid #333;
+                    padding: 4px 8px;
+                    text-align: center;
+                    height: 24px;
+                }
+                .report-table.left {
+                    border: none;
+                }
+                .report-table.right {
+                    border: none;
+                    border-left: 1px solid #333;
                 }
                 .report-table th {
-                    background-color: #f8f8f8;
+                    background-color: #f2f2f2;
                     font-weight: 700;
                 }
                 .report-summary-box {
-                    margin-top: 30px;
+                    margin-top: 20px;
                     display: flex;
                     width: 100%;
                     border: 1px solid #333;
                 }
                 .summary-item {
                     flex: 1;
-                    padding: 10px;
+                    padding: 8px 12px;
                     border-right: 1px solid #333;
+                    font-size: 14px;
                 }
                 .summary-item:last-child { border-right: none; }
                 .summary-label { font-weight: 700; }
@@ -131,15 +145,15 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                     width: 100%;
                     margin-top: 10px;
                     border-collapse: collapse;
-                    font-size: 13px;
+                    font-size: 12px;
                 }
                 .report-footer-table th, .report-footer-table td {
                     border: 1px solid #333;
-                    padding: 8px 12px;
+                    padding: 6px 10px;
                     text-align: center;
                 }
                 .report-footer-table th {
-                    background-color: #eee;
+                    background-color: #f2f2f2;
                 }
                 `}
             </style>
@@ -161,8 +175,8 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0' }}>
-                    <table className="report-table" style={{ borderRight: 'none' }}>
+                <div className="report-tables-wrapper">
+                    <table className="report-table left">
                         <thead>
                             <tr>
                                 <th>Chapeta</th>
@@ -178,11 +192,9 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                                     <td>{a.peso_ingreso}</td>
                                 </tr>
                             ))}
-                            {/* Relleno para que tengan la misma altura si es impar */}
-                            {leftCol.length > rightCol.length && rightCol.length > 0 && Array.from({ length: 0 }).map((_, i) => <tr key={'b' + i}><td colSpan={3}>&nbsp;</td></tr>)}
                         </tbody>
                     </table>
-                    <table className="report-table">
+                    <table className="report-table right">
                         <thead>
                             <tr>
                                 <th>Chapeta</th>
