@@ -101,7 +101,7 @@ export default function Rainfall() {
                         <CloudRain size={32} color="var(--primary-light)" />
                         Registro de Lluvias
                     </h1>
-                    <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>Control de pluviosidad mensual por finca (mm)</p>
+                    <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>Control de pluviosidad diaria por finca (mm)</p>
                 </div>
                 <button
                     className="btn btn-primary"
@@ -129,7 +129,7 @@ export default function Rainfall() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
                                     <Calendar size={16} />
                                     <span style={{ fontSize: '0.9rem' }}>
-                                        {format(new Date(r.fecha + 'T12:00:00'), 'MMMM yyyy', { locale: es }).toUpperCase()}
+                                        {format(new Date(r.fecha + 'T12:00:00'), 'dd MMM yyyy', { locale: es }).toUpperCase()}
                                     </span>
                                 </div>
                                 <button
@@ -156,10 +156,10 @@ export default function Rainfall() {
             {showModal && (
                 <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
                     <div className="card" style={{ width: '100%', maxWidth: '450px', padding: '32px' }}>
-                        <h2 style={{ marginBottom: '24px', fontSize: '1.5rem' }}>Registrar Lluvia</h2>
+                        <h2 style={{ marginBottom: '24px', fontSize: '1.5rem' }}>Registrar Lluvia Diaria</h2>
                         <form onSubmit={handleGuardar}>
                             <div className="form-group" style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Mes / Año</label>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Fecha</label>
                                 <input
                                     type="date"
                                     className="input-field"
@@ -188,7 +188,7 @@ export default function Rainfall() {
                                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Notas (Opcional)</label>
                                 <textarea
                                     className="input-field"
-                                    placeholder="Ej: Lluvias fuertes a fin de mes"
+                                    placeholder="Ej: Llovió toda la tarde"
                                     value={notas}
                                     onChange={(e) => setNotas(e.target.value)}
                                     rows={3}
