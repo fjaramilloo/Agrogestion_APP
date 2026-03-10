@@ -68,11 +68,13 @@ export default function Purchase() {
     const handleIngresarCompra = async () => {
         if (!fincaId || animales.length === 0) return;
 
-        // Validaciones previas
+        setLoading(true);
+        setMsjError('');
+
         try {
             const chapetas = animales.map(a => a.numero_chapeta.trim());
             if (chapetas.some(c => !c)) throw new Error("Todas las chapetas son obligatorias.");
-            if (new Set(chapetas).size !== chapetas.length) throw new Error("No puede haber chapetas duplicadas.");
+            if (new Set(chapetas).size !== chapetas.length) throw new Error("No puede haber chapetas duplicadas en la lista actual.");
 
             animales.forEach(a => {
                 const peso = parseFloat(a.peso_ingreso);
@@ -80,10 +82,25 @@ export default function Purchase() {
                 if (!a.propietario) throw new Error(`Falta propietario para ${a.numero_chapeta}`);
             });
 
+            // Registro de chapetas existentes en la base de datos
+            const { data: existentes, error: checkError } = await supabase
+                .from('animales')
+                .select('numero_chapeta')
+                .eq('id_finca', fincaId)
+                .in('numero_chapeta', chapetas);
+
+            if (checkError) throw checkError;
+
+            if (existentes && existentes.length > 0) {
+                const caps = existentes.map(e => e.numero_chapeta).join(', ');
+                throw new Error(`Las siguientes chapetas ya están registradas en esta finca: ${caps}`);
+            }
+
             setShowConfirm(true);
-            setMsjError('');
         } catch (err: any) {
             setMsjError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 

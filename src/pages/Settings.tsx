@@ -239,7 +239,7 @@ export default function Settings() {
                 try {
                     const rows = results.data.map((row: any) => ({
                         id_finca: fincaId,
-                        numero_chapeta: row.numero_chapeta,
+                        numero_chapeta: row.numero_chapeta?.toString().trim(),
                         nombre_propietario: row.propietario || 'Sin Datos',
                         especie: row.especie?.toLowerCase() || 'bovino',
                         sexo: row.sexo?.toUpperCase() || 'M',
@@ -248,6 +248,23 @@ export default function Settings() {
                         peso_ingreso: parseFloat(row.peso_ingreso) || 0,
                         estado: 'activo'
                     }));
+
+                    const chapetas = rows.map((r: any) => r.numero_chapeta);
+                    if (chapetas.some(c => !c)) throw new Error("Todas las filas deben tener un número de chapeta.");
+                    if (new Set(chapetas).size !== chapetas.length) throw new Error("El archivo CSV contiene números de chapeta duplicados.");
+
+                    // Validar contra la base de datos
+                    const { data: existentes, error: checkError } = await supabase
+                        .from('animales')
+                        .select('numero_chapeta')
+                        .eq('id_finca', fincaId)
+                        .in('numero_chapeta', chapetas);
+
+                    if (checkError) throw checkError;
+                    if (existentes && existentes.length > 0) {
+                        const caps = existentes.map(e => e.numero_chapeta).join(', ');
+                        throw new Error(`Las siguientes chapetas ya existen en esta finca: ${caps}. Por favor corríjalas en su archivo.`);
+                    }
 
                     const { data: nuevosAnimales, error } = await supabase.from('animales').insert(rows).select();
                     if (error) throw error;
