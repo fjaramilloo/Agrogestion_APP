@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Skull, Calendar, AlertCircle } from 'lucide-react';
+import { Search, Skull, Calendar, AlertCircle, ArrowUpDown } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -9,6 +9,7 @@ interface Pesaje {
     peso: number;
     fecha: string;
     gdp_calculada: number;
+    potreros?: { nombre: string } | null;
 }
 
 interface Animal {
@@ -21,6 +22,10 @@ interface Animal {
     peso_ingreso: number;
     fecha_ingreso: string;
     estado: string;
+    id_potrero_actual?: string | null;
+    potreros?: { nombre: string } | null;
+    potreroNombre?: string;
+    diasDesdeUltimoPesaje?: number;
     registros_pesaje: Pesaje[];
 }
 
@@ -30,6 +35,12 @@ export default function Inventory() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterEtapa, setFilterEtapa] = useState('');
+    const [filterPotrero, setFilterPotrero] = useState('');
+    const [filterPropietario, setFilterPropietario] = useState('');
+    
+    // sorting states
+    const [sortBy, setSortBy] = useState('dias_pesaje');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [umbralGdp, setUmbralGdp] = useState(0.434);
 
     // Estados para Muerte
@@ -56,7 +67,8 @@ export default function Inventory() {
                 registros_pesaje (
                     peso,
                     fecha,
-                    gdp_calculada
+                    gdp_calculada,
+                    potreros ( nombre )
                 )
             `)
             .eq('id_finca', fincaId)
@@ -64,12 +76,28 @@ export default function Inventory() {
             .order('creado_en', { ascending: false });
 
         if (!error && data) {
-            const dataProcesada = data.map((a: any) => ({
-                ...a,
-                registros_pesaje: (a.registros_pesaje || []).sort((x: any, y: any) =>
+            const dataProcesada = data.map((a: any) => {
+                const registros = (a.registros_pesaje || []).sort((x: any, y: any) =>
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                )
-            }));
+                );
+                const ultimoP = registros[0];
+                const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
+                
+                // Truncar fechas al inicio del día para cálculo correcto de la diferencia
+                const hoy = new Date();
+                hoy.setHours(0, 0, 0, 0);
+                const refTruncada = new Date(fechaReferencia);
+                refTruncada.setHours(0, 0, 0, 0);
+                const diasDesdeUltimoPesaje = differenceInDays(hoy, refTruncada);
+                const potreroDelUltimoPesaje = ultimoP?.potreros?.nombre || 'Sin potrero';
+
+                return {
+                    ...a,
+                    registros_pesaje: registros,
+                    potreroNombre: potreroDelUltimoPesaje,
+                    diasDesdeUltimoPesaje
+                };
+            });
             setAnimales(dataProcesada);
         }
         setLoading(false);
@@ -124,12 +152,38 @@ export default function Inventory() {
         }
     };
 
-    const filteredAnimals = animales.filter(a => {
-        const matchesSearch = a.numero_chapeta.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            a.nombre_propietario.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesEtapa = filterEtapa ? a.etapa === filterEtapa : true;
-        return matchesSearch && matchesEtapa;
-    });
+    const handleSort = (field: string) => {
+        if (sortBy === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(field);
+            setSortOrder(field === 'dias_pesaje' ? 'desc' : 'asc');
+        }
+    };
+
+    const sortedAndFilteredAnimals = animales
+        .filter(a => {
+            const matchesSearch = a.numero_chapeta.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                a.nombre_propietario.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesEtapa = filterEtapa ? a.etapa === filterEtapa : true;
+            const matchesPotrero = filterPotrero ? a.potreroNombre === filterPotrero : true;
+            const matchesPropietario = filterPropietario ? a.nombre_propietario === filterPropietario : true;
+            return matchesSearch && matchesEtapa && matchesPotrero && matchesPropietario;
+        })
+        .sort((a, b) => {
+            let res = 0;
+            if (sortBy === 'chapeta') {
+                res = a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true });
+            } else if (sortBy === 'propietario') {
+                res = a.nombre_propietario.localeCompare(b.nombre_propietario);
+            } else if (sortBy === 'dias_pesaje') {
+                res = (a.diasDesdeUltimoPesaje || 0) - (b.diasDesdeUltimoPesaje || 0);
+            }
+            return sortOrder === 'asc' ? res : -res;
+        });
+
+    const uniquePotreros = Array.from(new Set(animales.map(a => a.potreroNombre))).filter(p => p !== 'Sin potrero' && p);
+    const uniquePropietarios = Array.from(new Set(animales.map(a => a.nombre_propietario))).filter(Boolean);
 
     return (
         <div className="page-container">
@@ -157,7 +211,7 @@ export default function Inventory() {
                         style={{ marginBottom: 0, paddingLeft: '40px' }}
                     />
                 </div>
-                <div style={{ flex: '1 1 200px', position: 'relative' }}>
+                <div style={{ flex: '1 1 180px' }}>
                     <select
                         value={filterEtapa}
                         onChange={(e) => setFilterEtapa(e.target.value)}
@@ -169,15 +223,41 @@ export default function Inventory() {
                         <option value="ceba">Ceba</option>
                     </select>
                 </div>
+                <div style={{ flex: '1 1 180px' }}>
+                    <select
+                        value={filterPotrero}
+                        onChange={(e) => setFilterPotrero(e.target.value)}
+                        style={{ marginBottom: 0 }}
+                    >
+                        <option value="">Todos los potreros</option>
+                        {uniquePotreros.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
+                    </select>
+                </div>
+                <div style={{ flex: '1 1 180px' }}>
+                    <select
+                        value={filterPropietario}
+                        onChange={(e) => setFilterPropietario(e.target.value)}
+                        style={{ marginBottom: 0 }}
+                    >
+                        <option value="">Todos los propietarios</option>
+                        {uniquePropietarios.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
+                    </select>
+                </div>
             </div>
 
             <div className="glass-panel" style={{ overflowX: 'auto', padding: 0 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Chapeta</th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Propietario / Etapa</th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Último Pesaje</th>
+                            <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('chapeta')}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Chapeta <ArrowUpDown size={14} opacity={sortBy === 'chapeta' ? 1 : 0.3} /></div>
+                            </th>
+                            <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('propietario')}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Propietario / Etapa <ArrowUpDown size={14} opacity={sortBy === 'propietario' ? 1 : 0.3} /></div>
+                            </th>
+                            <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('dias_pesaje')}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Último Pesaje <ArrowUpDown size={14} opacity={sortBy === 'dias_pesaje' ? 1 : 0.3} /></div>
+                            </th>
                             <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Último Peso</th>
                             <th style={{ padding: '16px', color: 'var(--text-muted)' }}>GMP Promedio</th>
                         </tr>
@@ -185,10 +265,10 @@ export default function Inventory() {
                     <tbody>
                         {loading ? (
                             <tr><td colSpan={5} style={{ padding: '44px', textAlign: 'center', color: 'var(--primary)' }}>Cargando datos del hato...</td></tr>
-                        ) : filteredAnimals.length === 0 ? (
+                        ) : sortedAndFilteredAnimals.length === 0 ? (
                             <tr><td colSpan={5} style={{ padding: '44px', textAlign: 'center' }}>No hay animales registrados.</td></tr>
                         ) : (
-                            filteredAnimals.map((animal) => {
+                            sortedAndFilteredAnimals.map((animal) => {
                                 const ultimoP = animal.registros_pesaje?.[0];
                                 const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
                                 const pesoU = ultimoP ? `${ultimoP.peso} kg` : `${animal.peso_ingreso} kg*`;
@@ -200,7 +280,7 @@ export default function Inventory() {
                                 const gmpPromedio = (gananciaTotal / dias) * 30;
 
                                 const gdpActual = ultimoP?.gdp_calculada ?? (gananciaTotal / dias);
-                                const isAlerta = gdpActual < umbralGdp;
+                                const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gdpActual < umbralGdp;
 
                                 return (
                                     <tr key={animal.id} style={{
@@ -213,28 +293,42 @@ export default function Inventory() {
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: '500' }}>{animal.nombre_propietario}</div>
-                                            <div style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{animal.etapa}</div>
+                                            <div style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                {animal.etapa} <span style={{ color: 'var(--primary-light)', paddingLeft: '4px', fontStyle: 'italic', textTransform: 'capitalize' }}>({animal.potreroNombre})</span>
+                                            </div>
                                         </td>
                                         <td style={{ padding: '16px' }}>
-                                            <div style={{ color: 'white' }}>{fechaU}</div>
-                                            {!ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Fecha de ingreso</div>}
+                                            <div style={{ 
+                                                fontWeight: 'bold', 
+                                                fontSize: '1.05rem', 
+                                                color: (animal.diasDesdeUltimoPesaje || 0) > 90 ? 'var(--error)' : 'white' 
+                                            }}>
+                                                Hace {animal.diasDesdeUltimoPesaje} {animal.diasDesdeUltimoPesaje === 1 ? 'día' : 'días'}
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ultimoP ? fechaU : 'Ingreso: ' + format(new Date(animal.fecha_ingreso), 'dd/MM/yyyy')}</div>
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: 'bold', fontSize: '1.05rem' }}>{pesoU}</div>
-                                            {ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>+{(ultimoP.peso - animal.peso_ingreso).toFixed(1)} kg ganados</div>}
+                                            {(animal.registros_pesaje?.length || 0) > 1 && ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>+{(ultimoP.peso - animal.peso_ingreso).toFixed(1)} kg ganados</div>}
                                         </td>
                                         <td style={{ padding: '16px' }}>
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                color: isAlerta ? 'var(--error)' : 'var(--success)',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {gmpPromedio.toFixed(1)} kg/mes
-                                                {isAlerta && <span title="Bajo el umbral configurado">⚠️</span>}
-                                            </div>
-                                            <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Promedio histórico</div>
+                                            {(animal.registros_pesaje?.length || 0) > 1 ? (
+                                                <>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        color: isAlerta ? 'var(--error)' : 'var(--success)',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {gmpPromedio.toFixed(1)} kg/mes
+                                                        {isAlerta && <span title="Bajo el umbral configurado">⚠️</span>}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Promedio histórico</div>
+                                                </>
+                                            ) : (
+                                                <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>NA</div>
+                                            )}
                                         </td>
                                     </tr>
                                 );
