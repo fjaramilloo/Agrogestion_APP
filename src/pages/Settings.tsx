@@ -56,7 +56,8 @@ export default function Settings() {
         area_total: '',
         area_aprovechable: '',
         ubicacion: '',
-        proposito: ''
+        proposito: '',
+        precio_venta_promedio: ''
     });
 
     // Filtrar fincas donde el usuario es administrador
@@ -111,18 +112,28 @@ export default function Settings() {
 
     const fetchFincaInfo = async () => {
         if (!fincaId) return;
-        const { data, error } = await supabase
+        
+        // Datos generales de la finca
+        const { data: finca, error: fincaErr } = await supabase
             .from('fincas')
             .select('area_total, area_aprovechable, ubicacion, proposito')
             .eq('id', fincaId)
             .single();
 
-        if (!error && data) {
+        // Precio de venta desde configuracion_kpi
+        const { data: config } = await supabase
+            .from('configuracion_kpi')
+            .select('precio_venta_promedio')
+            .eq('id_finca', fincaId)
+            .single();
+
+        if (!fincaErr && finca) {
             setFarmInfo({
-                area_total: data.area_total?.toString() || '',
-                area_aprovechable: data.area_aprovechable?.toString() || '',
-                ubicacion: data.ubicacion || '',
-                proposito: data.proposito || ''
+                area_total: finca.area_total?.toString() || '',
+                area_aprovechable: finca.area_aprovechable?.toString() || '',
+                ubicacion: finca.ubicacion || '',
+                proposito: finca.proposito || '',
+                precio_venta_promedio: config?.precio_venta_promedio?.toString() || '0'
             });
         }
     };
@@ -210,6 +221,14 @@ export default function Settings() {
             .eq('id', fincaId);
 
         if (!error) {
+            // Actualizar también el precio de venta en configuracion_kpi
+            await supabase
+                .from('configuracion_kpi')
+                .upsert({ 
+                    id_finca: fincaId, 
+                    precio_venta_promedio: farmInfo.precio_venta_promedio ? parseFloat(farmInfo.precio_venta_promedio) : 0 
+                }, { onConflict: 'id_finca' });
+
             setMsjExito('Información de la finca actualizada correctamente.');
         } else {
             setMsjError('Error al actualizar la finca: ' + error.message);
@@ -578,397 +597,406 @@ export default function Settings() {
                     <>
                         {/* Información de la Finca */}
                         <div className="card">
-                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Home size={20} /> Datos Técnicos de la Finca
-                    </h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                        Registre el área y el propósito principal de su explotación ganadera.
-                    </p>
+                            <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Home size={20} /> Datos Técnicos de la Finca
+                            </h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                                Registre el área y el propósito principal de su explotación ganadera.
+                            </p>
 
-                    <form onSubmit={guardarFincaInfo}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                            <div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Maximize size={16} /> Área Total (Hectáreas)
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="Ej: 50.5"
-                                    value={farmInfo.area_total}
-                                    onChange={e => setFarmInfo({ ...farmInfo, area_total: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <CheckCircle2 size={16} /> Área Aprovechable (Ha)
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="Ej: 45.0"
-                                    value={farmInfo.area_aprovechable}
-                                    onChange={e => setFarmInfo({ ...farmInfo, area_aprovechable: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <MapPin size={16} /> Ubicación / Municipio
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="Municipio, Departamento"
-                                    value={farmInfo.ubicacion}
-                                    onChange={e => setFarmInfo({ ...farmInfo, ubicacion: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label>Propósito de la Finca</label>
-                                <select
-                                    value={farmInfo.proposito}
-                                    onChange={e => setFarmInfo({ ...farmInfo, proposito: e.target.value })}
-                                >
-                                    <option value="">Seleccione un propósito...</option>
-                                    <option value="Doble propósito">Doble propósito</option>
-                                    <option value="producción de carne">Producción de carne</option>
-                                    <option value="Producción de leche">Producción de leche</option>
-                                    <option value="cría">Cría</option>
-                                    <option value="Levante">Levante</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary-dark)', border: '1px solid var(--primary)' }}>
-                            Actualizar Información de Finca
-                        </button>
-                    </form>
-                </div>
-
-                {/* Gestión de Usuarios */}
-                <div className="card">
-                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Users size={20} /> Gestión de Personal Multi-Finca
-                    </h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                        Cree cuentas y asígnelas a una o varias de sus fincas simultáneamente.
-                    </p>
-
-                    <form onSubmit={handleCreateUser}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <label>Correo Electrónico</label>
-                                <input
-                                    type="email"
-                                    placeholder="empleado@finca.com"
-                                    value={newUserEmail}
-                                    onChange={(e) => setNewUserEmail(e.target.value)}
-                                    required
-                                    disabled={loading}
-                                />
-                            </div>
-                            <div>
-                                <label>Contraseña Temporal</label>
-                                <input
-                                    type="text"
-                                    placeholder="Contraseña segura"
-                                    value={newUserPass}
-                                    onChange={(e) => setNewUserPass(e.target.value)}
-                                    required
-                                    disabled={loading}
-                                />
-                            </div>
-                            <div>
-                                <label>Perfil / Rol</label>
-                                <select
-                                    value={newUserRole}
-                                    onChange={(e) => setNewUserRole(e.target.value as any)}
-                                    disabled={loading}
-                                >
-                                    <option value="vaquero">Trabajador / Vaquero</option>
-                                    <option value="observador">Visualizador / Observador</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <label style={{ marginBottom: '12px', display: 'block' }}>Asignar a Fincas (Seleccione una o varias):</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '24px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            {fincasAdmin.map(f => (
-                                <div
-                                    key={f.id_finca}
-                                    onClick={() => toggleFincaSelection(f.id_finca)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '10px',
-                                        padding: '8px 12px',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        backgroundColor: selectedFincas.includes(f.id_finca) ? 'rgba(76, 175, 80, 0.15)' : 'transparent',
-                                        border: '1px solid',
-                                        borderColor: selectedFincas.includes(f.id_finca) ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    {selectedFincas.includes(f.id_finca) ? <CheckSquare size={18} color="var(--primary)" /> : <Square size={18} color="var(--text-muted)" />}
-                                    <span style={{ fontSize: '0.9rem', color: selectedFincas.includes(f.id_finca) ? 'white' : 'var(--text-muted)' }}>{f.nombre_finca}</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)' }}>
-                            <UserPlus size={18} /> {loading ? 'Creando Usuario...' : 'Crear Usuario y Asignar Fincas'}
-                        </button>
-                    </form>
-                </div>
-
-                {/* Gestión de Propietarios */}
-                <div className="card">
-                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Users size={20} /> Propietarios de Ganado
-                    </h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                        Defina los posibles dueños de los animales para esta finca específica.
-                    </p>
-
-                    <form onSubmit={handleAddPropietario} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-                        <input
-                            type="text"
-                            placeholder="Nombre del Propietario"
-                            value={nuevoPropietario}
-                            onChange={e => setNuevoPropietario(e.target.value)}
-                            style={{ marginBottom: 0 }}
-                            disabled={loading}
-                        />
-                        <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoPropietario.trim()}>
-                            <Plus size={18} /> Agregar
-                        </button>
-                    </form>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                        {propietarios.length === 0 ? (
-                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px' }}>
-                                No hay propietarios definidos para esta finca.
-                            </div>
-                        ) : (
-                            propietarios.map(p => (
-                                <div key={p.id} style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '10px 14px',
-                                    backgroundColor: 'rgba(255,255,255,0.03)',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.05)'
-                                }}>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.nombre}</span>
-                                    <button
-                                        onClick={() => removePropietario(p.id)}
-                                        style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
-                                        onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
-                                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-
-                {/* Gestión de Proveedores */}
-                <div className="card">
-                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Users size={20} /> Vendedores / Proveedores
-                    </h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                        Defina los proveedores a quienes les compra el ganado.
-                    </p>
-
-                    <form onSubmit={handleAddProveedor} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-                        <input
-                            type="text"
-                            placeholder="Nombre del Proveedor"
-                            value={nuevoProveedor}
-                            onChange={e => setNuevoProveedor(e.target.value)}
-                            style={{ marginBottom: 0 }}
-                            disabled={loading}
-                        />
-                        <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoProveedor.trim()}>
-                            <Plus size={18} /> Agregar
-                        </button>
-                    </form>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                        {proveedores.length === 0 ? (
-                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px' }}>
-                                No hay proveedores definidos para esta finca.
-                            </div>
-                        ) : (
-                            proveedores.map(p => (
-                                <div key={p.id} style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '10px 14px',
-                                    backgroundColor: 'rgba(255,255,255,0.03)',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.05)'
-                                }}>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.nombre}</span>
-                                    <button
-                                        onClick={() => removeProveedor(p.id)}
-                                        style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
-                                        onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
-                                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-
-                {/* Gestión de Potreradas */}
-                <div className="card">
-                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Users size={20} /> Potreradas (Grupos de Animales)
-                    </h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                        Defina los grupos formales (potreradas) y asígneles una etapa productiva.
-                    </p>
-
-                    <form onSubmit={handleAddPotrerada} style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                        <input
-                            type="text"
-                            placeholder="Nombre (ej. Lote 1)"
-                            value={nuevaPotreradaNombre}
-                            onChange={e => setNuevaPotreradaNombre(e.target.value)}
-                            style={{ marginBottom: 0, flex: '1 1 200px' }}
-                            disabled={loading}
-                        />
-                        <select
-                            value={nuevaPotreradaEtapa}
-                            onChange={e => setNuevaPotreradaEtapa(e.target.value)}
-                            style={{ marginBottom: 0, flex: '1 1 150px' }}
-                            disabled={loading}
-                        >
-                            <option value="cria">Cría</option>
-                            <option value="levante">Levante</option>
-                            <option value="ceba">Ceba</option>
-                        </select>
-                        <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevaPotreradaNombre.trim()}>
-                            <Plus size={18} /> Agregar
-                        </button>
-                    </form>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
-                        {potreradas.length === 0 ? (
-                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px' }}>
-                                No hay potreradas definidas para esta finca.
-                            </div>
-                        ) : (
-                            potreradas.map(p => (
-                                <div key={p.id} style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '10px 14px',
-                                    backgroundColor: 'rgba(255,255,255,0.03)',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.05)'
-                                }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>{p.nombre}</span>
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>Etapa: {p.etapa}</span>
+                            <form onSubmit={guardarFincaInfo}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                                    <div>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Maximize size={16} /> Área Total (Hectáreas)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="Ej: 50.5"
+                                            value={farmInfo.area_total}
+                                            onChange={e => setFarmInfo({ ...farmInfo, area_total: e.target.value })}
+                                        />
                                     </div>
+                                    <div>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <CheckCircle2 size={16} /> Área Aprovechable (Ha)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="Ej: 45.0"
+                                            value={farmInfo.area_aprovechable}
+                                            onChange={e => setFarmInfo({ ...farmInfo, area_aprovechable: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <MapPin size={16} /> Ubicación / Municipio
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="Municipio, Departamento"
+                                            value={farmInfo.ubicacion}
+                                            onChange={e => setFarmInfo({ ...farmInfo, ubicacion: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Propósito de la Finca</label>
+                                        <select
+                                            value={farmInfo.proposito}
+                                            onChange={e => setFarmInfo({ ...farmInfo, proposito: e.target.value })}
+                                        >
+                                            <option value="">Seleccione un propósito...</option>
+                                            <option value="Doble propósito">Doble propósito</option>
+                                            <option value="producción de carne">Producción de carne</option>
+                                            <option value="Producción de leche">Producción de leche</option>
+                                            <option value="cría">Cría</option>
+                                            <option value="Levante">Levante</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label>Precio Venta Promedio (COP/kg)</label>
+                                        <input
+                                            type="number"
+                                            placeholder="Ej: 8500"
+                                            value={farmInfo.precio_venta_promedio}
+                                            onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary-dark)', border: '1px solid var(--primary)' }}>
+                                    Actualizar Información de Finca
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Gestión de Usuarios */}
+                        <div className="card">
+                            <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Users size={20} /> Gestión de Personal Multi-Finca
+                            </h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                                Cree cuentas y asígnelas a una o varias de sus fincas simultáneamente.
+                            </p>
+
+                            <form onSubmit={handleCreateUser}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label>Correo Electrónico</label>
+                                        <input
+                                            type="email"
+                                            placeholder="empleado@finca.com"
+                                            value={newUserEmail}
+                                            onChange={(e) => setNewUserEmail(e.target.value)}
+                                            required
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Contraseña Temporal</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Contraseña segura"
+                                            value={newUserPass}
+                                            onChange={(e) => setNewUserPass(e.target.value)}
+                                            required
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Perfil / Rol</label>
+                                        <select
+                                            value={newUserRole}
+                                            onChange={(e) => setNewUserRole(e.target.value as any)}
+                                            disabled={loading}
+                                        >
+                                            <option value="vaquero">Trabajador / Vaquero</option>
+                                            <option value="observador">Visualizador / Observador</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <label style={{ marginBottom: '12px', display: 'block' }}>Asignar a Fincas (Seleccione una o varias):</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '24px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    {fincasAdmin.map(f => (
+                                        <div
+                                            key={f.id_finca}
+                                            onClick={() => toggleFincaSelection(f.id_finca)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                padding: '8px 12px',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                backgroundColor: selectedFincas.includes(f.id_finca) ? 'rgba(76, 175, 80, 0.15)' : 'transparent',
+                                                border: '1px solid',
+                                                borderColor: selectedFincas.includes(f.id_finca) ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {selectedFincas.includes(f.id_finca) ? <CheckSquare size={18} color="var(--primary)" /> : <Square size={18} color="var(--text-muted)" />}
+                                            <span style={{ fontSize: '0.9rem', color: selectedFincas.includes(f.id_finca) ? 'white' : 'var(--text-muted)' }}>{f.nombre_finca}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)' }}>
+                                    <UserPlus size={18} /> {loading ? 'Creando Usuario...' : 'Crear Usuario y Asignar Fincas'}
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Gestión de Propietarios */}
+                        <div className="card">
+                            <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Users size={20} /> Propietarios de Ganado
+                            </h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                                Defina los posibles dueños de los animales para esta finca específica.
+                            </p>
+
+                            <form onSubmit={handleAddPropietario} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Nombre del Propietario"
+                                    value={nuevoPropietario}
+                                    onChange={e => setNuevoPropietario(e.target.value)}
+                                    style={{ marginBottom: 0 }}
+                                    disabled={loading}
+                                />
+                                <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoPropietario.trim()}>
+                                    <Plus size={18} /> Agregar
+                                </button>
+                            </form>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+                                {propietarios.length === 0 ? (
+                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+                                        No hay propietarios definidos para esta finca.
+                                    </div>
+                                ) : (
+                                    propietarios.map(p => (
+                                        <div key={p.id} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '10px 14px',
+                                            backgroundColor: 'rgba(255,255,255,0.03)',
+                                            borderRadius: '8px',
+                                            border: '1px solid rgba(255,255,255,0.05)'
+                                        }}>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.nombre}</span>
+                                            <button
+                                                onClick={() => removePropietario(p.id)}
+                                                style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
+                                                onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
+                                                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Gestión de Proveedores */}
+                        <div className="card">
+                            <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Users size={20} /> Vendedores / Proveedores
+                            </h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                                Defina los proveedores a quienes les compra el ganado.
+                            </p>
+
+                            <form onSubmit={handleAddProveedor} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Nombre del Proveedor"
+                                    value={nuevoProveedor}
+                                    onChange={e => setNuevoProveedor(e.target.value)}
+                                    style={{ marginBottom: 0 }}
+                                    disabled={loading}
+                                />
+                                <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoProveedor.trim()}>
+                                    <Plus size={18} /> Agregar
+                                </button>
+                            </form>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+                                {proveedores.length === 0 ? (
+                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+                                        No hay proveedores definidos para esta finca.
+                                    </div>
+                                ) : (
+                                    proveedores.map(p => (
+                                        <div key={p.id} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '10px 14px',
+                                            backgroundColor: 'rgba(255,255,255,0.03)',
+                                            borderRadius: '8px',
+                                            border: '1px solid rgba(255,255,255,0.05)'
+                                        }}>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.nombre}</span>
+                                            <button
+                                                onClick={() => removeProveedor(p.id)}
+                                                style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
+                                                onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
+                                                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Gestión de Potreradas */}
+                        <div className="card">
+                            <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Users size={20} /> Potreradas (Grupos de Animales)
+                            </h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                                Defina los grupos formales (potreradas) y asígneles una etapa productiva.
+                            </p>
+
+                            <form onSubmit={handleAddPotrerada} style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Nombre (ej. Lote 1)"
+                                    value={nuevaPotreradaNombre}
+                                    onChange={e => setNuevaPotreradaNombre(e.target.value)}
+                                    style={{ marginBottom: 0, flex: '1 1 200px' }}
+                                    disabled={loading}
+                                />
+                                <select
+                                    value={nuevaPotreradaEtapa}
+                                    onChange={e => setNuevaPotreradaEtapa(e.target.value)}
+                                    style={{ marginBottom: 0, flex: '1 1 150px' }}
+                                    disabled={loading}
+                                >
+                                    <option value="cria">Cría</option>
+                                    <option value="levante">Levante</option>
+                                    <option value="ceba">Ceba</option>
+                                </select>
+                                <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevaPotreradaNombre.trim()}>
+                                    <Plus size={18} /> Agregar
+                                </button>
+                            </form>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+                                {potreradas.length === 0 ? (
+                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+                                        No hay potreradas definidas para esta finca.
+                                    </div>
+                                ) : (
+                                    potreradas.map(p => (
+                                        <div key={p.id} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '10px 14px',
+                                            backgroundColor: 'rgba(255,255,255,0.03)',
+                                            borderRadius: '8px',
+                                            border: '1px solid rgba(255,255,255,0.05)'
+                                        }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>{p.nombre}</span>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>Etapa: {p.etapa}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => removePotrerada(p.id)}
+                                                style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
+                                                onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
+                                                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Parámetros */}
+                        <div className="card">
+                            <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)' }}>Umbrales Zootécnicos</h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                                Configure los parámetros para el semáforo de rendimiento en el hato.
+                            </p>
+
+                            <form onSubmit={guardarConfiguracion}>
+                                <label>Umbral Bajo GDP (kg/día)</label>
+                                <input
+                                    type="number"
+                                    step="0.001"
+                                    value={umbral}
+                                    onChange={(e) => setUmbral(e.target.value)}
+                                    disabled={loading}
+                                />
+                                <button type="submit" disabled={loading} style={{ marginTop: '16px' }}>
+                                    {loading ? 'Guardando...' : 'Guardar Parámetros'}
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Cargas Masivas */}
+                        <div className="card">
+                            <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)' }}>Importación de Datos (Carga Masiva)</h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                                Utilice archivos CSV para registrar grandes volúmenes de datos de una sola vez.
+                            </p>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+                                <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ fontWeight: 'bold' }}>Animales</span>
+                                        <a href="/plantilla_animales.csv" download style={{ textDecoration: 'none', color: 'var(--primary-light)' }}><FileText size={16} /></a>
+                                    </div>
+                                    <input
+                                        type="file"
+                                        id="bulkAnimalSettings"
+                                        accept=".csv"
+                                        style={{ display: 'none' }}
+                                        onChange={handleBulkAnimalUpload}
+                                    />
                                     <button
-                                        onClick={() => removePotrerada(p.id)}
-                                        style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
-                                        onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
-                                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                                        onClick={() => document.getElementById('bulkAnimalSettings')?.click()}
+                                        style={{ width: '100%', fontSize: '0.9rem', padding: '10px' }}
+                                        disabled={loading}
                                     >
-                                        <Trash2 size={16} />
+                                        <Upload size={16} /> Subir Inventario
                                     </button>
                                 </div>
-                            ))
-                        )}
-                    </div>
-                </div>
 
-                {/* Parámetros */}
-                <div className="card">
-                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)' }}>Umbrales Zootécnicos</h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                        Configure los parámetros para el semáforo de rendimiento en el hato.
-                    </p>
-
-                    <form onSubmit={guardarConfiguracion}>
-                        <label>Umbral Bajo GDP (kg/día)</label>
-                        <input
-                            type="number"
-                            step="0.001"
-                            value={umbral}
-                            onChange={(e) => setUmbral(e.target.value)}
-                            disabled={loading}
-                        />
-                        <button type="submit" disabled={loading} style={{ marginTop: '16px' }}>
-                            {loading ? 'Guardando...' : 'Guardar Parámetros'}
-                        </button>
-                    </form>
-                </div>
-
-                {/* Cargas Masivas */}
-                <div className="card">
-                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)' }}>Importación de Datos (Carga Masiva)</h3>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                        Utilice archivos CSV para registrar grandes volúmenes de datos de una sola vez.
-                    </p>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-                        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ fontWeight: 'bold' }}>Animales</span>
-                                <a href="/plantilla_animales.csv" download style={{ textDecoration: 'none', color: 'var(--primary-light)' }}><FileText size={16} /></a>
+                                <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ fontWeight: 'bold' }}>Seguimiento</span>
+                                        <a href="/plantilla_pesajes.csv" download style={{ textDecoration: 'none', color: 'var(--primary-light)' }}><FileText size={16} /></a>
+                                    </div>
+                                    <input
+                                        type="file"
+                                        id="bulkPesajeSettings"
+                                        accept=".csv"
+                                        style={{ display: 'none' }}
+                                        onChange={handleBulkPesajeUpload}
+                                    />
+                                    <button
+                                        onClick={() => document.getElementById('bulkPesajeSettings')?.click()}
+                                        style={{ width: '100%', fontSize: '0.9rem', padding: '10px' }}
+                                        disabled={loading}
+                                    >
+                                        <Upload size={16} /> Subir Pesajes
+                                    </button>
+                                </div>
                             </div>
-                            <input
-                                type="file"
-                                id="bulkAnimalSettings"
-                                accept=".csv"
-                                style={{ display: 'none' }}
-                                onChange={handleBulkAnimalUpload}
-                            />
-                            <button
-                                onClick={() => document.getElementById('bulkAnimalSettings')?.click()}
-                                style={{ width: '100%', fontSize: '0.9rem', padding: '10px' }}
-                                disabled={loading}
-                            >
-                                <Upload size={16} /> Subir Inventario
-                            </button>
                         </div>
-
-                        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ fontWeight: 'bold' }}>Seguimiento</span>
-                                <a href="/plantilla_pesajes.csv" download style={{ textDecoration: 'none', color: 'var(--primary-light)' }}><FileText size={16} /></a>
-                            </div>
-                            <input
-                                type="file"
-                                id="bulkPesajeSettings"
-                                accept=".csv"
-                                style={{ display: 'none' }}
-                                onChange={handleBulkPesajeUpload}
-                            />
-                            <button
-                                onClick={() => document.getElementById('bulkPesajeSettings')?.click()}
-                                style={{ width: '100%', fontSize: '0.9rem', padding: '10px' }}
-                                disabled={loading}
-                            >
-                                <Upload size={16} /> Subir Pesajes
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                </>
+                    </>
                 )}
             </div>
         </div>

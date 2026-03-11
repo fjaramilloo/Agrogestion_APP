@@ -12,11 +12,16 @@ import { es } from 'date-fns/locale';
 interface DashboardStats {
     totalAnimales: number;
     promedioLevanteMeses: number;
-    gmpLevante: number; // Ganancia Mensual Promedio en levante
+    gmpLevante: number; 
     gmpTotal: number;
     totalMuertosAno: number;
     produccionCarneHaAno: number;
     cargaAnimal: number;
+    pesoPromedioEntrada: number;
+    pesoPromedioSalida: number;
+    kgGanadosFinca: number;
+    mesesPromedioFinca: number;
+    ingresosHaAno: number;
 }
 
 interface EvolucionItem {
@@ -39,7 +44,12 @@ export default function Dashboard() {
         gmpTotal: 0,
         totalMuertosAno: 0,
         produccionCarneHaAno: 0,
-        cargaAnimal: 0
+        cargaAnimal: 0,
+        pesoPromedioEntrada: 360,
+        pesoPromedioSalida: 540,
+        kgGanadosFinca: 0,
+        mesesPromedioFinca: 0,
+        ingresosHaAno: 0
     });
     const [fincaInfo, setFincaInfo] = useState({
         nombre: '',
@@ -152,19 +162,71 @@ export default function Dashboard() {
                     }
                 });
 
+                // KPI Peso Promedio Entrada (Lógica: >200 animales activos -> real, sino 360)
+                let pesoEntradaFinal = 360;
+                if (animales.length > 200) {
+                    const sumaEntrada = animales.reduce((acc: number, a: any) => acc + (parseFloat(a.peso_ingreso) || 0), 0);
+                    pesoEntradaFinal = sumaEntrada / animales.length;
+                }
+
+                // KPI Peso Promedio Salida (Animales vendidos)
+                const { data: vendidos } = await supabase
+                    .from('animales')
+                    .select('id, peso_ingreso')
+                    .eq('id_finca', fincaId)
+                    .eq('estado', 'vendido');
+                
+                let pesoSalidaFinal = 540;
+                if (vendidos && vendidos.length > 0) {
+                    const idsVendidos = vendidos.map(v => v.id);
+                    const { data: pesajesVendidos } = await supabase
+                        .from('registros_pesaje')
+                        .select('id_animal, peso')
+                        .in('id_animal', idsVendidos)
+                        .order('fecha', { ascending: false });
+                    
+                    if (pesajesVendidos && pesajesVendidos.length > 0) {
+                        const ultimosPesajesVenta: Record<string, number> = {};
+                        pesajesVendidos.forEach(p => {
+                            if (!ultimosPesajesVenta[p.id_animal]) ultimosPesajesVenta[p.id_animal] = p.peso;
+                        });
+                        const pesosVenta = Object.values(ultimosPesajesVenta);
+                        pesoSalidaFinal = pesosVenta.reduce((a, b) => a + b, 0) / pesosVenta.length;
+                    }
+                }
+
+                const kgGanados = pesoSalidaFinal - pesoEntradaFinal;
+                const gmpTotalCiclo = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : 0;
+                const mesesFinca = gmpTotalCiclo > 0 ? kgGanados / gmpTotalCiclo : 0;
+
+                // Carga precio venta para Ingresos
+                const { data: configKpi } = await supabase
+                    .from('configuracion_kpi')
+                    .select('precio_venta_promedio')
+                    .eq('id_finca', fincaId)
+                    .single();
+                
+                const precioVenta = configKpi?.precio_venta_promedio || 0;
+                const carneHaAno = (finca?.area_aprovechable && finca.area_aprovechable > 0)
+                    ? ((totalAnimales || 0) * gmpTotalCiclo * 12) / finca.area_aprovechable
+                    : 0;
+
                 // Convertir GDP (Ganancia Diaria) a GMP (Ganancia Mensual = GDP * 30)
                 setStats({
                     totalAnimales: totalAnimales || 0,
                     promedioLevanteMeses: countLevante > 0 ? (totalDiasLevante / countLevante) / 30 : 0,
                     gmpLevante: countGdpLevante > 0 ? (gdpSumaLevante / countGdpLevante) * 30 : 0,
-                    gmpTotal: countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : 0,
+                    gmpTotal: gmpTotalCiclo,
                     totalMuertosAno: muertosAnio || 0,
-                    produccionCarneHaAno: (finca?.area_aprovechable && finca.area_aprovechable > 0)
-                        ? ((totalAnimales || 0) * (countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : 0) * 12) / finca.area_aprovechable
-                        : 0,
+                    produccionCarneHaAno: carneHaAno,
                     cargaAnimal: (finca?.area_aprovechable && finca.area_aprovechable > 0)
                         ? (totalAnimales || 0) / finca.area_aprovechable
-                        : 0
+                        : 0,
+                    pesoPromedioEntrada: pesoEntradaFinal,
+                    pesoPromedioSalida: pesoSalidaFinal,
+                    kgGanadosFinca: kgGanados,
+                    mesesPromedioFinca: mesesFinca,
+                    ingresosHaAno: carneHaAno * precioVenta
                 });
 
                 // Agrupar pesajes por mes para gráfica de tendencia de GMP
@@ -255,9 +317,7 @@ export default function Dashboard() {
                     <h1 className="title" style={{ margin: 0, textAlign: 'left' }}>Indicadores de Finca</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Resumen del ciclo de ceba y levante.</p>
                 </div>
-                <button className="primary" style={{ width: 'auto', padding: '12px 24px' }}>
-                    Descargar Informe
-                </button>
+
             </div>
 
             {loading ? (
@@ -356,6 +416,7 @@ export default function Dashboard() {
                             <div>
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>GMP Ciclo Total</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.gmpTotal.toFixed(1)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg/mes</span></div>
+                                <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '4px' }}>GDP: {(stats.gmpTotal / 30).toFixed(3)} kg/día</div>
                             </div>
                         </div>
 
@@ -386,6 +447,57 @@ export default function Dashboard() {
                             <div>
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Carga Animal Actual</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.cargaAnimal.toFixed(2)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>An/Ha</span></div>
+                            </div>
+                        </div>
+
+                        {/* Nuevos KPIs Solicitados */}
+                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', color: 'white' }}>
+                                <Scale size={32} />
+                            </div>
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Peso Prom. Entrada</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(stats.pesoPromedioEntrada)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', color: 'white' }}>
+                                <Scale size={32} />
+                            </div>
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Peso Prom. Salida</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(stats.pesoPromedioSalida)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(76, 175, 80, 0.15)', color: 'var(--primary-light)' }}>
+                                <TrendingUp size={32} />
+                            </div>
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Kg Ganados / Finca</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(stats.kgGanadosFinca)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 152, 0, 0.15)', color: 'var(--warning)' }}>
+                                <Timer size={32} />
+                            </div>
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Meses Prom. Finca</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.mesesPromedioFinca.toFixed(1)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>meses</span></div>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', border: '1px solid var(--primary)' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(76, 175, 80, 0.2)', color: 'var(--primary-light)' }}>
+                                <Home size={32} />
+                            </div>
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Ingresos / Ha / Año</div>
+                                <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>${Math.round(stats.ingresosHaAno).toLocaleString()}</div>
                             </div>
                         </div>
                     </div>

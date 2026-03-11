@@ -15,7 +15,9 @@ import {
     Tag,
     CloudRain,
     LogOut,
-    ArrowLeftRight
+    ArrowLeftRight,
+    Briefcase,
+    Info
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +31,8 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const { role, isSuperAdmin, userFincas, fincaId, setFincaId, refreshFincas, user, signOut } = useAuth();
     const [showFincas, setShowFincas] = useState(false);
+    const [showTrabajoCampo, setShowTrabajoCampo] = useState(true);
+    const [showInformacion, setShowInformacion] = useState(true);
     const [creatingFinca, setCreatingFinca] = useState(false);
     const navigate = useNavigate();
 
@@ -158,42 +162,81 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     {/* TRABAJO DE CAMPO - Para Admin y Vaquero */}
                     {(role === 'administrador' || role === 'vaquero') && (
                         <div style={{ marginBottom: '8px' }}>
-                            <span className="section-title" style={{ padding: '0 14px 8px', display: 'block', fontSize: '0.75rem', opacity: 0.5 }}>TRABAJO DE CAMPO</span>
+                            <div 
+                                onClick={() => setShowTrabajoCampo(!showTrabajoCampo)}
+                                style={{ 
+                                    padding: '0 14px 8px', 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center', 
+                                    cursor: 'pointer' 
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Briefcase size={16} style={{ opacity: 0.5 }} />
+                                    <span className="section-title" style={{ fontSize: '0.75rem', opacity: 0.5, margin: 0 }}>TRABAJO DE CAMPO</span>
+                                </div>
+                                {showTrabajoCampo ? <ChevronUp size={14} style={{ opacity: 0.5 }} /> : <ChevronDown size={14} style={{ opacity: 0.5 }} />}
+                            </div>
                             
-                            <NavLink to="/lluvias" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                <span className="sidebar-icon"><CloudRain size={20} /></span>
-                                <span className="sidebar-label">Lluvias</span>
-                            </NavLink>
-                            <NavLink to="/movimientos" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                <span className="sidebar-icon"><ArrowLeftRight size={20} /></span>
-                                <span className="sidebar-label">Mover Potrerada</span>
-                            </NavLink>
-                            <NavLink to="/pesaje" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                <span className="sidebar-icon"><Scale size={20} /></span>
-                                <span className="sidebar-label">Pesaje</span>
-                            </NavLink>
-                            <NavLink to="/compra" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                <span className="sidebar-icon"><ShoppingCart size={20} /></span>
-                                <span className="sidebar-label">Compra</span>
-                            </NavLink>
-                            <NavLink to="/venta" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                <span className="sidebar-icon"><Tag size={20} /></span>
-                                <span className="sidebar-label">Venta</span>
-                            </NavLink>
+                            {showTrabajoCampo && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <NavLink to="/lluvias" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                        <span className="sidebar-icon"><CloudRain size={20} /></span>
+                                        <span className="sidebar-label">Lluvias</span>
+                                    </NavLink>
+                                    <NavLink to="/movimientos" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                        <span className="sidebar-icon"><ArrowLeftRight size={20} /></span>
+                                        <span className="sidebar-label">Mover Potrerada</span>
+                                    </NavLink>
+                                    <NavLink to="/pesaje" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                        <span className="sidebar-icon"><Scale size={20} /></span>
+                                        <span className="sidebar-label">Pesaje</span>
+                                    </NavLink>
+                                    <NavLink to="/compra" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                        <span className="sidebar-icon"><ShoppingCart size={20} /></span>
+                                        <span className="sidebar-label">Compra</span>
+                                    </NavLink>
+                                    <NavLink to="/venta" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                        <span className="sidebar-icon"><Tag size={20} /></span>
+                                        <span className="sidebar-label">Venta</span>
+                                    </NavLink>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* INFORMACIÓN - Para todos */}
                     <div style={{ marginBottom: '8px' }}>
-                        <span className="section-title" style={{ padding: '0 14px 8px', display: 'block', fontSize: '0.75rem', opacity: 0.5 }}>INFORMACIÓN</span>
-                        <NavLink to="/inventario" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                            <span className="sidebar-icon"><ListChecks size={20} /></span>
-                            <span className="sidebar-label">Animales</span>
-                        </NavLink>
-                        <NavLink to="/rotaciones" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                            <span className="sidebar-icon"><MapPin size={20} /></span>
-                            <span className="sidebar-label">Rotaciones</span>
-                        </NavLink>
+                        <div 
+                            onClick={() => setShowInformacion(!showInformacion)}
+                            style={{ 
+                                padding: '0 14px 8px', 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                cursor: 'pointer' 
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Info size={16} style={{ opacity: 0.5 }} />
+                                <span className="section-title" style={{ fontSize: '0.75rem', opacity: 0.5, margin: 0 }}>INFORMACIÓN</span>
+                            </div>
+                            {showInformacion ? <ChevronUp size={14} style={{ opacity: 0.5 }} /> : <ChevronDown size={14} style={{ opacity: 0.5 }} />}
+                        </div>
+
+                        {showInformacion && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <NavLink to="/inventario" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                    <span className="sidebar-icon"><ListChecks size={20} /></span>
+                                    <span className="sidebar-label">Animales</span>
+                                </NavLink>
+                                <NavLink to="/rotaciones" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                    <span className="sidebar-icon"><MapPin size={20} /></span>
+                                    <span className="sidebar-label">Rotaciones</span>
+                                </NavLink>
+                            </div>
+                        )}
                     </div>
                 </nav>
 
