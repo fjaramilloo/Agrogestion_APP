@@ -15,9 +15,21 @@ import Rainfall from './pages/Rainfall';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, role, loading } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = React.useState(window.innerWidth > 1024);
+  const [sidebarOpen, setSidebarOpen] = React.useState(window.innerWidth > 1200);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      // Si la pantalla es muy pequeña, cerramos el sidebar automáticamente
+      if (window.innerWidth <= 1024 && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [sidebarOpen]);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+
 
   if (loading) {
     return (

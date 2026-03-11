@@ -54,12 +54,23 @@ CREATE TABLE IF NOT EXISTS potreros (
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 4.5 proveedores
+CREATE TABLE IF NOT EXISTS proveedores (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id_finca UUID REFERENCES fincas(id) ON DELETE CASCADE NOT NULL,
+    nombre TEXT NOT NULL,
+    creado_en TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(id_finca, nombre)
+);
+
 -- 5. animales
 CREATE TABLE IF NOT EXISTS animales (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     id_finca UUID REFERENCES fincas(id) ON DELETE CASCADE NOT NULL,
     numero_chapeta TEXT NOT NULL,
     nombre_propietario TEXT NOT NULL,
+    proveedor_compra TEXT,
+    observaciones_compra TEXT,
     especie especie_animal NOT NULL,
     sexo TEXT CHECK (sexo IN ('M', 'H')) NOT NULL,
     etapa etapa_animal NOT NULL,
@@ -170,6 +181,7 @@ ALTER TABLE organizaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fincas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE permisos_finca ENABLE ROW LEVEL SECURITY;
 ALTER TABLE potreros ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proveedores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE animales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registros_pesaje ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mediciones_pasto ENABLE ROW LEVEL SECURITY;
@@ -181,6 +193,7 @@ CREATE POLICY "Activo para autenticados organizaciones" ON organizaciones FOR AL
 CREATE POLICY "Activo para autenticados fincas" ON fincas FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados permisos_finca" ON permisos_finca FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados potreros" ON potreros FOR ALL TO authenticated USING (true);
+CREATE POLICY "Activo para autenticados proveedores" ON proveedores FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados animales" ON animales FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados registros_pesaje" ON registros_pesaje FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados mediciones_pasto" ON mediciones_pasto FOR ALL TO authenticated USING (true);

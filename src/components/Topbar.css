@@ -22,7 +22,7 @@
 }
 
 .topbar-menu-btn {
-    display: none;
+    display: flex;
     background: transparent;
     border: none;
     color: white;
@@ -35,11 +35,6 @@
     border-radius: 8px;
 }
 
-@media (max-width: 1024px) {
-    .topbar-menu-btn {
-        display: flex;
-    }
-}
 
 .topbar-icon {
     color: var(--primary-light);

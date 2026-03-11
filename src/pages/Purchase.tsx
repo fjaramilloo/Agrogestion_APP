@@ -16,6 +16,9 @@ export default function Purchase() {
     const [fechaIngreso, setFechaIngreso] = useState(new Date().toISOString().split('T')[0]);
     const [animales, setAnimales] = useState<AnimalCompra[]>([]);
     const [propietarios, setPropietarios] = useState<{ id: string, nombre: string }[]>([]);
+    const [proveedores, setProveedores] = useState<{ id: string, nombre: string }[]>([]);
+    const [selectedProveedor, setSelectedProveedor] = useState('');
+    const [observaciones, setObservaciones] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [msjExito, setMsjExito] = useState('');
@@ -34,6 +37,13 @@ export default function Purchase() {
                 .eq('id_finca', fincaId)
                 .order('nombre');
             if (data) setPropietarios(data);
+
+            const { data: provData } = await supabase
+                .from('proveedores')
+                .select('id, nombre')
+                .eq('id_finca', fincaId)
+                .order('nombre');
+            if (provData) setProveedores(provData);
         };
         fetchPropietarios();
     }, [fincaId]);
@@ -72,6 +82,8 @@ export default function Purchase() {
         setMsjError('');
 
         try {
+            if (!selectedProveedor) throw new Error("Debe seleccionar un Vendedor/Proveedor para la compra.");
+
             const chapetas = animales.map(a => a.numero_chapeta.trim());
             if (chapetas.some(c => !c)) throw new Error("Todas las chapetas son obligatorias.");
             if (new Set(chapetas).size !== chapetas.length) throw new Error("No puede haber chapetas duplicadas en la lista actual.");
@@ -116,6 +128,8 @@ export default function Purchase() {
                 nombre_propietario: a.propietario,
                 peso_ingreso: parseFloat(a.peso_ingreso),
                 fecha_ingreso: fechaIngreso,
+                proveedor_compra: selectedProveedor,
+                observaciones_compra: observaciones,
                 etapa: 'levante',
                 especie: 'bovino',
                 sexo: 'M',
@@ -158,6 +172,8 @@ export default function Purchase() {
         setCantidad('1');
         setMsjError('');
         setMsjExito('');
+        setSelectedProveedor('');
+        setObservaciones('');
     };
 
     if (role === 'observador') {
@@ -197,40 +213,74 @@ export default function Purchase() {
             {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
 
             <div className="card" style={{ marginBottom: '32px' }}>
-                <form onSubmit={generarFilas} style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <div style={{ flex: '1 1 150px' }}>
-                        <label>Cantidad de Animales</label>
-                        <input
-                            type="number"
-                            min="1"
-                            max="100"
-                            value={cantidad}
-                            onChange={e => setCantidad(e.target.value)}
-                            disabled={loading || animales.length > 0}
-                        />
+                <form onSubmit={generarFilas} style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 200px' }}>
+                            <label>Fecha de Entrada</label>
+                            <div style={{ position: 'relative' }}>
+                                <Calendar size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
+                                <input
+                                    type="date"
+                                    value={fechaIngreso}
+                                    onChange={e => setFechaIngreso(e.target.value)}
+                                    style={{ paddingLeft: '40px' }}
+                                    disabled={loading || animales.length > 0}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ flex: '1 1 250px' }}>
+                            <label>Vendedor / Proveedor</label>
+                            <select
+                                value={selectedProveedor}
+                                onChange={e => setSelectedProveedor(e.target.value)}
+                                disabled={loading || animales.length > 0}
+                                required
+                            >
+                                <option value="">Seleccione un Proveedor...</option>
+                                {proveedores.map(p => (
+                                    <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
-                    <div style={{ flex: '1 1 200px' }}>
-                        <label>Fecha de Entrada</label>
-                        <div style={{ position: 'relative' }}>
-                            <Calendar size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
+
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 100%' }}>
+                            <label>Observaciones de la Compra</label>
                             <input
-                                type="date"
-                                value={fechaIngreso}
-                                onChange={e => setFechaIngreso(e.target.value)}
-                                style={{ paddingLeft: '40px' }}
+                                type="text"
+                                placeholder="Ej: Lote comprado en subasta, buena genética..."
+                                value={observaciones}
+                                onChange={e => setObservaciones(e.target.value)}
                                 disabled={loading || animales.length > 0}
                             />
                         </div>
                     </div>
-                    {animales.length === 0 ? (
-                        <button type="submit" style={{ width: 'auto', padding: '0 32px' }} disabled={loading}>
-                            <Plus size={18} /> Preparar Lista
-                        </button>
-                    ) : (
-                        <button type="button" onClick={handleReset} style={{ width: 'auto', backgroundColor: 'transparent', border: '1px solid var(--error)', color: 'var(--error)', padding: '0 32px' }}>
-                            <Trash2 size={18} /> Cancelar / Reiniciar
-                        </button>
-                    )}
+
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 150px' }}>
+                            <label>Cantidad de Animales</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="100"
+                                value={cantidad}
+                                onChange={e => setCantidad(e.target.value)}
+                                disabled={loading || animales.length > 0}
+                            />
+                        </div>
+                        
+                        {animales.length === 0 ? (
+                            <button type="submit" style={{ width: 'auto', padding: '0 32px' }} disabled={loading}>
+                                <Plus size={18} /> Preparar Lista
+                            </button>
+                        ) : (
+                            <button type="button" onClick={handleReset} style={{ width: 'auto', backgroundColor: 'transparent', border: '1px solid var(--error)', color: 'var(--error)', padding: '0 32px' }}>
+                                <Trash2 size={18} /> Cancelar / Reiniciar
+                            </button>
+                        )}
+                    </div>
                 </form>
             </div>
 

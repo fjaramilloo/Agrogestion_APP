@@ -36,6 +36,10 @@ export default function Settings() {
     const [propietarios, setPropietarios] = useState<{ id: string, nombre: string }[]>([]);
     const [nuevoPropietario, setNuevoPropietario] = useState('');
 
+    // Estados para Proveedores
+    const [proveedores, setProveedores] = useState<{ id: string, nombre: string }[]>([]);
+    const [nuevoProveedor, setNuevoProveedor] = useState('');
+
     // Estados para Información de la Finca
     const [farmInfo, setFarmInfo] = useState({
         area_total: '',
@@ -71,6 +75,17 @@ export default function Settings() {
         if (!error && data) setPropietarios(data);
     };
 
+    const fetchProveedores = async () => {
+        if (!fincaId) return;
+        const { data, error } = await supabase
+            .from('proveedores')
+            .select('id, nombre')
+            .eq('id_finca', fincaId)
+            .order('nombre');
+
+        if (!error && data) setProveedores(data);
+    };
+
     const fetchFincaInfo = async () => {
         if (!fincaId) return;
         const { data, error } = await supabase
@@ -93,6 +108,7 @@ export default function Settings() {
         if (!fincaId) return;
         fetchConfig();
         fetchPropietarios();
+        fetchProveedores();
         fetchFincaInfo();
 
         if (fincaId && selectedFincas.length === 0) {
@@ -217,6 +233,43 @@ export default function Settings() {
             if (error) throw error;
             fetchPropietarios();
             setMsjExito('Propietario eliminado.');
+        } catch (err: any) {
+            setMsjError('Error al eliminar: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAddProveedor = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!fincaId || !nuevoProveedor.trim()) return;
+
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('proveedores')
+                .insert({ id_finca: fincaId, nombre: nuevoProveedor.trim() });
+
+            if (error) throw error;
+
+            setNuevoProveedor('');
+            fetchProveedores();
+            setMsjExito('Proveedor agregado correctamente.');
+        } catch (err: any) {
+            setMsjError('Error al agregar proveedor: ' + (err.code === '23505' ? 'Ya existe un proveedor con ese nombre.' : err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const removeProveedor = async (id: string) => {
+        if (!confirm('¿Está seguro de eliminar este proveedor?')) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('proveedores').delete().eq('id', id);
+            if (error) throw error;
+            fetchProveedores();
+            setMsjExito('Proveedor eliminado.');
         } catch (err: any) {
             setMsjError('Error al eliminar: ' + err.message);
         } finally {
@@ -585,6 +638,60 @@ export default function Settings() {
                                     <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.nombre}</span>
                                     <button
                                         onClick={() => removePropietario(p.id)}
+                                        style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
+                                        onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
+                                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* Gestión de Proveedores */}
+                <div className="card">
+                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Users size={20} /> Vendedores / Proveedores
+                    </h3>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                        Defina los proveedores a quienes les compra el ganado.
+                    </p>
+
+                    <form onSubmit={handleAddProveedor} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+                        <input
+                            type="text"
+                            placeholder="Nombre del Proveedor"
+                            value={nuevoProveedor}
+                            onChange={e => setNuevoProveedor(e.target.value)}
+                            style={{ marginBottom: 0 }}
+                            disabled={loading}
+                        />
+                        <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoProveedor.trim()}>
+                            <Plus size={18} /> Agregar
+                        </button>
+                    </form>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+                        {proveedores.length === 0 ? (
+                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+                                No hay proveedores definidos para esta finca.
+                            </div>
+                        ) : (
+                            proveedores.map(p => (
+                                <div key={p.id} style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '10px 14px',
+                                    backgroundColor: 'rgba(255,255,255,0.03)',
+                                    borderRadius: '8px',
+                                    border: '1px solid rgba(255,255,255,0.05)'
+                                }}>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.nombre}</span>
+                                    <button
+                                        onClick={() => removeProveedor(p.id)}
                                         style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
                                         onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
                                         onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
