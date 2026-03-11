@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { CheckCircle2, ArrowRight, AlertTriangle, RotateCcw, X } from 'lucide-react';
+import { CheckCircle2, ArrowRight, AlertTriangle, RotateCcw, X, MapPin, ArrowUpDown } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 interface AnimalMercado {
@@ -13,6 +13,7 @@ interface AnimalMercado {
     fecha_ingreso: string;
     id_potrerada: string | null;
     id_potrero_actual: string | null;
+    nombre_potrero: string;
     ultimo_peso: number;
     fecha_ultimo_peso: string;
     diasUltimoPesaje: number;
@@ -39,6 +40,37 @@ export default function Mercado() {
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
 
+    // Ordenamiento
+    const [sortBy, setSortBy] = useState('ultimo_peso');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+    const handleSort = (field: string) => {
+        if (sortBy === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(field);
+            setSortOrder(['ultimo_peso', 'diasUltimoPesaje'].includes(field) ? 'desc' : 'asc');
+        }
+    };
+
+    const sortedAnimals = [...animales].sort((a, b) => {
+        let res = 0;
+        if (sortBy === 'chapeta') {
+            res = a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true });
+        } else if (sortBy === 'propietario') {
+            res = a.nombre_propietario.localeCompare(b.nombre_propietario);
+        } else if (sortBy === 'potrero') {
+            res = a.nombre_potrero.localeCompare(b.nombre_potrero);
+        } else if (sortBy === 'ultimo_peso') {
+            res = a.ultimo_peso - b.ultimo_peso;
+        } else if (sortBy === 'fecha_pesaje') {
+            res = new Date(a.fecha_ultimo_peso).getTime() - new Date(b.fecha_ultimo_peso).getTime();
+        } else if (sortBy === 'diasUltimoPesaje') {
+            res = a.diasUltimoPesaje - b.diasUltimoPesaje;
+        }
+        return sortOrder === 'asc' ? res : -res;
+    });
+
     const fetchData = async () => {
         if (!fincaId) return;
         setLoading(true);
@@ -48,12 +80,12 @@ export default function Mercado() {
             .select(`
                 id, numero_chapeta, nombre_propietario, etapa,
                 peso_ingreso, fecha_ingreso, id_potrerada, id_potrero_actual,
+                potreros (nombre),
                 registros_pesaje (peso, fecha)
             `)
             .eq('id_finca', fincaId)
             .eq('ok_ceba', true)
-            .eq('estado', 'activo')
-            .order('numero_chapeta');
+            .eq('estado', 'activo');
 
         const { data: potData } = await supabase
             .from('potreros')
@@ -82,6 +114,7 @@ export default function Mercado() {
                 fecha_ingreso: a.fecha_ingreso,
                 id_potrerada: a.id_potrerada,
                 id_potrero_actual: a.id_potrero_actual,
+                nombre_potrero: a.potreros?.nombre || 'N/A',
                 ultimo_peso: last ? last.peso : a.peso_ingreso,
                 fecha_ultimo_peso: last ? last.fecha : a.fecha_ingreso,
                 diasUltimoPesaje: differenceInDays(hoy, fechaRef)
@@ -231,19 +264,49 @@ export default function Mercado() {
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                    <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Chapeta</th>
-                                    <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Propietario</th>
-                                    <th style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Último Peso</th>
-                                    <th style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Fecha Pesaje</th>
-                                    <th style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Días sin pesar</th>
+                                    <th onClick={() => handleSort('chapeta')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            Chapeta <ArrowUpDown size={12} opacity={sortBy === 'chapeta' ? 1 : 0.4} />
+                                        </div>
+                                    </th>
+                                    <th onClick={() => handleSort('propietario')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            Propietario <ArrowUpDown size={12} opacity={sortBy === 'propietario' ? 1 : 0.4} />
+                                        </div>
+                                    </th>
+                                    <th onClick={() => handleSort('potrero')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            Potrero <ArrowUpDown size={12} opacity={sortBy === 'potrero' ? 1 : 0.4} />
+                                        </div>
+                                    </th>
+                                    <th onClick={() => handleSort('ultimo_peso')} style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                            Peso Actual <ArrowUpDown size={12} opacity={sortBy === 'ultimo_peso' ? 1 : 0.4} />
+                                        </div>
+                                    </th>
+                                    <th onClick={() => handleSort('fecha_pesaje')} style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                            Fecha Pesaje <ArrowUpDown size={12} opacity={sortBy === 'fecha_pesaje' ? 1 : 0.4} />
+                                        </div>
+                                    </th>
+                                    <th onClick={() => handleSort('diasUltimoPesaje')} style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                            Días sin pesar <ArrowUpDown size={12} opacity={sortBy === 'diasUltimoPesaje' ? 1 : 0.4} />
+                                        </div>
+                                    </th>
                                     <th style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Estado</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {animales.map((a, i) => (
+                                {sortedAnimals.map((a, i) => (
                                     <tr key={a.id} style={{ borderBottom: i < animales.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                                         <td style={{ padding: '16px', fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
                                         <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{a.nombre_propietario}</td>
+                                        <td style={{ padding: '16px', color: 'var(--text-muted)' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <MapPin size={14} style={{ opacity: 0.6 }} /> {a.nombre_potrero}
+                                            </span>
+                                        </td>
                                         <td style={{ padding: '16px', textAlign: 'right', fontWeight: 'bold' }}>{a.ultimo_peso} kg</td>
                                         <td style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                                             {format(new Date(a.fecha_ultimo_peso), 'dd/MM/yyyy')}
