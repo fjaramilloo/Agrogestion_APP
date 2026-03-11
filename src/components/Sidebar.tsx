@@ -17,7 +17,8 @@ import {
     LogOut,
     ArrowLeftRight,
     Briefcase,
-    Info
+    Info,
+    Users
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -32,7 +33,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const { role, isSuperAdmin, userFincas, fincaId, setFincaId, refreshFincas, user, signOut } = useAuth();
     const [showFincas, setShowFincas] = useState(false);
     const [showTrabajoCampo, setShowTrabajoCampo] = useState(true);
-    const [showInformacion, setShowInformacion] = useState(true);
+    const [showInformacion, setShowInformacion] = useState(false);
     const [creatingFinca, setCreatingFinca] = useState(false);
     const navigate = useNavigate();
 
@@ -235,6 +236,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     <span className="sidebar-icon"><MapPin size={20} /></span>
                                     <span className="sidebar-label">Rotaciones</span>
                                 </NavLink>
+                                {role === 'administrador' && (
+                                    <NavLink to="/potreradas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                        <span className="sidebar-icon"><Users size={20} /></span>
+                                        <span className="sidebar-label">Potreradas</span>
+                                    </NavLink>
+                                )}
                             </div>
                         )}
                     </div>
