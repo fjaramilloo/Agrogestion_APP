@@ -18,9 +18,10 @@ import {
     ArrowLeftRight,
     Briefcase,
     Info,
-    Users
+    Users,
+    ShoppingBag
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Sidebar.css';
 
@@ -35,7 +36,25 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const [showTrabajoCampo, setShowTrabajoCampo] = useState(true);
     const [showInformacion, setShowInformacion] = useState(false);
     const [creatingFinca, setCreatingFinca] = useState(false);
+    const [hayMercado, setHayMercado] = useState(false);
     const navigate = useNavigate();
+
+    // Verificar si hay animales marcados con ok_ceba (se refresca cada 60 segundos)
+    useEffect(() => {
+        if (!fincaId) return;
+        const checkMercado = async () => {
+            const { count } = await supabase
+                .from('animales')
+                .select('id', { count: 'exact', head: true })
+                .eq('id_finca', fincaId)
+                .eq('ok_ceba', true)
+                .eq('estado', 'activo');
+            setHayMercado((count ?? 0) > 0);
+        };
+        checkMercado();
+        const interval = setInterval(checkMercado, 60000);
+        return () => clearInterval(interval);
+    }, [fincaId]);
 
     const handleLogout = async () => {
         await signOut();
@@ -202,6 +221,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                         <span className="sidebar-icon"><Tag size={20} /></span>
                                         <span className="sidebar-label">Venta</span>
                                     </NavLink>
+                                    {hayMercado && (
+                                        <NavLink to="/mercado" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`} style={{ position: 'relative' }}>
+                                            <span className="sidebar-icon"><ShoppingBag size={20} /></span>
+                                            <span className="sidebar-label">Mercado</span>
+                                            <span style={{ marginLeft: 'auto', background: '#2e7d32', color: 'white', borderRadius: '10px', fontSize: '0.65rem', padding: '2px 7px', fontWeight: 'bold' }}>●</span>
+                                        </NavLink>
+                                    )}
                                 </div>
                             )}
                         </div>

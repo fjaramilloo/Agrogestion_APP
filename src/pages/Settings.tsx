@@ -57,7 +57,8 @@ export default function Settings() {
         area_aprovechable: '',
         ubicacion: '',
         proposito: '',
-        precio_venta_promedio: ''
+        precio_venta_promedio: '',
+        peso_entrada_ceba: '380'
     });
 
     // Filtrar fincas donde el usuario es administrador
@@ -120,10 +121,10 @@ export default function Settings() {
             .eq('id', fincaId)
             .single();
 
-        // Precio de venta desde configuracion_kpi
+        // Precio de venta y umbral ceba desde configuracion_kpi
         const { data: config } = await supabase
             .from('configuracion_kpi')
-            .select('precio_venta_promedio')
+            .select('precio_venta_promedio, peso_entrada_ceba')
             .eq('id_finca', fincaId)
             .single();
 
@@ -133,7 +134,8 @@ export default function Settings() {
                 area_aprovechable: finca.area_aprovechable?.toString() || '',
                 ubicacion: finca.ubicacion || '',
                 proposito: finca.proposito || '',
-                precio_venta_promedio: config?.precio_venta_promedio?.toString() || '0'
+                precio_venta_promedio: config?.precio_venta_promedio?.toString() || '0',
+                peso_entrada_ceba: config?.peso_entrada_ceba?.toString() || '380'
             });
         }
     };
@@ -221,12 +223,13 @@ export default function Settings() {
             .eq('id', fincaId);
 
         if (!error) {
-            // Actualizar también el precio de venta en configuracion_kpi
+            // Actualizar precio de venta y umbral de ceba en configuracion_kpi
             await supabase
                 .from('configuracion_kpi')
                 .upsert({ 
                     id_finca: fincaId, 
-                    precio_venta_promedio: farmInfo.precio_venta_promedio ? parseFloat(farmInfo.precio_venta_promedio) : 0 
+                    precio_venta_promedio: farmInfo.precio_venta_promedio ? parseFloat(farmInfo.precio_venta_promedio) : 0,
+                    peso_entrada_ceba: farmInfo.peso_entrada_ceba ? parseFloat(farmInfo.peso_entrada_ceba) : 380
                 }, { onConflict: 'id_finca' });
 
             setMsjExito('Información de la finca actualizada correctamente.');
@@ -662,6 +665,16 @@ export default function Settings() {
                                             placeholder="Ej: 8500"
                                             value={farmInfo.precio_venta_promedio}
                                             onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Peso de Entrada a Ceba (kg)</label>
+                                        <input
+                                            type="number"
+                                            step="0.5"
+                                            placeholder="Ej: 380"
+                                            value={farmInfo.peso_entrada_ceba}
+                                            onChange={e => setFarmInfo({ ...farmInfo, peso_entrada_ceba: e.target.value })}
                                         />
                                     </div>
                                 </div>

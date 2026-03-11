@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Save, PlusCircle } from 'lucide-react';
+import { Search, Save, PlusCircle, CheckCircle2 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 interface AnimalPreview {
@@ -13,6 +13,7 @@ interface AnimalPreview {
     ultimo_peso?: number;
     fecha_ultimo_peso?: string;
     gmp?: number;
+    ok_ceba?: boolean;
 }
 
 export default function Weighing() {
@@ -31,13 +32,25 @@ export default function Weighing() {
     // Lista de propietarios cargados desde la base de datos
     const [propietarios, setPropietarios] = useState<{ id: string, nombre: string }[]>([]);
 
+    // Peso umbral para marcar ok_ceba
+    const [pesoEntradaCeba, setPesoEntradaCeba] = useState(380);
+    // Bandera si el último pesaje guardado marcó ok_ceba
+    const [marcadoCeba, setMarcadoCeba] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [msjError, setMsjError] = useState('');
     const [msjExito, setMsjExito] = useState('');
 
     useEffect(() => {
         if (!fincaId) return;
-        const fetchPropietarios = async () => {
+        const fetchConfig = async () => {
+            const { data: config } = await supabase
+                .from('configuracion_kpi')
+                .select('peso_entrada_ceba')
+                .eq('id_finca', fincaId)
+                .single();
+            if (config?.peso_entrada_ceba) setPesoEntradaCeba(config.peso_entrada_ceba);
+
             const { data } = await supabase
                 .from('propietarios')
                 .select('id, nombre')
@@ -45,7 +58,7 @@ export default function Weighing() {
                 .order('nombre');
             if (data) setPropietarios(data);
         };
-        fetchPropietarios();
+        fetchConfig();
     }, [fincaId]);
 
     const buscarAnimal = async (e: React.FormEvent) => {
@@ -58,10 +71,11 @@ export default function Weighing() {
         setAnimal(null);
         setAnimalNoEncontrado(false);
         setShowCrearAnimal(false);
+        setMarcadoCeba(false);
 
         const { data, error } = await supabase
             .from('animales')
-            .select('id, numero_chapeta, peso_ingreso, fecha_ingreso, etapa')
+            .select('id, numero_chapeta, peso_ingreso, fecha_ingreso, etapa, ok_ceba')
             .eq('id_finca', fincaId)
             .eq('numero_chapeta', chapeta.trim())
             .single();
@@ -163,6 +177,7 @@ export default function Weighing() {
         if (!animal || !fincaId || !nuevoPeso) return;
         setLoading(true);
         setMsjError('');
+        setMarcadoCeba(false);
 
         try {
             const pesoFloat = parseFloat(nuevoPeso);
@@ -186,7 +201,22 @@ export default function Weighing() {
 
             if (error) throw error;
 
-            setMsjExito(`¡Pesaje de ${pesoFloat}kg guardado para la chapeta #${animal.numero_chapeta}!`);
+            // Verificar si el peso supera el umbral de entrada a ceba
+            let marcaOkCeba = false;
+            if (animal.etapa === 'levante' && pesoFloat >= pesoEntradaCeba) {
+                marcaOkCeba = true;
+                await supabase
+                    .from('animales')
+                    .update({ ok_ceba: true })
+                    .eq('id', animal.id);
+                setMarcadoCeba(true);
+            }
+
+            const msgCeba = marcaOkCeba
+                ? ` 🟢 Animal marcado para pasar a Ceba (${pesoFloat}kg ≥ ${pesoEntradaCeba}kg).`
+                : '';
+
+            setMsjExito(`¡Pesaje de ${pesoFloat}kg guardado para la chapeta #${animal.numero_chapeta}!${msgCeba}`);
             setAnimal(null);
             setChapeta('');
             setNuevoPeso('');
@@ -200,9 +230,30 @@ export default function Weighing() {
     return (
         <div className="page-container" style={{ maxWidth: '600px' }}>
             <h1 className="title text-center" style={{ fontSize: '2.5rem', marginBottom: '8px' }}>Registro de Pesaje</h1>
-            <p className="text-center" style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>Busque al animal para registrar el peso actual.</p>
+            <p className="text-center" style={{ color: 'var(--text-muted)', marginBottom: '8px' }}>Busque al animal para registrar el peso actual.</p>
+            <p className="text-center" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '32px' }}>
+                Umbral entrada a ceba: <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>
+            </p>
 
-            {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
+            {msjExito && (
+                <div style={{
+                    backgroundColor: marcadoCeba ? 'rgba(76,175,80,0.25)' : 'rgba(76, 175, 80, 0.2)',
+                    color: 'var(--success)',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    marginBottom: '24px',
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    border: marcadoCeba ? '1px solid var(--success)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px'
+                }}>
+                    {marcadoCeba && <CheckCircle2 size={22} />}
+                    {msjExito}
+                </div>
+            )}
             {msjError && <div className="error-message text-center" style={{ fontWeight: 'bold' }}>{msjError}</div>}
 
             <div className="card" style={{ padding: '32px' }}>
@@ -323,6 +374,18 @@ export default function Weighing() {
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Etapa</div>
                                 <div style={{ fontSize: '1.3rem', fontWeight: 'bold', textTransform: 'capitalize' }}>{animal.etapa}</div>
                             </div>
+                        </div>
+
+                        {/* Indicador si ya tiene marca ok_ceba */}
+                        {animal.ok_ceba && (
+                            <div style={{ padding: '12px 16px', background: 'rgba(76,175,80,0.1)', border: '1px solid rgba(76,175,80,0.3)', borderRadius: '8px', marginBottom: '16px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+                                <CheckCircle2 size={18} /> Este animal ya está marcado para pasar a Ceba
+                            </div>
+                        )}
+
+                        {/* Indicador del umbral */}
+                        <div style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            Si el nuevo peso ≥ <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>, el animal quedará marcado para pasar a Ceba.
                         </div>
 
                         <label style={{ fontSize: '1.2rem', color: 'white', marginBottom: '12px' }}>Nuevo Peso (kg)</label>
