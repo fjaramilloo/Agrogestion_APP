@@ -122,10 +122,39 @@ export default function Purchase() {
         setShowConfirm(false);
 
         try {
+            const [, month, day] = fechaIngreso.split('-');
+            const dateStr = `${day}/${month}`;
+            
+            const uniquePropietarios = Array.from(new Set(animales.map(a => a.propietario)));
+            
+            const potreradasPayload = uniquePropietarios.map(prop => ({
+                id_finca: fincaId,
+                nombre: `Compra ${dateStr} ${prop}`,
+                etapa: 'levante'
+            }));
+            
+            const { data: potreradasCreadas, error: potError } = await supabase
+                .from('potreradas')
+                .upsert(potreradasPayload, { onConflict: 'id_finca,nombre' })
+                .select('id, nombre');
+                
+            if (potError) throw potError;
+            
+            const potreradaIdPorPropietario = new Map();
+            if (potreradasCreadas) {
+                potreradasCreadas.forEach((p: any) => {
+                    const propMatch = uniquePropietarios.find(prop => p.nombre === `Compra ${dateStr} ${prop}`);
+                    if (propMatch) {
+                        potreradaIdPorPropietario.set(propMatch, p.id);
+                    }
+                });
+            }
+
             const records = animales.map(a => ({
                 id_finca: fincaId,
                 numero_chapeta: a.numero_chapeta.trim(),
                 nombre_propietario: a.propietario,
+                id_potrerada: potreradaIdPorPropietario.get(a.propietario) || null,
                 peso_ingreso: parseFloat(a.peso_ingreso),
                 fecha_ingreso: fechaIngreso,
                 proveedor_compra: selectedProveedor,

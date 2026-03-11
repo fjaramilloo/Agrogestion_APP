@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS potreros (
     id_finca UUID REFERENCES fincas(id) ON DELETE CASCADE NOT NULL,
     nombre TEXT NOT NULL,
     area_hectareas NUMERIC NOT NULL,
+    id_rotacion UUID REFERENCES rotaciones(id) ON DELETE SET NULL,
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -59,6 +60,25 @@ CREATE TABLE IF NOT EXISTS proveedores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     id_finca UUID REFERENCES fincas(id) ON DELETE CASCADE NOT NULL,
     nombre TEXT NOT NULL,
+    creado_en TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(id_finca, nombre)
+);
+
+-- 4.5.5 rotaciones
+CREATE TABLE IF NOT EXISTS rotaciones (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id_finca UUID REFERENCES fincas(id) ON DELETE CASCADE NOT NULL,
+    nombre TEXT NOT NULL,
+    creado_en TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(id_finca, nombre)
+);
+
+-- 4.6 potreradas
+CREATE TABLE IF NOT EXISTS potreradas (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id_finca UUID REFERENCES fincas(id) ON DELETE CASCADE NOT NULL,
+    nombre TEXT NOT NULL,
+    etapa etapa_animal NOT NULL,
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(id_finca, nombre)
 );
@@ -77,6 +97,7 @@ CREATE TABLE IF NOT EXISTS animales (
     fecha_ingreso DATE NOT NULL,
     peso_ingreso NUMERIC NOT NULL,
     id_potrero_actual UUID REFERENCES potreros(id) ON DELETE SET NULL,
+    id_potrerada UUID REFERENCES potreradas(id) ON DELETE SET NULL,
     estado estado_animal DEFAULT 'activo',
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(id_finca, numero_chapeta)
@@ -180,8 +201,10 @@ EXECUTE FUNCTION calcular_gdp_al_pesar();
 ALTER TABLE organizaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fincas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE permisos_finca ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rotaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE potreros ENABLE ROW LEVEL SECURITY;
 ALTER TABLE proveedores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE potreradas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE animales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registros_pesaje ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mediciones_pasto ENABLE ROW LEVEL SECURITY;
@@ -192,8 +215,10 @@ ALTER TABLE registros_lluvia ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Activo para autenticados organizaciones" ON organizaciones FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados fincas" ON fincas FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados permisos_finca" ON permisos_finca FOR ALL TO authenticated USING (true);
+CREATE POLICY "Activo para autenticados rotaciones" ON rotaciones FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados potreros" ON potreros FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados proveedores" ON proveedores FOR ALL TO authenticated USING (true);
+CREATE POLICY "Activo para autenticados potreradas" ON potreradas FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados animales" ON animales FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados registros_pesaje" ON registros_pesaje FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados mediciones_pasto" ON mediciones_pasto FOR ALL TO authenticated USING (true);

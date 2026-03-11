@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Skull, Calendar, AlertCircle, ArrowUpDown } from 'lucide-react';
+import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
 interface Pesaje {
     peso: number;
@@ -48,6 +49,9 @@ export default function Inventory() {
     const [chapetaMuerte, setChapetaMuerte] = useState('');
     const [fechaMuerte, setFechaMuerte] = useState(new Date().toISOString().split('T')[0]);
     const [msjErrorMuerte, setMsjErrorMuerte] = useState('');
+
+    // Modal Historial Animal
+    const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
 
     const fetchAnimales = async () => {
         if (!fincaId) return;
@@ -185,6 +189,16 @@ export default function Inventory() {
     const uniquePotreros = Array.from(new Set(animales.map(a => a.potreroNombre))).filter(p => p !== 'Sin potrero' && p);
     const uniquePropietarios = Array.from(new Set(animales.map(a => a.nombre_propietario))).filter(Boolean);
 
+    // Calcular GDP Promedio de todos los animales para la estimación de peso de hoy
+    const gdpsTotales = animales.map(a => {
+        const u = a.registros_pesaje?.[0];
+        const gain = (u?.peso ?? a.peso_ingreso) - a.peso_ingreso;
+        const ref = u ? new Date(u.fecha) : new Date();
+        const days = differenceInDays(ref, new Date(a.fecha_ingreso)) || 1;
+        return u?.gdp_calculada ?? (gain / days);
+    }).filter(v => v > 0 && isFinite(v));
+    const gdpPromedioFinca = gdpsTotales.length > 0 ? (gdpsTotales.reduce((acc, curr) => acc + curr, 0) / gdpsTotales.length) : 0.45;
+
     return (
         <div className="page-container">
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '16px' }}>
@@ -283,10 +297,14 @@ export default function Inventory() {
                                 const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gdpActual < umbralGdp;
 
                                 return (
-                                    <tr key={animal.id} style={{
+                                    <tr key={animal.id} 
+                                        onClick={() => setSelectedAnimal(animal)}
+                                        className="table-row-hover"
+                                        style={{
                                         borderBottom: '1px solid rgba(255,255,255,0.05)',
                                         backgroundColor: isAlerta ? 'rgba(244, 67, 54, 0.05)' : 'transparent',
-                                        transition: 'background 0.2s'
+                                        transition: 'background 0.2s',
+                                        cursor: 'pointer'
                                     }}>
                                         <td style={{ padding: '16px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                             <span style={{ color: 'var(--primary-light)' }}>#</span>{animal.numero_chapeta}
@@ -396,6 +414,140 @@ export default function Inventory() {
                     </div>
                 </div>
             )}
+            {/* Modal Historial de Animal */}
+            {selectedAnimal && (() => {
+                const ultimoP = selectedAnimal.registros_pesaje?.[0];
+                const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : format(new Date(selectedAnimal.fecha_ingreso), 'dd/MM/yyyy');
+                const pesoU = ultimoP ? ultimoP.peso : selectedAnimal.peso_ingreso;
+
+                const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(selectedAnimal.fecha_ingreso);
+                const diasHoy = differenceInDays(new Date(), refDate) || 0;
+                const estimadoHoy = pesoU + (diasHoy * gdpPromedioFinca);
+
+                const timeline = [
+                    ...(selectedAnimal.registros_pesaje || []).map((p, i, arr) => {
+                        const ant = arr[i + 1] || { peso: selectedAnimal.peso_ingreso, fecha: selectedAnimal.fecha_ingreso };
+                        const d = differenceInDays(new Date(p.fecha), new Date(ant.fecha)) || 1;
+                        const ganancia = p.peso - ant.peso;
+                        const gmp = (ganancia / d) * 30;
+                        return {
+                            id: p.fecha,
+                            fecha: p.fecha,
+                            peso: p.peso,
+                            gmp: gmp,
+                            gdp: p.gdp_calculada ?? (ganancia / d),
+                            esIngreso: false
+                        };
+                    }),
+                    {
+                        id: selectedAnimal.fecha_ingreso,
+                        fecha: selectedAnimal.fecha_ingreso,
+                        peso: selectedAnimal.peso_ingreso,
+                        gmp: 0,
+                        gdp: 0,
+                        esIngreso: true
+                    }
+                ];
+
+                const chartData = [...timeline].reverse().map(item => ({
+                    fechaStr: format(new Date(item.fecha), 'dd/MMM', { locale: es }),
+                    peso: item.peso
+                }));
+
+                return (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+                        <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                            <button 
+                                onClick={() => setSelectedAnimal(null)}
+                                style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px' }}
+                            >
+                                <X size={24} />
+                            </button>
+
+                            <div style={{ paddingRight: '40px', marginBottom: '24px' }}>
+                                <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>
+                                    <span style={{ color: 'var(--primary)', marginRight: '8px' }}>#</span>
+                                    {selectedAnimal.numero_chapeta}
+                                </h2>
+                                <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.5px' }}>
+                                    {selectedAnimal.etapa} • {selectedAnimal.nombre_propietario}
+                                </p>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Último Pesaje</div>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{pesoU} kg</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Ingreso: '} {fechaU}</div>
+                                </div>
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                                        {estimadoHoy.toFixed(1)} kg
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                        GDP Finca: {gdpPromedioFinca.toFixed(3)} kg/día
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Evolución de Peso</h3>
+                            <div style={{ height: '240px', width: '100%', marginBottom: '32px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                                        <XAxis dataKey="fechaStr" stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
+                                        <YAxis stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
+                                        <RechartsTooltip 
+                                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                                            itemStyle={{ color: 'var(--primary-light)' }}
+                                            labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
+                                        />
+                                        <Line type="monotone" dataKey="peso" stroke="var(--primary)" strokeWidth={3} dot={{ fill: 'var(--primary-light)', strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: 'var(--primary)', stroke: 'white', strokeWidth: 2 }} name="Peso (kg)" />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Historial de Registros</h3>
+                            <div style={{ overflowX: 'auto', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                    <thead style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                        <tr>
+                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
+                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
+                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Ganancia Mensual</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {timeline.map((item, index) => (
+                                            <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <td style={{ padding: '12px 16px' }}>
+                                                    <div style={{ fontWeight: '500' }}>{format(new Date(item.fecha), 'dd/MM/yyyy')}</div>
+                                                    {item.esIngreso && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 'bold' }}>INGRESO</div>}
+                                                </td>
+                                                <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
+                                                    {item.peso}
+                                                </td>
+                                                <td style={{ padding: '12px 16px' }}>
+                                                    {item.esIngreso ? (
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
+                                                    ) : (
+                                                        <>
+                                                            <div style={{ color: item.gmp < 0 ? 'var(--error)' : 'var(--success)', fontWeight: 'bold' }}>{item.gmp > 0 ? '+' : ''}{item.gmp.toFixed(1)} kg/mes</div>
+                                                            <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>GDP: {item.gdp > 0 ? '+' : ''}{item.gdp.toFixed(3)} kg/día</div>
+                                                        </>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
         </div>
     );
 }
