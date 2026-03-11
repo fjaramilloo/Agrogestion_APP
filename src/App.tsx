@@ -13,6 +13,7 @@ import Purchase from './pages/Purchase';
 import Sales from './pages/Sales';
 import Rainfall from './pages/Rainfall';
 import Rotations from './pages/Rotations';
+import Movements from './pages/Movements';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, role, loading } = useAuth();
@@ -77,6 +78,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['administrador', 'vaquero', 'observador']}>
             <Rotations />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/movimientos"
+        element={
+          <ProtectedRoute allowedRoles={['administrador', 'vaquero']}>
+            <Movements />
           </ProtectedRoute>
         }
       />

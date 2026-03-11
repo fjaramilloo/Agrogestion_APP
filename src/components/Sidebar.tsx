@@ -14,7 +14,8 @@ import {
     ShoppingCart,
     Tag,
     CloudRain,
-    LogOut
+    LogOut,
+    ArrowLeftRight
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -51,7 +52,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             ? [
                 { to: '/compra', label: 'Compra', icon: <ShoppingCart size={20} /> },
                 { to: '/venta', label: 'Venta', icon: <Tag size={20} /> },
-                { to: '/pesaje', label: 'Pesaje', icon: <Scale size={20} /> }
+                { to: '/pesaje', label: 'Pesaje', icon: <Scale size={20} /> },
+                { to: '/movimientos', label: 'Mover Potrerada', icon: <ArrowLeftRight size={20} /> }
             ]
             : []),
         ...(role === 'administrador'

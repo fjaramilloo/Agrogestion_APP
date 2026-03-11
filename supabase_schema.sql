@@ -83,6 +83,17 @@ CREATE TABLE IF NOT EXISTS potreradas (
     UNIQUE(id_finca, nombre)
 );
 
+-- 4.7 movimientos_potreros
+CREATE TABLE IF NOT EXISTS movimientos_potreros (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id_finca UUID REFERENCES fincas(id) ON DELETE CASCADE NOT NULL,
+    id_potrerada UUID REFERENCES potreradas(id) ON DELETE CASCADE NOT NULL,
+    id_potrero UUID REFERENCES potreros(id) ON DELETE CASCADE NOT NULL,
+    fecha_entrada DATE NOT NULL,
+    fecha_salida DATE,
+    creado_en TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- 5. animales
 CREATE TABLE IF NOT EXISTS animales (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -203,6 +214,7 @@ ALTER TABLE fincas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE permisos_finca ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rotaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE potreros ENABLE ROW LEVEL SECURITY;
+ALTER TABLE movimientos_potreros ENABLE ROW LEVEL SECURITY;
 ALTER TABLE proveedores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE potreradas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE animales ENABLE ROW LEVEL SECURITY;
@@ -225,3 +237,4 @@ CREATE POLICY "Activo para autenticados mediciones_pasto" ON mediciones_pasto FO
 CREATE POLICY "Activo para autenticados configuracion_kpi" ON configuracion_kpi FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados registros_cria" ON registros_cria FOR ALL TO authenticated USING (true);
 CREATE POLICY "Activo para autenticados registros_lluvia" ON registros_lluvia FOR ALL TO authenticated USING (true);
+CREATE POLICY "Activo para autenticados movimientos_potreros" ON movimientos_potreros FOR ALL TO authenticated USING (true);

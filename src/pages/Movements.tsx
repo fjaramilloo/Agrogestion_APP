@@ -1,0 +1,331 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { ArrowLeftRight, Save } from 'lucide-react';
+
+export default function Movements() {
+    const { fincaId, role } = useAuth();
+    const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
+
+    const [loading, setLoading] = useState(false);
+    const [msjExito, setMsjExito] = useState('');
+    const [msjError, setMsjError] = useState('');
+
+    const [potreradas, setPotreradas] = useState<{ id: string, nombre: string }[]>([]);
+    const [rotaciones, setRotaciones] = useState<{ id: string, nombre: string, potreros: { id: string, nombre: string }[] }[]>([]);
+    
+    // Formulary state
+    const [selectedPotreradaId, setSelectedPotreradaId] = useState('');
+    const [currentMovementId, setCurrentMovementId] = useState<string | null>(null);
+    const [currentPotrero, setCurrentPotrero] = useState<{ id: string, nombre: string, id_rotacion: string | null } | null>(null);
+    
+    const [selectedTargetRotacionId, setSelectedTargetRotacionId] = useState('');
+    const [selectedTargetPotreroId, setSelectedTargetPotreroId] = useState('');
+    const [fechaMovimiento, setFechaMovimiento] = useState(new Date().toISOString().split('T')[0]);
+
+    const [step, setStep] = useState(1);
+    const [rotacionMode, setRotacionMode] = useState<'misma' | 'cambiar' | null>(null);
+
+    useEffect(() => {
+        if (!fincaId) return;
+        fetchData();
+        // eslint-disable-next-line
+    }, [fincaId]);
+
+    const fetchData = async () => {
+        // Fetch potreradas
+        const { data: potreradasData } = await supabase
+            .from('potreradas')
+            .select('id, nombre')
+            .eq('id_finca', fincaId)
+            .order('nombre');
+        
+        if (potreradasData) setPotreradas(potreradasData);
+
+        // Fetch rotaciones con potreros
+        const { data: rotacionesData } = await supabase
+            .from('rotaciones')
+            .select(`
+                id, 
+                nombre,
+                potreros (id, nombre)
+            `)
+            .eq('id_finca', fincaId)
+            .order('nombre');
+            
+        if (rotacionesData) setRotaciones(rotacionesData as any);
+    };
+
+    // Cuando se selecciona una potrerada, buscar su último movimiento abierto
+    useEffect(() => {
+        if (!selectedPotreradaId || !fincaId) {
+            setCurrentMovementId(null);
+            setCurrentPotrero(null);
+            setSelectedTargetRotacionId('');
+            setSelectedTargetPotreroId('');
+            return;
+        }
+
+        const fetchCurrentState = async () => {
+            // Buscamos si la potrerada tiene un potrero_actual en algún animal para tener una referencia, o directamente de movimientos_potreros
+            const { data } = await supabase
+                .from('movimientos_potreros')
+                .select(`
+                    id, 
+                    id_potrero,
+                    fecha_entrada,
+                    potreros (id, nombre, id_rotacion)
+                `)
+                .eq('id_potrerada', selectedPotreradaId)
+                .is('fecha_salida', null)
+                .order('fecha_entrada', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (data && data.potreros) {
+                const potreroData = data.potreros as any;
+                setCurrentMovementId(data.id);
+                setCurrentPotrero({
+                    id: data.id_potrero,
+                    nombre: potreroData.nombre,
+                    id_rotacion: potreroData.id_rotacion
+                });
+                if (potreroData.id_rotacion) {
+                    setSelectedTargetRotacionId(potreroData.id_rotacion);
+                }
+            } else {
+                setCurrentMovementId(null);
+                setCurrentPotrero(null);
+                setSelectedTargetRotacionId('');
+            }
+            setSelectedTargetPotreroId('');
+            setMsjExito('');
+            setMsjError('');
+            setStep(1);
+            setRotacionMode(null);
+        };
+
+        fetchCurrentState();
+    }, [selectedPotreradaId, fincaId]);
+
+    const handleSaveMovement = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setMsjExito('');
+        setMsjError('');
+
+        if (!fincaId || !selectedPotreradaId || !selectedTargetPotreroId || !fechaMovimiento) {
+            setMsjError('Por favor complete todos los campos obligatorios.');
+            return;
+        }
+
+        if (currentPotrero && currentPotrero.id === selectedTargetPotreroId) {
+            setMsjError('El potrero destino no puede ser el mismo potrero actual.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // 1. Si hay un movimiento actual (fecha_salida is null), actualizarlo con la fecha actual como fecha de salida.
+            if (currentMovementId) {
+                const { error: errUpdate } = await supabase
+                    .from('movimientos_potreros')
+                    .update({ fecha_salida: fechaMovimiento })
+                    .eq('id', currentMovementId);
+                
+                if (errUpdate) throw errUpdate;
+            }
+
+            // 2. Insertar nuevo movimiento
+            const { error: errInsert } = await supabase
+                .from('movimientos_potreros')
+                .insert({
+                    id_finca: fincaId,
+                    id_potrerada: selectedPotreradaId,
+                    id_potrero: selectedTargetPotreroId,
+                    fecha_entrada: fechaMovimiento
+                });
+            
+            if (errInsert) throw errInsert;
+
+            // 3. Actualizar el id_potrero_actual de los animales que pertenecen a esta potrerada
+            const { error: errAnimals } = await supabase
+                .from('animales')
+                .update({ id_potrero_actual: selectedTargetPotreroId })
+                .eq('id_potrerada', selectedPotreradaId);
+            
+            if (errAnimals) throw errAnimals;
+
+            setMsjExito('Potrerada movida exitosamente.');
+            
+            // Refrescar el estado actual simulando re-selección
+            const potrId = selectedPotreradaId;
+            setSelectedPotreradaId('');
+            setTimeout(() => setSelectedPotreradaId(potrId), 100);
+
+        } catch (err: any) {
+            setMsjError('Error al guardar el movimiento: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const targetRotacion = rotaciones.find(r => r.id === selectedTargetRotacionId);
+
+    return (
+        <div className="page-container" style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'left', marginBottom: '32px' }}>
+                <ArrowLeftRight size={32} /> Movimientos de Potreradas
+            </h1>
+
+            {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
+            {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
+
+            <div className="card">
+                <form onSubmit={handleSaveMovement} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {step === 1 && (
+                        <>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>1. Seleccionar Potrerada *</label>
+                                <select 
+                                    value={selectedPotreradaId} 
+                                    onChange={(e) => setSelectedPotreradaId(e.target.value)}
+                                    required
+                                >
+                                    <option value="">-- Seleccione --</option>
+                                    {potreradas.map(p => (
+                                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {selectedPotreradaId && (
+                                <button 
+                                    type="button" 
+                                    onClick={() => setStep(2)}
+                                    style={{ marginTop: '12px' }}
+                                    disabled={!isAdminOrCowboy}
+                                >
+                                    Continuar
+                                </button>
+                            )}
+                            {!isAdminOrCowboy && <p style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--error)' }}>No tienes permisos para realizar movimientos.</p>}
+                        </>
+                    )}
+
+                    {step === 2 && (
+                        <>
+                            <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>Potrerada seleccionada: <span style={{ color: 'white' }}>{potreradas.find(p => p.id === selectedPotreradaId)?.nombre}</span></p>
+                                    <p style={{ margin: '8px 0 0 0', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Ubicación Actual:</p>
+                                    <p style={{ margin: '4px 0 0 0', fontWeight: 'bold', color: 'white' }}>
+                                        {currentPotrero ? currentPotrero.nombre : 'Sin potrero asignado'}
+                                    </p>
+                                </div>
+                                <button type="button" onClick={() => setStep(1)} style={{ width: 'auto', backgroundColor: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', padding: '4px 12px', fontSize: '0.8rem' }}>
+                                    Cambiar
+                                </button>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>2. ¿A dónde se moverá la potrerada?</label>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            setRotacionMode('misma');
+                                            setSelectedTargetRotacionId(currentPotrero?.id_rotacion || '');
+                                            setSelectedTargetPotreroId('');
+                                        }}
+                                        style={{ 
+                                            flex: 1, 
+                                            backgroundColor: rotacionMode === 'misma' ? 'var(--primary)' : 'transparent',
+                                            border: rotacionMode === 'misma' ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.2)',
+                                            color: rotacionMode === 'misma' ? 'white' : 'var(--text-muted)'
+                                        }}
+                                    >
+                                        Seguir en misma rotación
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            setRotacionMode('cambiar');
+                                            setSelectedTargetRotacionId('');
+                                            setSelectedTargetPotreroId('');
+                                        }}
+                                        style={{ 
+                                            flex: 1, 
+                                            backgroundColor: rotacionMode === 'cambiar' ? 'var(--primary)' : 'transparent',
+                                            border: rotacionMode === 'cambiar' ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.2)',
+                                            color: rotacionMode === 'cambiar' ? 'white' : 'var(--text-muted)'
+                                        }}
+                                    >
+                                        Cambiar a otra rotación
+                                    </button>
+                                </div>
+                            </div>
+
+                            {rotacionMode === 'cambiar' && (
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>3. Seleccionar Nueva Rotación *</label>
+                                    <select 
+                                        value={selectedTargetRotacionId} 
+                                        onChange={(e) => {
+                                            setSelectedTargetRotacionId(e.target.value);
+                                            setSelectedTargetPotreroId('');
+                                        }}
+                                        required
+                                    >
+                                        <option value="">-- Seleccione Rotación --</option>
+                                        {rotaciones.map(r => (
+                                            <option key={r.id} value={r.id}>{r.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {rotacionMode && selectedTargetRotacionId && (
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>{rotacionMode === 'cambiar' ? '4.' : '3.'} Potrero Destino *</label>
+                                    <select 
+                                        value={selectedTargetPotreroId} 
+                                        onChange={(e) => setSelectedTargetPotreroId(e.target.value)}
+                                        required
+                                        disabled={!targetRotacion || !targetRotacion.potreros || targetRotacion.potreros.length === 0}
+                                    >
+                                        <option value="">-- Seleccione Potrero --</option>
+                                        {(targetRotacion ? targetRotacion.potreros : []).map(p => (
+                                            <option key={p.id} value={p.id}>{p.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {rotacionMode && selectedTargetPotreroId && (
+                                <>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>{rotacionMode === 'cambiar' ? '5.' : '4.'} Fecha de Movimiento *</label>
+                                        <input 
+                                            type="date"
+                                            value={fechaMovimiento}
+                                            onChange={e => setFechaMovimiento(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+
+                                    <button 
+                                        type="submit" 
+                                        disabled={loading || !selectedTargetPotreroId || !selectedPotreradaId || !isAdminOrCowboy}
+                                        style={{ marginTop: '12px' }}
+                                    >
+                                        {loading ? 'Guardando...' : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Save size={20}/> Registrar Movimiento</span>}
+                                    </button>
+                                </>
+                            )}
+                        </>
+                    )}
+                </form>
+            </div>
+        </div>
+    );
+}
