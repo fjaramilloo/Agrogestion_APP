@@ -345,15 +345,15 @@ export default function Potreradas() {
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--primary)' }}>Cargando potreradas...</div>
             ) : (
-                <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+                <div className="table-container">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
                         <thead>
                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nombre Potrerada</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Animales</th>
-                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</th>
+                                <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</th>
-                                <th style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Días Pesaje</th>
+                                <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Días Pesaje</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>
                             </tr>
                         </thead>
@@ -372,7 +372,7 @@ export default function Potreradas() {
                                             <span>{p.animalCount}</span>
                                         </div>
                                     </td>
-                                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                    <td className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right' }}>
                                         <span style={{ fontWeight: 'bold' }}>{Math.round(p.pesoPromedio)}</span>
                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
                                     </td>
@@ -383,9 +383,9 @@ export default function Potreradas() {
                                         }}>
                                             {p.gmpPromedio.toFixed(1)}
                                         </span>
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg/m</span>
+                                        <span className="mobile-hide" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg/m</span>
                                     </td>
-                                    <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                    <td className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center' }}>
                                         <div style={{ 
                                             padding: '4px 10px', 
                                             borderRadius: '20px', 
@@ -465,57 +465,48 @@ export default function Potreradas() {
 
             {managingPotrerada && (
                 <div className="modal-overlay">
-                    {/* (Contenido del modal de gestión ya modificado arriba, se mantiene igual) */}
-                    <div className="card" style={{ width: '100%', maxWidth: '800px', height: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
+                    <div className="card modal-content" style={{ maxWidth: '800px' }}>
                         {/* Header */}
-                        <div style={{ padding: '32px 32px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <h2 style={{ margin: 0, color: 'var(--primary-light)' }}>
-                                    Gestionar Animales: {managingPotrerada.nombre}
+                                <h2 style={{ margin: 0, color: 'var(--primary-light)', fontSize: '1.4rem' }}>
+                                    Gestionar: {managingPotrerada.nombre}
                                 </h2>
                                 <button onClick={() => { setManagingPotrerada(null); setSearchTerm(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-                                    <X size={24} />
+                                    <X size={20} />
                                 </button>
                             </div>
-                            <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>
-                                Etapa: <span style={{ color: 'var(--primary-light)', fontWeight: 'bold' }}>{managingPotrerada.etapa.toUpperCase()}</span> | Animales: {animalesEnEstaPotrerada.length}
+                            <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.8rem' }}>
+                                {managingPotrerada.etapa.toUpperCase()} | {animalesEnEstaPotrerada.length} animales
                             </p>
                         </div>
 
                         {/* Content Area */}
-                        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                        <div className="responsive-grid" style={{ flex: 1, gap: '1px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
                             
                             {/* Current Animals Column */}
-                            <div style={{ background: 'var(--bg-card)', padding: '24px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                <h3 style={{ fontSize: '1rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Users size={18} color="var(--primary-light)" /> Miembros Actuales
+                            <div style={{ background: 'var(--bg-dark-paper)', padding: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                <h3 style={{ fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Users size={16} color="var(--primary-light)" /> En este lote
                                 </h3>
                                 
                                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {animalesEnEstaPotrerada.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '0.9rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
-                                            No hay animales en esta potrerada.
+                                        <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', fontSize: '0.8rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                                            Vacío
                                         </div>
                                     ) : (
                                         animalesEnEstaPotrerada.map(a => (
-                                            <div key={a.id} className="glass-panel" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)' }}>
+                                            <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
                                                 <div>
-                                                    <div style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.nombre_propietario}</div>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#{a.numero_chapeta}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{a.nombre_propietario}</div>
                                                 </div>
                                                 <button 
                                                     disabled={updatingAnimal === a.id}
                                                     onClick={() => handleRemoveAnimal(a.id)}
-                                                    style={{ 
-                                                        background: 'rgba(231, 76, 60, 0.1)', 
-                                                        color: '#e74c3c', 
-                                                        padding: '8px', 
-                                                        border: '1px solid rgba(231, 76, 60, 0.2)',
-                                                        width: 'auto',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}
+                                                    className="btn-icon"
+                                                    style={{ color: '#e74c3c', padding: '6px' }}
                                                 >
                                                     {updatingAnimal === a.id ? '...' : <Trash2 size={16} />}
                                                 </button>
@@ -526,63 +517,49 @@ export default function Potreradas() {
                             </div>
 
                             {/* Add Animals Column */}
-                            <div style={{ background: 'var(--bg-card)', padding: '24px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                <h3 style={{ fontSize: '1rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Plus size={18} color="var(--success)" /> Agregar Otros Animales
+                            <div style={{ background: 'var(--bg-dark-paper)', padding: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                <h3 style={{ fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Plus size={16} color="var(--success)" /> Agregar Otros
                                 </h3>
 
-                                <div style={{ position: 'relative', marginBottom: '16px' }}>
-                                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                                <div style={{ position: 'relative', marginBottom: '12px' }}>
+                                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                                     <input 
                                         type="text"
-                                        placeholder="Buscar por chapeta o dueño..."
+                                        placeholder="Buscar..."
                                         value={searchTerm}
                                         onChange={e => setSearchTerm(e.target.value)}
-                                        style={{ paddingLeft: '36px', fontSize: '0.9rem', marginBottom: 0 }}
+                                        style={{ padding: '8px 8px 8px 32px', fontSize: '0.85rem', marginBottom: 0 }}
                                     />
                                 </div>
                                 
                                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {filteredAnimalesFinca.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                            No se encontraron otros animales.
-                                        </div>
-                                    ) : (
-                                        filteredAnimalesFinca.map(a => (
-                                            <div key={a.id} className="glass-panel" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: 'bold' }}>#{a.numero_chapeta}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                        {a.nombre_propietario} {a.id_potrerada ? `(En otra potrerada)` : ''}
-                                                    </div>
+                                    {filteredAnimalesFinca.map(a => (
+                                        <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#{a.numero_chapeta}</div>
+                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {a.nombre_propietario}
                                                 </div>
-                                                <button 
-                                                    disabled={updatingAnimal === a.id}
-                                                    onClick={() => handleAddAnimal(a.id)}
-                                                    style={{ 
-                                                        background: 'rgba(46, 204, 113, 0.1)', 
-                                                        color: '#2ecc71', 
-                                                        padding: '8px', 
-                                                        border: '1px solid rgba(46, 204, 113, 0.2)',
-                                                        width: 'auto',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}
-                                                >
-                                                    {updatingAnimal === a.id ? '...' : <Plus size={16} />}
-                                                </button>
                                             </div>
-                                        ))
-                                    )}
+                                            <button 
+                                                disabled={updatingAnimal === a.id}
+                                                onClick={() => handleAddAnimal(a.id)}
+                                                className="btn-icon"
+                                                style={{ color: '#2ecc71', padding: '6px' }}
+                                            >
+                                                {updatingAnimal === a.id ? '...' : <Plus size={16} />}
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
 
                         {/* Footer */}
-                        <div style={{ padding: '20px 32px', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
-                            <button onClick={() => { setManagingPotrerada(null); setSearchTerm(''); }} style={{ width: 'auto', padding: '10px 30px' }}>
-                                Cerrar Ventana
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
+                            <button onClick={() => { setManagingPotrerada(null); setSearchTerm(''); }} style={{ width: 'auto', padding: '8px 24px', fontSize: '0.9rem' }}>
+                                Cerrar
                             </button>
                         </div>
                     </div>
@@ -591,42 +568,42 @@ export default function Potreradas() {
 
             {selectedDetailId && (
                 <div className="modal-overlay">
-                    <div className="card" style={{ width: '100%', maxWidth: '900px', height: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
+                    <div className="card modal-content" style={{ maxWidth: '900px' }}>
                         {detailLoading ? (
                             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--primary)' }}>
-                                Cargando información detallada...
+                                Cargando información...
                             </div>
                         ) : detailData ? (
                             <>
                                 {/* Header */}
-                                <div style={{ padding: '32px 32px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                         <div>
-                                            <h2 style={{ margin: '0 0 8px 0', color: 'var(--primary-light)', fontSize: '1.8rem' }}>
+                                            <h2 style={{ margin: '0 0 8px 0', color: 'var(--primary-light)', fontSize: 'clamp(1.1rem, 4vw, 1.5rem)' }}>
                                                 {detailData.potrerada.nombre}
                                             </h2>
-                                            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                                    <MapPin size={16} color="var(--primary)" /> Potrero Actual: <strong style={{color: 'var(--text)'}}>{detailData.potreroActual}</strong>
+                                            <div style={{ display: 'flex', gap: '8px 16px', flexWrap: 'wrap' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                                                    <MapPin size={14} color="var(--primary)" /> <span className="mobile-hide">Potrero:</span> <strong style={{color: 'var(--text)'}}>{detailData.potreroActual}</strong>
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                                    <TrendingUp size={16} color="var(--success)" /> GMP Promedio: <strong style={{color: 'var(--success)'}}>{detailData.gmpPromedioGrupo.toFixed(1)} kg/mes</strong>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                                                    <TrendingUp size={14} color="var(--success)" /> <span className="mobile-hide">GMP:</span> <strong style={{color: 'var(--success)'}}>{detailData.gmpPromedioGrupo.toFixed(1)}</strong>
                                                 </div>
                                             </div>
                                         </div>
-                                        <button onClick={() => setSelectedDetailId(null)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px', borderRadius: '50%' }}>
-                                            <X size={24} />
+                                        <button onClick={() => setSelectedDetailId(null)} className="btn-icon">
+                                            <X size={20} />
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Main Content (Scrollable) */}
-                                <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
+                                {/* Main Content Scrollable */}
+                                <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
                                     
-                                    {/* Gráficas Section */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-                                        <div className="glass-panel" style={{ padding: '20px', height: '350px' }}>
-                                            <h4 style={{ margin: '0 0 20px 0', fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio por Pesaje (kg)</h4>
+                                    {/* Gráficas Responsive */}
+                                    <div className="responsive-grid" style={{ marginBottom: '24px' }}>
+                                        <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
+                                            <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</h4>
                                             {detailData.history.length > 0 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
                                                     <LineChart data={detailData.history}>
@@ -642,8 +619,8 @@ export default function Potreradas() {
                                             )}
                                         </div>
 
-                                        <div className="glass-panel" style={{ padding: '20px', height: '350px' }}>
-                                            <h4 style={{ margin: '0 0 20px 0', fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio por Pesaje (kg/mes)</h4>
+                                        <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
+                                            <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</h4>
                                             {detailData.history.length > 1 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
                                                     <LineChart data={detailData.history.filter((_, idx) => idx > 0)}>
@@ -661,17 +638,17 @@ export default function Potreradas() {
                                     </div>
 
                                     {/* Lista de Animales */}
-                                    <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Info size={16} /> Detalle por Animal
+                                    <h4 style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Info size={14} /> Detalle por Animal
                                     </h4>
-                                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <div className="table-container">
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '450px' }}>
                                             <thead>
                                                 <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-muted)' }}>CHAPETA</th>
-                                                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-muted)' }}>PROPIETARIO</th>
-                                                    <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-muted)' }}>PESO ACTUAL</th>
-                                                    <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-muted)' }}>GMP (kg/mes)</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>CHAPETA</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PROPIETARIO</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESO</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)' }}>GMP</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -702,12 +679,12 @@ export default function Potreradas() {
                                     </div>
                                 </div>
 
-                                {/* Footer */}
-                                <div style={{ padding: '20px 32px', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
-                                    <button onClick={() => setSelectedDetailId(null)} style={{ width: 'auto', padding: '10px 30px' }}>
-                                        Cerrar Detalle
-                                    </button>
-                                </div>
+                        {/* Footer */}
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
+                            <button onClick={() => setSelectedDetailId(null)} style={{ width: 'auto', padding: '8px 24px', fontSize: '0.9rem' }}>
+                                Cerrar
+                            </button>
+                        </div>
                             </>
                         ) : (
                             <div style={{ padding: '40px', textAlign: 'center' }}>No se pudo cargar la información.</div>
