@@ -398,13 +398,51 @@ export default function Settings() {
             skipEmptyLines: true,
             complete: async (results) => {
                 try {
-                    // 1. Obtener mapeos de potreradas y potreros
+                    // 1. Obtener mapeos de potreradas y potreros existentes
                     const { data: pds } = await supabase.from('potreradas').select('id, nombre').eq('id_finca', fincaId);
                     const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
-                    
+
                     const mapPotreradas = new Map(pds?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
                     const mapPotreros = new Map(pts?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
 
+                    // 2. Detectar potreradas nuevas que vengan en el CSV y crearlas
+                    //    Usamos la etapa del animal para la potrerada
+                    const potreradasNuevas = new Map<string, string>(); // nombre_lower -> etapa
+                    results.data.forEach((row: any) => {
+                        const nombre = row.potrerada?.toString().trim();
+                        const etapa = row.etapa?.toLowerCase() || 'levante';
+                        if (nombre && !mapPotreradas.has(nombre.toLowerCase())) {
+                            potreradasNuevas.set(nombre.toLowerCase(), etapa);
+                        }
+                    });
+
+                    if (potreradasNuevas.size > 0) {
+                        // Obtener nombre original (con capitalización) del CSV para insertar
+                        const inserts = results.data.reduce((acc: any[], row: any) => {
+                            const nombre = row.potrerada?.toString().trim();
+                            const nombreLower = nombre?.toLowerCase();
+                            if (nombre && potreradasNuevas.has(nombreLower) && !acc.find(a => a.nombre.toLowerCase() === nombreLower)) {
+                                acc.push({
+                                    id_finca: fincaId,
+                                    nombre: nombre,
+                                    etapa: row.etapa?.toLowerCase() || 'levante'
+                                });
+                            }
+                            return acc;
+                        }, []);
+
+                        const { data: creadas, error: errCreate } = await supabase
+                            .from('potreradas')
+                            .insert(inserts)
+                            .select('id, nombre');
+
+                        if (errCreate) throw new Error(`Error al crear potreradas: ${errCreate.message}`);
+
+                        // Agregar al mapa las recién creadas
+                        creadas?.forEach(p => mapPotreradas.set(p.nombre.toLowerCase().trim(), p.id));
+                    }
+
+                    // 3. Construir filas de animales con IDs resueltos
                     const rows = results.data.map((row: any) => {
                         const potreradaNombre = row.potrerada?.toString().toLowerCase().trim();
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
@@ -418,8 +456,8 @@ export default function Settings() {
                             etapa: row.etapa?.toLowerCase() || 'levante',
                             fecha_ingreso: parseFechaCol(row.fecha_ingreso) || new Date().toISOString().split('T')[0],
                             peso_ingreso: parseFloat(row.peso_ingreso) || 0,
-                            id_potrerada: potreradaNombre ? mapPotreradas.get(potreradaNombre) : null,
-                            id_potrero_actual: potreroNombre ? mapPotreros.get(potreroNombre) : null,
+                            id_potrerada: potreradaNombre ? (mapPotreradas.get(potreradaNombre) ?? null) : null,
+                            id_potrero_actual: potreroNombre ? (mapPotreros.get(potreroNombre) ?? null) : null,
                             estado: 'activo'
                         };
                     });
@@ -428,34 +466,61 @@ export default function Settings() {
                     if (chapetas.some(c => !c)) throw new Error("Todas las filas deben tener un número de chapeta.");
                     if (new Set(chapetas).size !== chapetas.length) throw new Error("El archivo CSV contiene números de chapeta duplicados.");
 
-                    // Validar contra la base de datos
+                    // 4. Separar animales en: nuevos (insertar) y existentes (actualizar)
                     const { data: existentes, error: checkError } = await supabase
                         .from('animales')
-                        .select('numero_chapeta')
+                        .select('id, numero_chapeta')
                         .eq('id_finca', fincaId)
                         .in('numero_chapeta', chapetas);
 
                     if (checkError) throw checkError;
-                    if (existentes && existentes.length > 0) {
-                        const caps = existentes.map(e => e.numero_chapeta).join(', ');
-                        throw new Error(`Las siguientes chapetas ya existen en esta finca: ${caps}. Por favor corríjalas en su archivo.`);
+
+                    const existentesMap = new Map(existentes?.map(e => [e.numero_chapeta, e.id]) ?? []);
+                    const rowsNuevos = rows.filter(r => !existentesMap.has(r.numero_chapeta));
+                    const rowsActualizar = rows.filter(r => existentesMap.has(r.numero_chapeta));
+
+                    // 5. Insertar animales nuevos y su pesaje inicial
+                    let insertados = 0;
+                    if (rowsNuevos.length > 0) {
+                        const { data: nuevosAnimales, error: errIns } = await supabase
+                            .from('animales')
+                            .insert(rowsNuevos)
+                            .select();
+                        if (errIns) throw errIns;
+                        insertados = nuevosAnimales?.length ?? 0;
+
+                        if (nuevosAnimales && nuevosAnimales.length > 0) {
+                            const pesajes = nuevosAnimales.map(anim => ({
+                                id_animal: anim.id,
+                                peso: anim.peso_ingreso,
+                                fecha: anim.fecha_ingreso,
+                                etapa: anim.etapa,
+                                id_potrero: anim.id_potrero_actual
+                            }));
+                            await supabase.from('registros_pesaje').insert(pesajes);
+                        }
                     }
 
-                    const { data: nuevosAnimales, error } = await supabase.from('animales').insert(rows).select();
-                    if (error) throw error;
-
-                    if (nuevosAnimales && nuevosAnimales.length > 0) {
-                        const pesajes = nuevosAnimales.map(anim => ({
-                            id_animal: anim.id,
-                            peso: anim.peso_ingreso,
-                            fecha: anim.fecha_ingreso,
-                            etapa: anim.etapa,
-                            id_potrero: anim.id_potrero_actual
-                        }));
-                        await supabase.from('registros_pesaje').insert(pesajes);
+                    // 6. Actualizar animales existentes (sin tocar registros de pesaje ya existentes)
+                    let actualizados = 0;
+                    for (const row of rowsActualizar) {
+                        const animalId = existentesMap.get(row.numero_chapeta);
+                        if (!animalId) continue;
+                        const { numero_chapeta: _nc, id_finca: _if, ...camposActualizar } = row;
+                        const { error: errUpd } = await supabase
+                            .from('animales')
+                            .update(camposActualizar)
+                            .eq('id', animalId);
+                        if (!errUpd) actualizados++;
                     }
 
-                    setMsjExito(`¡Carga masiva de animales completada! ${rows.length} animales registrados con su peso inicial, potrerada y potrero.`);
+                    const msgPotreradas = potreradasNuevas.size > 0
+                        ? ` Se crearon ${potreradasNuevas.size} potrerada(s) nueva(s): ${[...potreradasNuevas.keys()].join(', ')}.`
+                        : '';
+                    const partes = [];
+                    if (insertados > 0) partes.push(`${insertados} animal(es) nuevo(s) registrado(s)`);
+                    if (actualizados > 0) partes.push(`${actualizados} animal(es) existente(s) actualizado(s)`);
+                    setMsjExito(`¡Carga masiva completada! ${partes.join(' y ')}.${msgPotreradas}`);
                     setShowExitoModal(true);
                 } catch (err: any) {
                     setMsjError('Error en carga de animales: ' + err.message);
