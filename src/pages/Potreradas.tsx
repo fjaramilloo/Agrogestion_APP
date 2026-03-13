@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Edit2, Scale, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info } from 'lucide-react';
+import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -12,6 +12,7 @@ interface Potrerada {
     etapa: string;
     animalCount: number;
     pesoPromedio: number;
+    gmpPromedio: number;
     diasPesajePromedio: number;
 }
 
@@ -69,7 +70,6 @@ export default function Potreradas() {
 
             if (potsErr) throw potsErr;
 
-            // 2. Obtener todos los animales activos de la finca para agruparlos
             const { data: animals, error: animErr } = await supabase
                 .from('animales')
                 .select(`
@@ -81,7 +81,9 @@ export default function Potreradas() {
                     fecha_ingreso,
                     registros_pesaje (
                         peso,
-                        fecha
+                        fecha,
+                        gdp_calculada,
+                        gmp_calculada
                     )
                 `)
                 .eq('id_finca', fincaId)
@@ -111,8 +113,10 @@ export default function Potreradas() {
                 const groupAnimals = animals?.filter((a: any) => a.id_potrerada === p.id) || [];
                 
                 let totalPeso = 0;
+                let totalGmp = 0;
                 let totalDiasPesaje = 0;
                 let validWeightCount = 0;
+                let validGmpCount = 0;
                 let validDateCount = 0;
 
                 groupAnimals.forEach((a: any) => {
@@ -125,11 +129,26 @@ export default function Potreradas() {
                     totalPeso += Number(pesoActual);
                     validWeightCount++;
 
-                    const fechaRef = lastP ? new Date(lastP.fecha) : new Date(a.fecha_ingreso);
-                    fechaRef.setHours(0,0,0,0);
-                    const diff = differenceInDays(hoy, fechaRef);
-                    totalDiasPesaje += diff;
-                    validDateCount++;
+                    // Usar gmp_calculada si existe, sino intentar con gdp_calculada * 30
+                    if (lastP) {
+                        const gmp = lastP.gmp_calculada || (lastP.gdp_calculada ? lastP.gdp_calculada * 30 : 0);
+                        if (gmp !== 0) {
+                            totalGmp += Number(gmp);
+                            validGmpCount++;
+                        }
+
+                        const fechaRef = new Date(lastP.fecha);
+                        fechaRef.setHours(0,0,0,0);
+                        const diff = differenceInDays(hoy, fechaRef);
+                        totalDiasPesaje += diff;
+                        validDateCount++;
+                    } else {
+                        const fechaRef = new Date(a.fecha_ingreso);
+                        fechaRef.setHours(0,0,0,0);
+                        const diff = differenceInDays(hoy, fechaRef);
+                        totalDiasPesaje += diff;
+                        validDateCount++;
+                    }
                 });
 
                 return {
@@ -138,6 +157,7 @@ export default function Potreradas() {
                     etapa: p.etapa,
                     animalCount: groupAnimals.length,
                     pesoPromedio: validWeightCount > 0 ? totalPeso / validWeightCount : 0,
+                    gmpPromedio: validGmpCount > 0 ? totalGmp / validGmpCount : 0,
                     diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0
                 };
             });
@@ -325,63 +345,87 @@ export default function Potreradas() {
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--primary)' }}>Cargando potreradas...</div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-                    {potreradas.map(p => (
-                        <div key={p.id} className="card" style={{ padding: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                                <div onClick={() => handleOpenDetail(p)} style={{ cursor: 'pointer' }}>
-                                    <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--primary-light)', textDecoration: 'underline' }}>{p.nombre}</h3>
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>{p.etapa}</span>
-                                </div>
-                                <button 
-                                    onClick={() => handleEditClick(p)}
-                                    style={{ background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '8px', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                                >
-                                    <Edit2 size={16} />
-                                </button>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>
-                                        <Users size={14} /> Animales
-                                    </div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{p.animalCount}</div>
-                                </div>
-                                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>
-                                        <Scale size={14} /> Peso Prom.
-                                    </div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{Math.round(p.pesoPromedio)} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>kg</span></div>
-                                </div>
-                                <div style={{ gridColumn: '1 / -1', background: 'rgba(255,152,0,0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,152,0,0.1)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--warning)', fontSize: '0.85rem', marginBottom: '4px' }}>
-                                        <Calendar size={14} /> Días desde último pesaje (prom.)
-                                    </div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--warning)' }}>{Math.round(p.diasPesajePromedio)} <span style={{ fontSize: '0.9rem' }}>días</span></div>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={() => setManagingPotrerada(p)}
-                                style={{ 
-                                    marginTop: '20px', 
-                                    width: '100%', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center', 
-                                    gap: '10px',
-                                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                                    border: '1px solid rgba(52, 152, 219, 0.3)',
-                                    color: '#3498db'
-                                }}
-                            >
-                                <Users size={16} /> Gestionar Animales
-                            </button>
-                        </div>
-                    ))}
+                <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+                        <thead>
+                            <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nombre Potrerada</th>
+                                <th style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Animales</th>
+                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</th>
+                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</th>
+                                <th style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Días Pesaje</th>
+                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {potreradas.map((p, idx) => (
+                                <tr key={p.id} className="table-row-hover" style={{ borderBottom: idx < potreradas.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                    <td style={{ padding: '16px 24px' }}>
+                                        <div onClick={() => handleOpenDetail(p)} style={{ cursor: 'pointer' }}>
+                                            <div style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1.1rem' }}>{p.nombre}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{p.etapa}</div>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                            <Users size={14} className="mobile-hide" />
+                                            <span>{p.animalCount}</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                        <span style={{ fontWeight: 'bold' }}>{Math.round(p.pesoPromedio)}</span>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
+                                    </td>
+                                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                        <span style={{ 
+                                            color: p.gmpPromedio > 20 ? 'var(--success)' : p.gmpPromedio > 10 ? 'var(--warning)' : 'var(--error)',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {p.gmpPromedio.toFixed(1)}
+                                        </span>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg/m</span>
+                                    </td>
+                                    <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                        <div style={{ 
+                                            padding: '4px 10px', 
+                                            borderRadius: '20px', 
+                                            background: p.diasPesajePromedio > 60 ? 'rgba(255,152,0,0.1)' : 'rgba(255,255,255,0.05)',
+                                            color: p.diasPesajePromedio > 60 ? 'var(--warning)' : 'var(--text)',
+                                            fontSize: '0.85rem',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            <Calendar size={12} />
+                                            {Math.round(p.diasPesajePromedio)} d
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                            <button 
+                                                onClick={() => setManagingPotrerada(p)}
+                                                className="btn-icon"
+                                                title="Gestionar Animales"
+                                                style={{ background: 'rgba(52, 152, 219, 0.1)', color: '#3498db', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                            >
+                                                <Users size={16} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleEditClick(p)}
+                                                className="btn-icon"
+                                                title="Editar Nombre"
+                                                style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                     {potreradas.length === 0 && (
-                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
                             No hay potreradas registradas en esta finca.
                         </div>
                     )}
@@ -389,7 +433,7 @@ export default function Potreradas() {
             )}
 
             {editingPotrerada && (
-                <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <div className="modal-overlay">
                     <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ margin: 0 }}>Editar Nombre</h2>
@@ -420,8 +464,7 @@ export default function Potreradas() {
             )}
 
             {managingPotrerada && (
-                /* ... Modal existente ... */
-                <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+                <div className="modal-overlay">
                     {/* (Contenido del modal de gestión ya modificado arriba, se mantiene igual) */}
                     <div className="card" style={{ width: '100%', maxWidth: '800px', height: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
                         {/* Header */}
@@ -547,7 +590,7 @@ export default function Potreradas() {
             )}
 
             {selectedDetailId && (
-                <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+                <div className="modal-overlay">
                     <div className="card" style={{ width: '100%', maxWidth: '900px', height: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
                         {detailLoading ? (
                             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--primary)' }}>
