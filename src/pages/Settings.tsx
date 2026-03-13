@@ -447,18 +447,21 @@ export default function Settings() {
                         const potreradaNombre = row.potrerada?.toString().toLowerCase().trim();
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
 
+                        const etapa = row.etapa?.toLowerCase() || 'levante';
                         return {
                             id_finca: fincaId,
                             numero_chapeta: row.numero_chapeta?.toString().trim(),
                             nombre_propietario: row.propietario || 'Sin Datos',
                             especie: row.especie?.toLowerCase() || 'bovino',
                             sexo: row.sexo?.toUpperCase() || 'M',
-                            etapa: row.etapa?.toLowerCase() || 'levante',
+                            etapa: etapa,
                             fecha_ingreso: parseFechaCol(row.fecha_ingreso) || new Date().toISOString().split('T')[0],
                             peso_ingreso: parseFloat(row.peso_ingreso) || 0,
                             id_potrerada: potreradaNombre ? (mapPotreradas.get(potreradaNombre) ?? null) : null,
                             id_potrero_actual: potreroNombre ? (mapPotreros.get(potreroNombre) ?? null) : null,
-                            estado: 'activo'
+                            estado: 'activo',
+                            // Si el animal está en ceba, nos aseguramos de que no tenga la marca de "ok_ceba"
+                            ok_ceba: etapa === 'ceba' ? false : undefined
                         };
                     });
 

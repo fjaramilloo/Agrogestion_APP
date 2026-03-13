@@ -85,6 +85,7 @@ export default function Mercado() {
             `)
             .eq('id_finca', fincaId)
             .eq('ok_ceba', true)
+            .eq('etapa', 'levante')
             .eq('estado', 'activo');
 
         const { data: potData } = await supabase

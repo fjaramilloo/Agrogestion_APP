@@ -376,17 +376,19 @@ export default function Weighing() {
                             </div>
                         </div>
 
-                        {/* Indicador si ya tiene marca ok_ceba */}
-                        {animal.ok_ceba && (
+                        {/* Indicador si ya tiene marca ok_ceba - Solo mostrar si está en levante */}
+                        {animal.ok_ceba && animal.etapa === 'levante' && (
                             <div style={{ padding: '12px 16px', background: 'rgba(76,175,80,0.1)', border: '1px solid rgba(76,175,80,0.3)', borderRadius: '8px', marginBottom: '16px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
                                 <CheckCircle2 size={18} /> Este animal ya está marcado para pasar a Ceba
                             </div>
                         )}
 
-                        {/* Indicador del umbral */}
-                        <div style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                            Si el nuevo peso ≥ <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>, el animal quedará marcado para pasar a Ceba.
-                        </div>
+                        {/* Indicador del umbral - Solo mostrar si está en levante */}
+                        {animal.etapa === 'levante' && (
+                            <div style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                Si el nuevo peso ≥ <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>, el animal quedará marcado para pasar a Ceba.
+                            </div>
+                        )}
 
                         <label style={{ fontSize: '1.2rem', color: 'white', marginBottom: '12px' }}>Nuevo Peso (kg)</label>
                         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
