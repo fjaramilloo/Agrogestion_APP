@@ -15,6 +15,9 @@ interface AnimalVenta {
     ultimo_peso?: number;
     ultima_fecha?: string;
     gmp?: number;
+    potreroNombre?: string;
+    fecha_ingreso?: string;
+    fecha_inicio_ceba?: string | null;
 }
 
 export default function Sales() {
@@ -109,9 +112,12 @@ export default function Sales() {
                     nombre_propietario,
                     peso_ingreso,
                     fecha_ingreso,
+                    etapa,
+                    potreros (nombre),
                     registros_pesaje (
                         peso,
-                        fecha
+                        fecha,
+                        etapa
                     )
                 `)
                 .eq('id_finca', fincaId)
@@ -130,6 +136,18 @@ export default function Sales() {
                 const ultimoPeso = registros.length > 0 ? registros[0].peso : data.peso_ingreso;
                 const ultimaFecha = registros.length > 0 ? registros[0].fecha : data.fecha_ingreso;
 
+                // Datos adicionales para reporte solicitado
+                const potreroObj = data.potreros as any;
+                const potrero = Array.isArray(potreroObj) ? potreroObj[0]?.nombre : potreroObj?.nombre || 'Sin potrero';
+                const fechaIngreso = data.fecha_ingreso;
+                
+                // Buscar fecha de inicio en ceba (primer pesaje con etapa 'ceba' o fecha de ingreso si entró como ceba)
+                const registroCeba = (data.registros_pesaje || [])
+                    .filter((r: any) => r.etapa === 'ceba')
+                    .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
+                
+                let fechaInicioCeba = registroCeba ? registroCeba.fecha : (data.etapa === 'ceba' ? data.fecha_ingreso : null);
+
                 const gmp = a.peso_salida ? calculateGMP(a.peso_salida, ultimoPeso, ultimaFecha, fechaVenta) : 0;
 
                 newAnimales[index] = { 
@@ -140,7 +158,11 @@ export default function Sales() {
                     propietario: data.nombre_propietario,
                     ultimo_peso: ultimoPeso,
                     ultima_fecha: ultimaFecha,
-                    gmp: gmp
+                    gmp: gmp,
+                    // Extensiones para el reporte
+                    potreroNombre: potrero,
+                    fecha_ingreso: fechaIngreso,
+                    fecha_inicio_ceba: fechaInicioCeba
                 };
             }
             setAnimales(newAnimales);

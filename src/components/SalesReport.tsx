@@ -6,6 +6,9 @@ interface AnimalReport {
     peso_salida: string | number;
     propietario: string;
     gmp?: number;
+    potreroNombre?: string;
+    fecha_ingreso?: string;
+    fecha_inicio_ceba?: string | null;
 }
 
 interface SalesReportProps {
@@ -24,8 +27,22 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
     // Promedio GMP (excluyendo los que sean 0 o undefined)
     const animalesConGMP = animales.filter(a => a.gmp && a.gmp > 0);
     const promedioGMP = animalesConGMP.length > 0 
-        ? animalesConGMP.reduce((sum, a) => sum + (a.gmp || 0), 0) / animalesConGMP.length
+        ? animalesConGMP.reduce((sum: number, a) => sum + (a.gmp || 0), 0) / animalesConGMP.length
         : 0;
+
+    // Tiempos promedio
+    const calcularDias = (inicio: string, fin: string) => {
+        const d1 = new Date(inicio);
+        const d2 = new Date(fin);
+        return Math.max(0, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+    };
+
+    const diasFincaTotal = animales.reduce((sum, a) => sum + (a.fecha_ingreso ? calcularDias(a.fecha_ingreso, fechaVenta) : 0), 0);
+    const promedioDiasFinca = Math.round(diasFincaTotal / totalAnimales);
+
+    const animalesEnCeba = animales.filter(a => a.fecha_inicio_ceba);
+    const diasCebaTotal = animalesEnCeba.reduce((sum, a) => sum + (a.fecha_inicio_ceba ? calcularDias(a.fecha_inicio_ceba, fechaVenta) : 0), 0);
+    const promedioDiasCeba = animalesEnCeba.length > 0 ? Math.round(diasCebaTotal / animalesEnCeba.length) : 0;
 
     // Agrupación por propietario (Marca)
     const porMarca = animales.reduce((acc: any, a) => {
@@ -51,9 +68,6 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
     }));
 
     // Dividir animales para tabla de 2 columnas (solo en desktop)
-    const half = Math.ceil(animales.length / 2);
-    const leftCol = animales.slice(0, half);
-    const rightCol = animales.slice(half);
 
     const handlePrint = () => {
         window.print();
@@ -128,15 +142,16 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     color: #666;
                 }
                 .report-tables-wrapper {
-                    display: flex;
+                    display: block;
                     width: 100%;
                     border: 1px solid #ddd;
                     margin-bottom: 20px;
+                    overflow-x: auto;
                 }
                 .report-table {
-                    width: 50%;
+                    width: 100%;
                     border-collapse: collapse;
-                    font-size: 12px;
+                    font-size: 11px;
                 }
                 .report-table th, .report-table td {
                     border: 1px solid #ddd;
@@ -166,7 +181,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     text-align: center;
                     border-right: 1px solid #eee;
                 }
-                .summary-item:last-child { border-right: none; }
+                .summary-item:last-child { border-right: none !important; }
                 .summary-label { 
                     display: block;
                     font-size: 11px;
@@ -281,46 +296,35 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     <table className="report-table">
                         <thead>
                             <tr>
+                                <th>#</th>
                                 <th>Chapeta</th>
                                 <th>Peso</th>
                                 <th>GMP</th>
                                 <th>Marca</th>
+                                <th>Potrero</th>
+                                <th>T. Finca</th>
+                                <th>T. Ceba</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {leftCol.map((a, i) => (
-                                <tr key={i}>
-                                    <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
-                                    <td style={{ fontWeight: '700' }}>{a.peso_salida} kg</td>
-                                    <td style={{ color: (a.gmp || 0) > 0 ? 'var(--success)' : '#888' }}>
-                                        {a.gmp && a.gmp > 0 ? `${a.gmp.toFixed(1)} kg` : '-'}
-                                    </td>
-                                    <td style={{ color: '#666' }}>{a.propietario}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    <table className="report-table" style={{ borderLeft: 'none' }}>
-                        <thead>
-                            <tr>
-                                <th>Chapeta</th>
-                                <th>Peso</th>
-                                <th>GMP</th>
-                                <th>Marca</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rightCol.map((a, i) => (
-                                <tr key={i}>
-                                    <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
-                                    <td style={{ fontWeight: '700' }}>{a.peso_salida} kg</td>
-                                    <td style={{ color: (a.gmp || 0) > 0 ? 'var(--success)' : '#888' }}>
-                                        {a.gmp && a.gmp > 0 ? `${a.gmp.toFixed(1)} kg` : '-'}
-                                    </td>
-                                    <td style={{ color: '#666' }}>{a.propietario}</td>
-                                </tr>
-                            ))}
-                            {rightCol.length < leftCol.length && <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>}
+                            {animales.map((a, i) => {
+                                const diasFinca = a.fecha_ingreso ? calcularDias(a.fecha_ingreso, fechaVenta) : '-';
+                                const diasCeba = a.fecha_inicio_ceba ? calcularDias(a.fecha_inicio_ceba, fechaVenta) : '-';
+                                return (
+                                    <tr key={i}>
+                                        <td style={{ color: '#888', fontSize: '10px' }}>{i + 1}</td>
+                                        <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
+                                        <td style={{ fontWeight: '700' }}>{a.peso_salida} kg</td>
+                                        <td style={{ color: (a.gmp || 0) > 0 ? 'var(--success)' : '#888' }}>
+                                            {a.gmp && a.gmp > 0 ? `${a.gmp.toFixed(1)} kg` : '-'}
+                                        </td>
+                                        <td style={{ color: '#666' }}>{a.propietario}</td>
+                                        <td style={{ color: '#666' }}>{a.potreroNombre || '-'}</td>
+                                        <td>{diasFinca} d</td>
+                                        <td>{diasCeba !== '-' ? `${diasCeba} d` : '-'}</td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -339,6 +343,14 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         <div className="summary-value" style={{ color: 'var(--success)' }}>{promedioGMP.toFixed(2)} kg</div>
                     </div>
                     <div className="summary-item">
+                        <span className="summary-label">Días Finca (Prom.)</span>
+                        <div className="summary-value">{promedioDiasFinca} d</div>
+                    </div>
+                    <div className="summary-item">
+                        <span className="summary-label">Días Ceba (Prom.)</span>
+                        <div className="summary-value">{promedioDiasCeba || '-'}</div>
+                    </div>
+                    <div className="summary-item" style={{ borderRight: 'none' }}>
                         <span className="summary-label">Peso Total</span>
                         <div className="summary-value">{totalKilos.toLocaleString()} kg</div>
                     </div>
