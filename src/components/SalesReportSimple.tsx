@@ -54,7 +54,7 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                     background: white;
                     color: #333;
                     width: 100%;
-                    max-width: 500px;
+                    max-width: 650px;
                     padding: 40px;
                     border-radius: 12px;
                     box-shadow: 0 20px 50px rgba(0,0,0,0.3);
@@ -84,13 +84,20 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                 .rs-table {
                     width: 100%;
                     border-collapse: collapse;
-                    font-size: 13px;
+                    font-size: 14px;
                     margin-bottom: 24px;
+                    table-layout: fixed;
                 }
+                .rs-table colgroup col:nth-child(1) { width: 48px; }
+                .rs-table colgroup col:nth-child(2) { width: auto; }
+                .rs-table colgroup col:nth-child(3) { width: 130px; }
                 .rs-table th, .rs-table td {
                     border: 1px solid #ddd;
-                    padding: 8px 14px;
+                    padding: 10px 16px;
                     text-align: center;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
                 .rs-table th {
                     background-color: #f8f9fa;
@@ -184,6 +191,11 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
 
                 {/* Tabla simple */}
                 <table className="rs-table">
+                    <colgroup>
+                        <col />
+                        <col />
+                        <col />
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>#</th>
