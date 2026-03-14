@@ -39,6 +39,10 @@ export default function Potreradas() {
     const [editingPotrerada, setEditingPotrerada] = useState<Potrerada | null>(null);
     const [newName, setNewName] = useState('');
     
+    // Umbrales GMP
+    const [umbralAlto, setUmbralAlto] = useState(20);
+    const [umbralMedio, setUmbralMedio] = useState(10);
+    
     // Estados para gestión de animales
     const [managingPotrerada, setManagingPotrerada] = useState<Potrerada | null>(null);
     const [animalesFinca, setAnimalesFinca] = useState<AnimalPotrero[]>([]);
@@ -61,6 +65,17 @@ export default function Potreradas() {
         setLoading(true);
 
         try {
+            const { data: config } = await supabase
+                .from('configuracion_kpi')
+                .select('umbral_alto_gmp, umbral_medio_gmp')
+                .eq('id_finca', fincaId)
+                .single();
+                
+            if (config) {
+                setUmbralAlto(config.umbral_alto_gmp ?? 20);
+                setUmbralMedio(config.umbral_medio_gmp ?? 10);
+            }
+
             // 1. Obtener todas las potreradas de la finca
             const { data: pots, error: potsErr } = await supabase
                 .from('potreradas')
@@ -378,7 +393,7 @@ export default function Potreradas() {
                                     </td>
                                     <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                                         <span style={{ 
-                                            color: p.gmpPromedio > 20 ? 'var(--success)' : p.gmpPromedio > 10 ? 'var(--warning)' : 'var(--error)',
+                                            color: p.gmpPromedio > umbralAlto ? 'var(--success)' : p.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)',
                                             fontWeight: 'bold'
                                         }}>
                                             {p.gmpPromedio.toFixed(1)}
@@ -661,7 +676,7 @@ export default function Potreradas() {
                                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold' }}>{Math.round(a.pesoActual)} kg</td>
                                                         <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                                                             <span style={{ 
-                                                                color: (a.gmp || 0) > 20 ? 'var(--success)' : (a.gmp || 0) > 10 ? 'var(--warning)' : 'var(--error)',
+                                                                color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : (a.gmp || 0) > umbralMedio ? 'var(--warning)' : 'var(--error)',
                                                                 fontWeight: 'bold'
                                                             }}>
                                                                 {(a.gmp || 0).toFixed(1)}

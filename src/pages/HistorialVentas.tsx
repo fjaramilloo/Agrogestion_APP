@@ -32,6 +32,8 @@ export default function HistorialVentas() {
     const [ventas, setVentas] = useState<VentaGrupo[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [umbralAlto, setUmbralAlto] = useState(20);
+    const [umbralMedio, setUmbralMedio] = useState(10);
     
     // Estado para abrir el reporte
     const [selectedVenta, setSelectedVenta] = useState<VentaGrupo | null>(null);
@@ -41,6 +43,16 @@ export default function HistorialVentas() {
         
         const fetchVentas = async () => {
             setLoading(true);
+            const { data: config } = await supabase
+                .from('configuracion_kpi')
+                .select('umbral_alto_gmp, umbral_medio_gmp')
+                .eq('id_finca', fincaId)
+                .single();
+            if (config) {
+                setUmbralAlto(config.umbral_alto_gmp ?? 20);
+                setUmbralMedio(config.umbral_medio_gmp ?? 10);
+            }
+
             const { data, error } = await supabase
                 .from('animales')
                 .select(`
@@ -211,7 +223,7 @@ export default function HistorialVentas() {
                                 </div>
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>GMP Lote</div>
-                                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: venta.gmpPromedio > 0 ? 'var(--success)' : 'white' }}>{venta.gmpPromedio > 0 ? venta.gmpPromedio.toFixed(1) : '-'}<span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span></div>
+                                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: venta.gmpPromedio > umbralAlto ? 'var(--success)' : (venta.gmpPromedio > umbralMedio ? 'var(--warning)' : (venta.gmpPromedio > 0 ? 'var(--error)' : 'white')) }}>{venta.gmpPromedio > 0 ? venta.gmpPromedio.toFixed(1) : '-'}<span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span></div>
                                 </div>
                             </div>
                         </div>
@@ -225,6 +237,8 @@ export default function HistorialVentas() {
                     fechaVenta={selectedVenta.fechaVenta}
                     animales={selectedVenta.animalesReporte}
                     comprador={selectedVenta.comprador}
+                    umbralAlto={umbralAlto}
+                    umbralMedio={umbralMedio}
                     onClose={() => setSelectedVenta(null)}
                 />
             )}

@@ -16,10 +16,12 @@ interface SalesReportProps {
     fechaVenta: string;
     animales: AnimalReport[];
     comprador: string;
+    umbralAlto?: number;
+    umbralMedio?: number;
     onClose: () => void;
 }
 
-export default function SalesReport({ fincaNombre, fechaVenta, animales, comprador, onClose }: SalesReportProps) {
+export default function SalesReport({ fincaNombre, fechaVenta, animales, comprador, umbralAlto = 20, umbralMedio = 10, onClose }: SalesReportProps) {
     // Cálculos
     const totalKilos = animales.reduce((sum, a) => sum + parseFloat(a.peso_salida.toString()), 0);
     const totalAnimales = animales.length;
@@ -319,7 +321,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                         <td style={{ color: '#888', fontSize: '10px' }}>{i + 1}</td>
                                         <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
                                         <td style={{ fontWeight: '700' }}>{a.peso_salida} kg</td>
-                                        <td style={{ color: (a.gmp || 0) > 0 ? 'var(--success)' : '#888' }}>
+                                        <td style={{ color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : ((a.gmp || 0) > umbralMedio ? 'var(--warning)' : ((a.gmp || 0) > 0 ? 'var(--error)' : '#888')) }}>
                                             {a.gmp && a.gmp > 0 ? `${a.gmp.toFixed(1)} kg` : '-'}
                                         </td>
                                         <td style={{ color: '#666' }}>{a.propietario}</td>
@@ -344,7 +346,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     </div>
                     <div className="summary-item" style={{ background: 'rgba(76, 175, 80, 0.05)' }}>
                         <span className="summary-label">Promedio GMP Lote</span>
-                        <div className="summary-value" style={{ color: 'var(--success)' }}>{promedioGMP.toFixed(2)} kg</div>
+                        <div className="summary-value" style={{ color: promedioGMP > umbralAlto ? 'var(--success)' : (promedioGMP > umbralMedio ? 'var(--warning)' : (promedioGMP > 0 ? 'var(--error)' : '#888')) }}>{promedioGMP.toFixed(2)} kg</div>
                     </div>
                     <div className="summary-item">
                         <span className="summary-label">Meses Finca (Prom.)</span>
@@ -381,7 +383,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                     <td>{r.count}</td>
                                     <td style={{ fontWeight: '700' }}>{r.kilos.toLocaleString()} kg</td>
                                     <td>{Math.round(r.promedio)} kg</td>
-                                    <td style={{ fontWeight: '600', color: r.promedioGMP > 0 ? 'var(--success)' : '#888' }}>
+                                    <td style={{ fontWeight: '600', color: r.promedioGMP > umbralAlto ? 'var(--success)' : (r.promedioGMP > umbralMedio ? 'var(--warning)' : (r.promedioGMP > 0 ? 'var(--error)' : '#888')) }}>
                                         {r.promedioGMP > 0 ? `${r.promedioGMP.toFixed(2)} kg` : '-'}
                                     </td>
                                 </tr>

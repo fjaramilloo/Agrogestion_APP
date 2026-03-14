@@ -42,7 +42,8 @@ export default function Inventory() {
     // sorting states
     const [sortBy, setSortBy] = useState('dias_pesaje');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-    const [umbralGdp, setUmbralGdp] = useState(0.434);
+    const [umbralAltoGmp, setUmbralAltoGmp] = useState(20);
+    const [umbralMedioGmp, setUmbralMedioGmp] = useState(10);
 
     // Estados para Muerte
     const [showMuerteModal, setShowMuerteModal] = useState(false);
@@ -59,10 +60,13 @@ export default function Inventory() {
 
         const { data: config } = await supabase
             .from('configuracion_kpi')
-            .select('umbral_bajo_gdp')
+            .select('umbral_alto_gmp, umbral_medio_gmp')
             .eq('id_finca', fincaId)
             .single();
-        if (config) setUmbralGdp(config.umbral_bajo_gdp);
+        if (config) {
+            setUmbralAltoGmp(config.umbral_alto_gmp ?? 20);
+            setUmbralMedioGmp(config.umbral_medio_gmp ?? 10);
+        }
 
         const { data, error } = await supabase
             .from('animales')
@@ -293,8 +297,13 @@ export default function Inventory() {
                                 const gananciaTotal = pesoReferencia - animal.peso_ingreso;
                                 const gmpPromedio = (gananciaTotal / dias) * 30;
 
-                                const gdpActual = ultimoP?.gdp_calculada ?? (gananciaTotal / dias);
-                                const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gdpActual < umbralGdp;
+                                const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gmpPromedio <= umbralMedioGmp;
+                                const hasRecords = (animal.registros_pesaje?.length || 0) > 1;
+                                const gmpColor = !hasRecords ? 'var(--text-muted)' : (
+                                    gmpPromedio > umbralAltoGmp ? 'var(--success)' : (
+                                        gmpPromedio > umbralMedioGmp ? 'var(--warning)' : 'var(--error)'
+                                    )
+                                );
 
                                 return (
                                     <tr key={animal.id} 
@@ -330,13 +339,13 @@ export default function Inventory() {
                                             {(animal.registros_pesaje?.length || 0) > 1 && ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>+{(ultimoP.peso - animal.peso_ingreso).toFixed(1)} kg ganados</div>}
                                         </td>
                                         <td style={{ padding: '16px' }}>
-                                            {(animal.registros_pesaje?.length || 0) > 1 ? (
+                                            {hasRecords ? (
                                                 <>
                                                     <div style={{
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         gap: '8px',
-                                                        color: isAlerta ? 'var(--error)' : 'var(--success)',
+                                                        color: gmpColor,
                                                         fontWeight: 'bold'
                                                     }}>
                                                         {gmpPromedio.toFixed(1)} kg/mes
@@ -533,7 +542,7 @@ export default function Inventory() {
                                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
                                                     ) : (
                                                         <>
-                                                            <div style={{ color: item.gmp < 0 ? 'var(--error)' : 'var(--success)', fontWeight: 'bold' }}>{item.gmp > 0 ? '+' : ''}{item.gmp.toFixed(1)} kg/mes</div>
+                                                            <div style={{ color: item.gmp > umbralAltoGmp ? 'var(--success)' : (item.gmp > umbralMedioGmp ? 'var(--warning)' : 'var(--error)'), fontWeight: 'bold' }}>{item.gmp > 0 ? '+' : ''}{item.gmp.toFixed(1)} kg/mes</div>
                                                             <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>GDP: {item.gdp > 0 ? '+' : ''}{item.gdp.toFixed(3)} kg/día</div>
                                                         </>
                                                     )}

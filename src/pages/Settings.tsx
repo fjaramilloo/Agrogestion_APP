@@ -21,6 +21,8 @@ const parseFechaCol = (fechaStr: string) => {
 export default function Settings() {
     const { fincaId, role, userFincas, isSuperAdmin } = useAuth();
     const [umbral, setUmbral] = useState('0.434');
+    const [umbralMedioGMP, setUmbralMedioGMP] = useState('10');
+    const [umbralAltoGMP, setUmbralAltoGMP] = useState('20');
     const [loading, setLoading] = useState(false);
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
@@ -72,12 +74,14 @@ export default function Settings() {
         if (!fincaId) return;
         const { data } = await supabase
             .from('configuracion_kpi')
-            .select('umbral_bajo_gdp')
+            .select('umbral_bajo_gdp, umbral_medio_gmp, umbral_alto_gmp')
             .eq('id_finca', fincaId)
             .single();
 
         if (data) {
-            setUmbral(data.umbral_bajo_gdp.toString());
+            setUmbral(data.umbral_bajo_gdp?.toString() || '0.434');
+            if (data.umbral_medio_gmp !== undefined && data.umbral_medio_gmp !== null) setUmbralMedioGMP(data.umbral_medio_gmp.toString());
+            if (data.umbral_alto_gmp !== undefined && data.umbral_alto_gmp !== null) setUmbralAltoGMP(data.umbral_alto_gmp.toString());
         }
     };
 
@@ -209,10 +213,17 @@ export default function Settings() {
         setMsjExito('');
 
         const valorNum = parseFloat(umbral);
+        const valorMedioGMP = parseFloat(umbralMedioGMP);
+        const valorAltoGMP = parseFloat(umbralAltoGMP);
 
         const { error } = await supabase
             .from('configuracion_kpi')
-            .upsert({ id_finca: fincaId, umbral_bajo_gdp: valorNum }, { onConflict: 'id_finca' });
+            .upsert({ 
+                id_finca: fincaId, 
+                umbral_bajo_gdp: valorNum,
+                umbral_medio_gmp: valorMedioGMP,
+                umbral_alto_gmp: valorAltoGMP
+            }, { onConflict: 'id_finca' });
 
         if (!error) {
             setMsjExito('Configuración guardada exitosamente.');
@@ -1174,15 +1185,41 @@ export default function Settings() {
                             </p>
 
                             <form onSubmit={guardarConfiguracion}>
-                                <label>Umbral Bajo GDP (kg/día)</label>
-                                <input
-                                    type="number"
-                                    step="0.001"
-                                    value={umbral}
-                                    onChange={(e) => setUmbral(e.target.value)}
-                                    disabled={loading}
-                                />
-                                <button type="submit" disabled={loading} style={{ marginTop: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                                    <div>
+                                        <label>Umbral Bajo GDP (kg/día)</label>
+                                        <input
+                                            type="number"
+                                            step="0.001"
+                                            value={umbral}
+                                            onChange={(e) => setUmbral(e.target.value)}
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Límite Amarillo GMP (kg/mes)</label>
+                                        <input
+                                            type="number"
+                                            step="0.1"
+                                            value={umbralMedioGMP}
+                                            onChange={(e) => setUmbralMedioGMP(e.target.value)}
+                                            disabled={loading}
+                                            title="Valores por debajo de este límite estarán en Rojo. Hasta este límite, en Naranja."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Límite Verde GMP (kg/mes)</label>
+                                        <input
+                                            type="number"
+                                            step="0.1"
+                                            value={umbralAltoGMP}
+                                            onChange={(e) => setUmbralAltoGMP(e.target.value)}
+                                            disabled={loading}
+                                            title="Valores por encima de este límite estarán en Verde. Por debajo, en Naranja."
+                                        />
+                                    </div>
+                                </div>
+                                <button type="submit" disabled={loading} style={{ marginTop: '0' }}>
                                     {loading ? 'Guardando...' : 'Guardar Parámetros'}
                                 </button>
                             </form>
