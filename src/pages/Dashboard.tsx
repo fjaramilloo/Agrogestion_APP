@@ -385,7 +385,7 @@ export default function Dashboard() {
                         </div>
                         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                             <div 
-                                onClick={() => navigate('/animales')}
+                                onClick={() => navigate('/inventario')}
                                 style={{
                                     background: 'rgba(255,255,255,0.03)',
                                     padding: '20px 32px',
