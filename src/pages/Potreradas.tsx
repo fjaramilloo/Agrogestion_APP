@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info } from 'lucide-react';
+import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -64,6 +64,14 @@ export default function Potreradas() {
         gmpPromedioGrupo: number;
         history: ChartData[];
     } | null>(null);
+
+    // Estado para ordenamiento en el detalle
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'numero_chapeta', direction: 'asc' });
+
+    // Estado para el formulario de pesaje grupal
+    const [weighingData, setWeighingData] = useState<{ [animalId: string]: string }>({});
+    const [savingWeighings, setSavingWeighings] = useState(false);
+    const [showWeighingForm, setShowWeighingForm] = useState(false);
 
     const fetchPotreradasData = async () => {
         if (!fincaId) return;
@@ -399,6 +407,90 @@ export default function Potreradas() {
         }
     };
 
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedAnimals = useMemo(() => {
+        if (!detailData?.animales) return [];
+        
+        return [...detailData.animales].sort((a: any, b: any) => {
+            if (!sortConfig) return 0;
+            const { key, direction } = sortConfig;
+            
+            let valA = a[key];
+            let valB = b[key];
+
+            // Manejo especial para chapeta (alfanumérico)
+            if (key === 'numero_chapeta') {
+                return direction === 'asc' 
+                    ? valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' })
+                    : valB.localeCompare(valA, undefined, { numeric: true, sensitivity: 'base' });
+            }
+
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [detailData?.animales, sortConfig]);
+
+    const handleOpenWeighingForm = () => {
+        if (!detailData) return;
+        // Precargar con chapeta de cada animal, peso en blanco
+        const initial: { [id: string]: string } = {};
+        detailData.animales.forEach(a => { initial[a.id] = ''; });
+        setWeighingData(initial);
+        setShowWeighingForm(true);
+    };
+
+    const handleSaveWeighings = async () => {
+        if (!detailData) return;
+        const today = new Date().toISOString().split('T')[0]; // 2026-03-14
+        const etapa = detailData.potrerada.etapa;
+
+        // Filtrar solo los que tienen peso ingresado
+        const registros = detailData.animales
+            .filter(a => {
+                const val = weighingData[a.id];
+                return val && val.trim() !== '' && !isNaN(Number(val)) && Number(val) > 0;
+            })
+            .map(a => ({
+                id_animal: a.id,
+                peso: Number(weighingData[a.id]),
+                fecha: today,
+                etapa: etapa,
+                id_potrero: null
+            }));
+
+        if (registros.length === 0) {
+            alert('Ingresa al menos un peso para guardar.');
+            return;
+        }
+
+        setSavingWeighings(true);
+        try {
+            const { error } = await supabase
+                .from('registros_pesaje')
+                .insert(registros);
+
+            if (error) throw error;
+
+            alert(`✅ ${registros.length} pesaje(s) guardado(s) correctamente.`);
+            setShowWeighingForm(false);
+            setWeighingData({});
+            // Refrescar la tarjeta de detalle
+            await handleOpenDetail(detailData.potrerada);
+        } catch (err: any) {
+            alert('Error al guardar pesajes: ' + err.message);
+        } finally {
+            setSavingWeighings(false);
+        }
+    };
+
     return (
         <div className="page-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
@@ -659,9 +751,27 @@ export default function Potreradas() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <button onClick={() => setSelectedDetailId(null)} className="btn-icon">
-                                            <X size={20} />
-                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {role !== 'observador' && (
+                                                <button
+                                                    onClick={handleOpenWeighingForm}
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                                        background: 'rgba(46, 204, 113, 0.12)',
+                                                        color: 'var(--success)',
+                                                        border: '1px solid rgba(46, 204, 113, 0.3)',
+                                                        borderRadius: '8px', padding: '7px 14px',
+                                                        fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <Scale size={15} />
+                                                    Nuevo Pesaje
+                                                </button>
+                                            )}
+                                            <button onClick={() => setSelectedDetailId(null)} className="btn-icon">
+                                                <X size={20} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -713,26 +823,56 @@ export default function Potreradas() {
                                         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '450px' }}>
                                             <thead>
                                                 <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>CHAPETA</th>
+                                                    <th 
+                                                        onClick={() => handleSort('numero_chapeta')}
+                                                        style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            CHAPETA
+                                                            {sortConfig?.key === 'numero_chapeta' && (
+                                                                <span style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                                                            )}
+                                                        </div>
+                                                    </th>
                                                     <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PROPIETARIO</th>
                                                     <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>INGRESO {detailData.potrerada.etapa.toUpperCase()}</th>
-                                                    <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESO INGR.</th>
+                                                    <th 
+                                                        onClick={() => handleSort('pesoActual')}
+                                                        style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                            PESO ACTUAL
+                                                            {sortConfig?.key === 'pesoActual' && (
+                                                                <span style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                                                            )}
+                                                        </div>
+                                                    </th>
                                                     {detailData.fechasColumnas.map(fecha => (
                                                         <th key={fecha} style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESAJE {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}</th>
                                                     ))}
-                                                    <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)' }}>GMP</th>
+                                                    <th 
+                                                        onClick={() => handleSort('gmp')}
+                                                        style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                                                            GMP
+                                                            {sortConfig?.key === 'gmp' && (
+                                                                <span style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                                                            )}
+                                                        </div>
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {detailData.animales.map((a, idx) => (
-                                                    <tr key={a.id} style={{ borderBottom: idx < detailData.animales.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                                {sortedAnimals.map((a, idx) => (
+                                                    <tr key={a.id} style={{ borderBottom: idx < sortedAnimals.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                                                         <td style={{ padding: '12px 16px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>#{a.numero_chapeta}</td>
                                                         <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
                                                         <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
                                                             {a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yyyy') : '-'}
                                                         </td>
                                                         <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                                            {a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-'}
+                                                            {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
                                                         </td>
                                                         {detailData.fechasColumnas.map(fecha => (
                                                             <td key={fecha} style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--text)' }}>
@@ -749,7 +889,7 @@ export default function Potreradas() {
                                                         </td>
                                                     </tr>
                                                 ))}
-                                                {detailData.animales.length === 0 && (
+                                                {sortedAnimals.length === 0 && (
                                                     <tr>
                                                         <td colSpan={4 + detailData.fechasColumnas.length + 1} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                                             Esta potrerada no tiene animales activos.
@@ -793,6 +933,113 @@ export default function Potreradas() {
                         ) : (
                             <div style={{ padding: '40px', textAlign: 'center' }}>No se pudo cargar la información.</div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Formulario de Pesaje Grupal */}
+            {showWeighingForm && detailData && (
+                <div className="modal-overlay">
+                    <div className="card modal-content" style={{ maxWidth: '680px' }}>
+                        {/* Header */}
+                        <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h2 style={{ margin: '0 0 4px 0', color: 'var(--primary-light)', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Scale size={20} /> Nuevo Pesaje
+                                    </h2>
+                                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                                        {detailData.potrerada.nombre} &nbsp;·&nbsp; Fecha: <strong style={{ color: 'var(--text)' }}>{new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>
+                                    </p>
+                                </div>
+                                <button onClick={() => { setShowWeighingForm(false); setWeighingData({}); }} className="btn-icon">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Table */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '12px' }}>
+                                Ingresa el nuevo peso de cada animal. Puedes dejar en blanco los que no se pesaron.
+                            </p>
+                            <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '40%' }}>Chapeta</th>
+                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '30%' }}>Peso Actual</th>
+                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '30%' }}>Nuevo Peso (kg)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {detailData.animales
+                                            .slice()
+                                            .sort((a, b) => a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true, sensitivity: 'base' }))
+                                            .map((a, idx) => {
+                                                const newVal = weighingData[a.id] ?? '';
+                                                const hasWeight = newVal !== '' && Number(newVal) > 0;
+                                                return (
+                                                    <tr key={a.id} style={{
+                                                        borderBottom: idx < detailData.animales.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                                                        background: hasWeight ? 'rgba(46,204,113,0.04)' : 'transparent'
+                                                    }}>
+                                                        <td style={{ padding: '10px 16px', fontWeight: 'bold', fontSize: '0.95rem' }}>#{a.numero_chapeta}</td>
+                                                        <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                                            {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
+                                                        </td>
+                                                        <td style={{ padding: '8px 12px' }}>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.5"
+                                                                placeholder="ej: 320"
+                                                                value={newVal}
+                                                                onChange={e => setWeighingData(prev => ({ ...prev, [a.id]: e.target.value }))}
+                                                                style={{
+                                                                    width: '100%', padding: '7px 10px', fontSize: '0.9rem',
+                                                                    marginBottom: 0,
+                                                                    background: hasWeight ? 'rgba(46,204,113,0.08)' : 'rgba(255,255,255,0.05)',
+                                                                    border: hasWeight ? '1px solid rgba(46,204,113,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                                                                    borderRadius: '8px', color: 'var(--text)'
+                                                                }}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Summary bar */}
+                            {(() => {
+                                const filled = Object.values(weighingData).filter(v => v !== '' && Number(v) > 0).length;
+                                return filled > 0 ? (
+                                    <div style={{ marginTop: '12px', padding: '10px 16px', background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--success)' }}>
+                                        ✅ {filled} de {detailData.animales.length} animales con peso ingresado.
+                                    </div>
+                                ) : null;
+                            })()}
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button
+                                onClick={() => { setShowWeighingForm(false); setWeighingData({}); }}
+                                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', padding: '9px 20px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleSaveWeighings}
+                                disabled={savingWeighings}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 24px' }}
+                            >
+                                {savingWeighings ? 'Guardando...' : <><Save size={16} /> Guardar Pesajes</>}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
