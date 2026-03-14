@@ -12,6 +12,7 @@ interface Potrerada {
     etapa: string;
     animalCount: number;
     pesoPromedio: number;
+    pesoEstimadoPromedio: number;
     gmpPromedio: number;
     diasPesajePromedio: number;
 }
@@ -121,6 +122,19 @@ export default function Potreradas() {
 
             setAnimalesFinca(animalesProcesados);
 
+            // Calcular GDP Promedio de la finca para la estimación (como en Inventory.tsx)
+            const gdpsTotales = (animals || []).map((a: any) => {
+                const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
+                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+                );
+                const u = registros[0];
+                const gain = (u?.peso ?? a.peso_ingreso) - a.peso_ingreso;
+                const ref = u ? new Date(u.fecha) : new Date(a.fecha_ingreso);
+                const days = differenceInDays(new Date(ref), new Date(a.fecha_ingreso)) || 1;
+                return u?.gdp_calculada ?? (gain / days);
+            }).filter(v => v > 0 && isFinite(v));
+            const gdpPromedioFinca = gdpsTotales.length > 0 ? (gdpsTotales.reduce((acc, curr) => acc + curr, 0) / gdpsTotales.length) : 0.45;
+
             const hoy = new Date();
             hoy.setHours(0, 0, 0, 0);
 
@@ -128,6 +142,7 @@ export default function Potreradas() {
                 const groupAnimals = animals?.filter((a: any) => a.id_potrerada === p.id) || [];
                 
                 let totalPeso = 0;
+                let totalPesoEstimado = 0;
                 let totalGmp = 0;
                 let totalDiasPesaje = 0;
                 let validWeightCount = 0;
@@ -151,19 +166,15 @@ export default function Potreradas() {
                             totalGmp += Number(gmp);
                             validGmpCount++;
                         }
-
-                        const fechaRef = new Date(lastP.fecha);
-                        fechaRef.setHours(0,0,0,0);
-                        const diff = differenceInDays(hoy, fechaRef);
-                        totalDiasPesaje += diff;
-                        validDateCount++;
-                    } else {
-                        const fechaRef = new Date(a.fecha_ingreso);
-                        fechaRef.setHours(0,0,0,0);
-                        const diff = differenceInDays(hoy, fechaRef);
-                        totalDiasPesaje += diff;
-                        validDateCount++;
                     }
+
+                    const fechaRef = new Date(lastP ? lastP.fecha : a.fecha_ingreso);
+                    fechaRef.setHours(0,0,0,0);
+                    const diff = differenceInDays(hoy, fechaRef);
+                    
+                    totalPesoEstimado += pesoActual + (diff * gdpPromedioFinca);
+                    totalDiasPesaje += diff;
+                    validDateCount++;
                 });
 
                 return {
@@ -172,6 +183,7 @@ export default function Potreradas() {
                     etapa: p.etapa,
                     animalCount: groupAnimals.length,
                     pesoPromedio: validWeightCount > 0 ? totalPeso / validWeightCount : 0,
+                    pesoEstimadoPromedio: validWeightCount > 0 ? totalPesoEstimado / validWeightCount : 0,
                     gmpPromedio: validGmpCount > 0 ? totalGmp / validGmpCount : 0,
                     diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0
                 };
@@ -388,8 +400,8 @@ export default function Potreradas() {
                                         </div>
                                     </td>
                                     <td className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                        <span style={{ fontWeight: 'bold' }}>{Math.round(p.pesoPromedio)}</span>
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
+                                        <div style={{ fontWeight: 'bold' }}>{Math.round(p.pesoEstimadoPromedio)} <span style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>est.</span></div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Real: {Math.round(p.pesoPromedio)} kg</div>
                                     </td>
                                     <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                                         <span style={{ 
