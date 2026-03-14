@@ -751,12 +751,34 @@ export default function Potreradas() {
                                                 ))}
                                                 {detailData.animales.length === 0 && (
                                                     <tr>
-                                                        <td colSpan={4} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                                        <td colSpan={4 + detailData.fechasColumnas.length + 1} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                                             Esta potrerada no tiene animales activos.
                                                         </td>
                                                     </tr>
                                                 )}
                                             </tbody>
+                                            {detailData.animales.length > 0 && (() => {
+                                                const totalKilos = detailData.animales.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
+                                                const pesoPromedio = totalKilos / detailData.animales.length;
+                                                return (
+                                                    <tfoot>
+                                                        <tr style={{ borderTop: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.04)' }}>
+                                                            <td colSpan={4 + detailData.fechasColumnas.length - 1} style={{ padding: '14px 16px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                                {detailData.animales.length} animales &nbsp;|&nbsp; Total Kilos:
+                                                            </td>
+                                                            <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)', fontSize: '1rem' }}>
+                                                                {Math.round(totalKilos).toLocaleString('es-CO')} kg
+                                                            </td>
+                                                            <td style={{ padding: '14px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '2px', textTransform: 'uppercase' }}>Prom. Lote</div>
+                                                                <span style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1rem' }}>
+                                                                    {Math.round(pesoPromedio)} kg
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    </tfoot>
+                                                );
+                                            })()}
                                         </table>
                                     </div>
                                 </div>
