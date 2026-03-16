@@ -571,7 +571,7 @@ export default function Settings() {
                     // 1. Obtener mapeos necesarios
                     const { data: animalesData, error: animError } = await supabase
                         .from('animales')
-                        .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso')
+                        .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba')
                         .eq('id_finca', fincaId);
 
                     if (animError || !animalesData) throw new Error("No se pudieron cargar los datos de los animales");
@@ -582,7 +582,14 @@ export default function Settings() {
                     // Incluir fecha_ingreso y peso_ingreso para poder comparar luego
                     const mapAnimales = new Map(animalesData.map(a => [
                         a.numero_chapeta,
-                        { id: a.id, etapa: a.etapa, fecha_ingreso: a.fecha_ingreso, peso_ingreso: a.peso_ingreso }
+                        { 
+                            id: a.id, 
+                            etapa: a.etapa, 
+                            fecha_ingreso: a.fecha_ingreso, 
+                            peso_ingreso: a.peso_ingreso,
+                            fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+                            peso_ingreso_ceba: a.peso_ingreso_ceba
+                        }
                     ]));
 
                     const records: any[] = [];
@@ -622,10 +629,16 @@ export default function Settings() {
                         });
 
                         // Si el pesaje es de ceba, marcar al animal para actualizar su etapa actual e ingreso a ceba
-                        if (etapaFinal === 'ceba' && anim.etapa !== 'ceba') {
-                            const actual = cebaUpdates.get(anim.id);
-                            if (!actual || fecha < actual.fecha) {
-                                cebaUpdates.set(anim.id, { fecha, peso });
+                        if (etapaFinal === 'ceba') {
+                            const fechaDB = anim.fecha_ingreso_ceba;
+                            const actualBuffer = cebaUpdates.get(anim.id);
+                            
+                            // Si no tiene fecha en DB o la del CSV es anterior...
+                            if (!fechaDB || fecha < fechaDB) {
+                                // ...y si no hay nada en el buffer o la del CSV es anterior a la del buffer
+                                if (!actualBuffer || fecha < actualBuffer.fecha) {
+                                    cebaUpdates.set(anim.id, { fecha, peso });
+                                }
                             }
                         }
                     });
