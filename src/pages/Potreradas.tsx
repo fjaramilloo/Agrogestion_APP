@@ -343,7 +343,8 @@ export default function Potreradas() {
                         peso,
                         fecha,
                         etapa,
-                        gdp_calculada
+                        gdp_calculada,
+                        gmp_calculada
                     )
                 `)
                 .eq('id_potrerada', p.id)
@@ -386,23 +387,27 @@ export default function Potreradas() {
                     pesajesMap[r.fecha] = r.peso;
                 });
 
-                const gdp = registros[0]?.gdp_calculada || 0;
+                const lastP = registros[0];
+                const gdp = lastP?.gdp_calculada || 0;
+                const gmp = lastP?.gmp_calculada || (gdp ? gdp * 30 : 0);
+
                 return {
                     id: a.id,
                     numero_chapeta: a.numero_chapeta,
                     nombre_propietario: a.nombre_propietario,
                     id_potrerada: p.id,
-                    pesoActual: registros[0] ? registros[0].peso : a.peso_ingreso,
+                    pesoActual: lastP ? lastP.peso : a.peso_ingreso,
                     gdp: gdp,
-                    gmp: gdp * 30,
+                    gmp: gmp,
                     fechaIngresoEtapa: fechaIngresoEtapa,
                     pesoIngresoEtapa: pesoIngresoEtapa,
                     pesajesFiltrados: pesajesMap
                 };
             });
 
-            const avgGmp = processedAnimals.length > 0 
-                ? processedAnimals.reduce((acc, curr) => acc + (curr.gmp || 0), 0) / processedAnimals.length
+            const validGmpAnimals = processedAnimals.filter(a => (a.gmp || 0) !== 0);
+            const avgGmp = validGmpAnimals.length > 0 
+                ? validGmpAnimals.reduce((acc, curr) => acc + (curr.gmp || 0), 0) / validGmpAnimals.length
                 : 0;
 
             const fechasRegistradasSet = new Set<string>();
