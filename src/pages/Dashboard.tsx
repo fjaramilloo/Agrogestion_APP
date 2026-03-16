@@ -25,8 +25,10 @@ interface DashboardStats {
 }
 
 interface EvolucionItem {
-    fecha: string;
-    gmp: number;
+    numero: number;
+    label: string;
+    gmpLevante?: number;
+    gmpCeba?: number;
 }
 
 interface LluviaItem {
@@ -112,9 +114,11 @@ export default function Dashboard() {
                 .eq('id_finca', fincaId);
 
             // 3. Traer los últimos pesajes para evolucion
+            const animalIds = todosAnimales?.map(a => a.id) || [];
             const { data: pesajes } = await supabase
                 .from('registros_pesaje')
                 .select('id_animal, peso, fecha, etapa, gdp_calculada')
+                .in('id_animal', animalIds)
                 .order('fecha', { ascending: true });
 
             // 3b. Traer registros de lluvia
@@ -255,56 +259,88 @@ export default function Dashboard() {
                     pesoPromedioSalida: pesoSalidaFinal
                 });
 
-                // Agrupar pesajes por mes para gráfica de tendencia de GMP
-                const gruposPorMes: Record<string, { sumaGmp: number, count: number }> = {};
-                const pesajesFiltro = (pesajes || []).filter((p: any) => p.fecha);
-                const animalesVistos = new Set();
-
-                pesajesFiltro.forEach((p: any) => {
-                    if (!animalesVistos.has(p.id_animal)) {
-                        animalesVistos.add(p.id_animal);
-                        return;
+                // Agrupar pesajes por animal para calcular evolución por Nro de Pesaje
+                const pesajesPorAnimal: Record<string, any[]> = {};
+                (pesajes || []).forEach((p: any) => {
+                    if (!pesajesPorAnimal[p.id_animal]) {
+                        pesajesPorAnimal[p.id_animal] = [];
                     }
-
-                    const fecha = new Date(p.fecha);
-                    const mesKey = format(fecha, 'yyyy-MM');
-                    let gmpDelPesaje = 0;
-                    if (p.gdp_calculada !== undefined && p.gdp_calculada !== null) {
-                        gmpDelPesaje = p.gdp_calculada * 30;
-                    } else {
-                        const animalRel = todosAnimales?.find((a: any) => a.id === p.id_animal);
-                        if (animalRel) {
-                            const diffDias = differenceInDays(new Date(p.fecha), new Date(animalRel.fecha_ingreso)) || 1;
-                            const ganancia = p.peso - animalRel.peso_ingreso;
-                            gmpDelPesaje = (ganancia / diffDias) * 30;
-                        }
-                    }
-                    if (!gruposPorMes[mesKey]) gruposPorMes[mesKey] = { sumaGmp: 0, count: 0 };
-                    gruposPorMes[mesKey].sumaGmp += gmpDelPesaje;
-                    gruposPorMes[mesKey].count++;
+                    pesajesPorAnimal[p.id_animal].push(p);
                 });
 
-                if (Object.keys(gruposPorMes).length > 0) {
-                    const tr: EvolucionItem[] = Object.keys(gruposPorMes)
-                        .sort()
-                        .map(key => {
-                            const { sumaGmp, count } = gruposPorMes[key];
-                            const prom = sumaGmp / count;
-                            const [anio, mes] = key.split('-');
-                            return {
-                                fecha: format(new Date(parseInt(anio), parseInt(mes) - 1), 'MMM', { locale: es }),
-                                gmp: parseFloat(prom.toFixed(1))
-                            };
-                        });
-                    setEvolucionGmp(tr);
+                const gmpLevanteAgrupado: Record<number, { sum: number, count: number }> = {};
+                const gmpCebaAgrupado: Record<number, { sum: number, count: number }> = {};
+
+                Object.keys(pesajesPorAnimal).forEach(idAnimal => {
+                    const animal = todosAnimales?.find(a => a.id === idAnimal);
+                    if (!animal) return;
+
+                    // Ordenar pesajes cronológicamente
+                    const misPesajes = pesajesPorAnimal[idAnimal].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+                    
+                    let prevWeight = parseFloat(animal.peso_ingreso);
+                    let prevDate = new Date(animal.fecha_ingreso);
+                    let levanteIndex = 0;
+                    let cebaIndex = 0;
+                    
+                    misPesajes.forEach((p: any) => {
+                        const currentWeight = parseFloat(p.peso);
+                        const currentDate = new Date(p.fecha);
+                        const diffDias = differenceInDays(currentDate, prevDate);
+                        
+                        if (diffDias > 0) {
+                            const ganancia = currentWeight - prevWeight;
+                            const gmpVal = (ganancia / diffDias) * 30;
+                            
+                            if (p.etapa === 'levante') {
+                                levanteIndex++;
+                                if (!gmpLevanteAgrupado[levanteIndex]) gmpLevanteAgrupado[levanteIndex] = { sum: 0, count: 0 };
+                                gmpLevanteAgrupado[levanteIndex].sum += gmpVal;
+                                gmpLevanteAgrupado[levanteIndex].count++;
+                            } else {
+                                cebaIndex++;
+                                if (!gmpCebaAgrupado[cebaIndex]) gmpCebaAgrupado[cebaIndex] = { sum: 0, count: 0 };
+                                gmpCebaAgrupado[cebaIndex].sum += gmpVal;
+                                gmpCebaAgrupado[cebaIndex].count++;
+                            }
+                        }
+                        
+                        prevWeight = currentWeight;
+                        prevDate = currentDate;
+                    });
+                });
+
+                const maxIdx = Math.max(
+                    ...Object.keys(gmpLevanteAgrupado).map(Number),
+                    ...Object.keys(gmpCebaAgrupado).map(Number),
+                    0
+                );
+
+                if (maxIdx > 0) {
+                    const dataEvolucion: EvolucionItem[] = [];
+                    for (let i = 1; i <= Math.min(maxIdx, 15); i++) {
+                        const item: EvolucionItem = { numero: i, label: `Medición ${i}` };
+                        if (gmpLevanteAgrupado[i]) item.gmpLevante = parseFloat((gmpLevanteAgrupado[i].sum / gmpLevanteAgrupado[i].count).toFixed(1));
+                        if (gmpCebaAgrupado[i]) item.gmpCeba = parseFloat((gmpCebaAgrupado[i].sum / gmpCebaAgrupado[i].count).toFixed(1));
+                        dataEvolucion.push(item);
+                    }
+                    setEvolucionGmp(dataEvolucion);
                 } else {
                     setEvolucionGmp([
-                        { fecha: 'Ene', gmp: 12.5 }, { fecha: 'Feb', gmp: 13.2 }, { fecha: 'Mar', gmp: 14.8 }, { fecha: 'Abr', gmp: 15.1 }, { fecha: 'May', gmp: 14.5 }
+                        { numero: 1, label: 'Medición 1', gmpLevante: 12.5, gmpCeba: 14.2 },
+                        { numero: 2, label: 'Medición 2', gmpLevante: 13.2, gmpCeba: 15.1 },
+                        { numero: 3, label: 'Medición 3', gmpLevante: 14.8, gmpCeba: 14.5 },
+                        { numero: 4, label: 'Medición 4', gmpLevante: 15.1, gmpCeba: 16.0 },
+                        { numero: 5, label: 'Medición 5', gmpLevante: 14.5, gmpCeba: 15.8 }
                     ]);
                 }
             } else {
                 setEvolucionGmp([
-                    { fecha: 'Ene', gmp: 12.5 }, { fecha: 'Feb', gmp: 13.2 }, { fecha: 'Mar', gmp: 14.8 }, { fecha: 'Abr', gmp: 15.1 }, { fecha: 'May', gmp: 14.5 }
+                    { numero: 1, label: 'Medición 1', gmpLevante: 12.5, gmpCeba: 14.2 },
+                    { numero: 2, label: 'Medición 2', gmpLevante: 13.2, gmpCeba: 15.1 },
+                    { numero: 3, label: 'Medición 3', gmpLevante: 14.8, gmpCeba: 14.5 },
+                    { numero: 4, label: 'Medición 4', gmpLevante: 15.1, gmpCeba: 16.0 },
+                    { numero: 5, label: 'Medición 5', gmpLevante: 14.5, gmpCeba: 15.8 }
                 ]);
             }
 
@@ -521,15 +557,15 @@ export default function Dashboard() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
                         <div className="card" style={{ padding: '24px' }}>
                             <div style={{ marginBottom: '24px' }}>
-                                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Tendencia de Ganancia Mensual de Peso (GMP)</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Promedio mensual de ganancia de peso en la finca</p>
+                                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Desempeño de GMP por Medición</h3>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Evolución del promedio de ganancia por cada toma de peso (Levante vs Ceba)</p>
                             </div>
                             <div style={{ width: '100%', height: '350px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={evolucionGmp} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                         <XAxis
-                                            dataKey="fecha"
+                                            dataKey="label"
                                             stroke="var(--text-muted)"
                                             axisLine={false}
                                             tickLine={false}
@@ -544,17 +580,28 @@ export default function Dashboard() {
                                         />
                                         <Tooltip
                                             contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
-                                            itemStyle={{ color: 'var(--primary-light)' }}
+                                            itemStyle={{ fontSize: '0.9rem' }}
                                         />
                                         <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                                         <Line
                                             type="monotone"
-                                            name="GMP Promedio"
-                                            dataKey="gmp"
-                                            stroke="var(--primary)"
+                                            name="GMP Levante"
+                                            dataKey="gmpLevante"
+                                            stroke="var(--warning)"
                                             strokeWidth={4}
-                                            dot={{ r: 6, fill: 'var(--primary-dark)', stroke: 'var(--primary-light)', strokeWidth: 2 }}
-                                            activeDot={{ r: 8, fill: 'var(--primary-light)' }}
+                                            dot={{ r: 6, fill: '#ff9800', stroke: 'white', strokeWidth: 2 }}
+                                            activeDot={{ r: 8 }}
+                                            connectNulls
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            name="GMP Ceba"
+                                            dataKey="gmpCeba"
+                                            stroke="var(--success)"
+                                            strokeWidth={4}
+                                            dot={{ r: 6, fill: '#4caf50', stroke: 'white', strokeWidth: 2 }}
+                                            activeDot={{ r: 8 }}
+                                            connectNulls
                                         />
                                     </LineChart>
                                 </ResponsiveContainer>
