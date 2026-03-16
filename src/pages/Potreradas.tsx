@@ -43,6 +43,11 @@ export default function Potreradas() {
     const [editingPotrerada, setEditingPotrerada] = useState<Potrerada | null>(null);
     const [newName, setNewName] = useState('');
     
+    // Estado para nueva potrerada
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [nuevaPotreradaNombre, setNuevaPotreradaNombre] = useState('');
+    const [nuevaPotreradaEtapa, setNuevaPotreradaEtapa] = useState('levante');
+    
     // Umbrales GMP
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
@@ -213,6 +218,28 @@ export default function Potreradas() {
         fetchPotreradasData();
     }, [fincaId]);
 
+    const handleAddPotrerada = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!fincaId || !nuevaPotreradaNombre.trim()) return;
+
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('potreradas')
+                .insert({ id_finca: fincaId, nombre: nuevaPotreradaNombre.trim(), etapa: nuevaPotreradaEtapa });
+
+            if (error) throw error;
+
+            setNuevaPotreradaNombre('');
+            setShowAddModal(false);
+            fetchPotreradasData();
+        } catch (err: any) {
+            alert('Error al agregar potrerada: ' + (err.code === '23505' ? 'Ya existe una potrerada con ese nombre.' : err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleEditClick = (p: Potrerada) => {
         setEditingPotrerada(p);
         setNewName(p.nombre);
@@ -233,6 +260,20 @@ export default function Potreradas() {
             fetchPotreradasData();
         } catch (error: any) {
             alert('Error al actualizar: ' + error.message);
+        }
+    };
+
+    const removePotrerada = async (id: string) => {
+        if (!confirm('¿Está seguro de eliminar esta potrerada? Tenga en cuenta que los animales perderán su referencia a la misma.')) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('potreradas').delete().eq('id', id);
+            if (error) throw error;
+            fetchPotreradasData();
+        } catch (err: any) {
+            alert('Error al eliminar potrerada: ' + err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -498,6 +539,14 @@ export default function Potreradas() {
                     <h1 className="title">Gestión de Potreradas</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Métricas y administración de grupos de animales.</p>
                 </div>
+                {role !== 'observador' && (
+                    <button 
+                        onClick={() => setShowAddModal(true)}
+                        style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
+                    >
+                        <Plus size={20} /> Nueva Potrerada
+                    </button>
+                )}
             </div>
 
             {loading ? (
@@ -576,6 +625,14 @@ export default function Potreradas() {
                                                     style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: 'none', padding: '8px', borderRadius: '8px' }}
                                                 >
                                                     <Edit2 size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => removePotrerada(p.id)}
+                                                    className="btn-icon"
+                                                    title="Eliminar Potrerada"
+                                                    style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                >
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </td>
@@ -1040,6 +1097,57 @@ export default function Potreradas() {
                                 {savingWeighings ? 'Guardando...' : <><Save size={16} /> Guardar Pesajes</>}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {showAddModal && (
+                <div className="modal-overlay">
+                    <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '32px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <Plus size={24} color="var(--primary)" /> Nueva Potrerada / Lote
+                            </h2>
+                            <button onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={handleAddPotrerada}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label>Nombre de la Potrerada</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Ej: Lote 1 - Engorde" 
+                                    value={nuevaPotreradaNombre} 
+                                    onChange={e => setNuevaPotreradaNombre(e.target.value)} 
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+                            
+                            <div style={{ marginBottom: '32px' }}>
+                                <label>Etapa del Ganado</label>
+                                <select 
+                                    value={nuevaPotreradaEtapa} 
+                                    onChange={e => setNuevaPotreradaEtapa(e.target.value)}
+                                    required
+                                >
+                                    <option value="cria">Cría</option>
+                                    <option value="levante">Levante</option>
+                                    <option value="ceba">Ceba</option>
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button type="button" onClick={() => setShowAddModal(false)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: 'none' }}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" disabled={loading} style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    {loading ? 'Creando...' : 'Crear Potrerada'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

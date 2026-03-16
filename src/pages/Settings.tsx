@@ -45,7 +45,6 @@ export default function Settings() {
         propietarios: true,
         proveedores: true,
         compradores: true,
-        potreradas: true,
         cargasMasivas: true
     });
 
@@ -67,10 +66,7 @@ export default function Settings() {
     const [compradores, setCompradores] = useState<{ id: string, nombre: string }[]>([]);
     const [nuevoComprador, setNuevoComprador] = useState('');
 
-    // Estados para Potreradas
-    const [potreradas, setPotreradas] = useState<{ id: string, nombre: string, etapa: string }[]>([]);
-    const [nuevaPotreradaNombre, setNuevaPotreradaNombre] = useState('');
-    const [nuevaPotreradaEtapa, setNuevaPotreradaEtapa] = useState('levante');
+    // Estados para Potreradas (Movidos a Potreradas.tsx)
 
     // Estados para Rotaciones y Potreros (Eliminados, movidos a Rotations.tsx)
 
@@ -135,16 +131,7 @@ export default function Settings() {
         if (!error && data) setCompradores(data);
     };
 
-    const fetchPotreradas = async () => {
-        if (!fincaId) return;
-        const { data, error } = await supabase
-            .from('potreradas')
-            .select('id, nombre, etapa')
-            .eq('id_finca', fincaId)
-            .order('nombre');
-
-        if (!error && data) setPotreradas(data);
-    };
+    // fetchPotreradas movido a Potreradas.tsx
 
 
     const fetchFincaInfo = async () => {
@@ -182,7 +169,6 @@ export default function Settings() {
         fetchPropietarios();
         fetchProveedores();
         fetchCompradores();
-        fetchPotreradas();
         fetchFincaInfo();
 
         if (fincaId && selectedFincas.length === 0) {
@@ -416,42 +402,7 @@ export default function Settings() {
         }
     };
 
-    const handleAddPotrerada = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!fincaId || !nuevaPotreradaNombre.trim()) return;
-
-        setLoading(true);
-        try {
-            const { error } = await supabase
-                .from('potreradas')
-                .insert({ id_finca: fincaId, nombre: nuevaPotreradaNombre.trim(), etapa: nuevaPotreradaEtapa });
-
-            if (error) throw error;
-
-            setNuevaPotreradaNombre('');
-            fetchPotreradas();
-            setMsjExito('Potrerada agregada correctamente.');
-        } catch (err: any) {
-            setMsjError('Error al agregar potrerada: ' + (err.code === '23505' ? 'Ya existe una potrerada con ese nombre.' : err.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const removePotrerada = async (id: string) => {
-        if (!confirm('¿Está seguro de eliminar esta potrerada? Tenga en cuenta que los animales perderán su referencia a la misma.')) return;
-        setLoading(true);
-        try {
-            const { error } = await supabase.from('potreradas').delete().eq('id', id);
-            if (error) throw error;
-            fetchPotreradas();
-            setMsjExito('Potrerada eliminada.');
-        } catch (err: any) {
-            setMsjError('Error al eliminar potrerada: ' + err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // handleAddPotrerada y removePotrerada movidos a Potreradas.tsx
 
 
     const handleBulkAnimalUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1071,35 +1022,7 @@ export default function Settings() {
                             )}
                         </div>
 
-                        {/* Potreradas */}
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <div onClick={() => toggleSection('potreradas')} style={{ padding: '20px 24px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0, color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={20} /> Potreradas</h3>
-                                <Plus size={20} style={{ transform: collapsed.potreradas ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
-                            </div>
-                            {!collapsed.potreradas && (
-                                <div style={{ padding: '0 24px 24px 24px' }}>
-                                    <form onSubmit={handleAddPotrerada} style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                                        <input type="text" placeholder="Nombre" value={nuevaPotreradaNombre} onChange={e => setNuevaPotreradaNombre(e.target.value)} style={{ marginBottom: 0, flex: 1 }} />
-                                        <select value={nuevaPotreradaEtapa} onChange={e => setNuevaPotreradaEtapa(e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-                                            <option value="cria">Cría</option><option value="levante">Levante</option><option value="ceba">Ceba</option>
-                                        </select>
-                                        <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevaPotreradaNombre.trim()}><Plus size={18} /></button>
-                                    </form>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
-                                        {potreradas.map(p => (
-                                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontWeight: 'bold' }}>{p.nombre}</span>
-                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.etapa}</span>
-                                                </div>
-                                                <button onClick={() => removePotrerada(p.id)} style={{ background: 'transparent', width: 'auto', padding: 0 }}><Trash2 size={16} /></button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+
 
                         {/* Cargas Masivas */}
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
