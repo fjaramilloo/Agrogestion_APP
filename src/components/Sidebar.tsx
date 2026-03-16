@@ -273,7 +273,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     <span className="sidebar-icon"><FileText size={20} /></span>
                                     <span className="sidebar-label">Historial Ventas</span>
                                 </NavLink>
+                                <NavLink to="/historial-compras" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                    <span className="sidebar-icon"><ShoppingCart size={20} /></span>
+                                    <span className="sidebar-label">Historial Compras</span>
+                                </NavLink>
                             </div>
+
                         )}
                     </div>
                 </nav>

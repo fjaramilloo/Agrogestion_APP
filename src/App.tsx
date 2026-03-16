@@ -12,6 +12,7 @@ import Sidebar from './components/Sidebar';
 import Purchase from './pages/Purchase';
 import Sales from './pages/Sales';
 import HistorialVentas from './pages/HistorialVentas';
+import HistorialCompras from './pages/HistorialCompras';
 import Rainfall from './pages/Rainfall';
 import Rotations from './pages/Rotations';
 import Movements from './pages/Movements';
@@ -129,6 +130,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['administrador', 'vaquero']}>
             <HistorialVentas />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/historial-compras"
+        element={
+          <ProtectedRoute allowedRoles={['administrador', 'vaquero']}>
+            <HistorialCompras />
           </ProtectedRoute>
         }
       />
