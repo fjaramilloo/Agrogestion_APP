@@ -475,7 +475,7 @@ export default function Settings() {
                             especie: row.especie?.toLowerCase() || 'bovino',
                             sexo: row.sexo?.toUpperCase() || 'M',
                             etapa: etapa,
-                            fecha_ingreso: parseFechaCol(row.fecha_ingreso) || new Date().toISOString().split('T')[0],
+                            fecha_ingreso: parseFechaCol(row.fecha_ingreso || row['fecha_ingreso(Año-Mes-Día)']) || new Date().toISOString().split('T')[0],
                             peso_ingreso: parseFloat(row.peso_ingreso) || 0,
                             id_potrerada: potreradaNombre ? (mapPotreradas.get(potreradaNombre) ?? null) : null,
                             id_potrero_actual: potreroNombre ? (mapPotreros.get(potreroNombre) ?? null) : null,
@@ -597,7 +597,8 @@ export default function Settings() {
                         }
 
                         const peso = parseFloat(row.peso);
-                        const fecha = parseFechaCol(row.fecha) || new Date().toISOString().split('T')[0];
+                        const rawFecha = row.fecha || row['fecha(Año-Mes-Día)'] || row['Fecha'];
+                        const fecha = parseFechaCol(rawFecha) || new Date().toISOString().split('T')[0];
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
 
 
