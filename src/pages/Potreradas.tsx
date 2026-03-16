@@ -28,6 +28,7 @@ interface AnimalPotrero {
     fechaIngresoEtapa?: string | null;
     pesoIngresoEtapa?: number | null;
     pesajesFiltrados?: { [fecha: string]: number };
+    hasCalculatedGmp?: boolean;
 }
 
 interface ChartData {
@@ -178,8 +179,12 @@ export default function Potreradas() {
 
                     // Usar gmp_calculada si existe, sino intentar con gdp_calculada * 30
                     if (lastP) {
-                        const gmp = lastP.gmp_calculada || (lastP.gdp_calculada ? lastP.gdp_calculada * 30 : 0);
-                        if (gmp !== 0) {
+                        // Consideramos válido un animal si tiene una ganancia calculada (incluso si es 0)
+                        // o si tiene más de un registro para comparar.
+                        const hasGmp = lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined;
+                        const gmp = hasGmp ? Number(lastP.gmp_calculada) : (lastP.gdp_calculada ? lastP.gdp_calculada * 30 : 0);
+                        
+                        if (hasGmp || registros.length > 1) {
                             totalGmp += Number(gmp);
                             validGmpCount++;
                         }
@@ -388,8 +393,9 @@ export default function Potreradas() {
                 });
 
                 const lastP = registros[0];
+                const hasGmp = lastP?.gmp_calculada !== null && lastP?.gmp_calculada !== undefined;
                 const gdp = lastP?.gdp_calculada || 0;
-                const gmp = lastP?.gmp_calculada || (gdp ? gdp * 30 : 0);
+                const gmp = hasGmp ? Number(lastP.gmp_calculada) : (gdp ? gdp * 30 : 0);
 
                 return {
                     id: a.id,
@@ -401,11 +407,12 @@ export default function Potreradas() {
                     gmp: gmp,
                     fechaIngresoEtapa: fechaIngresoEtapa,
                     pesoIngresoEtapa: pesoIngresoEtapa,
-                    pesajesFiltrados: pesajesMap
+                    pesajesFiltrados: pesajesMap,
+                    hasCalculatedGmp: hasGmp || registros.length > 1
                 };
             });
 
-            const validGmpAnimals = processedAnimals.filter(a => (a.gmp || 0) !== 0);
+            const validGmpAnimals = processedAnimals.filter(a => a.hasCalculatedGmp);
             const avgGmp = validGmpAnimals.length > 0 
                 ? validGmpAnimals.reduce((acc, curr) => acc + (curr.gmp || 0), 0) / validGmpAnimals.length
                 : 0;
