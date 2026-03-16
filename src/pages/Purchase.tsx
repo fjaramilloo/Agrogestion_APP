@@ -165,7 +165,7 @@ export default function Purchase() {
                 estado: 'activo'
             }));
 
-            const { data: nuevosAnimales, error } = await supabase.from('animales').insert(records).select();
+            const { error } = await supabase.from('animales').insert(records);
             if (error) throw error;
 
             setMsjExito(`¡Éxito! Se crearon ${records.length} animales correctamente.`);
