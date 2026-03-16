@@ -94,6 +94,7 @@ export default function HistorialCompras() {
                     )
                 `)
                 .eq('id_finca', fincaId)
+                .not('proveedor_compra', 'is', null)
                 .order('fecha_ingreso', { ascending: false });
 
             if (data && !error) {
