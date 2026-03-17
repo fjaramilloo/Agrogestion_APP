@@ -27,6 +27,7 @@ export default function Settings() {
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
     const [showExitoModal, setShowExitoModal] = useState(false);
+    const [showErrorModal, setShowErrorModal] = useState(false);
 
     // Estados para Cambio de Contraseña
     const [newPassword, setNewPassword] = useState('');
@@ -418,6 +419,13 @@ export default function Settings() {
             skipEmptyLines: true,
             complete: async (results) => {
                 try {
+                    const headers = results.meta.fields || [];
+                    const required = ['numero_chapeta', 'propietario', 'peso_ingreso', 'fecha_ingreso'];
+                    const missing = required.filter(h => !headers.includes(h));
+                    
+                    if (missing.length > 0) {
+                        throw new Error(`El archivo no parece ser una plantilla de Inventario. Faltan columnas: ${missing.join(', ')}`);
+                    }
                     // 1. Obtener mapeos de potreradas y potreros existentes
                     const { data: pds } = await supabase.from('potreradas').select('id, nombre').eq('id_finca', fincaId);
                     const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
@@ -497,7 +505,11 @@ export default function Settings() {
 
                     const chapetas = rows.map((r: any) => r.numero_chapeta);
                     if (chapetas.some(c => !c)) throw new Error("Todas las filas deben tener un número de chapeta.");
-                    if (new Set(chapetas).size !== chapetas.length) throw new Error("El archivo CSV contiene números de chapeta duplicados.");
+                    
+                    const duplicados = chapetas.filter((c, index) => chapetas.indexOf(c) !== index);
+                    if (duplicados.length > 0) {
+                        throw new Error(`El archivo CSV contiene números de chapeta duplicados: ${[...new Set(duplicados)].join(', ')}`);
+                    }
 
                     // 4. Separar animales en: nuevos (insertar) y existentes (actualizar)
                     const { data: existentes, error: checkError } = await supabase
@@ -557,6 +569,7 @@ export default function Settings() {
                     setShowExitoModal(true);
                 } catch (err: any) {
                     setMsjError('Error en carga de animales: ' + err.message);
+                    setShowErrorModal(true);
                 } finally {
                     setLoading(false);
                     e.target.value = '';
@@ -578,6 +591,14 @@ export default function Settings() {
             skipEmptyLines: true,
             complete: async (results) => {
                 try {
+                    const headers = results.meta.fields || [];
+                    const required = ['numero_chapeta', 'peso', 'fecha'];
+                    const missing = required.filter(h => !headers.includes(h));
+
+                    if (missing.length > 0) {
+                        throw new Error(`El archivo no parece ser una plantilla de Seguimiento de Pesajes. Faltan columnas: ${missing.join(', ')}`);
+                    }
+
                     // 1. Obtener mapeos necesarios
                     const { data: animalesData, error: animError } = await supabase
                         .from('animales')
@@ -709,9 +730,11 @@ export default function Settings() {
                     setShowExitoModal(true);
                     if (errores.length > 0) {
                         setMsjError(`Se omitieron algunos registros:\n${errores.join('\n')}`);
+                        setShowErrorModal(true);
                     }
                 } catch (err: any) {
                     setMsjError(err.message || 'Error procesando el archivo CSV.');
+                    setShowErrorModal(true);
                 } finally {
                     setLoading(false);
                     e.target.value = '';
@@ -733,16 +756,24 @@ export default function Settings() {
             skipEmptyLines: true,
             complete: async (results) => {
                 try {
+                    const headers = results.meta.fields || [];
+                    const required = ['nombre_rotacion', 'nombre_potrero', 'area_hectareas'];
+                    const missing = required.filter(h => !headers.includes(h));
+
+                    if (missing.length > 0) {
+                        throw new Error(`El archivo no parece ser una plantilla de Rotaciones y Potreros. Faltan columnas: ${missing.join(', ')}`);
+                    }
+
                     // 1. Obtener datos existentes
                     const { data: exRot } = await supabase.from('rotaciones').select('id, nombre').eq('id_finca', fincaId);
                     const { data: exPot } = await supabase.from('potreros').select('id, nombre, id_rotacion').eq('id_finca', fincaId);
 
                     const mapRotaciones = new Map(exRot?.map(r => [r.nombre.toLowerCase().trim(), r.id]));
-                    const mapPotreros = new Map(exPot?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
+                    const mapPotreros = new Map(exPot?.map(p => [p.nombre.toLowerCase().trim(), { id: p.id, id_rotacion: p.id_rotacion }]));
 
                     // 2. Identificar rotaciones nuevas
                     const rotacionesNuevas = new Map<string, string>(); // nombre_lower -> original
-                    results.data.forEach((row: any) => {
+                    (results.data as any[]).forEach((row: any) => {
                         const rotName = row.nombre_rotacion?.toString().trim();
                         if (rotName && !mapRotaciones.has(rotName.toLowerCase())) {
                             rotacionesNuevas.set(rotName.toLowerCase(), rotName);
@@ -771,12 +802,19 @@ export default function Settings() {
 
                         if (!potName) continue;
 
-                        const existingPotId = mapPotreros.get(potName.toLowerCase());
-                        if (existingPotId) {
+                        const existingPot = mapPotreros.get(potName.toLowerCase());
+                        if (existingPot) {
+                            // Si el potrero ya existe, actualizamos su área. 
+                            // Y solo cambiamos la rotación si se proporcionó una nueva.
+                            const updateData: any = { area_hectareas: area };
+                            if (rotId) {
+                                updateData.id_rotacion = rotId;
+                            }
+                            
                             const { error: potUpdErr } = await supabase
                                 .from('potreros')
-                                .update({ id_rotacion: rotId, area_hectareas: area })
-                                .eq('id', existingPotId);
+                                .update(updateData)
+                                .eq('id', existingPot.id);
                             if (potUpdErr) throw potUpdErr;
                             updatesPotrerosCnt++;
                         } else {
@@ -798,6 +836,7 @@ export default function Settings() {
                     setShowExitoModal(true);
                 } catch (err: any) {
                     setMsjError(err.message || 'Error procesando el archivo CSV.');
+                    setShowErrorModal(true);
                 } finally {
                     setLoading(false);
                     if (e.target) e.target.value = '';
@@ -835,8 +874,38 @@ export default function Settings() {
                 </div>
             )}
 
-            {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
-            {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'pre-line' }}>{msjError}</div>}
+            {/* Modal de Error para Cargas Masivas / Errores Críticos */}
+            {showErrorModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+                    <div className="card" style={{ maxWidth: '500px', width: '100%', textAlign: 'center', border: '1px solid #ef5350', padding: '40px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                            <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', padding: '20px', borderRadius: '50%' }}>
+                                <Upload size={60} color="#ef5350" />
+                            </div>
+                        </div>
+                        <h2 style={{ marginBottom: '16px', color: 'white' }}>Error en la Carga</h2>
+                        <div style={{ 
+                            backgroundColor: 'rgba(244, 67, 54, 0.05)', 
+                            padding: '20px', 
+                            borderRadius: '12px', 
+                            marginBottom: '32px',
+                            border: '1px solid rgba(244, 67, 54, 0.1)',
+                            maxHeight: '200px',
+                            overflowY: 'auto'
+                        }}>
+                            <p style={{ color: '#ef5350', fontSize: '1.05rem', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-line' }}>
+                                {msjError}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => { setShowErrorModal(false); setMsjError(''); }}
+                            style={{ backgroundColor: '#ef5350', color: 'white', padding: '12px 40px', fontSize: '1rem', border: 'none' }}
+                        >
+                            Corregir Archivo
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
 

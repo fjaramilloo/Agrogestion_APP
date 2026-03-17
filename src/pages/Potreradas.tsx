@@ -878,7 +878,7 @@ export default function Potreradas() {
 
                                         <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
                                             <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</h4>
-                                            {detailData.history.length > 2 ? (
+                                            {detailData.history.length > 1 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
                                                     <LineChart data={detailData.history.filter((_, idx) => idx > 0)}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
