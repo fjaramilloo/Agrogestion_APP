@@ -14,7 +14,9 @@ interface Potrerada {
     pesoPromedio: number;
     pesoEstimadoPromedio: number;
     gmpPromedio: number;
+    gmpAcumulado: number;
     diasPesajePromedio: number;
+    marcas: string[];
 }
 
 interface AnimalPotrero {
@@ -53,7 +55,8 @@ export default function Potreradas() {
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
     
-    // Estados para gestión de animales
+    // Estados para búsqueda y gestión
+    const [potreradaSearch, setPotreradaSearch] = useState('');
     const [managingPotrerada, setManagingPotrerada] = useState<Potrerada | null>(null);
     const [animalesFinca, setAnimalesFinca] = useState<AnimalPotrero[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -161,10 +164,12 @@ export default function Potreradas() {
                 
                 let totalPeso = 0;
                 let totalPesoEstimado = 0;
-                let totalGmp = 0;
+                let totalGmpLast = 0;
+                let totalGmpAcc = 0;
                 let totalDiasPesaje = 0;
                 let validWeightCount = 0;
-                let validGmpCount = 0;
+                let validGmpLastCount = 0;
+                let validGmpAccCount = 0;
                 let validDateCount = 0;
 
                 groupAnimals.forEach((a: any) => {
@@ -177,16 +182,30 @@ export default function Potreradas() {
                     totalPeso += Number(pesoActual);
                     validWeightCount++;
 
-                    // Usar gmp_calculada si existe, sino intentar con gdp_calculada * 30
+                    // 1. GMP Último Periodo (lo que viene del trigger)
                     if (lastP) {
-                        // Consideramos válido un animal si tiene una ganancia calculada (incluso si es 0)
-                        // o si tiene más de un registro para comparar.
                         const hasGmp = lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined;
-                        const gmp = hasGmp ? Number(lastP.gmp_calculada) : (lastP.gdp_calculada ? lastP.gdp_calculada * 30 : 0);
+                        const gmpLast = hasGmp ? Number(lastP.gmp_calculada) : (lastP.gdp_calculada ? lastP.gdp_calculada * 30 : 0);
                         
                         if (hasGmp || registros.length > 1) {
-                            totalGmp += Number(gmp);
-                            validGmpCount++;
+                            totalGmpLast += Number(gmpLast);
+                            validGmpLastCount++;
+                        }
+
+                        // 2. GMP Acumulado (Primer pesaje vs Último pesaje)
+                        const earliestP = registros[registros.length - 1]; // El más antiguo registrado
+                        // Si solo hay un registro, comparamos contra el ingreso a la finca
+                        const startWeight = registros.length > 1 ? earliestP.peso : a.peso_ingreso;
+                        const startDate = registros.length > 1 ? new Date(earliestP.fecha) : new Date(a.fecha_ingreso);
+                        const endDate = new Date(lastP.fecha);
+                        
+                        const totalGain = lastP.peso - startWeight;
+                        const totalDays = differenceInDays(endDate, startDate) || 1;
+                        
+                        if (totalDays > 0 || registros.length > 1) {
+                            const gmpAcc = (totalGain / totalDays) * 30;
+                            totalGmpAcc += gmpAcc;
+                            validGmpAccCount++;
                         }
                     }
 
@@ -206,8 +225,10 @@ export default function Potreradas() {
                     animalCount: groupAnimals.length,
                     pesoPromedio: validWeightCount > 0 ? totalPeso / validWeightCount : 0,
                     pesoEstimadoPromedio: validWeightCount > 0 ? totalPesoEstimado / validWeightCount : 0,
-                    gmpPromedio: validGmpCount > 0 ? totalGmp / validGmpCount : 0,
-                    diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0
+                    gmpPromedio: validGmpLastCount > 0 ? totalGmpLast / validGmpLastCount : 0,
+                    gmpAcumulado: validGmpAccCount > 0 ? totalGmpAcc / validGmpAccCount : 0,
+                    diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0,
+                    marcas: Array.from(new Set(groupAnimals.map((a: any) => a.nombre_propietario).filter(Boolean))).sort() as string[]
                 };
             });
 
@@ -571,6 +592,17 @@ export default function Potreradas() {
                 )}
             </div>
 
+            <div style={{ marginBottom: '24px', position: 'relative', maxWidth: '400px' }}>
+                <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                    type="text" 
+                    placeholder="Buscar por nombre o marca..." 
+                    value={potreradaSearch}
+                    onChange={(e) => setPotreradaSearch(e.target.value)}
+                    style={{ paddingLeft: '48px', marginBottom: 0 }}
+                />
+            </div>
+
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--primary)' }}>Cargando potreradas...</div>
             ) : (
@@ -579,20 +611,46 @@ export default function Potreradas() {
                         <thead>
                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nombre Potrerada</th>
+                                <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Marcas</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Animales</th>
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</th>
-                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</th>
+                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ganancias (GMP)</th>
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Días Pesaje</th>
                                 {role === 'administrador' && <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>}
                             </tr>
                         </thead>
                         <tbody>
-                            {potreradas.map((p, idx) => (
+                            {potreradas
+                                .filter(p => 
+                                    p.nombre.toLowerCase().includes(potreradaSearch.toLowerCase()) || 
+                                    p.marcas.some(m => m.toLowerCase().includes(potreradaSearch.toLowerCase()))
+                                )
+                                .map((p, idx) => (
                                 <tr key={p.id} className="table-row-hover" style={{ borderBottom: idx < potreradas.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                                     <td style={{ padding: '16px 24px' }}>
                                         <div onClick={() => handleOpenDetail(p)} style={{ cursor: 'pointer' }}>
                                             <div style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1.1rem' }}>{p.nombre}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{p.etapa}</div>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '16px 24px' }}>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                            {p.marcas.length > 0 ? (
+                                                p.marcas.map((m, i) => (
+                                                    <span key={i} style={{ 
+                                                        fontSize: '0.7rem', 
+                                                        background: 'rgba(255,255,255,0.05)', 
+                                                        padding: '2px 8px', 
+                                                        borderRadius: '4px',
+                                                        color: 'var(--text-muted)',
+                                                        border: '1px solid rgba(255,255,255,0.1)'
+                                                    }}>
+                                                        {m}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)' }}>-</span>
+                                            )}
                                         </div>
                                     </td>
                                     <td style={{ padding: '16px 24px', textAlign: 'center' }}>
@@ -606,13 +664,26 @@ export default function Potreradas() {
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Real: {Math.round(p.pesoPromedio)} kg</div>
                                     </td>
                                     <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                        <span style={{ 
-                                            color: p.gmpPromedio > umbralAlto ? 'var(--success)' : p.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)',
-                                            fontWeight: 'bold'
-                                        }}>
-                                            {p.gmpPromedio.toFixed(1)}
-                                        </span>
-                                        <span className="mobile-hide" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg/m</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Últ:</span>
+                                                <span style={{ 
+                                                    color: p.gmpPromedio > umbralAlto ? 'var(--success)' : p.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    {p.gmpPromedio.toFixed(1)}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Acum:</span>
+                                                <span style={{ 
+                                                    color: p.gmpAcumulado > umbralAlto ? 'var(--success)' : p.gmpAcumulado > umbralMedio ? 'var(--warning)' : 'var(--error)',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    {p.gmpAcumulado.toFixed(1)}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center' }}>
                                         <div style={{ 
