@@ -18,6 +18,7 @@ import Rotations from './pages/Rotations';
 import Movements from './pages/Movements';
 import Potreradas from './pages/Potreradas';
 import Mercado from './pages/Mercado';
+import VersionNotifier from './components/VersionNotifier';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, role, loading } = useAuth();
@@ -183,6 +184,7 @@ function App() {
     <AuthProvider>
       <Router>
         <AppRoutes />
+        <VersionNotifier />
       </Router>
     </AuthProvider>
   );
