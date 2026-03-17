@@ -40,16 +40,36 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const [hayMercado, setHayMercado] = useState(false);
     const navigate = useNavigate();
 
-    // Verificar si hay animales marcados con ok_ceba (se refresca cada 60 segundos)
+    // Verificar si hay animales marcados con ok_ceba Y si hoy se pesó ganado (se refresca cada 60 segundos)
     useEffect(() => {
         if (!fincaId) return;
         const checkMercado = async () => {
+            const hoy = new Date().toISOString().split('T')[0];
+            
+            // 1. Verificar si hubo pesajes hoy en esta finca
+            const { data: pesajesHoy } = await supabase
+                .from('registros_pesaje')
+                .select('id, animales!inner(id_finca)')
+                .eq('animales.id_finca', fincaId)
+                .eq('fecha', hoy)
+                .limit(1);
+
+            const sePesoHoy = (pesajesHoy && pesajesHoy.length > 0);
+
+            if (!sePesoHoy) {
+                setHayMercado(false);
+                return;
+            }
+
+            // 2. Si se pesó hoy, ver si hay candidatos para el mercado
             const { count } = await supabase
                 .from('animales')
                 .select('id', { count: 'exact', head: true })
                 .eq('id_finca', fincaId)
                 .eq('ok_ceba', true)
+                .eq('etapa', 'levante')
                 .eq('estado', 'activo');
+            
             setHayMercado((count ?? 0) > 0);
         };
         checkMercado();
