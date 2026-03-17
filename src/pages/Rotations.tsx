@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { MapPin, Plus, Trash2, Edit2, Check, X, Layers } from 'lucide-react';
+import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info } from 'lucide-react';
 
 interface Potrero {
     id: string;
@@ -18,21 +18,23 @@ interface Rotacion {
 export default function Rotations() {
     const { fincaId, role } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
 
     const [rotaciones, setRotaciones] = useState<Rotacion[]>([]);
     const [potreros, setPotreros] = useState<Potrero[]>([]);
     
-    // Estados de edición/creación
-    const [nuevaRotacionNombre, setNuevaRotacionNombre] = useState('');
+    // Estados de edición
+    const [editingRot, setEditingRot] = useState<string | null>(null);
+    const [editRotNombre, setEditRotNombre] = useState('');
+
+    const [editingPot, setEditingPot] = useState<string | null>(null);
+    const [editPotForm, setEditPotForm] = useState({ nombre: '', area: '', id_rotacion: '' });
+
     const [showNuevaRotacion, setShowNuevaRotacion] = useState(false);
+    const [nuevaRotNombre, setNuevaRotNombre] = useState('');
     
-    const [nuevoPotrero, setNuevoPotrero] = useState({ nombre: '', area: '', id_rotacion: '' });
-    const [showNuevoPotrero, setShowNuevoPotrero] = useState(false);
-    
-    const [editingPotrero, setEditingPotrero] = useState<string | null>(null);
-    const [editPotreroForm, setEditPotreroForm] = useState({ nombre: '', area: '', id_rotacion: '' });
+    const [showNuevoPotrero, setShowNuevoPotrero] = useState<string | null>(null); // null o id_rotacion
+    const [nuevoPotForm, setNuevoPotForm] = useState({ nombre: '', area: '' });
 
     const isAdmin = role === 'administrador';
 
@@ -63,106 +65,99 @@ export default function Rotations() {
         fetchData();
     }, [fincaId]);
 
-    const handleAddRotacion = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!isAdmin || !fincaId || !nuevaRotacionNombre.trim()) return;
-        setLoading(true);
+    const handleUpdateRotacion = async (id: string) => {
+        if (!isAdmin || !editRotNombre.trim()) return;
         try {
             const { error } = await supabase
                 .from('rotaciones')
-                .insert({ id_finca: fincaId, nombre: nuevaRotacionNombre.trim() });
+                .update({ nombre: editRotNombre.trim() })
+                .eq('id', id);
             if (error) throw error;
-            setNuevaRotacionNombre('');
-            setShowNuevaRotacion(false);
+            setEditingRot(null);
             fetchData();
-            setMsjExito('Rotación creada.');
         } catch (err: any) {
-            setMsjError('Error: ' + err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAddPotrero = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!isAdmin || !fincaId || !nuevoPotrero.nombre.trim()) return;
-        setLoading(true);
-        try {
-            const { error } = await supabase
-                .from('potreros')
-                .insert({
-                    id_finca: fincaId,
-                    nombre: nuevoPotrero.nombre.trim(),
-                    area_hectareas: parseFloat(nuevoPotrero.area) || 0,
-                    id_rotacion: nuevoPotrero.id_rotacion || null
-                });
-            if (error) throw error;
-            setNuevoPotrero({ nombre: '', area: '', id_rotacion: '' });
-            setShowNuevoPotrero(false);
-            fetchData();
-            setMsjExito('Potrero creado.');
-        } catch (err: any) {
-            setMsjError('Error: ' + err.message);
-        } finally {
-            setLoading(false);
+            setMsjError(err.message);
         }
     };
 
     const handleUpdatePotrero = async (id: string) => {
-        if (!isAdmin) return;
-        setLoading(true);
+        if (!isAdmin || !editPotForm.nombre.trim()) return;
         try {
             const { error } = await supabase
                 .from('potreros')
                 .update({
-                    nombre: editPotreroForm.nombre.trim(),
-                    area_hectareas: parseFloat(editPotreroForm.area) || 0,
-                    id_rotacion: editPotreroForm.id_rotacion || null
+                    nombre: editPotForm.nombre.trim(),
+                    area_hectareas: parseFloat(editPotForm.area) || 0,
+                    id_rotacion: editPotForm.id_rotacion || null
                 })
                 .eq('id', id);
             if (error) throw error;
-            setEditingPotrero(null);
+            setEditingPot(null);
             fetchData();
-            setMsjExito('Potrero actualizado.');
         } catch (err: any) {
-            setMsjError('Error: ' + err.message);
-        } finally {
-            setLoading(false);
+            setMsjError(err.message);
         }
     };
 
-    const removePotrero = async (id: string) => {
-        if (!isAdmin || !confirm('¿Eliminar este potrero?')) return;
-        setLoading(true);
+    const handleAddRotacion = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!nuevaRotNombre.trim() || !fincaId) return;
         try {
-            const { error } = await supabase.from('potreros').delete().eq('id', id);
+            const { error } = await supabase.from('rotaciones').insert({ id_finca: fincaId, nombre: nuevaRotNombre.trim() });
             if (error) throw error;
+            setNuevaRotNombre('');
+            setShowNuevaRotacion(false);
             fetchData();
-        } finally {
-            setLoading(false);
+        } catch (err: any) {
+            setMsjError(err.message);
         }
     };
 
-    const removeRotacion = async (id: string) => {
-        if (!isAdmin || !confirm('¿Eliminar esta rotación? Los potreros asociados quedarán sin rotación.')) return;
-        setLoading(true);
+    const handleAddPotrero = async (e: React.FormEvent, rotId: string | null) => {
+        e.preventDefault();
+        if (!nuevoPotForm.nombre.trim() || !fincaId) return;
         try {
-            const { error } = await supabase.from('rotaciones').delete().eq('id', id);
+            const { error } = await supabase.from('potreros').insert({
+                id_finca: fincaId,
+                nombre: nuevoPotForm.nombre.trim(),
+                area_hectareas: parseFloat(nuevoPotForm.area) || 0,
+                id_rotacion: rotId
+            });
             if (error) throw error;
+            setNuevoPotForm({ nombre: '', area: '' });
+            setShowNuevoPotrero(null);
             fetchData();
-        } finally {
-            setLoading(false);
+        } catch (err: any) {
+            setMsjError(err.message);
         }
     };
 
-    const startEditing = (p: Potrero) => {
-        setEditingPotrero(p.id);
-        setEditPotreroForm({
-            nombre: p.nombre,
-            area: p.area_hectareas.toString(),
-            id_rotacion: p.id_rotacion || ''
-        });
+    const deletePotrero = async (id: string) => {
+        if (!isAdmin || !confirm('¿Eliminar potrero?')) return;
+        try {
+            await supabase.from('potreros').delete().eq('id', id);
+            fetchData();
+        } catch (err: any) { console.error(err); }
     };
+
+    const deleteRotacion = async (id: string) => {
+        if (!isAdmin || !confirm('¿Eliminar rotación? Los potreros quedarán sin rotación.')) return;
+        try {
+            await supabase.from('rotaciones').delete().eq('id', id);
+            fetchData();
+        } catch (err: any) { console.error(err); }
+    };
+
+    // Agrupar
+    const groupedData = rotaciones.map(r => {
+        const pots = potreros.filter(p => p.id_rotacion === r.id);
+        const areaTotal = pots.reduce((sum, p) => sum + (p.area_hectareas || 0), 0);
+        return { ...r, pots, areaTotal };
+    });
+
+    const sinRotacion = potreros.filter(p => !p.id_rotacion);
+    const areaTotalSin = sinRotacion.reduce((sum, p) => sum + (p.area_hectareas || 0), 0);
+    const areaFinca = potreros.reduce((sum, p) => sum + (p.area_hectareas || 0), 0);
 
     return (
         <div className="page-container" style={{ maxWidth: '1000px' }}>
@@ -171,177 +166,203 @@ export default function Rotations() {
                     <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                         <MapPin size={32} /> Rotaciones y Potreros
                     </h1>
-                    <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>Gestión integral de la infraestructura de la finca.</p>
+                    <div style={{ display: 'flex', gap: '20px', marginTop: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                            <Layers size={16} /> <strong style={{ color: 'white' }}>{rotaciones.length}</strong> Rotaciones
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                            <MapPin size={16} /> <strong style={{ color: 'white' }}>{potreros.length}</strong> Potreros
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                            <strong style={{ color: 'var(--primary-light)' }}>{areaFinca.toFixed(2)}</strong> Ha Totales
+                        </div>
+                    </div>
                 </div>
                 {isAdmin && (
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                        <button onClick={() => setShowNuevaRotacion(true)} className="btn-secondary" style={{ width: 'auto' }}>
-                            <Layers size={18} /> + Rotación
-                        </button>
-                        <button onClick={() => setShowNuevoPotrero(true)} style={{ width: 'auto' }}>
-                            <Plus size={18} /> + Potrero
-                        </button>
-                    </div>
+                    <button onClick={() => setShowNuevaRotacion(true)} style={{ width: 'auto' }}>
+                        <Plus size={18} /> Nueva Rotación
+                    </button>
                 )}
             </div>
 
-            {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center' }}>{msjExito}</div>}
-            {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center' }}>{msjError}</div>}
+            {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>{msjError}</div>}
 
-            {/* Modales / Formularios Rápidos */}
-            {isAdmin && (showNuevaRotacion || showNuevoPotrero) && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', zIndex: 100, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-                    <div className="card" style={{ maxWidth: '500px', width: '100%', padding: '32px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <h2>{showNuevaRotacion ? 'Nueva Rotación' : 'Nuevo Potrero'}</h2>
-                            <button onClick={() => { setShowNuevaRotacion(false); setShowNuevoPotrero(false); }} style={{ background: 'none', width: 'auto', padding: 0 }}><X size={24} /></button>
-                        </div>
-                        
-                        {showNuevaRotacion ? (
-                            <form onSubmit={handleAddRotacion}>
-                                <label>Nombre de la Rotación</label>
-                                <input autoFocus type="text" placeholder="Ej: Rotación Alta" value={nuevaRotacionNombre} onChange={e => setNuevaRotacionNombre(e.target.value)} required />
-                                <button type="submit" disabled={loading}>{loading ? 'Creando...' : 'Crear Rotación'}</button>
-                            </form>
-                        ) : (
-                            <form onSubmit={handleAddPotrero}>
-                                <label>Nombre del Potrero</label>
-                                <input autoFocus type="text" placeholder="Ej: Potrero 1" value={nuevoPotrero.nombre} onChange={e => setNuevoPotrero({...nuevoPotrero, nombre: e.target.value})} required />
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div>
-                                        <label>Área (Ha)</label>
-                                        <input type="number" step="0.01" placeholder="0.00" value={nuevoPotrero.area} onChange={e => setNuevoPotrero({...nuevoPotrero, area: e.target.value})} required />
-                                    </div>
-                                    <div>
-                                        <label>Rotación</label>
-                                        <select value={nuevoPotrero.id_rotacion} onChange={e => setNuevoPotrero({...nuevoPotrero, id_rotacion: e.target.value})}>
-                                            <option value="">Sin Rotación</option>
-                                            {rotaciones.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-                                <button type="submit" disabled={loading} style={{ marginTop: '12px' }}>{loading ? 'Guardando...' : 'Guardar Potrero'}</button>
-                            </form>
-                        )}
+            {showNuevaRotacion && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+                    <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
+                        <h2>Nueva Rotación</h2>
+                        <form onSubmit={handleAddRotacion} style={{ marginTop: '20px' }}>
+                            <label>Nombre de la Rotación</label>
+                            <input autoFocus type="text" value={nuevaRotNombre} onChange={e => setNuevaRotNombre(e.target.value)} placeholder="Ej: Rotación Norte" required />
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                                <button type="button" className="btn-secondary" onClick={() => setShowNuevaRotacion(false)}>Cancelar</button>
+                                <button type="submit">Crear</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Rotación</th>
-                                <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Potrero</th>
-                                <th style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Área (Ha)</th>
-                                {isAdmin && <th style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Acciones</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {potreros.length === 0 ? (
-                                <tr>
-                                    <td colSpan={isAdmin ? 4 : 3} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No hay potreros registrados.</td>
-                                </tr>
-                            ) : (
-                                potreros.map(p => {
-                                    const rotName = rotaciones.find(r => r.id === p.id_rotacion)?.nombre || '---';
-                                    const isEditing = editingPotrero === p.id;
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {groupedData.map(rot => (
+                    <div key={rot.id} className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        {/* Header de la Rotación */}
+                        <div style={{ 
+                            padding: '16px 24px', 
+                            backgroundColor: 'rgba(255,255,255,0.02)', 
+                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                <Layers size={20} color="var(--primary-light)" />
+                                {editingRot === rot.id ? (
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <input 
+                                            autoFocus
+                                            style={{ margin: 0, padding: '4px 8px', fontSize: '1rem' }} 
+                                            value={editRotNombre} 
+                                            onChange={e => setEditRotNombre(e.target.value)}
+                                        />
+                                        <button onClick={() => handleUpdateRotacion(rot.id)} style={{ width: 'auto', padding: '4px', background: 'none' }}><Check size={18} color="var(--success)" /></button>
+                                        <button onClick={() => setEditingRot(null)} style={{ width: 'auto', padding: '4px', background: 'none' }}><X size={18} color="var(--text-muted)" /></button>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <h3 style={{ margin: 0, color: 'white', fontWeight: 600 }}>{rot.nombre}</h3>
+                                        {isAdmin && <Edit2 size={14} style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => { setEditingRot(rot.id); setEditRotNombre(rot.nombre); }} />}
+                                    </div>
+                                )}
+                                <span style={{ fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
+                                    {rot.pots.length} potreros • {rot.areaTotal.toFixed(2)} Ha
+                                </span>
+                            </div>
+                            {isAdmin && (
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <button onClick={() => setShowNuevoPotrero(rot.id)} className="btn-secondary" style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem' }}>
+                                        <Plus size={14} />+ Potrero
+                                    </button>
+                                    <button onClick={() => deleteRotacion(rot.id)} style={{ width: 'auto', padding: '6px', background: 'none', color: 'rgba(244, 67, 54, 0.4)' }} title="Eliminar Rotación">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
 
-                                    return (
-                                        <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }} className="table-row-hover">
-                                            <td style={{ padding: '16px' }}>
-                                                {isEditing ? (
-                                                    <select 
-                                                        value={editPotreroForm.id_rotacion} 
-                                                        onChange={e => setEditPotreroForm({...editPotreroForm, id_rotacion: e.target.value})}
-                                                        style={{ padding: '6px', margin: 0, fontSize: '0.9rem' }}
-                                                    >
-                                                        <option value="">Sin Rotación</option>
-                                                        {rotaciones.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                                                    </select>
-                                                ) : (
-                                                    <span style={{ color: rotName === '---' ? 'var(--text-muted)' : 'var(--primary-light)', fontWeight: 500 }}>
-                                                        {rotName}
-                                                    </span>
+                        {/* Tabla de Potreros dentro de la Rotación */}
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <th style={{ padding: '12px 24px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>Potrero</th>
+                                        <th style={{ padding: '12px 24px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>Área (Ha)</th>
+                                        {isAdmin && <th style={{ padding: '12px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}></th>}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {rot.pots.length === 0 ? (
+                                        <tr><td colSpan={isAdmin ? 3 : 2} style={{ padding: '20px 24px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>No hay potreros asignados.</td></tr>
+                                    ) : (
+                                        rot.pots.map(p => (
+                                            <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                <td style={{ padding: '12px 24px' }}>
+                                                    {editingPot === p.id ? (
+                                                        <input style={{ margin: 0, padding: '4px 8px' }} value={editPotForm.nombre} onChange={e => setEditPotForm({...editPotForm, nombre: e.target.value})} />
+                                                    ) : (
+                                                        <span style={{ fontWeight: 500, color: 'white' }}>{p.nombre}</span>
+                                                    )}
+                                                </td>
+                                                <td style={{ padding: '12px 24px', textAlign: 'right' }}>
+                                                    {editingPot === p.id ? (
+                                                        <input style={{ margin: 0, padding: '4px 8px', textAlign: 'right', width: '80px' }} type="number" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({...editPotForm, area: e.target.value})} />
+                                                    ) : (
+                                                        <span style={{ color: 'var(--primary-light)' }}>{p.area_hectareas?.toFixed(2)}</span>
+                                                    )}
+                                                </td>
+                                                {isAdmin && (
+                                                    <td style={{ padding: '12px 24px', textAlign: 'right' }}>
+                                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                            {editingPot === p.id ? (
+                                                                <>
+                                                                    <button onClick={() => handleUpdatePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none' }}><Check size={18} color="var(--success)" /></button>
+                                                                    <button onClick={() => setEditingPot(null)} style={{ width: 'auto', padding: '4px', background: 'none' }}><X size={18} color="var(--text-muted)" /></button>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: p.id_rotacion || '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.2)' }}><Edit2 size={16} /></button>
+                                                                    <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.1)' }}><Trash2 size={16} /></button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                 )}
-                                            </td>
-                                            <td style={{ padding: '16px' }}>
-                                                {isEditing ? (
-                                                    <input 
-                                                        type="text" 
-                                                        value={editPotreroForm.nombre} 
-                                                        onChange={e => setEditPotreroForm({...editPotreroForm, nombre: e.target.value})}
-                                                        style={{ padding: '6px', margin: 0, fontSize: '0.9rem' }}
-                                                    />
-                                                ) : (
-                                                    <span style={{ fontWeight: 'bold' }}>{p.nombre}</span>
-                                                )}
-                                            </td>
-                                            <td style={{ padding: '16px', textAlign: 'right' }}>
-                                                {isEditing ? (
-                                                    <input 
-                                                        type="number" 
-                                                        step="0.01"
-                                                        value={editPotreroForm.area} 
-                                                        onChange={e => setEditPotreroForm({...editPotreroForm, area: e.target.value})}
-                                                        style={{ padding: '6px', margin: 0, textAlign: 'right', fontSize: '0.9rem' }}
-                                                    />
-                                                ) : (
-                                                    <span style={{ color: 'white' }}>{p.area_hectareas.toFixed(2)}</span>
-                                                )}
-                                            </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ))}
+
+                {/* Potreros Sin Rotación */}
+                {sinRotacion.length > 0 && (
+                    <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                        <div style={{ padding: '16px 24px', backgroundColor: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <Info size={20} color="var(--text-muted)" />
+                                <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Sin Rotación Asignada</h3>
+                                <span style={{ fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
+                                    {sinRotacion.length} potreros • {areaTotalSin.toFixed(2)} Ha
+                                </span>
+                            </div>
+                            {isAdmin && (
+                                <button onClick={() => setShowNuevoPotrero('none')} className="btn-secondary" style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem' }}>
+                                    <Plus size={14} />+ Potrero
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <tbody>
+                                    {sinRotacion.map(p => (
+                                        <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                            <td style={{ padding: '12px 24px', color: 'var(--text-muted)' }}>{p.nombre}</td>
+                                            <td style={{ padding: '12px 24px', textAlign: 'right', color: 'var(--text-muted)' }}>{p.area_hectareas?.toFixed(2)}</td>
                                             {isAdmin && (
-                                                <td style={{ padding: '16px', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                                                        {isEditing ? (
-                                                            <>
-                                                                <button onClick={() => handleUpdatePotrero(p.id)} style={{ padding: '4px', width: 'auto', background: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', border: 'none' }}>
-                                                                    <Check size={18} />
-                                                                </button>
-                                                                <button onClick={() => setEditingPotrero(null)} style={{ padding: '4px', width: 'auto', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: 'none' }}>
-                                                                    <X size={18} />
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <button onClick={() => startEditing(p)} style={{ padding: '4px', width: 'auto', background: 'transparent', color: 'var(--text-muted)', border: 'none' }} className="icon-btn">
-                                                                    <Edit2 size={16} />
-                                                                </button>
-                                                                <button onClick={() => removePotrero(p.id)} style={{ padding: '4px', width: 'auto', background: 'transparent', color: 'var(--text-muted)', border: 'none' }} className="icon-btn-danger">
-                                                                    <Trash2 size={16} />
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
+                                                <td style={{ padding: '12px 24px', textAlign: 'right' }}>
+                                                    <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.2)' }}><Edit2 size={16} /></button>
                                                 </td>
                                             )}
                                         </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* Gestión de Rotaciones (Solo Admin) */}
-            {isAdmin && rotaciones.length > 0 && (
-                <div style={{ marginTop: '32px' }}>
-                    <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '16px' }}>Gestión de Rotaciones</h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                        {rotaciones.map(r => (
-                            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '8px 16px', borderRadius: '100px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <Layers size={14} color="var(--primary-light)" />
-                                <span style={{ fontWeight: 500 }}>{r.nombre}</span>
-                                <button onClick={() => removeRotacion(r.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}>
-                                    <X size={14} />
-                                </button>
+            {/* Modal Nuevo Potrero */}
+            {showNuevoPotrero && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+                    <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
+                        <h2>Añadir Potrero</h2>
+                        <form onSubmit={(e) => handleAddPotrero(e, showNuevoPotrero === 'none' ? null : showNuevoPotrero)} style={{ marginTop: '20px' }}>
+                            <label>Nombre del Potrero</label>
+                            <input autoFocus type="text" value={nuevoPotForm.nombre} onChange={e => setNuevoPotForm({...nuevoPotForm, nombre: e.target.value})} placeholder="Ej: Lote 1" required />
+                            <label>Área (Hectáreas)</label>
+                            <input type="number" step="0.01" value={nuevoPotForm.area} onChange={e => setNuevoPotForm({...nuevoPotForm, area: e.target.value})} placeholder="0.00" required />
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                                <button type="button" className="btn-secondary" onClick={() => setShowNuevoPotrero(null)}>Cancelar</button>
+                                <button type="submit">Añadir</button>
                             </div>
-                        ))}
+                        </form>
                     </div>
                 </div>
             )}
         </div>
     );
 }
+
