@@ -142,8 +142,18 @@ export default function Dashboard() {
             todosAnimales?.forEach(a => {
                 if (a.registros_pesaje && Array.isArray(a.registros_pesaje)) {
                     const sorted = a.registros_pesaje.sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
-                    pesajesMap[a.id] = sorted;
-                    pesajesFlat.push(...sorted);
+                    
+                    // Asegurar omitir pesajes duplicados el mismo día (dejamos el primero cronológicamente)
+                    const uniqueFechas = new Set();
+                    const deduplicated = sorted.filter((p: any) => {
+                        const dateOnly = p.fecha.split('T')[0];
+                        if (uniqueFechas.has(dateOnly)) return false;
+                        uniqueFechas.add(dateOnly);
+                        return true;
+                    });
+
+                    pesajesMap[a.id] = deduplicated;
+                    pesajesFlat.push(...deduplicated);
                 } else {
                     pesajesMap[a.id] = [];
                 }

@@ -173,9 +173,19 @@ export default function Potreradas() {
                 let validDateCount = 0;
 
                 groupAnimals.forEach((a: any) => {
-                    const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
+                    let registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
                         new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                     );
+
+                    // Omite duplicados la misma fecha
+                    const unique = new Set();
+                    registros = registros.filter((p: any) => {
+                        const dateOnly = p.fecha.split('T')[0];
+                        if (unique.has(dateOnly)) return false;
+                        unique.add(dateOnly);
+                        return true;
+                    });
+
                     const lastP = registros[0];
                     
                     const pesoActual = lastP ? lastP.peso : a.peso_ingreso;

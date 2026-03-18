@@ -92,9 +92,18 @@ export default function Inventory() {
 
         if (!error && data) {
             const dataProcesada = data.map((a: any) => {
-                const registros = (a.registros_pesaje || []).sort((x: any, y: any) =>
+                let registros = (a.registros_pesaje || []).sort((x: any, y: any) =>
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                 );
+
+                const unique = new Set();
+                registros = registros.filter((p: any) => {
+                    const dateOnly = p.fecha.split('T')[0];
+                    if (unique.has(dateOnly)) return false;
+                    unique.add(dateOnly);
+                    return true;
+                });
+
                 const ultimoP = registros[0];
                 const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
                 
