@@ -339,10 +339,17 @@ export default function Dashboard() {
             pesajesPorAnimal[p.id_animal].push(p);
         });
 
-        const gmpLevanteAgrupado: Record<number, { sum: number, count: number }> = {};
-        const gmpCebaAgrupado: Record<number, { sum: number, count: number }> = {};
-        const gmpLevanteDetalles: Record<number, GmpDetailItem[]> = {};
-        const gmpCebaDetalles: Record<number, GmpDetailItem[]> = {};
+        // Agrupar por Mes/Año del pesaje
+        const agrupadoPorMes: Record<string, {
+            sortIndex: string;
+            label: string;
+            levanteSum: number;
+            levanteCount: number;
+            cebaSum: number;
+            cebaCount: number;
+            levanteDetalles: GmpDetailItem[];
+            cebaDetalles: GmpDetailItem[];
+        }> = {};
 
         animalesFiltrados.forEach(animal => {
             const misPesajes = pesajesPorAnimal[animal.id];
@@ -352,19 +359,31 @@ export default function Dashboard() {
             const ordenados = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
             
             let prevWeight = parseFloat(animal.peso_ingreso);
-            let prevDate = new Date(animal.fecha_ingreso);
-            let levanteIndex = 0;
-            let cebaIndex = 0;
+            let prevDate = new Date(`${animal.fecha_ingreso}T01:00:00`);
             
             ordenados.forEach((p: any) => {
-                const currentWeight = parseFloat(p.weight || p.peso); // Soporte para ambos nombres si aplica
-                const currentDate = new Date(p.fecha);
+                const currentWeight = parseFloat(p.peso); 
+                const currentDateStr = p.fecha as string; // ej: 2026-03-14
+                const currentDate = new Date(`${currentDateStr}T01:00:00`);
                 const diffDias = differenceInDays(currentDate, prevDate);
                 
                 if (diffDias > 0) {
-                    const ganancia = currentWeight - prevWeight;
-                    const gmpVal = (ganancia / diffDias) * 30;
+                    const gdp = p.gdp_calculada !== null && p.gdp_calculada !== undefined ? Number(p.gdp_calculada) : (currentWeight - prevWeight) / diffDias;
+                    const gmpVal = gdp * 30;
                     
+                    const sortKey = currentDateStr.substring(0, 7); // YYYY-MM
+                    const labelMes = format(currentDate, 'MMM yy', { locale: es }).replace(/^\w/, c => c.toUpperCase()); // Ene 26
+                    
+                    if (!agrupadoPorMes[sortKey]) {
+                        agrupadoPorMes[sortKey] = {
+                            sortIndex: sortKey,
+                            label: labelMes,
+                            levanteSum: 0, levanteCount: 0,
+                            cebaSum: 0, cebaCount: 0,
+                            levanteDetalles: [], cebaDetalles: []
+                        };
+                    }
+
                     const detail: GmpDetailItem = {
                         id_animal: animal.id,
                         chapeta: animal.numero_chapeta || 'N/A',
@@ -377,19 +396,13 @@ export default function Dashboard() {
                     };
 
                     if (p.etapa === 'levante') {
-                        levanteIndex++;
-                        if (!gmpLevanteAgrupado[levanteIndex]) gmpLevanteAgrupado[levanteIndex] = { sum: 0, count: 0 };
-                        gmpLevanteAgrupado[levanteIndex].sum += gmpVal;
-                        gmpLevanteAgrupado[levanteIndex].count++;
-                        if (!gmpLevanteDetalles[levanteIndex]) gmpLevanteDetalles[levanteIndex] = [];
-                        gmpLevanteDetalles[levanteIndex].push(detail);
+                        agrupadoPorMes[sortKey].levanteSum += gmpVal;
+                        agrupadoPorMes[sortKey].levanteCount++;
+                        agrupadoPorMes[sortKey].levanteDetalles.push(detail);
                     } else {
-                        cebaIndex++;
-                        if (!gmpCebaAgrupado[cebaIndex]) gmpCebaAgrupado[cebaIndex] = { sum: 0, count: 0 };
-                        gmpCebaAgrupado[cebaIndex].sum += gmpVal;
-                        gmpCebaAgrupado[cebaIndex].count++;
-                        if (!gmpCebaDetalles[cebaIndex]) gmpCebaDetalles[cebaIndex] = [];
-                        gmpCebaDetalles[cebaIndex].push(detail);
+                        agrupadoPorMes[sortKey].cebaSum += gmpVal;
+                        agrupadoPorMes[sortKey].cebaCount++;
+                        agrupadoPorMes[sortKey].cebaDetalles.push(detail);
                     }
                 }
                 
@@ -398,22 +411,29 @@ export default function Dashboard() {
             });
         });
 
-        const maxIdx = Math.max(
-            ...Object.keys(gmpLevanteAgrupado).map(Number),
-            ...Object.keys(gmpCebaAgrupado).map(Number),
-            0
-        );
-
-        if (maxIdx > 0) {
+        const sortedKeys = Object.keys(agrupadoPorMes).sort(); // Sorts by YYYY-MM
+        
+        if (sortedKeys.length > 0) {
             const dataEvolucion: EvolucionItem[] = [];
-            for (let i = 1; i <= Math.min(maxIdx, 15); i++) {
-                const item: EvolucionItem = { numero: i, label: `Medición ${i}` };
-                if (gmpLevanteAgrupado[i]) item.gmpLevante = parseFloat((gmpLevanteAgrupado[i].sum / gmpLevanteAgrupado[i].count).toFixed(1));
-                if (gmpCebaAgrupado[i]) item.gmpCeba = parseFloat((gmpCebaAgrupado[i].sum / gmpCebaAgrupado[i].count).toFixed(1));
+            const levDetails: Record<number, GmpDetailItem[]> = {};
+            const cebaDetails: Record<number, GmpDetailItem[]> = {};
+            
+            // Tomar los últimos 15 meses de pesaje maximo para no saturar 
+            const recentKeys = sortedKeys.slice(-15);
+
+            recentKeys.forEach((key, index) => {
+                const group = agrupadoPorMes[key];
+                const item: EvolucionItem = { numero: index, label: group.label };
+                if (group.levanteCount > 0) item.gmpLevante = parseFloat((group.levanteSum / group.levanteCount).toFixed(1));
+                if (group.cebaCount > 0) item.gmpCeba = parseFloat((group.cebaSum / group.cebaCount).toFixed(1));
+                
                 dataEvolucion.push(item);
-            }
+                levDetails[index] = group.levanteDetalles;
+                cebaDetails[index] = group.cebaDetalles;
+            });
+
             setEvolucionGmp(dataEvolucion);
-            setDetallesGmpAgrupados({ levante: gmpLevanteDetalles, ceba: gmpCebaDetalles });
+            setDetallesGmpAgrupados({ levante: levDetails as any, ceba: cebaDetails as any });
         } else {
             setEvolucionGmp([]);
             setDetallesGmpAgrupados({ levante: {}, ceba: {} });
