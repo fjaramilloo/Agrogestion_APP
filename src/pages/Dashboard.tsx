@@ -677,35 +677,35 @@ export default function Dashboard() {
                                 <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Proyección de Animales por Rango de Peso (Estimado Hoy)</h3>
                             </div>
                             <div style={{ padding: '20px' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-                                    <div style={{ flex: 1, overflowX: 'auto' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                                    <div style={{ flex: 1 }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                             <thead>
                                                 <tr>
-                                                    <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.85rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>Peso Promedio Estimado</th>
-                                                    <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.85rem', borderBottom: '1px solid rgba(255,255,255,0.05)', textAlign: 'right' }}>Nro de Animales</th>
+                                                    <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>Peso Promedio Estimado</th>
+                                                    <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)', textAlign: 'right' }}>Nro de Animales</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <tr>
-                                                    <td style={{ padding: '14px 16px', fontSize: '1.05rem' }}>&lt; 430 kg</td>
-                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango1}</td>
+                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&lt; 430 kg</td>
+                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango1}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td style={{ padding: '14px 16px', fontSize: '1.05rem' }}>431 - 480 kg</td>
-                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango2}</td>
+                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>431 - 480 kg</td>
+                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango2}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td style={{ padding: '14px 16px', fontSize: '1.05rem' }}>481 - 530 kg</td>
-                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango3}</td>
+                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>481 - 530 kg</td>
+                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango3}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td style={{ padding: '14px 16px', fontSize: '1.05rem' }}>&gt; 530 kg</td>
-                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango4}</td>
+                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&gt; 530 kg</td>
+                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango4}</td>
                                                 </tr>
                                                 <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
-                                                    <td style={{ padding: '14px 16px', fontWeight: 'bold', fontSize: '1.1rem' }}>Total General</td>
-                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.3rem' }}>{stats.totalAnimales}</td>
+                                                    <td style={{ padding: '12px 12px', fontWeight: 'bold', fontSize: '1rem' }}>Total General</td>
+                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.totalAnimales}</td>
                                                 </tr>
                                             </tbody>
                                         </table>
