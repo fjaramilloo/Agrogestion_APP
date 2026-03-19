@@ -5,7 +5,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend, BarChart, Bar, ReferenceLine
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -92,6 +92,12 @@ export default function Dashboard() {
     const [filterTipo, setFilterTipo] = useState<'historico' | 'actual'>('actual');
     const [rawData, setRawData] = useState<{ animales: any[], pesajes: any[] } | null>(null);
     const [showReporteExcel, setShowReporteExcel] = useState(false);
+    const [distribucionPesos, setDistribucionPesos] = useState({
+        rango1: 0, // < 430
+        rango2: 0, // 431 - 480
+        rango3: 0, // 481 - 530
+        rango4: 0  // > 530
+    });
 
     const handleOpenMuertes = async () => {
         setMuertesModalVisible(true);
@@ -312,6 +318,26 @@ export default function Dashboard() {
                         { fecha: 'Ene', mm: 120 }, { fecha: 'Feb', mm: 150 }, { fecha: 'Mar', mm: 80 }, { fecha: 'Abr', mm: 200 }, { fecha: 'May', mm: 250 }
                     ]);
                 }
+
+                // Calcular Distribución de Pesos Estimados
+                const gdpPromedio = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) : 0.45;
+                const dist = { rango1: 0, rango2: 0, rango3: 0, rango4: 0 };
+                
+                animales.forEach((animal: any) => {
+                    const misPesajes = pesajesMap[animal.id] || [];
+                    const ultimoP = misPesajes[misPesajes.length - 1];
+                    const pesoRef = ultimoP ? ultimoP.peso : animal.peso_ingreso;
+                    const fechaRef = ultimoP ? ultimoP.fecha : animal.fecha_ingreso;
+                    
+                    const dias = differenceInDays(new Date(), new Date(fechaRef)) || 0;
+                    const estimado = pesoRef + (dias * gdpPromedio);
+
+                    if (estimado < 430) dist.rango1++;
+                    else if (estimado <= 480) dist.rango2++;
+                    else if (estimado <= 530) dist.rango3++;
+                    else dist.rango4++;
+                });
+                setDistribucionPesos(dist);
             }
             setLoading(false);
         }
@@ -631,6 +657,76 @@ export default function Dashboard() {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Salida / Venta</span>
                                     <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.pesoPromedioSalida)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Distribución por Rangos de Peso */}
+                    <div style={{ marginBottom: '32px' }}>
+                        <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+                            <div style={{ 
+                                padding: '16px 24px', 
+                                borderBottom: '1px solid rgba(255,255,255,0.05)', 
+                                background: 'rgba(255,255,255,0.02)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <TrendingUp size={18} color="var(--primary)" />
+                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Proyección de Animales por Rango de Peso (Estimado Hoy)</h3>
+                            </div>
+                            <div style={{ padding: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                                    <div style={{ flex: 1, overflowX: 'auto' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.85rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>Peso Promedio Estimado</th>
+                                                    <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.85rem', borderBottom: '1px solid rgba(255,255,255,0.05)', textAlign: 'right' }}>Nro de Animales</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ padding: '14px 16px', fontSize: '1.05rem' }}>&lt; 430 kg</td>
+                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango1}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: '14px 16px', fontSize: '1.05rem' }}>431 - 480 kg</td>
+                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango2}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: '14px 16px', fontSize: '1.05rem' }}>481 - 530 kg</td>
+                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango3}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: '14px 16px', fontSize: '1.05rem' }}>&gt; 530 kg</td>
+                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango4}</td>
+                                                </tr>
+                                                <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
+                                                    <td style={{ padding: '14px 16px', fontWeight: 'bold', fontSize: '1.1rem' }}>Total General</td>
+                                                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.3rem' }}>{stats.totalAnimales}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        flexDirection: 'column', 
+                                        justifyContent: 'center', 
+                                        padding: '24px', 
+                                        background: 'rgba(76, 175, 80, 0.05)', 
+                                        borderRadius: '16px',
+                                        border: '1px solid rgba(76, 175, 80, 0.1)'
+                                    }}>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <ShoppingCart size={18} /> Punto de Equilibrio
+                                        </div>
+                                        <div style={{ fontSize: '1.15rem', lineHeight: '1.6' }}>
+                                            Tienes <b style={{ color: 'var(--primary-light)', fontSize: '1.4rem' }}>{distribucionPesos.rango4}</b> animales listos o próximos para venta (&gt;530kg). 
+                                            Esto representa el <b style={{ color: 'var(--primary-light)' }}>{((distribucionPesos.rango4 / (stats.totalAnimales || 1)) * 100).toFixed(1)}%</b> de tu inventario actual.
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
