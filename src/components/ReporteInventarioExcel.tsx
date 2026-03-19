@@ -32,13 +32,23 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
         // Nombre de la finca y umbrales KPI del admin
         const [{ data: fincaData }, { data: kpiData }] = await Promise.all([
           supabase.from('fincas').select('nombre').eq('id', fincaId).single(),
-          supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp').eq('id_finca', fincaId).single()
+          supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp').eq('id_finca', fincaId).single(),
+          supabase.from('potreros').select('nombre, id_rotacion').eq('id_finca', fincaId)
         ]);
         if (fincaData) setFincaNombre(fincaData.nombre);
         if (kpiData) {
           setUmbralAltoGmp(Number(kpiData.umbral_alto_gmp) || 20);
           setUmbralMedioGmp(Number(kpiData.umbral_medio_gmp) || 10);
         }
+
+        const { data: allPotrerosData } = await supabase.from('potreros').select('nombre, id_rotacion').eq('id_finca', fincaId);
+        const rotationPotreros: Record<string, string[]> = {};
+        allPotrerosData?.forEach(p => {
+          if (p.id_rotacion) {
+            if (!rotationPotreros[p.id_rotacion]) rotationPotreros[p.id_rotacion] = [];
+            rotationPotreros[p.id_rotacion].push(p.nombre);
+          }
+        });
 
         // 1. Obtener animales activos CON su potrero y la rotación del potrero
         const { data: animalesData, error: anErr } = await supabase
@@ -124,6 +134,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           if (!group[rotacionName][potreroName]) {
               group[rotacionName][potreroName] = { 
                   rotacion: rotacionName, 
+                  id_rotacion: potreroObj?.id_rotacion || null,
                   potrero: potreroName, 
                   animales: [],
                   marcasCounts: {} as Record<string, number>,
@@ -184,7 +195,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
 
                 const row: any = {
                     'Rotación': rotName,
-                    'Potrero': pData.potrero,
+                    'Potrero': pData.id_rotacion ? (rotationPotreros[pData.id_rotacion]?.sort().join(' - ') || pData.potrero) : pData.potrero,
                 };
                 allMarcas.forEach(m => {
                     row[m] = pData.marcasCounts[m] || 0;
@@ -240,9 +251,9 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
     const cols = Object.keys(reportData[0]).map(key => ({ wch: Math.max(key.length + 2, 14) }));
     ws['!cols'] = cols;
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventario Rotaciones");
+    XLSX.utils.book_append_sheet(wb, ws, "Inventario por Potreros");
     const stamp = format(new Date(), "yyyy-MM-dd");
-    XLSX.writeFile(wb, `Inventario_Rotaciones_${stamp}.xlsx`);
+    XLSX.writeFile(wb, `Inventario_por_potreros_${stamp}.xlsx`);
   };
 
   const descargarPDF = () => {
@@ -255,9 +266,9 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
     doc.setTextColor(46, 125, 50);
     doc.text(fincaNombre || 'Finca', 14, 18);
     doc.setFontSize(11);
-    doc.setTextColor(80);
-    doc.text('Informe de Inventario por Rotaciones', 14, 25);
-    doc.setFontSize(9);
+    doc.setTextColor(40, 40, 40);
+    doc.text(`Informe de Inventario por potreros`, 14, 22);
+    doc.setFontSize(10);
     doc.setTextColor(140);
     doc.text(`Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 31);
 
@@ -322,7 +333,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
     }
 
     const stamp = format(new Date(), "yyyy-MM-dd");
-    doc.save(`Inventario_Rotaciones_${stamp}.pdf`);
+    doc.save(`Inventario_por_potreros_${stamp}.pdf`);
   };
 
   const isTotal = (row: any) => row['Rotación'] === 'TOTAL';
@@ -339,7 +350,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <FileSpreadsheet size={24} color="var(--secondary)" />
-            <h2 style={{ margin: 0 }}>Informe de Inventario por Rotaciones</h2>
+            <h2 style={{ margin: 0 }}>Informe de Inventario por potreros</h2>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', padding: '4px' }}>
             <X size={24} />
