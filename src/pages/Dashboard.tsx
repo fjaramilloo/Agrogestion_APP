@@ -138,7 +138,7 @@ export default function Dashboard() {
             const { data: todosAnimales } = await supabase
                 .from('animales')
                 .select(`
-                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, nombre_propietario, estado, fecha_muerte,
+                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, nombre_propietario, estado, fecha_muerte,
                     potreros ( nombre ),
                     potreradas ( nombre ),
                     registros_pesaje (
@@ -234,7 +234,8 @@ export default function Dashboard() {
                         const diffDiasTotal = differenceInDays(new Date(ultimoPesaje.fecha), new Date(animal.fecha_ingreso));
 
                         if (diffDiasTotal > 0) {
-                            const gananciaTotal = ultimoPesaje.peso - animal.peso_ingreso;
+                            const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
+                            const gananciaTotal = ultimoPesaje.peso - pesoBase;
                             const gdpTotal = gananciaTotal / diffDiasTotal;
 
                             gdpSumaTotal += gdpTotal;
@@ -254,7 +255,7 @@ export default function Dashboard() {
                 // KPI Peso Promedio Entrada (Lógica: >200 animales activos -> real, sino 360)
                 let pesoEntradaFinal = 360;
                 if (animales.length > 200) {
-                    const sumaEntrada = animales.reduce((acc: number, a: any) => acc + (parseFloat(a.peso_ingreso) || 0), 0);
+                    const sumaEntrada = animales.reduce((acc: number, a: any) => acc + (parseFloat(a.peso_compra ?? a.peso_ingreso) || 0), 0);
                     pesoEntradaFinal = sumaEntrada / animales.length;
                 }
 
@@ -337,7 +338,8 @@ export default function Dashboard() {
                 animales.forEach((animal: any) => {
                     const misPesajes = pesajesMap[animal.id] || [];
                     const ultimoP = misPesajes[misPesajes.length - 1];
-                    const pesoRef = ultimoP ? ultimoP.peso : animal.peso_ingreso;
+                    const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
+                    const pesoRef = ultimoP ? ultimoP.peso : pesoBase;
                     const fechaRef = ultimoP ? ultimoP.fecha : animal.fecha_ingreso;
                     
                     const dias = differenceInDays(new Date(), new Date(fechaRef)) || 0;
@@ -409,7 +411,7 @@ export default function Dashboard() {
             // Ordenar pesajes cronológicamente
             const ordenados = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
             
-            let prevWeight = parseFloat(animal.peso_ingreso);
+            let prevWeight = parseFloat(animal.peso_compra ?? animal.peso_ingreso);
             let prevDate = new Date(`${animal.fecha_ingreso}T01:00:00`);
             
             ordenados.forEach((p: any) => {

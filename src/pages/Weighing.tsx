@@ -8,6 +8,7 @@ interface AnimalPreview {
     id: string;
     numero_chapeta: string;
     peso_ingreso: number;
+    peso_compra?: number;
     fecha_ingreso: string;
     etapa: string;
     ultimo_peso?: number;
@@ -75,7 +76,7 @@ export default function Weighing() {
 
         const { data, error } = await supabase
             .from('animales')
-            .select('id, numero_chapeta, peso_ingreso, fecha_ingreso, etapa, ok_ceba')
+            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba')
             .eq('id_finca', fincaId)
             .eq('numero_chapeta', chapeta.trim())
             .single();
@@ -92,7 +93,9 @@ export default function Weighing() {
                 .order('fecha', { ascending: false });
 
             let gmp = 0;
-            let ultimoPeso = data.peso_ingreso;
+            // Usar peso_compra si existe, sino peso_ingreso
+            const pesoBase = data.peso_compra || data.peso_ingreso;
+            let ultimoPeso = pesoBase;
             let fechaUltimoPeso = data.fecha_ingreso;
 
             if (pesajes && pesajes.length > 0) {
@@ -101,7 +104,7 @@ export default function Weighing() {
                 fechaUltimoPeso = ultimo.fecha;
 
                 const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(data.fecha_ingreso)) || 1;
-                const gananciaTotal = ultimo.peso - data.peso_ingreso;
+                const gananciaTotal = ultimo.peso - pesoBase;
                 gmp = (gananciaTotal / diffDias) * 30;
             }
 

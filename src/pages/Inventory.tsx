@@ -21,6 +21,7 @@ interface Animal {
     sexo: string;
     etapa: string;
     peso_ingreso: number;
+    peso_compra?: number | null;
     fecha_ingreso: string;
     fecha_ingreso_ceba?: string | null;
     peso_ingreso_ceba?: number | null;
@@ -230,7 +231,8 @@ export default function Inventory() {
     // Calcular GDP Promedio de todos los animales para la estimación de peso de hoy
     const gdpsTotales = animales.map(a => {
         const u = a.registros_pesaje?.[0];
-        const gain = (u?.peso ?? a.peso_ingreso) - a.peso_ingreso;
+        const pesoBase = a.peso_compra ?? a.peso_ingreso;
+        const gain = (u?.peso ?? pesoBase) - pesoBase;
         const ref = u ? new Date(u.fecha) : new Date();
         const days = differenceInDays(ref, new Date(a.fecha_ingreso)) || 1;
         return u?.gdp_calculada ?? (gain / days);
@@ -268,7 +270,10 @@ export default function Inventory() {
                 <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(244, 67, 54, 0.05)', border: '1px solid rgba(244, 67, 54, 0.1)' }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Alertas (GDP Bajo)</div>
                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--error)' }}>
-                        {animales.filter(a => (a.registros_pesaje?.length || 0) > 1 && ((a.registros_pesaje[0].peso - a.peso_ingreso) / (differenceInDays(new Date(a.registros_pesaje[0].fecha), new Date(a.fecha_ingreso)) || 1) * 30) <= umbralMedioGmp).length}
+                        {animales.filter(a => {
+                            const pesoBase = a.peso_compra ?? a.peso_ingreso;
+                            return (a.registros_pesaje?.length || 0) > 1 && ((a.registros_pesaje[0].peso - pesoBase) / (differenceInDays(new Date(a.registros_pesaje[0].fecha), new Date(a.fecha_ingreso)) || 1) * 30) <= umbralMedioGmp;
+                        }).length}
                     </div>
                 </div>
             </div>
@@ -366,14 +371,15 @@ export default function Inventory() {
                             <tr><td colSpan={5} style={{ padding: '44px', textAlign: 'center' }}>No hay animales registrados.</td></tr>
                         ) : (
                             sortedAndFilteredAnimals.map((animal) => {
+                                const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
                                 const ultimoP = animal.registros_pesaje?.[0];
                                 const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
-                                const pesoU = ultimoP ? `${ultimoP.peso} kg` : `${animal.peso_ingreso} kg*`;
+                                const pesoU = ultimoP ? `${ultimoP.peso} kg` : `${pesoBase} kg*`;
 
                                 const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date();
-                                const pesoReferencia = ultimoP ? ultimoP.peso : animal.peso_ingreso;
+                                const pesoReferencia = ultimoP ? ultimoP.peso : pesoBase;
                                 const dias = differenceInDays(fechaReferencia, new Date(animal.fecha_ingreso)) || 1;
-                                const gananciaTotal = pesoReferencia - animal.peso_ingreso;
+                                const gananciaTotal = pesoReferencia - pesoBase;
                                 const gmpPromedio = (gananciaTotal / dias) * 30;
 
                                 const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gmpPromedio <= umbralMedioGmp;
@@ -416,7 +422,7 @@ export default function Inventory() {
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: 'bold', fontSize: '1.05rem' }}>{pesoU}</div>
-                                            {(animal.registros_pesaje?.length || 0) > 1 && ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>+{(ultimoP.peso - animal.peso_ingreso).toFixed(1)} kg ganados</div>}
+                                            {(animal.registros_pesaje?.length || 0) > 1 && ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>+{(ultimoP.peso - (animal.peso_compra ?? animal.peso_ingreso)).toFixed(1)} kg ganados</div>}
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             {hasRecords ? (
@@ -505,9 +511,10 @@ export default function Inventory() {
             )}
             {/* Modal Historial de Animal */}
             {selectedAnimal && (() => {
+                const pesoBaseModal = selectedAnimal.peso_compra ?? selectedAnimal.peso_ingreso;
                 const ultimoP = selectedAnimal.registros_pesaje?.[0];
                 const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : format(new Date(selectedAnimal.fecha_ingreso), 'dd/MM/yyyy');
-                const pesoU = ultimoP ? ultimoP.peso : selectedAnimal.peso_ingreso;
+                const pesoU = ultimoP ? ultimoP.peso : pesoBaseModal;
 
                 const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(selectedAnimal.fecha_ingreso);
                 const diasHoy = differenceInDays(new Date(), refDate) || 0;
@@ -515,7 +522,7 @@ export default function Inventory() {
 
                 const timeline = [
                     ...(selectedAnimal.registros_pesaje || []).map((p, i, arr) => {
-                        const ant = arr[i + 1] || { peso: selectedAnimal.peso_ingreso, fecha: selectedAnimal.fecha_ingreso };
+                        const ant = arr[i + 1] || { peso: pesoBaseModal, fecha: selectedAnimal.fecha_ingreso };
                         const d = differenceInDays(new Date(p.fecha), new Date(ant.fecha)) || 1;
                         const ganancia = p.peso - ant.peso;
                         const gmp = (ganancia / d) * 30;
@@ -536,7 +543,7 @@ export default function Inventory() {
                     {
                         id: selectedAnimal.fecha_ingreso,
                         fecha: selectedAnimal.fecha_ingreso,
-                        peso: selectedAnimal.peso_ingreso,
+                        peso: pesoBaseModal,
                         gmp: 0,
                         gdp: 0,
                         esIngreso: true

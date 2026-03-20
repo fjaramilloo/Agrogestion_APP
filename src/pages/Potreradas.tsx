@@ -127,6 +127,7 @@ export default function Potreradas() {
                     nombre_propietario,
                     id_potrerada,
                     peso_ingreso,
+                    peso_compra,
                     fecha_ingreso,
                     registros_pesaje (
                         peso,
@@ -149,7 +150,7 @@ export default function Potreradas() {
                     numero_chapeta: a.numero_chapeta,
                     nombre_propietario: a.nombre_propietario,
                     id_potrerada: a.id_potrerada,
-                    pesoActual: registros[0] ? registros[0].peso : a.peso_ingreso
+                    pesoActual: registros[0] ? registros[0].peso : (a.peso_compra ?? a.peso_ingreso)
                 };
             });
 
@@ -161,7 +162,8 @@ export default function Potreradas() {
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                 );
                 const u = registros[0];
-                const gain = (u?.peso ?? a.peso_ingreso) - a.peso_ingreso;
+                const pesoBase = a.peso_compra ?? a.peso_ingreso;
+                const gain = (u?.peso ?? pesoBase) - pesoBase;
                 const ref = u ? new Date(u.fecha) : new Date(a.fecha_ingreso);
                 const days = differenceInDays(new Date(ref), new Date(a.fecha_ingreso)) || 1;
                 return u?.gdp_calculada ?? (gain / days);
@@ -199,8 +201,9 @@ export default function Potreradas() {
                     });
 
                     const lastP = registros[0];
+                    const pesoBase = a.peso_compra ?? a.peso_ingreso;
                     
-                    const pesoActual = lastP ? lastP.peso : a.peso_ingreso;
+                    const pesoActual = lastP ? lastP.peso : pesoBase;
                     totalPeso += Number(pesoActual);
                     validWeightCount++;
 
@@ -217,7 +220,7 @@ export default function Potreradas() {
                         // 2. GMP Acumulado (Primer pesaje vs Último pesaje)
                         const earliestP = registros[registros.length - 1]; // El más antiguo registrado
                         // Si solo hay un registro, comparamos contra el ingreso a la finca
-                        const startWeight = registros.length > 1 ? earliestP.peso : a.peso_ingreso;
+                        const startWeight = registros.length > 1 ? earliestP.peso : pesoBase;
                         const startDate = registros.length > 1 ? new Date(earliestP.fecha) : new Date(a.fecha_ingreso);
                         const endDate = new Date(lastP.fecha);
                         
@@ -391,6 +394,7 @@ export default function Potreradas() {
                     numero_chapeta,
                     nombre_propietario,
                     peso_ingreso,
+                    peso_compra,
                     fecha_ingreso,
                     etapa,
                     fecha_ingreso_ceba,
@@ -427,16 +431,18 @@ export default function Potreradas() {
                 let fechaIngresoEtapa = null;
                 let pesoIngresoEtapa = null;
 
+                const pesoBase = a.peso_compra ?? a.peso_ingreso;
+
                 if (p.etapa === 'ceba') {
                     fechaIngresoEtapa = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
-                    pesoIngresoEtapa = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? a.peso_ingreso : null));
+                    pesoIngresoEtapa = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? pesoBase : null));
                 } else {
                     if (registrosEtapa.length > 0) {
                         fechaIngresoEtapa = registrosEtapa[0].fecha;
                         pesoIngresoEtapa = registrosEtapa[0].peso;
                     } else if (a.etapa?.toLowerCase() === p.etapa.toLowerCase()) {
                         fechaIngresoEtapa = a.fecha_ingreso;
-                        pesoIngresoEtapa = a.peso_ingreso;
+                        pesoIngresoEtapa = pesoBase;
                     }
                 }
 
@@ -455,7 +461,7 @@ export default function Potreradas() {
                     numero_chapeta: a.numero_chapeta,
                     nombre_propietario: a.nombre_propietario,
                     id_potrerada: p.id,
-                    pesoActual: lastP ? lastP.peso : a.peso_ingreso,
+                    pesoActual: lastP ? lastP.peso : pesoBase,
                     gdp: gdp,
                     gmp: gmp,
                     fechaIngresoEtapa: fechaIngresoEtapa,

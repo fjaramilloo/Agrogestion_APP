@@ -10,6 +10,7 @@ interface AnimalMercado {
     nombre_propietario: string;
     etapa: string;
     peso_ingreso: number;
+    peso_compra?: number | null;
     fecha_ingreso: string;
     id_potrerada: string | null;
     id_potrero_actual: string | null;
@@ -79,7 +80,7 @@ export default function Mercado() {
             .from('animales')
             .select(`
                 id, numero_chapeta, nombre_propietario, etapa,
-                peso_ingreso, fecha_ingreso, id_potrerada, id_potrero_actual,
+                peso_ingreso, peso_compra, fecha_ingreso, id_potrerada, id_potrero_actual,
                 potreros (nombre),
                 registros_pesaje (peso, fecha)
             `)
@@ -111,12 +112,12 @@ export default function Mercado() {
                 numero_chapeta: a.numero_chapeta,
                 nombre_propietario: a.nombre_propietario,
                 etapa: a.etapa,
-                peso_ingreso: a.peso_ingreso,
+                peso_ingreso: a.peso_compra ?? a.peso_ingreso,
                 fecha_ingreso: a.fecha_ingreso,
                 id_potrerada: a.id_potrerada,
                 id_potrero_actual: a.id_potrero_actual,
                 nombre_potrero: a.potreros?.nombre || 'N/A',
-                ultimo_peso: last ? last.peso : a.peso_ingreso,
+                ultimo_peso: last ? last.peso : (a.peso_compra ?? a.peso_ingreso),
                 fecha_ultimo_peso: last ? last.fecha : a.fecha_ingreso,
                 diasUltimoPesaje: differenceInDays(hoy, fechaRef)
             };

@@ -54,7 +54,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
         const { data: animalesData, error: anErr } = await supabase
           .from('animales')
           .select(`
-            id, numero_chapeta, nombre_propietario, peso_ingreso, fecha_ingreso, etapa, id_potrero_actual,
+            id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra, fecha_ingreso, etapa, id_potrero_actual,
             potreros ( nombre, id_rotacion, rotaciones ( nombre ) ),
             registros_pesaje ( peso, fecha, gdp_calculada )
           `)
@@ -111,8 +111,9 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
               if (gdpV === 0 && gan !== 0) gdpV = gan/d;
               gdpsTotales.push(gdpV);
           } else if (registros.length === 1) {
+              const pesoBase = a.peso_compra ?? a.peso_ingreso;
               const d = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso)) || 1;
-              const gan = ultimoP.peso - a.peso_ingreso;
+              const gan = ultimoP.peso - pesoBase;
               gdpsTotales.push(gan/d);
           }
 
@@ -120,7 +121,8 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           let gmpTotalAnimal = 0;
           if (ultimoP) {
               const primerRegistro = registros[registros.length - 1]; // el más antiguo
-              const startWeight = registros.length > 1 ? primerRegistro.peso : a.peso_ingreso;
+              const pesoBase = a.peso_compra ?? a.peso_ingreso;
+              const startWeight = registros.length > 1 ? primerRegistro.peso : pesoBase;
               const startDate = registros.length > 1 ? new Date(primerRegistro.fecha) : new Date(a.fecha_ingreso);
               const endDate = new Date(ultimoP.fecha);
               const totalDays = differenceInDays(endDate, startDate);
@@ -155,7 +157,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
 
           group[rotacionName][potreroName].animales.push({
               ...a,
-              ultimo_peso: ultimoP ? ultimoP.peso : a.peso_ingreso,
+              ultimo_peso: ultimoP ? ultimoP.peso : (a.peso_compra ?? a.peso_ingreso),
               fecha_ultimo_pesaje: ultimoP ? ultimoP.fecha : a.fecha_ingreso
           });
         });

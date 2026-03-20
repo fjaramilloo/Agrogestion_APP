@@ -21,6 +21,7 @@ interface AnimalCompraDetalle {
     nombre_propietario: string;
     etapa: string;
     peso_ingreso: number;
+    peso_compra?: number | null;
     fecha_ingreso: string;
     proveedor_compra: string;
     gmp: number;
@@ -84,6 +85,7 @@ export default function HistorialCompras() {
                     id, 
                     numero_chapeta, 
                     nombre_propietario,
+                    potreros(nombre),
                     proveedor_compra,
                     fecha_ingreso,
                     peso_ingreso,
@@ -133,7 +135,8 @@ export default function HistorialCompras() {
                         numero_chapeta: animal.numero_chapeta,
                         nombre_propietario: animal.nombre_propietario,
                         etapa: animal.etapa,
-                        peso_ingreso: animal.peso_ingreso,
+                        peso_ingreso: (animal.peso_compra ?? animal.peso_ingreso) || 0,
+                        peso_compra: animal.peso_compra,
                         fecha_ingreso: animal.fecha_ingreso,
                         proveedor_compra: proveedor,
                         gmp: gmp,
@@ -566,15 +569,16 @@ export default function HistorialCompras() {
                     ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es })
                     : format(new Date(a.fecha_ingreso), 'dd/MM/yyyy', { locale: es });
 
+                const pesoBase = (a as any).peso_compra ?? a.peso_ingreso;
                 const timeline = [
                     ...registrosOrdenados.map((p, i, arr) => {
-                        const siguiente = arr[i + 1] || { peso: a.peso_ingreso, fecha: a.fecha_ingreso };
+                        const siguiente = arr[i + 1] || { peso: pesoBase, fecha: a.fecha_ingreso };
                         const d = differenceInDays(new Date(p.fecha), new Date(siguiente.fecha)) || 1;
                         const ganancia = p.peso - siguiente.peso;
                         const gmp = (ganancia / d) * 30;
                         return { fecha: p.fecha, peso: p.peso, gmp, gdp: p.gdp_calculada ?? (ganancia / d), esIngreso: false };
                     }),
-                    { fecha: a.fecha_ingreso, peso: a.peso_ingreso, gmp: 0, gdp: 0, esIngreso: true }
+                    { fecha: a.fecha_ingreso, peso: pesoBase, gmp: 0, gdp: 0, esIngreso: true }
                 ];
 
                 const chartData = [...timeline].reverse().map(item => ({
@@ -605,7 +609,7 @@ export default function HistorialCompras() {
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso de Ingreso</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{a.peso_ingreso} kg</div>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{(a as any).peso_compra ?? a.peso_ingreso} kg</div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--primary-light)', marginTop: '4px' }}>
                                         {format(new Date(a.fecha_ingreso + 'T12:00:00'), 'dd/MM/yyyy')}
                                     </div>

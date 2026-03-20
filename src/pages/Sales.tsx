@@ -111,6 +111,7 @@ export default function Sales() {
                     numero_chapeta, 
                     nombre_propietario,
                     peso_ingreso,
+                    peso_compra,
                     fecha_ingreso,
                     etapa,
                     fecha_ingreso_ceba,
@@ -135,7 +136,7 @@ export default function Sales() {
                 const registros = (data.registros_pesaje || []).sort((x: any, y: any) => 
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                 );
-                const ultimoPeso = registros.length > 0 ? registros[0].peso : data.peso_ingreso;
+                const ultimoPeso = registros.length > 0 ? registros[0].peso : (data.peso_compra ?? data.peso_ingreso);
                 const ultimaFecha = registros.length > 0 ? registros[0].fecha : data.fecha_ingreso;
 
                 // Datos adicionales para reporte solicitado
