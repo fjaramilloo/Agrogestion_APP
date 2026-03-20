@@ -11,13 +11,18 @@ interface PurchaseReportSimpleProps {
     fechaCompra: string;
     animales: AnimalSimple[];
     proveedor: string;
+    pesoCompraTotal?: number;
     onClose: () => void;
 }
 
-export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animales, proveedor, onClose }: PurchaseReportSimpleProps) {
+export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animales, proveedor, pesoCompraTotal, onClose }: PurchaseReportSimpleProps) {
     const totalKilos = animales.reduce((sum, a) => sum + parseFloat(a.peso_ingreso.toString()), 0);
     const totalAnimales = animales.length;
-    const pesoPromedio = totalAnimales > 0 ? totalKilos / totalAnimales : 0;
+    const promedioPeso = totalAnimales > 0 ? totalKilos / totalAnimales : 0;
+
+    // Pérdida por transporte (Merma conforme al modelo del usuario: % sobre peso de llegada)
+    const perdidaKilos = pesoCompraTotal ? (pesoCompraTotal - totalKilos) : 0;
+    const porcentajePerdida = (totalKilos > 0) ? (perdidaKilos / totalKilos * 100) : 0;
 
     const handlePrint = () => window.print();
 
@@ -133,6 +138,12 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
                 .rs-summary-item + .rs-summary-item {
                     border-left: 1px solid #e0e0e0;
                 }
+                .rs-summary-item.highlight {
+                    background: #fffdf2;
+                }
+                .rs-summary-item.loss {
+                    background: #fff8f8;
+                }
                 .rs-summary-label {
                     display: block;
                     font-size: 10px;
@@ -143,9 +154,14 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
                     margin-bottom: 6px;
                 }
                 .rs-summary-value {
-                    font-size: 22px;
+                    font-size: 20px;
                     font-weight: 800;
                     color: #111;
+                }
+                .rs-loss-value {
+                    color: #e53e3e;
+                    font-size: 20px;
+                    font-weight: 800;
                 }
                 .rs-summary-value span {
                     font-size: 13px;
@@ -226,8 +242,20 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
                     </div>
                     <div className="rs-summary-item">
                         <span className="rs-summary-label">Peso Promedio</span>
-                        <div className="rs-summary-value">{pesoPromedio.toFixed(1)} <span>kg</span></div>
+                        <div className="rs-summary-value">{promedioPeso.toFixed(1)} <span>kg</span></div>
                     </div>
+                    {pesoCompraTotal && (
+                        <>
+                            <div className="rs-summary-item highlight">
+                                <span className="rs-summary-label">Peso Compra</span>
+                                <div className="rs-summary-value">{pesoCompraTotal.toLocaleString()} <span>kg</span></div>
+                            </div>
+                            <div className="rs-summary-item loss">
+                                <span className="rs-summary-label">% Pérdida</span>
+                                <div className="rs-loss-value">{porcentajePerdida.toFixed(1)}%</div>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

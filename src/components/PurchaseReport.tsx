@@ -11,10 +11,11 @@ interface PurchaseReportProps {
     fincaNombre: string;
     fechaIngreso: string;
     animales: AnimalReport[];
+    pesoCompraTotal?: number;
     onClose: () => void;
 }
 
-export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, onClose }: PurchaseReportProps) {
+export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pesoCompraTotal, onClose }: PurchaseReportProps) {
     // Cálculos
     const totalKilos = animales.reduce((sum, a) => sum + parseFloat(a.peso_ingreso.toString()), 0);
     const totalAnimales = animales.length;
@@ -38,6 +39,10 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
     }));
 
     const promedioPeso = totalAnimales > 0 ? totalKilos / totalAnimales : 0;
+    
+    // Pérdida por transporte (Merma conforme al modelo del usuario: % sobre peso de llegada)
+    const perdidaKilos = pesoCompraTotal ? (pesoCompraTotal - totalKilos) : 0;
+    const porcentajePerdida = (totalKilos > 0) ? (perdidaKilos / totalKilos * 100) : 0;
 
     const handlePrint = () => {
         window.print();
@@ -108,7 +113,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                 }
                 .summary-grid {
                     display: grid;
-                    grid-template-columns: repeat(3, 1fr);
+                    grid-template-columns: repeat(${pesoCompraTotal ? 4 : 3}, 1fr);
                     gap: 10px;
                     margin-bottom: 20px;
                 }
@@ -118,6 +123,14 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                     border-radius: 6px;
                     padding: 12px;
                     text-align: center;
+                }
+                .summary-item.highlight {
+                    background: #fff8e1;
+                    border: 1px solid #ffe082;
+                }
+                .summary-item.loss {
+                    background: #fff5f5;
+                    border: 1px solid #feb2b2;
                 }
                 .summary-label { 
                     display: block;
@@ -130,6 +143,11 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                     font-size: 16px;
                     font-weight: 700;
                     color: #333;
+                }
+                .loss-value {
+                    color: var(--error);
+                    font-size: 16px;
+                    font-weight: 700;
                 }
                 .report-table {
                     width: 100%;
@@ -209,6 +227,18 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                         <span className="summary-label">Peso Promedio</span>
                         <div className="summary-value">{promedioPeso.toFixed(1)} <span style={{fontSize: '0.8em', fontWeight: 'normal', color: '#888'}}>kg</span></div>
                     </div>
+                    {pesoCompraTotal && (
+                        <>
+                            <div className="summary-item highlight">
+                                <span className="summary-label">Peso Compra</span>
+                                <div className="summary-value">{pesoCompraTotal.toLocaleString()} <span style={{fontSize: '0.8em', fontWeight: 'normal', color: '#888'}}>kg</span></div>
+                            </div>
+                            <div className="summary-item loss">
+                                <span className="summary-label">% Pérdida Transp.</span>
+                                <div className="loss-value">{porcentajePerdida.toFixed(1)}%</div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 <div className="table-title">Detalle de Ingresos</div>

@@ -28,7 +28,7 @@ export default function Purchase() {
 
     // Reporte
     const [showReport, setShowReport] = useState(false);
-    const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalCompra[] } | null>(null);
+    const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalCompra[], pesoCompraTotal?: number } | null>(null);
 
     useEffect(() => {
         if (!fincaId) return;
@@ -152,12 +152,19 @@ export default function Purchase() {
                 });
             }
 
+            const pesoCompTotalNum = incluirPesoCompra ? parseFloat(pesoCompraTotal) : 0;
+            const totalPesoIngresoLote = animales.reduce((acc, a) => acc + (parseFloat(a.peso_ingreso) || 0), 0);
+            const ratioPesoCompra = (incluirPesoCompra && pesoCompTotalNum > 0 && totalPesoIngresoLote > 0) 
+                ? (pesoCompTotalNum / totalPesoIngresoLote) 
+                : 1;
+
             const records = animales.map(a => ({
                 id_finca: fincaId,
                 numero_chapeta: a.numero_chapeta.trim(),
                 nombre_propietario: a.propietario,
                 id_potrerada: potreradaIdPorPropietario.get(a.propietario) || null,
                 peso_ingreso: parseFloat(a.peso_ingreso),
+                peso_compra: incluirPesoCompra ? (parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
                 fecha_ingreso: fechaIngreso,
                 proveedor_compra: selectedProveedor,
                 observaciones_compra: observaciones,
@@ -175,7 +182,8 @@ export default function Purchase() {
             // Guardar para el reporte antes de limpiar
             setReportData({
                 fecha: fechaIngreso,
-                animales: [...animales]
+                animales: [...animales],
+                pesoCompraTotal: incluirPesoCompra ? parseFloat(pesoCompraTotal) : undefined
             });
             setShowReport(true);
 
@@ -415,13 +423,22 @@ export default function Purchase() {
             )}
 
             {showReport && reportData && (
-                <PurchaseReport
-                    fincaNombre={userFincas.find((f: any) => f.id_finca === fincaId)?.nombre_finca || 'Finca'}
-                    fechaIngreso={reportData.fecha}
-                    animales={reportData.animales}
-                    onClose={() => setShowReport(false)}
-                />
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, overflowY: 'auto' }}>
+                    <PurchaseReport 
+                        fincaNombre={userFincas?.find((f: any) => f.id_finca === fincaId)?.nombre_finca || ''}
+                        fechaIngreso={reportData.fecha}
+                        animales={reportData.animales}
+                        pesoCompraTotal={reportData.pesoCompraTotal}
+                        onClose={() => {
+                            setShowReport(false);
+                            setReportData(null);
+                        }}
+                    />
+                </div>
             )}
+
+            {/* Agregamos el reporte simple también si fuera necesario, o nos aseguramos que reciba el prop */}
+            {/* Si existiera un selector para el tipo de reporte, lo usaríamos aquí */};
         </div>
     );
 }

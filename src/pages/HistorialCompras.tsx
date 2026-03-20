@@ -36,6 +36,7 @@ interface CompraGrupo {
     proveedor: string;
     animalesCount: number;
     pesoPromedioIngreso: number;
+    pesoTotalCompra: number;
     pesoPromedioActual: number;
     gmpPromedio: number;
     animalesReporte: AnimalCompraParaReporte[];
@@ -86,6 +87,7 @@ export default function HistorialCompras() {
                     proveedor_compra,
                     fecha_ingreso,
                     peso_ingreso,
+                    peso_compra,
                     etapa,
                     registros_pesaje (
                         peso,
@@ -152,6 +154,7 @@ export default function HistorialCompras() {
                             proveedor: proveedor,
                             animalesCount: 0,
                             pesoTotalIngreso: 0,
+                            pesoTotalCompra: 0,
                             pesoTotalActual: 0,
                             gmpTotal: 0,
                             gmpCount: 0,
@@ -162,6 +165,7 @@ export default function HistorialCompras() {
                     
                     acc[key].animalesCount++;
                     acc[key].pesoTotalIngreso += animal.peso_ingreso || 0;
+                    acc[key].pesoTotalCompra += animal.peso_compra || 0;
                     acc[key].pesoTotalActual += pesoActual;
                     if (gmp > 0) {
                         acc[key].gmpTotal += gmp;
@@ -360,6 +364,7 @@ export default function HistorialCompras() {
                     fincaNombre={userFincas.find((f: any) => f.id_finca === fincaId)?.nombre_finca || 'Finca'}
                     fechaIngreso={selectedCompra.fechaCompra}
                     animales={selectedCompra.animalesReporte}
+                    pesoCompraTotal={selectedCompra.pesoTotalCompra > 0 ? selectedCompra.pesoTotalCompra : undefined}
                     onClose={() => setSelectedCompra(null)}
                 />
             )}
@@ -371,6 +376,7 @@ export default function HistorialCompras() {
                     fechaCompra={selectedCompraSimple.fechaCompra}
                     animales={selectedCompraSimple.animalesReporte}
                     proveedor={selectedCompraSimple.proveedor}
+                    pesoCompraTotal={selectedCompraSimple.pesoTotalCompra > 0 ? selectedCompraSimple.pesoTotalCompra : undefined}
                     onClose={() => setSelectedCompraSimple(null)}
                 />
             )}
