@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud } from 'lucide-react';
+import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
 
 interface OfflinePurchasePayload {
@@ -44,6 +44,8 @@ export default function Purchase() {
     // Reporte
     const [showReport, setShowReport] = useState(false);
     const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalCompra[], pesoCompraTotal?: number } | null>(null);
+    const [lastTags, setLastTags] = useState<{ owner: string, tag: string }[]>([]);
+    const [showLastTags, setShowLastTags] = useState(false);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -71,6 +73,9 @@ export default function Purchase() {
                 .eq('id_finca', fincaId)
                 .order('nombre');
             if (provData) setProveedores(provData);
+
+            // Fetch last tags logic
+            await fetchLastTags();
         };
         fetchPropietarios();
 
@@ -79,6 +84,47 @@ export default function Purchase() {
             window.removeEventListener('offline', handleOffline);
         };
     }, [fincaId]);
+
+    const fetchLastTags = async () => {
+        if (!fincaId) return;
+        const { data, error } = await supabase
+            .from('animales')
+            .select('numero_chapeta, nombre_propietario')
+            .eq('id_finca', fincaId)
+            .eq('estado', 'activo');
+
+        if (error || !data) return;
+
+        const monthMap: Record<string, number> = { '0': 10, 'N': 11, 'X': 12 };
+        
+        const parsedData = data.map(a => {
+            const parts = (a.numero_chapeta || '').split('-');
+            if (parts.length !== 2) return { ...a, sortKey: 0 };
+            
+            const numPart = parts[0];
+            const myPart = parts[1];
+            
+            const num = parseInt(numPart) || 0;
+            const mChar = myPart.charAt(0);
+            const yChar = myPart.charAt(1);
+            
+            const m = monthMap[mChar] !== undefined ? monthMap[mChar] : (parseInt(mChar) || 0);
+            const y = parseInt(yChar) || 0;
+            
+            // sortKey: Year * 1,000,000 + Month * 10,000 + Number
+            const sortKey = (y * 1000000) + (m * 10000) + num;
+            return { ...a, sortKey };
+        });
+
+        const owners = Array.from(new Set(parsedData.map(d => d.nombre_propietario)));
+        const latest = owners.map(owner => {
+            const ownerAnimals = parsedData.filter(d => d.nombre_propietario === owner);
+            const top = ownerAnimals.reduce((max, curr) => curr.sortKey > max.sortKey ? curr : max, ownerAnimals[0]);
+            return { owner: owner || 'Sin dueño', tag: top?.numero_chapeta || 'N/A' };
+        });
+
+        setLastTags(latest);
+    };
 
     const generarFilas = (e: React.FormEvent) => {
         e.preventDefault();
@@ -230,6 +276,9 @@ export default function Purchase() {
             if (error) throw error;
 
             setMsjExito(`¡Éxito! Se crearon ${records.length} animales correctamente.`);
+            
+            // Actualizar últimas chapetas informativas
+            await fetchLastTags();
 
             // Guardar para el reporte antes de limpiar
             setReportData({
@@ -398,6 +447,43 @@ export default function Purchase() {
 
             {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
             {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
+
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                <button 
+                    onClick={() => setShowLastTags(!showLastTags)}
+                    style={{ 
+                        backgroundColor: showLastTags ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+                        color: showLastTags ? 'white' : 'var(--text-muted)',
+                        padding: '8px 16px',
+                        fontSize: '0.85rem',
+                        width: 'auto',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    <Info size={16} /> {showLastTags ? 'Ocultar últimas chapetas' : 'Ver últimas chapetas por dueño'}
+                </button>
+            </div>
+
+            {showLastTags && (
+                <div className="card" style={{ marginBottom: '24px', border: '1px solid var(--primary)', animation: 'fadeIn 0.3s ease' }}>
+                    <h3 style={{ fontSize: '1rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Info size={18} color="var(--primary)" /> Últimas Chapetas Registradas
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                        {lastTags.length > 0 ? lastTags.map((lt, idx) => (
+                            <div key={idx} style={{ padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{lt.owner}</div>
+                                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>{lt.tag}</div>
+                            </div>
+                        )) : (
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No hay datos suficientes para calcular las últimas chapetas.</p>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <div className="card" style={{ marginBottom: '32px' }}>
                 <form onSubmit={generarFilas} style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
