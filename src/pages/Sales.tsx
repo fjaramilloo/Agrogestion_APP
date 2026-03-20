@@ -201,23 +201,24 @@ export default function Sales() {
         setShowConfirm(false);
 
         try {
-            for (const a of animales) {
-                if (!a.id_animal) continue;
+            const registrosInsert = animales.filter(a => a.id_animal).map(a => ({
+                id_animal: a.id_animal,
+                peso: parseFloat(a.peso_salida),
+                fecha: fechaVenta,
+                etapa: 'ceba'
+            }));
 
-                const pesoFloat = parseFloat(a.peso_salida);
-
-                // 1. Insertar registro de pesaje final
+            if (registrosInsert.length > 0) {
                 const { error: errorPesaje } = await supabase
                     .from('registros_pesaje')
-                    .insert({
-                        id_animal: a.id_animal,
-                        peso: pesoFloat,
-                        fecha: fechaVenta,
-                        etapa: 'ceba'
-                    });
-
+                    .insert(registrosInsert);
                 if (errorPesaje) throw errorPesaje;
+            }
 
+            for (const a of animales) {
+                if (!a.id_animal) continue;
+                const pesoFloat = parseFloat(a.peso_salida);
+                
                 // 2. Marcar animal como vendido y guardar datos de venta
                 const { error: errorAnimal } = await supabase
                     .from('animales')

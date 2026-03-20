@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X } from 'lucide-react';
@@ -199,45 +199,61 @@ export default function Inventory() {
         }
     };
 
-    const sortedAndFilteredAnimals = animales
-        .filter(a => {
-            const matchesSearch = a.numero_chapeta.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                a.nombre_propietario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (a.potreradaNombre || '').toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesEtapa = filterEtapa ? a.etapa === filterEtapa : true;
-            const matchesPotrero = filterPotrero ? a.potreroNombre === filterPotrero : true;
-            const matchesPotrerada = filterPotrerada ? a.potreradaNombre === filterPotrerada : true;
-            const matchesPropietario = filterPropietario ? a.nombre_propietario === filterPropietario : true;
-            return matchesSearch && matchesEtapa && matchesPotrero && matchesPotrerada && matchesPropietario;
-        })
-        .sort((a, b) => {
-            let res = 0;
-            if (sortBy === 'chapeta') {
-                res = a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true });
-            } else if (sortBy === 'propietario') {
-                res = a.nombre_propietario.localeCompare(b.nombre_propietario);
-            } else if (sortBy === 'dias_pesaje') {
-                res = (a.diasDesdeUltimoPesaje || 0) - (b.diasDesdeUltimoPesaje || 0);
-            } else if (sortBy === 'potrerada') {
-                res = (a.potreradaNombre || '').localeCompare(b.potreradaNombre || '');
-            }
-            return sortOrder === 'asc' ? res : -res;
-        });
+    const sortedAndFilteredAnimals = useMemo(() => {
+        return animales
+            .filter(a => {
+                const matchesSearch = a.numero_chapeta.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    a.nombre_propietario.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    (a.potreradaNombre || '').toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesEtapa = filterEtapa ? a.etapa === filterEtapa : true;
+                const matchesPotrero = filterPotrero ? a.potreroNombre === filterPotrero : true;
+                const matchesPotrerada = filterPotrerada ? a.potreradaNombre === filterPotrerada : true;
+                const matchesPropietario = filterPropietario ? a.nombre_propietario === filterPropietario : true;
+                return matchesSearch && matchesEtapa && matchesPotrero && matchesPotrerada && matchesPropietario;
+            })
+            .sort((a, b) => {
+                let res = 0;
+                if (sortBy === 'chapeta') {
+                    res = a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true });
+                } else if (sortBy === 'propietario') {
+                    res = a.nombre_propietario.localeCompare(b.nombre_propietario);
+                } else if (sortBy === 'dias_pesaje') {
+                    res = (a.diasDesdeUltimoPesaje || 0) - (b.diasDesdeUltimoPesaje || 0);
+                } else if (sortBy === 'potrerada') {
+                    res = (a.potreradaNombre || '').localeCompare(b.potreradaNombre || '');
+                }
+                return sortOrder === 'asc' ? res : -res;
+            });
+    }, [animales, searchTerm, filterEtapa, filterPotrero, filterPotrerada, filterPropietario, sortBy, sortOrder]);
 
-    const uniquePotreros = Array.from(new Set(animales.map(a => a.potreroNombre))).filter(p => p !== 'Sin potrero' && p);
-    const uniquePotreradas = Array.from(new Set(animales.map(a => a.potreradaNombre))).filter(p => p !== 'Sin potrerada' && p);
-    const uniquePropietarios = Array.from(new Set(animales.map(a => a.nombre_propietario))).filter(Boolean);
+    const { uniquePotreros, uniquePotreradas, uniquePropietarios } = useMemo(() => {
+        const potreros = new Set<string>();
+        const potreradas = new Set<string>();
+        const propietarios = new Set<string>();
+        animales.forEach(a => {
+            if (a.potreroNombre && a.potreroNombre !== 'Sin potrero') potreros.add(a.potreroNombre);
+            if (a.potreradaNombre && a.potreradaNombre !== 'Sin potrerada') potreradas.add(a.potreradaNombre);
+            if (a.nombre_propietario) propietarios.add(a.nombre_propietario);
+        });
+        return {
+            uniquePotreros: Array.from(potreros),
+            uniquePotreradas: Array.from(potreradas),
+            uniquePropietarios: Array.from(propietarios)
+        };
+    }, [animales]);
 
     // Calcular GDP Promedio de todos los animales para la estimación de peso de hoy
-    const gdpsTotales = animales.map(a => {
-        const u = a.registros_pesaje?.[0];
-        const pesoBase = a.peso_compra ?? a.peso_ingreso;
-        const gain = (u?.peso ?? pesoBase) - pesoBase;
-        const ref = u ? new Date(u.fecha) : new Date();
-        const days = differenceInDays(ref, new Date(a.fecha_ingreso)) || 1;
-        return u?.gdp_calculada ?? (gain / days);
-    }).filter(v => v > 0 && isFinite(v));
-    const gdpPromedioFinca = gdpsTotales.length > 0 ? (gdpsTotales.reduce((acc, curr) => acc + curr, 0) / gdpsTotales.length) : 0.45;
+    const gdpPromedioFinca = useMemo(() => {
+        const gdpsTotales = animales.map(a => {
+            const u = a.registros_pesaje?.[0];
+            const pesoBase = a.peso_compra ?? a.peso_ingreso;
+            const gain = (u?.peso ?? pesoBase) - pesoBase;
+            const ref = u ? new Date(u.fecha) : new Date();
+            const days = differenceInDays(ref, new Date(a.fecha_ingreso)) || 1;
+            return u?.gdp_calculada ?? (gain / days);
+        }).filter(v => v > 0 && isFinite(v));
+        return gdpsTotales.length > 0 ? (gdpsTotales.reduce((acc, curr) => acc + curr, 0) / gdpsTotales.length) : 0.45;
+    }, [animales]);
 
     return (
         <div className="page-container">
