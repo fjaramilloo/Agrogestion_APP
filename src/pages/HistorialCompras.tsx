@@ -135,7 +135,7 @@ export default function HistorialCompras() {
                         numero_chapeta: animal.numero_chapeta,
                         nombre_propietario: animal.nombre_propietario,
                         etapa: animal.etapa,
-                        peso_ingreso: (animal.peso_compra ?? animal.peso_ingreso) || 0,
+                        peso_ingreso: animal.peso_ingreso || 0,
                         peso_compra: animal.peso_compra,
                         fecha_ingreso: animal.fecha_ingreso,
                         proveedor_compra: proveedor,
