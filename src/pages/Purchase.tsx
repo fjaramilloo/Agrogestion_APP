@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar } from 'lucide-react';
+import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
+
+interface OfflinePurchasePayload {
+    id: string;
+    fechaIngreso: string;
+    animales: AnimalCompra[];
+    selectedProveedor: string;
+    observaciones: string;
+    incluirPesoCompra: boolean;
+    pesoCompraTotal: string;
+}
 
 interface AnimalCompra {
     numero_chapeta: string;
@@ -26,11 +36,26 @@ export default function Purchase() {
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
 
+    // Offline / Sync State
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [offlineQueue, setOfflineQueue] = useState<OfflinePurchasePayload[]>([]);
+    const [syncing, setSyncing] = useState(false);
+
     // Reporte
     const [showReport, setShowReport] = useState(false);
     const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalCompra[], pesoCompraTotal?: number } | null>(null);
 
     useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        const saved = localStorage.getItem('agrogestion_compras_offline');
+        if (saved) {
+            try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
+        }
+
         if (!fincaId) return;
         const fetchPropietarios = async () => {
             const { data } = await supabase
@@ -48,6 +73,11 @@ export default function Purchase() {
             if (provData) setProveedores(provData);
         };
         fetchPropietarios();
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
     }, [fincaId]);
 
     const generarFilas = (e: React.FormEvent) => {
@@ -96,18 +126,20 @@ export default function Purchase() {
                 if (!a.propietario) throw new Error(`Falta propietario para ${a.numero_chapeta}`);
             });
 
-            // Registro de chapetas existentes en la base de datos
-            const { data: existentes, error: checkError } = await supabase
-                .from('animales')
-                .select('numero_chapeta')
-                .eq('id_finca', fincaId)
-                .in('numero_chapeta', chapetas);
+            // Registro de chapetas existentes en la base de datos (sólo si hay conexión)
+            if (isOnline) {
+                const { data: existentes, error: checkError } = await supabase
+                    .from('animales')
+                    .select('numero_chapeta')
+                    .eq('id_finca', fincaId)
+                    .in('numero_chapeta', chapetas);
 
-            if (checkError) throw checkError;
+                if (checkError) throw checkError;
 
-            if (existentes && existentes.length > 0) {
-                const caps = existentes.map(e => e.numero_chapeta).join(', ');
-                throw new Error(`Las siguientes chapetas ya están registradas en esta finca: ${caps}`);
+                if (existentes && existentes.length > 0) {
+                    const caps = existentes.map(e => e.numero_chapeta).join(', ');
+                    throw new Error(`Las siguientes chapetas ya están registradas en esta finca: ${caps}`);
+                }
             }
 
             setShowConfirm(true);
@@ -124,6 +156,26 @@ export default function Purchase() {
         setShowConfirm(false);
 
         try {
+            if (!isOnline) {
+                const newPayload: OfflinePurchasePayload = {
+                    id: Date.now().toString(),
+                    fechaIngreso,
+                    animales: [...animales],
+                    selectedProveedor,
+                    observaciones,
+                    incluirPesoCompra,
+                    pesoCompraTotal
+                };
+                const newQueue = [...offlineQueue, newPayload];
+                setOfflineQueue(newQueue);
+                localStorage.setItem('agrogestion_compras_offline', JSON.stringify(newQueue));
+                
+                setMsjExito(`¡Sin conexión! Lote de ${animales.length} animales guardado en la cola local.`);
+                handleReset();
+                setLoading(false);
+                return;
+            }
+
             const [, month, day] = fechaIngreso.split('-');
             const dateStr = `${day}/${month}`;
             
@@ -211,6 +263,95 @@ export default function Purchase() {
         return <div className="page-container text-center">Acceso denegado.</div>;
     }
 
+    const syncOfflineQueue = async () => {
+        if (!fincaId || offlineQueue.length === 0 || !isOnline) return;
+        setSyncing(true);
+        setMsjError('');
+        setMsjExito('');
+        let syncedCount = 0;
+        let newQueue = [...offlineQueue];
+
+        try {
+            for (const payload of offlineQueue) {
+                const chapetas = payload.animales.map(a => a.numero_chapeta.trim());
+                const { data: existentes } = await supabase
+                    .from('animales')
+                    .select('numero_chapeta')
+                    .eq('id_finca', fincaId)
+                    .in('numero_chapeta', chapetas);
+                
+                if (existentes && existentes.length > 0) {
+                    throw new Error(`Lote offline del ${payload.fechaIngreso}: Chapetas duplicadas encontradas (${existentes.map(e => e.numero_chapeta).join(', ')}). Datos saltados.`);
+                }
+
+                const [, month, day] = payload.fechaIngreso.split('-');
+                const dateStr = `${day}/${month}`;
+                const uniquePropietarios = Array.from(new Set(payload.animales.map(a => a.propietario)));
+                
+                const potreradasPayload = uniquePropietarios.map(prop => ({
+                    id_finca: fincaId,
+                    nombre: `Compra ${dateStr} ${prop}`,
+                    etapa: 'levante'
+                }));
+                
+                const { data: potreradasCreadas, error: potError } = await supabase
+                    .from('potreradas')
+                    .upsert(potreradasPayload, { onConflict: 'id_finca,nombre' })
+                    .select('id, nombre');
+                if (potError) throw potError;
+                
+                const potreradaIdPorPropietario = new Map();
+                if (potreradasCreadas) {
+                    potreradasCreadas.forEach((p: any) => {
+                        const propMatch = uniquePropietarios.find(prop => p.nombre === `Compra ${dateStr} ${prop}`);
+                        if (propMatch) potreradaIdPorPropietario.set(propMatch, p.id);
+                    });
+                }
+
+                const pesoCompTotalNum = payload.incluirPesoCompra ? parseFloat(payload.pesoCompraTotal) : 0;
+                const totalPesoIngresoLote = payload.animales.reduce((acc, a) => acc + (parseFloat(a.peso_ingreso) || 0), 0);
+                const ratioPesoCompra = (payload.incluirPesoCompra && pesoCompTotalNum > 0 && totalPesoIngresoLote > 0) 
+                    ? (pesoCompTotalNum / totalPesoIngresoLote) 
+                    : 1;
+
+                const records = payload.animales.map(a => ({
+                    id_finca: fincaId,
+                    numero_chapeta: a.numero_chapeta.trim(),
+                    nombre_propietario: a.propietario,
+                    id_potrerada: potreradaIdPorPropietario.get(a.propietario) || null,
+                    peso_ingreso: parseFloat(a.peso_ingreso),
+                    peso_compra: payload.incluirPesoCompra ? (parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
+                    fecha_ingreso: payload.fechaIngreso,
+                    proveedor_compra: payload.selectedProveedor,
+                    observaciones_compra: payload.observaciones,
+                    etapa: 'levante',
+                    especie: 'bovino',
+                    sexo: 'M',
+                    estado: 'activo'
+                }));
+
+                const { error } = await supabase.from('animales').insert(records);
+                if (error) throw error;
+
+                syncedCount++;
+                newQueue = newQueue.filter(q => q.id !== payload.id);
+            }
+
+            if (syncedCount > 0) {
+                setOfflineQueue(newQueue);
+                localStorage.setItem('agrogestion_compras_offline', JSON.stringify(newQueue));
+                setMsjExito(`¡Sincronización completa! Se subieron ${syncedCount} lotes.`);
+            }
+
+        } catch (err: any) {
+            setOfflineQueue(newQueue);
+            localStorage.setItem('agrogestion_compras_offline', JSON.stringify(newQueue));
+            setMsjError('Error al sincronizar cola: ' + err.message);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     return (
         <div className="page-container">
             {/* Modal de Confirmación */}
@@ -235,10 +376,25 @@ export default function Purchase() {
                 </div>
             )}
 
-            <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <ShoppingCart size={32} /> Ingreso de Compra
-            </h1>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>Módulo para el registro masivo de animales nuevos.</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                    <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
+                        <ShoppingCart size={32} /> Ingreso de Compra
+                    </h1>
+                    <p style={{ color: 'var(--text-muted)', margin: '8px 0 0 0' }}>Módulo para el registro masivo de animales nuevos.</p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '20px', backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', color: isOnline ? 'var(--success)' : '#ff9800', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline</>}
+                    </div>
+                    {offlineQueue.length > 0 && isOnline && (
+                        <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <UploadCloud size={18} /> {syncing ? 'Sincronizando...' : `Subir Pendientes (${offlineQueue.length})`}
+                        </button>
+                    )}
+                </div>
+            </div>
 
             {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
             {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
