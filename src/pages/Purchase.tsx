@@ -452,18 +452,21 @@ export default function Purchase() {
                 <button 
                     onClick={() => setShowLastTags(!showLastTags)}
                     style={{ 
-                        backgroundColor: showLastTags ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
-                        color: showLastTags ? 'white' : 'var(--text-muted)',
-                        padding: '8px 16px',
-                        fontSize: '0.85rem',
+                        backgroundColor: showLastTags ? '#ffc107' : 'rgba(255, 193, 7, 0.1)', 
+                        color: showLastTags ? '#000' : '#ffc107',
+                        padding: '10px 20px',
+                        fontSize: '0.9rem',
+                        fontWeight: 'bold',
                         width: 'auto',
-                        border: '1px solid rgba(255,255,255,0.1)',
+                        border: '1px solid #ffc107',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        gap: '8px',
+                        borderRadius: '8px',
+                        transition: 'all 0.3s ease'
                     }}
                 >
-                    <Info size={16} /> {showLastTags ? 'Ocultar últimas chapetas' : 'Ver últimas chapetas por dueño'}
+                    <Info size={18} color={showLastTags ? '#000' : '#ffc107'} /> {showLastTags ? 'Ocultar últimas chapetas' : 'Ver últimas chapetas por dueño'}
                 </button>
             </div>
 
