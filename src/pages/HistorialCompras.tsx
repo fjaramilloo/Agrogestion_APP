@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Search, ShoppingCart, Calendar, Users, FileText, X, Info, TrendingUp } from 'lucide-react';
@@ -215,6 +215,36 @@ export default function HistorialCompras() {
         return Array.from(fechasSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     };
 
+    const resumenProveedores = useMemo(() => {
+        const stats: Record<string, { totalPurchase: number, totalEntry: number, count: number, totalAnimals: number }> = {};
+        
+        compras.forEach(c => {
+            if (!c.proveedor || c.proveedor === 'Sin proveedor') return;
+            if (c.pesoTotalCompra <= 0) return;
+
+            if (!stats[c.proveedor]) {
+                stats[c.proveedor] = { totalPurchase: 0, totalEntry: 0, count: 0, totalAnimals: 0 };
+            }
+            stats[c.proveedor].totalPurchase += c.pesoTotalCompra;
+            stats[c.proveedor].totalEntry += (c.animalesDetalle.reduce((acc, a) => acc + (a.peso_ingreso || 0), 0));
+            stats[c.proveedor].count++;
+            stats[c.proveedor].totalAnimals += c.animalesCount;
+        });
+
+        return Object.entries(stats)
+            .map(([nombre, data]) => {
+                const perdida = data.totalPurchase - data.totalEntry;
+                const porcentaje = data.totalEntry > 0 ? (perdida / data.totalEntry * 100) : 0;
+                return {
+                    nombre,
+                    porcentaje,
+                    animales: data.totalAnimals,
+                    compras: data.count
+                };
+            })
+            .sort((a, b) => b.porcentaje - a.porcentaje);
+    }, [compras]);
+
     return (
         <div className="page-container">
             <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
@@ -223,6 +253,48 @@ export default function HistorialCompras() {
             <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
                 Registro histórico de todas las compras realizadas en la finca. Haz clic en el ícono PDF para ver el informe detallado, o en "Ver Detalle" para inspeccionar los animales.
             </p>
+
+            {/* Tabla de Resumen de Proveedores */}
+            {!loading && resumenProveedores.length > 0 && (
+                <div className="card" style={{ marginBottom: '32px', padding: '24px' }}>
+                    <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <TrendingUp size={18} /> Rendimiento por Proveedor (% Promedio de Pérdida)
+                    </h3>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-muted)' }}>PROVEEDOR</th>
+                                    <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>COMPRAS</th>
+                                    <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>ANIMALES</th>
+                                    <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-muted)' }}>% PÉRDIDA PROM.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {resumenProveedores.map((p, i) => (
+                                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <td style={{ padding: '12px', fontWeight: 'bold' }}>{p.nombre}</td>
+                                        <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{p.compras}</td>
+                                        <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{p.animales}</td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            <span style={{ 
+                                                background: 'rgba(244, 67, 54, 0.1)', 
+                                                color: 'var(--error)', 
+                                                padding: '4px 10px', 
+                                                borderRadius: '20px', 
+                                                fontWeight: 'bold',
+                                                fontSize: '0.9rem'
+                                            }}>
+                                                {p.porcentaje.toFixed(1)}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', gap: '16px', alignItems: 'center' }}>
                 <div style={{ flex: 1, position: 'relative' }}>
