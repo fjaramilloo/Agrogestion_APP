@@ -20,9 +20,9 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
     const totalAnimales = animales.length;
     const promedioPeso = totalAnimales > 0 ? totalKilos / totalAnimales : 0;
 
-    // Pérdida por transporte (Merma conforme al modelo del usuario: % sobre peso de llegada)
+    // Pérdida por transporte (Merma conforme al modelo del usuario: % sobre peso de compra)
     const perdidaKilos = pesoCompraTotal ? (pesoCompraTotal - totalKilos) : 0;
-    const porcentajePerdida = (totalKilos > 0) ? (perdidaKilos / totalKilos * 100) : 0;
+    const porcentajePerdida = (pesoCompraTotal && pesoCompraTotal > 0) ? (perdidaKilos / pesoCompraTotal * 100) : 0;
 
     const handlePrint = () => window.print();
 

@@ -237,7 +237,7 @@ export default function HistorialCompras() {
         return Object.entries(stats)
             .map(([nombre, data]) => {
                 const perdida = data.totalPurchase - data.totalEntry;
-                const porcentaje = data.totalEntry > 0 ? (perdida / data.totalEntry * 100) : 0;
+                const porcentaje = data.totalPurchase > 0 ? (perdida / data.totalPurchase * 100) : 0;
                 return {
                     nombre,
                     porcentaje,
