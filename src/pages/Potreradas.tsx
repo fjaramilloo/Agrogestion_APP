@@ -6,6 +6,9 @@ import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, Trending
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Download } from 'lucide-react';
 
 interface Potrerada {
     id: string;
@@ -584,6 +587,59 @@ export default function Potreradas() {
         setShowWeighingForm(true);
     };
 
+    const handleExportPDF = () => {
+        if (!detailData) return;
+        
+        const doc = new jsPDF();
+        const p = detailData.potrerada;
+        const fechaDoc = format(new Date(), 'dd/MM/yyyy HH:mm');
+
+        // Título y Cabecera
+        doc.setFontSize(18);
+        doc.setTextColor(46, 125, 50);
+        doc.text(`Informe de Potrerada: ${p.nombre}`, 14, 20);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generado: ${fechaDoc}`, 14, 28);
+
+        // Resumen
+        doc.setFontSize(11);
+        doc.setTextColor(0);
+        doc.text(`Etapa: ${p.etapa.toUpperCase()}`, 14, 40);
+        doc.text(`Potrero Actual: ${detailData.potreroActual}`, 14, 46);
+        doc.text(`Animales: ${detailData.animales.length}`, 14, 52);
+        doc.text(`GMP Promedio del Lote: ${detailData.gmpPromedioGrupo.toFixed(2)} kg/mes`, 14, 58);
+
+        // Tabla de Animales
+        const tableData = sortedAnimals.map(a => [
+            `#${a.numero_chapeta}`,
+            a.nombre_propietario,
+            `${a.pesoActual} kg`,
+            `${a.gmp?.toFixed(1) || '0.0'} kg/m`
+        ]);
+
+        autoTable(doc, {
+            startY: 65,
+            head: [['Chapeta', 'Propietario', 'Peso Actual', 'GMP (Último)']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [46, 125, 50] },
+            styles: { fontSize: 9, overflow: 'linebreak', cellPadding: 3 },
+            columnStyles: {
+                0: { cellWidth: 30 }, // Chapeta frita
+                3: { cellWidth: 35 }  // GMP frita
+            }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY + 10;
+        doc.setFontSize(9);
+        doc.setTextColor(150);
+        doc.text('Fin del reporte - Generado por Agrogestión', 14, finalY);
+
+        doc.save(`Reporte_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    };
+
     const handleSaveWeighings = async () => {
         if (!detailData) return;
         const today = new Date().toISOString().split('T')[0]; // 2026-03-14
@@ -971,9 +1027,23 @@ export default function Potreradas() {
                                                     }}
                                                 >
                                                     <Scale size={15} />
-                                                    Nuevo Pesaje
+                                                    <span className="mobile-hide">Nuevo Pesaje</span>
                                                 </button>
                                             )}
+                                            <button
+                                                onClick={handleExportPDF}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                                    background: 'rgba(255, 255, 255, 0.05)',
+                                                    color: 'white',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                    borderRadius: '8px', padding: '7px 14px',
+                                                    fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer'
+                                                }}
+                                            >
+                                                <Download size={15} />
+                                                <span className="mobile-hide">Descargar PDF</span>
+                                            </button>
                                             <button onClick={() => setSelectedDetailId(null)} className="btn-icon">
                                                 <X size={20} />
                                             </button>
