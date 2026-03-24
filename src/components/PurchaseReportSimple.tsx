@@ -31,7 +31,7 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
             <style>{`
                 @media print {
                     @page { 
-                        size: legal; 
+                        size: letter; 
                         margin: 0.5cm; 
                     }
                     body * { visibility: hidden; }
@@ -160,7 +160,7 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
                             cursor: 'pointer', fontSize: '0.9rem'
                         }}
                     >
-                        <Printer size={16} /> Imprimir (Oficio)
+                        <Printer size={16} /> Imprimir (Carta)
                     </button>
                     <button
                         onClick={onClose}

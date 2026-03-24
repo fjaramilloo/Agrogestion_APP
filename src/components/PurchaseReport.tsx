@@ -54,7 +54,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                 {`
                 @media print {
                     @page { 
-                        size: legal; 
+                        size: letter; 
                         margin: 0.5cm; 
                     }
                     body * { visibility: hidden; }
@@ -175,7 +175,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
             <div className="report-container">
                 <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '15px' }}>
                     <button onClick={handlePrint} className="btn" style={{ background: '#2e7d32', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', border: 'none', fontWeight: '600' }}>
-                        <Printer size={16} /> Imprimir (Oficio)
+                        <Printer size={16} /> Imprimir (Carta)
                     </button>
                     <button onClick={onClose} style={{ background: '#eee', color: '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: '8px' }}>
                         <X size={20} />

@@ -590,8 +590,8 @@ export default function Potreradas() {
     const handleExportPDF = () => {
         if (!detailData) return;
         
-        // Formato Oficio (Legal)
-        const doc = new jsPDF('p', 'mm', 'legal');
+        // Formato Carta (Letter)
+        const doc = new jsPDF('p', 'mm', 'letter');
         const p = detailData.potrerada;
         const fechaDoc = format(new Date(), 'dd/MM/yyyy HH:mm');
 
