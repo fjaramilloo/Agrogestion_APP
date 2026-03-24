@@ -53,8 +53,12 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
             <style>
                 {`
                 @media print {
-                    @page { margin: 1cm; }
+                    @page { 
+                        size: legal; 
+                        margin: 0.5cm; 
+                    }
                     body * { visibility: hidden; }
+                    .report-modal-overlay { background: none !important; padding: 0 !important; }
                     .report-container, .report-container * { visibility: visible; }
                     .report-container { 
                         position: absolute; 
@@ -64,6 +68,8 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                         padding: 0;
                         background: white !important;
                         color: black !important;
+                        box-shadow: none !important;
+                        max-width: 100% !important;
                     }
                     .no-print { display: none !important; }
                 }
@@ -81,147 +87,98 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     background: white;
                     color: #333;
                     width: 100%;
-                    max-width: 750px;
-                    padding: 30px;
+                    max-width: 900px;
+                    padding: 25px;
                     border-radius: 8px;
                     box-shadow: 0 10px 40px rgba(0,0,0,0.25);
                     height: fit-content;
                     font-family: 'Inter', sans-serif;
                 }
-                @media (max-width: 600px) {
-                    .report-modal-overlay {
-                        padding: 10px;
-                    }
-                    .report-container {
-                        padding: 15px;
-                    }
-                    .report-title {
-                        font-size: 18px;
-                    }
-                }
                 .report-header {
                     text-align: center;
-                    margin-bottom: 20px;
+                    margin-bottom: 15px;
                 }
                 .report-title {
-                    font-size: 22px;
+                    font-size: 20px;
                     font-weight: 800;
-                    margin-bottom: 5px;
+                    margin-bottom: 4px;
                     color: black;
                 }
                 .report-subtitle {
-                    font-size: 13px;
+                    font-size: 12px;
                     color: #666;
-                    margin-bottom: 15px;
+                    margin-bottom: 10px;
                     display: flex;
                     justify-content: center;
                     gap: 15px;
                 }
-                .report-wrapper {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 15px;
-                }
                 .summary-grid {
-                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-                    gap: 12px;
-                    margin-bottom: 25px;
+                    display: grid;
+                    grid-template-columns: repeat(5, 1fr);
+                    gap: 10px;
+                    margin-bottom: 20px;
                 }
                 .summary-item {
                     background: #f8f9fa;
                     border: 1px solid #eee;
                     border-radius: 6px;
-                    padding: 12px;
-                    text-align: center;
-                }
-                .summary-item.highlight {
-                    background: #fff8e1;
-                    border: 1px solid #ffe082;
-                }
-                .summary-item.loss {
-                    background: #fff5f5;
-                    border: 1px solid #feb2b2;
-                }
-                .summary-label { 
-                    display: block;
-                    font-size: 11px;
-                    text-transform: uppercase;
-                    color: #666;
-                    margin-bottom: 4px;
-                }
-                .summary-value {
-                    font-size: 16px;
-                    font-weight: 700;
-                    color: #333;
-                }
-                .loss-value {
-                    color: var(--error);
-                    font-size: 16px;
-                    font-weight: 700;
-                }
-                .report-table-wrapper {
-                    width: 100%;
-                    overflow-x: auto;
-                    -webkit-overflow-scrolling: touch;
-                    margin-bottom: 20px;
-                    border: 1px solid #eee;
-                    border-radius: 4px;
-                }
-                .report-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 11px;
-                    min-width: 450px;
-                }
-                .report-table th, .report-table td {
-                    border: 1px solid #ddd;
-                    padding: 6px 8px;
-                    text-align: left;
-                    border-bottom: 1px solid #ddd;
-                }
-                .report-table th {
-                    background-color: #f8f9fa;
-                    font-weight: 600;
-                    color: #555;
-                    border-bottom: 2px solid #ddd;
-                }
-                .report-table tbody tr:nth-child(even) {
-                    background-color: #fafafa;
-                }
-                .report-footer-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 11px;
-                    margin-top: 5px;
-                    min-width: 450px;
-                }
-                .report-footer-table th, .report-footer-table td {
-                    border: 1px solid #ddd;
                     padding: 8px;
                     text-align: center;
                 }
-                .report-footer-table th {
-                    background-color: #f8f9fa;
-                    font-weight: 600;
-                    color: #555;
-                    border-bottom: 2px solid #ddd;
+                .summary-item.highlight { background: #fff8e1; border: 1px solid #ffe082; }
+                .summary-item.loss { background: #fff5f5; border: 1px solid #feb2b2; }
+                .summary-label { 
+                    display: block;
+                    font-size: 10px;
+                    text-transform: uppercase;
+                    color: #666;
+                    margin-bottom: 2px;
+                }
+                .summary-value { font-size: 14px; font-weight: 700; color: #333; }
+                .loss-value { color: #e53935; font-size: 14px; font-weight: 700; }
+
+                /* Grilla de 3 columnas para animales */
+                .animals-multi-column-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr;
+                    gap: 15px;
+                    border-top: 1px solid #ddd;
+                    padding-top: 10px;
+                }
+                .column-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 10px;
+                }
+                .column-table th {
+                    background: #f1f3f5;
+                    border: 1px solid #dee2e6;
+                    padding: 4px 6px;
+                    text-align: left;
+                    font-weight: 700;
+                }
+                .column-table td {
+                    border: 1px solid #dee2e6;
+                    padding: 3px 6px;
                 }
                 .table-title {
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: 700;
-                    margin-bottom: 8px;
+                    margin-bottom: 6px;
                     color: #333;
+                    border-bottom: 2px solid #2e7d32;
+                    display: inline-block;
                 }
                 `}
             </style>
 
             <div className="report-container">
-                <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '20px' }}>
-                    <button onClick={handlePrint} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
-                        <Printer size={18} /> Imprimir / PDF
+                <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '15px' }}>
+                    <button onClick={handlePrint} className="btn" style={{ background: '#2e7d32', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', border: 'none', fontWeight: '600' }}>
+                        <Printer size={16} /> Imprimir (Oficio)
                     </button>
-                    <button onClick={onClose} style={{ background: '#eee', color: '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: '10px' }}>
-                        <X size={24} />
+                    <button onClick={onClose} style={{ background: '#eee', color: '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: '8px' }}>
+                        <X size={20} />
                     </button>
                 </div>
 
@@ -235,77 +192,89 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
 
                 <div className="summary-grid">
                     <div className="summary-item">
-                        <span className="summary-label">Total Animales</span>
-                        <div className="summary-value">{totalAnimales} <span style={{fontSize: '0.8em', fontWeight: 'normal', color: '#888'}}>Cabezas</span></div>
+                        <span className="summary-label">Animales</span>
+                        <div className="summary-value">{totalAnimales}</div>
                     </div>
                     <div className="summary-item">
                         <span className="summary-label">Peso Total</span>
-                        <div className="summary-value">{totalKilos.toLocaleString()} <span style={{fontSize: '0.8em', fontWeight: 'normal', color: '#888'}}>kg</span></div>
+                        <div className="summary-value">{totalKilos.toLocaleString()} kg</div>
                     </div>
                     <div className="summary-item">
-                        <span className="summary-label">Peso Promedio</span>
-                        <div className="summary-value">{promedioPeso.toFixed(1)} <span style={{fontSize: '0.8em', fontWeight: 'normal', color: '#888'}}>kg</span></div>
+                        <span className="summary-label">Promedio</span>
+                        <div className="summary-value">{promedioPeso.toFixed(1)} kg</div>
                     </div>
                     {pesoCompraTotal && (
                         <>
                             <div className="summary-item highlight">
                                 <span className="summary-label">Peso Compra</span>
-                                <div className="summary-value">{pesoCompraTotal.toLocaleString()} <span style={{fontSize: '0.8em', fontWeight: 'normal', color: '#888'}}>kg</span></div>
+                                <div className="summary-value">{pesoCompraTotal.toLocaleString()} kg</div>
                             </div>
                             <div className="summary-item loss">
-                                <span className="summary-label">% Pérdida Transp.</span>
+                                <span className="summary-label">% Pérdida</span>
                                 <div className="loss-value">{porcentajePerdida.toFixed(1)}%</div>
                             </div>
                         </>
                     )}
                 </div>
 
-                <div className="table-title">Detalle de Ingresos</div>
-                <div className="report-table-wrapper">
-                    <table className="report-table">
-                    <thead>
-                        <tr>
-                            <th style={{ width: '40px' }}>#</th>
-                            <th>Chapeta</th>
-                            <th>Peso de Ingreso</th>
-                            <th>Marca / Propietario</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {animales.map((a, i) => (
-                            <tr key={i}>
-                                <td style={{ color: '#888', fontSize: '10px' }}>{i + 1}</td>
-                                <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
-                                <td style={{ fontWeight: '700' }}>{a.peso_ingreso} kg</td>
-                                <td style={{ color: '#666' }}>{a.propietario}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <div className="table-title">Detalle de Ingresos (Matriz 3 Col.)</div>
+                <div className="animals-multi-column-grid">
+                    {[0, 1, 2].map(colIdx => {
+                        // Dividir el array en 3 partes
+                        const itemsPerCol = Math.ceil(animales.length / 3);
+                        const colItems = animales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
+                        
+                        return (
+                            <table key={colIdx} className="column-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '20px' }}>#</th>
+                                        <th>Chapeta</th>
+                                        <th style={{ textAlign: 'right' }}>Peso</th>
+                                        <th>Prop.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {colItems.map((a, i) => (
+                                        <tr key={i}>
+                                            <td style={{ color: '#888', fontSize: '8px' }}>{colIdx * itemsPerCol + i + 1}</td>
+                                            <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
+                                            <td style={{ fontWeight: '700', textAlign: 'right' }}>{a.peso_ingreso}</td>
+                                            <td style={{ color: '#666', fontSize: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>{a.propietario}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        );
+                    })}
                 </div>
 
                 <div className="table-title" style={{ marginTop: '20px' }}>Resumen por Marca</div>
-                <div className="report-table-wrapper">
-                    <table className="report-footer-table">
-                    <thead>
-                        <tr>
-                            <th style={{ textAlign: 'left' }}>Propietario</th>
-                            <th>Nro Animales</th>
-                            <th>Kilos Total</th>
-                            <th>Peso Promedio</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {resumenMarcas.map((r, i) => (
-                            <tr key={i}>
-                                <td style={{ textAlign: 'left', fontWeight: '600' }}>{r.marca}</td>
-                                <td>{r.count}</td>
-                                <td>{r.kilos.toLocaleString()} kg</td>
-                                <td style={{ fontWeight: '700' }}>{Math.round(r.promedio)} kg</td>
+                <div style={{ display: 'flex', gap: '20px' }}>
+                    <table className="column-table" style={{ width: '60%' }}>
+                        <thead>
+                            <tr>
+                                <th style={{ textAlign: 'left' }}>Propietario</th>
+                                <th style={{ textAlign: 'center' }}>Cant.</th>
+                                <th style={{ textAlign: 'center' }}>Total kg</th>
+                                <th style={{ textAlign: 'right' }}>Prom. kg</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {resumenMarcas.map((r, i) => (
+                                <tr key={i}>
+                                    <td style={{ textAlign: 'left', fontWeight: '600' }}>{r.marca}</td>
+                                    <td style={{ textAlign: 'center' }}>{r.count}</td>
+                                    <td style={{ textAlign: 'center' }}>{r.kilos.toLocaleString()}</td>
+                                    <td style={{ fontWeight: '700', textAlign: 'right' }}>{Math.round(r.promedio)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <div style={{ flex: 1, fontSize: '9px', color: '#888', borderLeft: '1px solid #eee', paddingLeft: '15px' }}>
+                        <p><strong>Nota:</strong> Este reporte consolida todos los animales ingresados en la fecha seleccionada. La merma se calcula base al peso de báscula de compra vs báscula de recepción.</p>
+                        <p style={{ marginTop: '5px' }}>Generado por Agrogestión v3.0</p>
+                    </div>
                 </div>
             </div>
         </div>
