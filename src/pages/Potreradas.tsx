@@ -277,12 +277,15 @@ export default function Potreradas() {
     // Efecto para abrir potrerada desde el Dashboard
     useEffect(() => {
         const state = location.state as { idPotrerada?: string };
-        if (state?.idPotrerada) {
-            setSelectedDetailId(state.idPotrerada);
-            // Limpiar el estado para que no se reabra al recargar o navegar
-            window.history.replaceState({}, document.title);
+        if (state?.idPotrerada && potreradas.length > 0) {
+            const pot = potreradas.find(p => p.id === state.idPotrerada);
+            if (pot) {
+                handleOpenDetail(pot);
+                // Limpiar el estado para que no se reabra al recargar o navegar
+                window.history.replaceState({}, document.title);
+            }
         }
-    }, [location]);
+    }, [location, potreradas]);
 
     useEffect(() => {
         fetchPotreradasData();
