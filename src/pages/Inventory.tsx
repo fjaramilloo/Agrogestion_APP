@@ -324,7 +324,8 @@ export default function Inventory() {
                         style={{ marginBottom: 0 }}
                     >
                         <option value="">-- Potrerada --</option>
-                        {uniquePotreradas.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
+                        <option value="Sin potrerada">Sin Potrerada</option>
+                        {uniquePotreradas.sort().map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
                     </select>
                 </div>
                 <div style={{ flex: '1 1 140px' }}>
@@ -334,7 +335,8 @@ export default function Inventory() {
                         style={{ marginBottom: 0 }}
                     >
                         <option value="">-- Potrero --</option>
-                        {uniquePotreros.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
+                        <option value="Sin potrero">Sin Potrero</option>
+                        {uniquePotreros.sort().map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
                     </select>
                 </div>
                 <div style={{ flex: '1 1 140px' }}>
