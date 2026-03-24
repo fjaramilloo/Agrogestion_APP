@@ -106,6 +106,14 @@ export default function Dashboard() {
         nombre: string,
         animales: any[]
     } | null>(null);
+    const [cochoneraData, setCochoneraData] = useState<{
+        id: string;
+        nombre: string;
+        cantidad: number;
+        listos: number;
+        diasFaltantes: number;
+        gmpLote: number;
+    } | null>(null);
 
     const handleOpenMuertes = async () => {
         setMuertesModalVisible(true);
@@ -368,6 +376,78 @@ export default function Dashboard() {
                 });
                 setDistribucionPesos(dist);
                 setAnimalesPorRango(distAnimales);
+
+                // --- CALCULO DE LA COCHONERA (Próximos Despachos) ---
+                const reportePots: Record<string, { 
+                    id: string, 
+                    nombre: string, 
+                    countAll: number, 
+                    countReady: number, 
+                    sumPeso: number, 
+                    sumGmp: number, 
+                    countGmp: number 
+                }> = {};
+
+                animales.forEach((a: any) => {
+                    const idPot = a.id_potrerada;
+                    if (!idPot || a.etapa !== 'ceba') return;
+
+                    const potNombre = a.potreradas?.nombre || 'Potrerada Desconocida';
+                    const misPsjs = pesajesMap[a.id] || [];
+                    const ultimoP = misPsjs[misPsjs.length - 1];
+                    const pesoBase = a.peso_compra ?? a.peso_ingreso;
+                    const pesoRef = ultimoP ? ultimoP.peso : pesoBase;
+                    const fechaRef = ultimoP ? ultimoP.fecha : a.fecha_ingreso;
+                    const diasRef = differenceInDays(new Date(), new Date(fechaRef)) || 0;
+                    
+                    // Calculo de GMP individual para este lote
+                    let gmpIndiv = 0.45 * 30; // default
+                    if (misPsjs.length > 0) {
+                        const diffDiasTotal = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso));
+                        if (diffDiasTotal > 0) {
+                            gmpIndiv = ((ultimoP.peso - pesoBase) / diffDiasTotal) * 30;
+                        }
+                    }
+
+                    const pesoEst = pesoRef + (diasRef * (gmpIndiv / 30));
+
+                    if (!reportePots[idPot]) {
+                        reportePots[idPot] = { id: idPot, nombre: potNombre, countAll: 0, countReady: 0, sumPeso: 0, sumGmp: 0, countGmp: 0 };
+                    }
+
+                    reportePots[idPot].countAll++;
+                    reportePots[idPot].sumPeso += pesoEst;
+                    reportePots[idPot].sumGmp += Math.max(0, gmpIndiv);
+                    reportePots[idPot].countGmp++;
+                    if (pesoEst >= 530) {
+                        reportePots[idPot].countReady++;
+                    }
+                });
+
+                const potsKeys = Object.keys(reportePots);
+                if (potsKeys.length > 0) {
+                    // Prioridad 1: Mas animales listos (> 530)
+                    // Prioridad 2: Mayor peso promedio
+                    const sortedPots = potsKeys.map(k => reportePots[k]).sort((a, b) => {
+                        if (b.countReady !== a.countReady) return b.countReady - a.countReady;
+                        return (b.sumPeso / b.countAll) - (a.sumPeso / a.countAll);
+                    });
+
+                    const best = sortedPots[0];
+                    const gmpProm = best.sumGmp / best.countGmp;
+                    const pesoProm = best.sumPeso / best.countAll;
+                    const faltanKg = Math.max(0, 530 - pesoProm);
+                    const dias = gmpProm > 0 ? Math.ceil(faltanKg / (gmpProm / 30)) : 999;
+
+                    setCochoneraData({
+                        id: best.id,
+                        nombre: best.nombre,
+                        cantidad: best.countAll,
+                        listos: best.countReady,
+                        diasFaltantes: best.countReady === best.countAll ? 0 : dias,
+                        gmpLote: gmpProm
+                    });
+                }
             }
             setLoading(false);
         }
@@ -768,22 +848,61 @@ export default function Dashboard() {
                                             </tbody>
                                         </table>
                                     </div>
-                                    <div style={{ 
-                                        flex: '1 1 320px',
-                                        display: 'flex', 
-                                        flexDirection: 'column', 
-                                        justifyContent: 'center', 
-                                        padding: '28px', 
-                                        background: 'rgba(76, 175, 80, 0.05)', 
-                                        borderRadius: '16px',
-                                        border: '1px solid rgba(76, 175, 80, 0.1)'
-                                    }}>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <ShoppingCart size={18} /> Punto de Equilibrio
+                                    <div 
+                                        onClick={() => {
+                                            if (cochoneraData) {
+                                                navigate('/potreradas', { state: { idPotrerada: cochoneraData.id } });
+                                            }
+                                        }}
+                                        style={{ 
+                                            flex: '1 1 320px',
+                                            display: 'flex', 
+                                            flexDirection: 'column', 
+                                            justifyContent: 'center', 
+                                            padding: '28px', 
+                                            background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%)', 
+                                            borderRadius: '16px',
+                                            border: '1px solid rgba(76, 175, 80, 0.3)',
+                                            cursor: cochoneraData ? 'pointer' : 'default',
+                                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                            position: 'relative',
+                                            overflow: 'hidden'
+                                        }}
+                                        onMouseOver={(e) => { if(cochoneraData) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)'; } }}
+                                        onMouseOut={(e) => { if(cochoneraData) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; } }}
+                                    >
+                                        <div style={{ color: 'var(--primary-light)', fontSize: '0.85rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                            <ShoppingCart size={18} /> Alerta de Próximos Despachos
                                         </div>
-                                        <div style={{ fontSize: '1.15rem', lineHeight: '1.6' }}>
-                                            Tienes <b style={{ color: 'var(--primary-light)', fontSize: '1.4rem' }}>{distribucionPesos.rango4}</b> animales listos o próximos para venta (&gt;530kg). 
-                                            Esto representa el <b style={{ color: 'var(--primary-light)' }}>{((distribucionPesos.rango4 / (stats.totalAnimales || 1)) * 100).toFixed(1)}%</b> de tu inventario actual.
+                                        
+                                        {cochoneraData ? (
+                                            <>
+                                                <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'white', marginBottom: '12px', lineHeight: '1.2' }}>
+                                                    Lote: <span style={{ color: 'var(--primary-light)' }}>{cochoneraData.nombre}</span>
+                                                </div>
+                                                <div style={{ fontSize: '1.05rem', lineHeight: '1.6', color: 'rgba(255,255,255,0.9)' }}>
+                                                    Tienes <b style={{ color: 'white', fontSize: '1.2rem' }}>{cochoneraData.listos}</b> animales de más de 530 kg. 
+                                                    <br />
+                                                    <span style={{ display: 'block', marginTop: '12px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
+                                                        {cochoneraData.diasFaltantes === 0 
+                                                            ? `¡Lote de ${cochoneraData.cantidad} animales LISTO para despacho!` 
+                                                            : `Próximo lote (${cochoneraData.cantidad} animales): Listos en ${cochoneraData.diasFaltantes} días (Basado en la GMP actual de ${cochoneraData.gmpLote.toFixed(1)} kg/mes)`
+                                                        }
+                                                    </span>
+                                                </div>
+                                                <div style={{ marginTop: '16px', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    Click para ver detalle del lote <TrendingUp size={12} />
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem', fontStyle: 'italic' }}>
+                                                No hay lotes de ceba activos con proyecciones de venta cercanas.
+                                            </div>
+                                        )}
+                                        
+                                        {/* Decoración visual */}
+                                        <div style={{ position: 'absolute', bottom: '-20px', right: '-20px', opacity: 0.05 }}>
+                                            <ShoppingCart size={120} />
                                         </div>
                                     </div>
                                 </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale } from 'lucide-react';
@@ -42,6 +43,7 @@ interface ChartData {
 
 export default function Potreradas() {
     const { fincaId, role } = useAuth();
+    const location = useLocation();
     const [potreradas, setPotreradas] = useState<Potrerada[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingPotrerada, setEditingPotrerada] = useState<Potrerada | null>(null);
@@ -265,6 +267,16 @@ export default function Potreradas() {
             setLoading(false);
         }
     };
+
+    // Efecto para abrir potrerada desde el Dashboard
+    useEffect(() => {
+        const state = location.state as { idPotrerada?: string };
+        if (state?.idPotrerada) {
+            setSelectedDetailId(state.idPotrerada);
+            // Limpiar el estado para que no se reabra al recargar o navegar
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
 
     useEffect(() => {
         fetchPotreradasData();
