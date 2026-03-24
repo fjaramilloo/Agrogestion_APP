@@ -596,7 +596,7 @@ export default function Potreradas() {
         const doc = new jsPDF('p', 'mm', 'letter');
         const p = detailData.potrerada;
         const fechaDoc = format(new Date(), 'dd/MM/yyyy HH:mm');
-        const usableWidth = 196; // 216mm - 20mm márgenes
+        const usableWidth = 196; 
         const marginX = 10;
 
         // Título y Cabecera
@@ -628,30 +628,36 @@ export default function Potreradas() {
         doc.text(`Finca: ${detailData.potrerada.nombre}`, marginX + 130, 42);
         doc.text(`Estado: Activo`, marginX + 130, 47);
 
-        // 1. Identificar las fechas de pesaje globales para los encabezados (máximo 4)
+        // 1. Lógica INTELIGENTE para determinar número de columnas de la hoja
+        const totalAnimals = sortedAnimals.length;
+        let numColsPage = 1;
+        if (totalAnimals > 25 && totalAnimals <= 50) numColsPage = 2;
+        else if (totalAnimals > 50) numColsPage = 3;
+
+        // 2. Identificar fechas de pesaje (máximo 4)
         const sortedDates = [...detailData.fechasColumnas].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
         const datesToShow = sortedDates.slice(0, 4).reverse();
         const numDates = datesToShow.length;
 
-        // 2. Calcular anchos dinámicos para que la matriz de 3 columnas ocupe TODO el ancho
-        const spacerWidth = 3; // Espacio entre las 3 columnas grandes
-        const totalSpacerWidth = spacerWidth * 2;
-        const blockWidth = (usableWidth - totalSpacerWidth) / 3;
+        // 3. Calcular anchos dinámicos
+        const spacerWidth = numColsPage > 1 ? 4 : 0;
+        const blockWidth = (usableWidth - (spacerWidth * (numColsPage - 1))) / numColsPage;
         
-        const idWidth = 6;
-        const chapetaWidth = 15;
-        const weightsTotalWidth = blockWidth - idWidth - chapetaWidth;
+        const idWidth = numColsPage === 1 ? 8 : 6;
+        const chapetaWidth = numColsPage === 1 ? 25 : 15;
+        const gmpWidth = numColsPage === 1 ? 15 : 10;
+        const weightsTotalWidth = blockWidth - idWidth - chapetaWidth - gmpWidth;
         const weightColWidth = weightsTotalWidth / numDates;
 
-        // 3. Preparar Datos en Matriz de 3 Columnas
-        const numRows = Math.ceil(sortedAnimals.length / 3);
+        // 4. Preparar Datos en Matriz
+        const numRows = Math.ceil(totalAnimals / numColsPage);
         const matrixData = [];
 
         for (let i = 0; i < numRows; i++) {
             const row = [];
-            for (let col = 0; col < 3; col++) {
+            for (let col = 0; col < numColsPage; col++) {
                 const animalIdx = i + (col * numRows);
-                if (animalIdx < sortedAnimals.length) {
+                if (animalIdx < totalAnimals) {
                     const a = sortedAnimals[animalIdx];
                     row.push(animalIdx + 1);
                     row.push(a.numero_chapeta);
@@ -660,54 +666,62 @@ export default function Potreradas() {
                         const peso = a.pesajesFiltrados?.[fecha];
                         row.push(peso ? Math.round(peso) : '-');
                     });
+                    
+                    row.push(a.gmp ? a.gmp.toFixed(1) : '-');
                 } else {
-                    // Celdas vacías para el bloque (Id, Chapeta, Fechas...)
-                    for (let n = 0; n < 2 + numDates; n++) row.push('');
+                    // Celdas vacías (Id + Chapeta + Fechas + GMP)
+                    for (let n = 0; n < 3 + numDates; n++) row.push('');
                 }
-                if (col < 2) row.push(''); // Columna espaciadora
+                if (col < numColsPage - 1) row.push(''); // Espaciador
             }
             matrixData.push(row);
         }
 
         const dateHeaders = datesToShow.map(f => format(new Date(f + 'T12:00:00'), 'dd/MM'));
-        const fullHeader = [
-            '#', 'Chapeta', ...dateHeaders, ' ',
-            '#', 'Chapeta', ...dateHeaders, ' ',
-            '#', 'Chapeta', ...dateHeaders
-        ];
+        
+        // Construir encabezado completo
+        let fullLineHeader: string[] = [];
+        for (let c = 0; c < numColsPage; c++) {
+            fullLineHeader = [...fullLineHeader, '#', 'Chapeta', ...dateHeaders, 'GMP'];
+            if (c < numColsPage - 1) fullLineHeader.push(' ');
+        }
 
-        // 4. Generar columnStyles dinámicamente
+        // 5. Estilos de columna dinámicos
         const dynamicColumnStyles: any = {};
-        const itemsPerBlock = 2 + numDates + 1; // Id + Chapeta + Fechas + Espaciador
+        const itemsPerBlock = 3 + numDates + (numColsPage > 1 ? 1 : 0);
 
-        for (let b = 0; b < 3; b++) {
+        for (let b = 0; b < numColsPage; b++) {
             const startIdx = b * itemsPerBlock;
             dynamicColumnStyles[startIdx] = { cellWidth: idWidth, halign: 'center', textColor: [150, 150, 150] };
-            dynamicColumnStyles[startIdx + 1] = { cellWidth: chapetaWidth, fontStyle: 'bold', halign: 'left' };
+            dynamicColumnStyles[startIdx + 1] = { cellWidth: chapetaWidth, fontStyle: 'bold' };
             
             for (let d = 0; d < numDates; d++) {
                 dynamicColumnStyles[startIdx + 2 + d] = { cellWidth: weightColWidth, halign: 'right' };
             }
             
-            if (b < 2) {
-                dynamicColumnStyles[startIdx + 2 + numDates] = { cellWidth: spacerWidth, fillColor: [255, 255, 255], lineWidth: 0 };
+            // Columna GMP
+            dynamicColumnStyles[startIdx + 2 + numDates] = { cellWidth: gmpWidth, halign: 'center', fontStyle: 'bold' };
+            
+            // Espaciador si no es la última columna de la página
+            if (b < numColsPage - 1) {
+                dynamicColumnStyles[startIdx + 3 + numDates] = { cellWidth: spacerWidth, fillColor: [255, 255, 255], lineWidth: 0 };
             }
         }
 
         autoTable(doc, {
             startY: 58,
-            head: [fullHeader],
+            head: [fullLineHeader],
             body: matrixData,
             theme: 'grid',
             headStyles: { 
                 fillColor: [46, 125, 50], 
-                fontSize: 6.5, 
+                fontSize: numColsPage === 1 ? 8 : 7, 
                 halign: 'center',
-                cellPadding: 1
+                cellPadding: 1.5
             },
             styles: { 
-                fontSize: 7, 
-                cellPadding: 1,
+                fontSize: numColsPage === 1 ? 8.5 : 7.5, 
+                cellPadding: 1.5,
                 valign: 'middle',
                 overflow: 'hidden'
             },
@@ -719,7 +733,7 @@ export default function Potreradas() {
         doc.setFontSize(8);
         doc.setTextColor(150);
         doc.text(`Nota: Se muestran las últimas ${numDates} fechas de pesaje. Pesos en kg.`, marginX, finalY);
-        doc.text(`Página 1 de 1 — Agrogestión`, 170, finalY);
+        doc.text(`Agrogestión v3.0 | Página 1 de 1`, 160, finalY);
 
         doc.save(`Potrerada_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
     };
