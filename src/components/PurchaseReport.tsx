@@ -31,12 +31,20 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
         return acc;
     }, {});
 
-    const resumenMarcas = Object.keys(porMarca).map(marca => ({
-        marca,
-        count: porMarca[marca].count,
-        kilos: porMarca[marca].kilos,
-        promedio: porMarca[marca].kilos / porMarca[marca].count
-    }));
+    const factorMerma = (pesoCompraTotal && totalKilos > 0) ? (pesoCompraTotal / totalKilos) : 1;
+
+    const resumenMarcas = Object.keys(porMarca).map(marca => {
+        const kilosIngreso = porMarca[marca].kilos;
+        const kilosCompra = kilosIngreso * factorMerma;
+        
+        return {
+            marca,
+            count: porMarca[marca].count,
+            kilos: kilosIngreso,
+            kilosCompra: kilosCompra,
+            promedio: kilosIngreso / porMarca[marca].count
+        };
+    });
 
     const promedioPeso = totalAnimales > 0 ? totalKilos / totalAnimales : 0;
     
@@ -251,12 +259,13 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
 
                 <div className="table-title" style={{ marginTop: '20px' }}>Resumen por Marca</div>
                 <div style={{ display: 'flex', gap: '20px' }}>
-                    <table className="column-table" style={{ width: '60%' }}>
+                    <table className="column-table" style={{ width: '70%' }}>
                         <thead>
                             <tr>
                                 <th style={{ textAlign: 'left' }}>Propietario</th>
                                 <th style={{ textAlign: 'center' }}>Cant.</th>
-                                <th style={{ textAlign: 'center' }}>Total kg</th>
+                                <th style={{ textAlign: 'center' }}>Kg Recibo</th>
+                                <th style={{ textAlign: 'center', background: '#fff8e1' }}>Kg Compra</th>
                                 <th style={{ textAlign: 'right' }}>Prom. kg</th>
                             </tr>
                         </thead>
@@ -266,13 +275,16 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                                     <td style={{ textAlign: 'left', fontWeight: '600' }}>{r.marca}</td>
                                     <td style={{ textAlign: 'center' }}>{r.count}</td>
                                     <td style={{ textAlign: 'center' }}>{r.kilos.toLocaleString()}</td>
+                                    <td style={{ textAlign: 'center', fontWeight: '800', borderLeft: '2px solid #ffe082', background: '#fffef9' }}>
+                                        {r.kilosCompra.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                                    </td>
                                     <td style={{ fontWeight: '700', textAlign: 'right' }}>{Math.round(r.promedio)}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                     <div style={{ flex: 1, fontSize: '9px', color: '#888', borderLeft: '1px solid #eee', paddingLeft: '15px' }}>
-                        <p><strong>Nota:</strong> Este reporte consolida todos los animales ingresados en la fecha seleccionada. La merma se calcula base al peso de báscula de compra vs báscula de recepción.</p>
+                        <p><strong>Nota:</strong> Los "Kg Compra" son proporcionales al peso total de báscula de compra vs báscula de recepción.</p>
                         <p style={{ marginTop: '5px' }}>Generado por Agrogestión v3.0</p>
                     </div>
                 </div>
