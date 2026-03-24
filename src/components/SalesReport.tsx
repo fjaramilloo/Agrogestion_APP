@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { Printer, X } from 'lucide-react';
+import { es } from 'date-fns/locale';
 
 interface AnimalReport {
     numero_chapeta: string;
@@ -26,13 +27,11 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
     const totalKilos = animales.reduce((sum, a) => sum + parseFloat(a.peso_salida.toString()), 0);
     const totalAnimales = animales.length;
     
-    // Promedio GMP (excluyendo los que sean 0 o undefined)
     const animalesConGMP = animales.filter(a => a.gmp && a.gmp > 0);
     const promedioGMP = animalesConGMP.length > 0 
         ? animalesConGMP.reduce((sum: number, a) => sum + (a.gmp || 0), 0) / animalesConGMP.length
         : 0;
 
-    // Tiempos promedio
     const calcularDias = (inicio: string, fin: string) => {
         const d1 = new Date(inicio);
         const d2 = new Date(fin);
@@ -40,13 +39,8 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
     };
 
     const diasFincaTotal = animales.reduce((sum, a) => sum + (a.fecha_ingreso ? calcularDias(a.fecha_ingreso, fechaVenta) : 0), 0);
-    const promedioDiasFinca = Math.round(diasFincaTotal / totalAnimales);
+    const promedioDiasFinca = totalAnimales > 0 ? Math.round(diasFincaTotal / totalAnimales) : 0;
 
-    const animalesEnCeba = animales.filter(a => a.fecha_inicio_ceba);
-    const diasCebaTotal = animalesEnCeba.reduce((sum, a) => sum + (a.fecha_inicio_ceba ? calcularDias(a.fecha_inicio_ceba, fechaVenta) : 0), 0);
-    const promedioDiasCeba = animalesEnCeba.length > 0 ? Math.round(diasCebaTotal / animalesEnCeba.length) : 0;
-
-    // Agrupación por propietario (Marca)
     const porMarca = animales.reduce((acc: any, a) => {
         const marca = a.propietario || 'No definida';
         if (!acc[marca]) {
@@ -69,8 +63,6 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
         promedioGMP: porMarca[marca].gmpCount > 0 ? porMarca[marca].gmpSum / porMarca[marca].gmpCount : 0
     }));
 
-    // Dividir animales para tabla de 2 columnas (solo en desktop)
-
     const handlePrint = () => {
         window.print();
     };
@@ -80,345 +72,261 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
             <style>
                 {`
                 @media print {
-                    @page { margin: 1cm; }
-                    body * { visibility: hidden; }
-                    .report-container, .report-container * { visibility: visible; }
-                    .report-container { 
-                        position: absolute; 
-                        left: 0; 
-                        top: 0; 
-                        width: 100%; 
-                        padding: 0;
+                    @page { 
+                        size: letter;
+                        margin: 0.5cm; 
+                    }
+                    body { background: white; }
+                    .report-modal-overlay { 
+                        position: absolute !important;
                         background: white !important;
-                        color: black !important;
-                        box-shadow: none !important;
+                        padding: 0 !important;
+                        display: block !important;
                     }
                     .no-print { display: none !important; }
-                    .report-tables-wrapper {
-                        display: flex !important;
-                    }
-                    .report-table {
-                        width: 50% !important;
+                    .report-container { 
+                        box-shadow: none !important;
+                        border: none !important;
+                        width: 100% !important;
+                        max-width: none !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
                     }
                 }
+
                 .report-modal-overlay {
                     position: fixed;
                     top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0,0,0,0.85);
-                    backdrop-filter: blur(8px);
-                    z-index: 2000;
+                    background: rgba(0,0,0,0.8);
+                    z-index: 3000;
                     display: flex;
                     justify-content: center;
-                    padding: 20px;
+                    padding: 40px 20px;
                     overflow-y: auto;
                 }
+
                 .report-container {
                     background: white;
-                    color: #333;
-                    width: 100%;
-                    max-width: 850px;
-                    padding: 40px;
-                    border-radius: 12px;
-                    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-                    height: fit-content;
-                    font-family: 'Inter', sans-serif;
+                    width: 21.59cm;
+                    min-height: 27.94cm;
+                    padding: 1.5cm;
+                    color: #1a1a1a;
+                    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
                     position: relative;
                 }
+
                 .report-header {
-                    text-align: center;
-                    margin-bottom: 30px;
-                    border-bottom: 2px solid #f0f0f0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    border-bottom: 3px solid #1b5e20;
                     padding-bottom: 20px;
-                }
-                .report-title {
-                    font-size: 26px;
-                    font-weight: 800;
-                    margin-bottom: 8px;
-                    color: black;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                }
-                .report-subtitle {
-                    font-size: 15px;
-                    line-height: 1.6;
-                    color: #666;
-                }
-                .report-tables-wrapper {
-                    width: 100%;
                     margin-bottom: 25px;
                 }
-                .report-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 11px;
-                    border: 1px solid #ddd;
-                }
-                .report-table th, .report-table td {
-                    border: 1px solid #ddd;
-                    padding: 6px 10px;
-                    text-align: center;
-                }
-                .report-table th {
-                    background-color: #f8f9fa;
-                    font-weight: 700;
-                    color: #444;
-                }
-                .report-table tr:nth-child(even) {
-                    background-color: #fafafa;
-                }
-                .report-summary-box {
-                    margin-top: 30px;
+
+                .finca-name { font-size: 24px; font-weight: 900; color: #1b5e20; text-transform: uppercase; }
+                .report-type { font-size: 14px; font-weight: 600; color: #666; }
+                
+                .info-grid {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-                    background: #f8f9fa;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 15px;
+                    margin-bottom: 30px;
+                    background: #f1f8e9;
+                    padding: 15px;
                     border-radius: 8px;
-                    overflow: hidden;
+                    border: 1px solid #c8e6c9;
+                }
+
+                .info-item label { display: block; font-size: 10px; color: #558b2f; font-weight: 700; text-transform: uppercase; }
+                .info-item span { font-size: 14px; font-weight: 600; }
+
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 10px;
+                    margin-bottom: 30px;
+                }
+
+                .stat-card {
+                    background: #fff;
                     border: 1px solid #eee;
-                    gap: 1px;
-                }
-                .summary-item {
-                    padding: 15px 10px;
+                    padding: 12px;
+                    border-radius: 8px;
                     text-align: center;
-                    background: white;
                 }
-                .summary-label { 
-                    display: block;
-                    font-size: 11px;
-                    color: #888;
-                    text-transform: uppercase;
-                    font-weight: 600;
-                    margin-bottom: 4px;
-                }
-                .summary-value {
-                    font-size: 18px;
-                    font-weight: 800;
-                    color: #222;
-                }
-                .report-footer-table {
-                    width: 100%;
-                    margin-top: 25px;
-                    border-collapse: collapse;
+
+                .stat-label { display: block; font-size: 9px; color: #888; text-transform: uppercase; font-weight: bold; }
+                .stat-value { font-size: 16px; font-weight: 800; color: #2e7d32; }
+
+                .table-title {
                     font-size: 12px;
-                    border-radius: 8px;
-                    overflow: hidden;
+                    font-weight: 800;
+                    color: #333;
+                    text-transform: uppercase;
+                    border-left: 4px solid #1b5e20;
+                    padding-left: 10px;
+                    margin: 25px 0 15px 0;
                 }
-                .report-footer-table th, .report-footer-table td {
-                    border: 1px solid #eee;
-                    padding: 10px;
+
+                .animals-multi-column-grid {
+                    display: flex;
+                    gap: 15px;
+                    width: 100%;
+                }
+
+                .column-table {
+                    flex: 1;
+                    font-size: 9.5px;
+                    border-collapse: collapse;
+                }
+
+                .column-table th {
+                    background: #455a64;
+                    color: white;
+                    padding: 6px;
+                    font-weight: 700;
+                    border: 1px solid #37474f;
+                }
+
+                .column-table td {
+                    padding: 5px 6px;
+                    border: 1px solid #e0e0e0;
                     text-align: center;
                 }
-                .report-footer-table th {
-                    background-color: #444;
-                    color: white;
-                    font-weight: 600;
-                }
 
-                /* Responsive Adjustments */
-                @media (max-width: 768px) {
-                    .report-modal-overlay {
-                        padding: 10px;
-                    }
-                    .report-container {
-                        padding: 20px 15px;
-                    }
-                    .report-title {
-                        font-size: 20px;
-                    }
-                    .report-summary-box {
-                        grid-template-columns: repeat(2, 1fr);
-                    }
-                    
-                    /* Table to Cards on mobile */
-                    .report-table thead { display: none; }
-                    .report-table, .report-table tbody, .report-table tr, .report-table td {
-                        display: block;
-                        width: 100%;
-                    }
-                    .report-table tr {
-                        margin-bottom: 15px;
-                        border: 1px solid #eee;
-                        border-radius: 8px;
-                        padding: 10px;
-                        background: #fff;
-                    }
-                    .report-table td {
-                        text-align: left !important;
-                        border: none;
-                        padding: 4px 8px;
-                        display: flex;
-                        justify-content: space-between;
-                        font-size: 12px;
-                    }
-                    .report-table td::before {
-                        content: attr(data-label);
-                        font-weight: 700;
-                        color: #888;
-                        margin-right: 10px;
-                        text-transform: uppercase;
-                        font-size: 10px;
-                    }
-                    .report-table td:first-child {
-                        background: #f8f9fa;
-                        margin: -10px -10px 10px -10px;
-                        width: calc(100% + 20px);
-                        border-radius: 8px 8px 0 0;
-                        padding: 8px 15px;
-                        font-weight: 700;
-                    }
-                    .report-table td:first-child::before { content: "Animal #"; }
-                }
-
-                @media (max-width: 480px) {
-                    .report-summary-box {
-                        grid-template-columns: 1fr;
-                    }
-                }
+                .column-table tr:nth-child(even) { background: #fcfcfc; }
                 `}
             </style>
 
             <div className="report-container">
-                <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '25px' }}>
-                    <button 
-                        onClick={handlePrint} 
-                        className="btn btn-primary" 
-                        style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '8px', 
-                            padding: '12px 24px',
-                            background: 'var(--primary)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            color: 'white',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(76, 175, 80, 0.2)'
-                        }}
-                    >
-                        <Printer size={18} /> Imprimir / PDF
+                <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
+                    <button onClick={handlePrint} className="btn-primary" style={{ padding: '10px 20px', background: '#2e7d32', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Printer size={18} /> Imprimir Informe
                     </button>
-                    <button 
-                        onClick={onClose} 
-                        style={{ 
-                            background: '#f5f5f5', 
-                            color: '#666', 
-                            border: 'none', 
-                            borderRadius: '8px', 
-                            cursor: 'pointer', 
-                            padding: '10px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
-                    >
-                        <X size={24} />
+                    <button onClick={onClose} style={{ padding: '10px', background: '#eee', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                        <X size={20} />
                     </button>
                 </div>
 
                 <div className="report-header">
-                    <div className="report-title">Salida ganado {fincaNombre}</div>
-                    <div className="report-subtitle">
-                        <strong>Fecha de venta:</strong> {format(new Date(fechaVenta + 'T12:00:00'), 'dd/MM/yyyy')} <br/>
-                        <strong>Comprador:</strong> {comprador}
+                    <div>
+                        <div className="finca-name">{fincaNombre}</div>
+                        <div className="report-type">Informe Detallado de Venta / Despacho</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Fecha generado</div>
+                        <div style={{ fontWeight: 'bold' }}>{format(new Date(), 'dd/MM/yyyy')}</div>
                     </div>
                 </div>
 
-                <div className="report-tables-wrapper">
-                    <table className="report-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Chapeta</th>
-                                <th>Peso</th>
-                                <th>GMP</th>
-                                <th>Marca</th>
-                                <th>Potrero</th>
-                                <th>Meses Finca</th>
-                                <th>Meses Ceba</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {animales.map((a, i) => {
-                                const diasFinca = a.fecha_ingreso ? calcularDias(a.fecha_ingreso, fechaVenta) : null;
-                                const diasCeba = a.fecha_inicio_ceba ? calcularDias(a.fecha_inicio_ceba, fechaVenta) : null;
-                                
-                                const mesesFinca = diasFinca !== null ? (diasFinca / 30).toFixed(1) : '-';
-                                const mesesCeba = diasCeba !== null ? (diasCeba / 30).toFixed(1) : '-';
-                                
-                                return (
-                                    <tr key={i}>
-                                        <td style={{ color: '#888', fontSize: '10px' }}>{i + 1}</td>
-                                        <td data-label="Chapeta" style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
-                                        <td data-label="Peso" style={{ fontWeight: '700' }}>{a.peso_salida} kg</td>
-                                        <td data-label="GMP" style={{ color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : ((a.gmp || 0) > umbralMedio ? 'var(--warning)' : ((a.gmp || 0) > 0 ? 'var(--error)' : '#888')) }}>
-                                            {a.gmp && a.gmp > 0 ? `${a.gmp.toFixed(1)} kg` : '-'}
-                                        </td>
-                                        <td data-label="Marca" style={{ color: '#666' }}>{a.propietario}</td>
-                                        <td data-label="Potrero" style={{ color: '#666' }}>{a.potreroNombre || '-'}</td>
-                                        <td data-label="Meses Finca">{mesesFinca} m</td>
-                                        <td data-label="Meses Ceba">{mesesCeba !== '-' ? `${mesesCeba} m` : '-'}</td>
+                <div className="info-grid">
+                    <div className="info-item">
+                        <label>Comprador / Destino</label>
+                        <span>{comprador}</span>
+                    </div>
+                    <div className="info-item">
+                        <label>Fecha de Salida</label>
+                        <span>{format(new Date(fechaVenta + 'T12:00:00'), "dd 'de' MMMM, yyyy", { locale: es })}</span>
+                    </div>
+                </div>
+
+                <div className="stats-grid">
+                    <div className="stat-card">
+                        <span className="stat-label">Cant. Animales</span>
+                        <div className="stat-value">{totalAnimales}</div>
+                    </div>
+                    <div className="stat-card">
+                        <span className="stat-label">Peso Promedio</span>
+                        <div className="stat-value">{Math.round(totalKilos / totalAnimales)} kg</div>
+                    </div>
+                    <div className="stat-card">
+                        <span className="stat-label">GMP Promedio</span>
+                        <div className="stat-value">{promedioGMP.toFixed(2)} kg</div>
+                    </div>
+                    <div className="stat-card">
+                        <span className="stat-label">Meses Finca (Prom.)</span>
+                        <div className="stat-value">{(promedioDiasFinca / 30).toFixed(1)} m</div>
+                    </div>
+                </div>
+
+                <div className="table-title">Detalle de Salida</div>
+                <div className="animals-multi-column-grid">
+                    {[0, 1, 2].map(colIdx => {
+                        const itemsPerCol = Math.ceil(animales.length / 3);
+                        const colData = animales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
+                        
+                        return (
+                            <table key={colIdx} className="column-table">
+                                <thead>
+                                    <tr>
+                                        <th>Chapeta</th>
+                                        <th>Peso</th>
+                                        <th>GMP</th>
+                                        <th>Marca</th>
                                     </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                </thead>
+                                <tbody>
+                                    {colData.map((a, i) => (
+                                        <tr key={i}>
+                                            <td style={{ fontWeight: '700', color: '#1b5e20' }}>{a.numero_chapeta}</td>
+                                            <td style={{ fontWeight: 'bold' }}>{a.peso_salida}</td>
+                                            <td style={{ 
+                                                color: (a.gmp || 0) > umbralAlto ? '#2e7d32' : (a.gmp || 0) > umbralMedio ? '#f57c00' : '#d32f2f',
+                                                fontWeight: '600'
+                                            }}>
+                                                {a.gmp && a.gmp > 0 ? a.gmp.toFixed(1) : '-'}
+                                            </td>
+                                            <td style={{ fontSize: '8px', color: '#666' }}>{a.propietario}</td>
+                                        </tr>
+                                    ))}
+                                    {/* Rellenar espacios vacios para mantener simetría si es necesario */}
+                                    {colData.length < itemsPerCol && Array.from({ length: itemsPerCol - colData.length }).map((_, i) => (
+                                        <tr key={`empty-${i}`} style={{ height: '24px' }}>
+                                            <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        );
+                    })}
                 </div>
 
-                <div className="report-summary-box">
-                    <div className="summary-item">
-                        <span className="summary-label">Total Animales</span>
-                        <div className="summary-value">{totalAnimales}</div>
-                    </div>
-                    <div className="summary-item">
-                        <span className="summary-label">Peso Promedio</span>
-                        <div className="summary-value">{Math.round(totalKilos / totalAnimales)} kg</div>
-                    </div>
-                    <div className="summary-item" style={{ background: 'rgba(76, 175, 80, 0.05)' }}>
-                        <span className="summary-label">Promedio GMP Lote</span>
-                        <div className="summary-value" style={{ color: promedioGMP > umbralAlto ? 'var(--success)' : (promedioGMP > umbralMedio ? 'var(--warning)' : (promedioGMP > 0 ? 'var(--error)' : '#888')) }}>{promedioGMP.toFixed(2)} kg</div>
-                    </div>
-                    <div className="summary-item">
-                        <span className="summary-label">Meses Finca (Prom.)</span>
-                        <div className="summary-value">{(promedioDiasFinca / 30).toFixed(1)} m</div>
-                    </div>
-                    <div className="summary-item">
-                        <span className="summary-label">Meses Ceba (Prom.)</span>
-                        <div className="summary-value">{promedioDiasCeba ? (promedioDiasCeba / 30).toFixed(1) + ' m' : '-'}</div>
-                    </div>
-                    <div className="summary-item" style={{ borderRight: 'none' }}>
-                        <span className="summary-label">Peso Total</span>
-                        <div className="summary-value">{totalKilos.toLocaleString()} kg</div>
-                    </div>
-                </div>
-
-                <div style={{ marginTop: '30px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#555', marginBottom: '10px', textTransform: 'uppercase' }}>
-                        Resumen por Marca / Propietario
-                    </div>
-                    <table className="report-footer-table">
+                <div className="table-title">Resumen por Propietario</div>
+                <div style={{ display: 'flex', gap: '20px' }}>
+                    <table className="column-table" style={{ width: '75%' }}>
                         <thead>
                             <tr>
-                                <th>Marca</th>
-                                <th>Cant.</th>
-                                <th>Kilos Totales</th>
-                                <th>Peso Prom.</th>
-                                <th>GMP Prom.</th>
+                                <th style={{ textAlign: 'left' }}>Propietario</th>
+                                <th style={{ textAlign: 'center' }}>Cant.</th>
+                                <th style={{ textAlign: 'center' }}>Kilos Totales</th>
+                                <th style={{ textAlign: 'center' }}>Peso Prom.</th>
+                                <th style={{ textAlign: 'right' }}>GMP Prom.</th>
                             </tr>
                         </thead>
                         <tbody>
                             {resumenMarcas.map((r, i) => (
                                 <tr key={i}>
                                     <td style={{ textAlign: 'left', fontWeight: '600' }}>{r.marca}</td>
-                                    <td>{r.count}</td>
-                                    <td style={{ fontWeight: '700' }}>{r.kilos.toLocaleString()} kg</td>
-                                    <td>{Math.round(r.promedio)} kg</td>
-                                    <td style={{ fontWeight: '600', color: r.promedioGMP > umbralAlto ? 'var(--success)' : (r.promedioGMP > umbralMedio ? 'var(--warning)' : (r.promedioGMP > 0 ? 'var(--error)' : '#888')) }}>
-                                        {r.promedioGMP > 0 ? `${r.promedioGMP.toFixed(2)} kg` : '-'}
+                                    <td style={{ textAlign: 'center' }}>{r.count}</td>
+                                    <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{r.kilos.toLocaleString()} kg</td>
+                                    <td style={{ textAlign: 'center' }}>{Math.round(r.promedio)} kg</td>
+                                    <td style={{ 
+                                        textAlign: 'right', 
+                                        fontWeight: 'bold',
+                                        color: r.promedioGMP > umbralAlto ? '#2e7d32' : (r.promedioGMP > umbralMedio ? '#f57c00' : '#d32f2f')
+                                    }}>
+                                        {r.promedioGMP > 0 ? r.promedioGMP.toFixed(2) : '-'}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                    <div style={{ flex: 1, fontSize: '9px', color: '#888', borderLeft: '1px solid #eee', paddingLeft: '15px' }}>
+                        <p><strong>Nota:</strong> Este reporte consolida todos los animales vendidos/despachados en la fecha seleccionada. Los valores de GMP se calculan basados en el historial completo.</p>
+                        <p style={{ marginTop: '5px' }}>Generado por Agrogestión v3.0</p>
+                    </div>
                 </div>
             </div>
         </div>

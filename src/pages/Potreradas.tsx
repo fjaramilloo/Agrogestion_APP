@@ -593,45 +593,57 @@ export default function Potreradas() {
     const handleExportPDF = () => {
         if (!detailData) return;
         
-        // Formato Carta (Letter)
         const doc = new jsPDF('p', 'mm', 'letter');
         const p = detailData.potrerada;
         const fechaDoc = format(new Date(), 'dd/MM/yyyy HH:mm');
+        const usableWidth = 196; // 216mm - 20mm márgenes
+        const marginX = 10;
 
         // Título y Cabecera
         doc.setFontSize(18);
         doc.setTextColor(40, 40, 40);
-        doc.text(`Informe de Potrerada: ${p.nombre}`, 14, 20);
+        doc.text(`Informe de Potrerada: ${p.nombre}`, marginX, 20);
         
         doc.setFontSize(9);
         doc.setTextColor(100);
-        doc.text(`Agrogestión v3.0 - Generado: ${fechaDoc}`, 14, 25);
+        doc.text(`Agrogestión v3.0 - Generado: ${fechaDoc}`, marginX, 25);
 
         // Bloque de Resumen
         doc.setFillColor(245, 247, 249);
-        doc.rect(14, 30, 187, 22, 'F');
+        doc.rect(marginX, 30, usableWidth, 22, 'F');
         
         doc.setFontSize(9);
         doc.setTextColor(80);
         doc.setFont('helvetica', 'bold');
-        doc.text('RESUMEN DEL LOTE', 18, 36);
+        doc.text('RESUMEN DEL LOTE', marginX + 4, 36);
         
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text(`Etapa: ${p.etapa.toUpperCase()}`, 18, 42);
-        doc.text(`Potrero Actual: ${detailData.potreroActual}`, 18, 47);
+        doc.text(`Etapa: ${p.etapa.toUpperCase()}`, marginX + 4, 42);
+        doc.text(`Potrero Actual: ${detailData.potreroActual}`, marginX + 4, 47);
         
-        doc.text(`Total Animales: ${detailData.animales.length}`, 80, 42);
-        doc.text(`GMP Promedio: ${detailData.gmpPromedioGrupo.toFixed(2)} kg/mes`, 80, 47);
+        doc.text(`Total Animales: ${detailData.animales.length}`, marginX + 66, 42);
+        doc.text(`GMP Promedio: ${detailData.gmpPromedioGrupo.toFixed(2)} kg/mes`, marginX + 66, 47);
         
-        doc.text(`Finca: ${detailData.potrerada.nombre}`, 140, 42);
-        doc.text(`Estado: Activo`, 140, 47);
+        doc.text(`Finca: ${detailData.potrerada.nombre}`, marginX + 130, 42);
+        doc.text(`Estado: Activo`, marginX + 130, 47);
 
-        // 1. Identificar las últimas 4 fechas de pesaje globales para los encabezados
+        // 1. Identificar las fechas de pesaje globales para los encabezados (máximo 4)
         const sortedDates = [...detailData.fechasColumnas].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-        const last4Dates = sortedDates.slice(0, 4).reverse(); // Las 4 más recientes en orden cronológico
+        const datesToShow = sortedDates.slice(0, 4).reverse();
+        const numDates = datesToShow.length;
 
-        // Preparar Datos en Matriz de 3 Columnas con Historial
+        // 2. Calcular anchos dinámicos para que la matriz de 3 columnas ocupe TODO el ancho
+        const spacerWidth = 3; // Espacio entre las 3 columnas grandes
+        const totalSpacerWidth = spacerWidth * 2;
+        const blockWidth = (usableWidth - totalSpacerWidth) / 3;
+        
+        const idWidth = 6;
+        const chapetaWidth = 15;
+        const weightsTotalWidth = blockWidth - idWidth - chapetaWidth;
+        const weightColWidth = weightsTotalWidth / numDates;
+
+        // 3. Preparar Datos en Matriz de 3 Columnas
         const numRows = Math.ceil(sortedAnimals.length / 3);
         const matrixData = [];
 
@@ -644,26 +656,43 @@ export default function Potreradas() {
                     row.push(animalIdx + 1);
                     row.push(a.numero_chapeta);
                     
-                    // Agregar los pesos para las 4 fechas seleccionadas
-                    last4Dates.forEach(fecha => {
+                    datesToShow.forEach(fecha => {
                         const peso = a.pesajesFiltrados?.[fecha];
                         row.push(peso ? Math.round(peso) : '-');
                     });
                 } else {
-                    row.push('', '', '', '', '', '');
+                    // Celdas vacías para el bloque (Id, Chapeta, Fechas...)
+                    for (let n = 0; n < 2 + numDates; n++) row.push('');
                 }
-                if (col < 2) row.push(''); // Espaciador vertical
+                if (col < 2) row.push(''); // Columna espaciadora
             }
             matrixData.push(row);
         }
 
-        // Generar encabezados dinámicos con las fechas (ej: "15/03")
-        const dateHeaders = last4Dates.map(f => format(new Date(f), 'dd/MM'));
+        const dateHeaders = datesToShow.map(f => format(new Date(f + 'T12:00:00'), 'dd/MM'));
         const fullHeader = [
             '#', 'Chapeta', ...dateHeaders, ' ',
             '#', 'Chapeta', ...dateHeaders, ' ',
             '#', 'Chapeta', ...dateHeaders
         ];
+
+        // 4. Generar columnStyles dinámicamente
+        const dynamicColumnStyles: any = {};
+        const itemsPerBlock = 2 + numDates + 1; // Id + Chapeta + Fechas + Espaciador
+
+        for (let b = 0; b < 3; b++) {
+            const startIdx = b * itemsPerBlock;
+            dynamicColumnStyles[startIdx] = { cellWidth: idWidth, halign: 'center', textColor: [150, 150, 150] };
+            dynamicColumnStyles[startIdx + 1] = { cellWidth: chapetaWidth, fontStyle: 'bold', halign: 'left' };
+            
+            for (let d = 0; d < numDates; d++) {
+                dynamicColumnStyles[startIdx + 2 + d] = { cellWidth: weightColWidth, halign: 'right' };
+            }
+            
+            if (b < 2) {
+                dynamicColumnStyles[startIdx + 2 + numDates] = { cellWidth: spacerWidth, fillColor: [255, 255, 255], lineWidth: 0 };
+            }
+        }
 
         autoTable(doc, {
             startY: 58,
@@ -672,52 +701,27 @@ export default function Potreradas() {
             theme: 'grid',
             headStyles: { 
                 fillColor: [46, 125, 50], 
-                fontSize: 6, 
+                fontSize: 6.5, 
                 halign: 'center',
-                cellPadding: 0.8
+                cellPadding: 1
             },
             styles: { 
-                fontSize: 6.5, 
-                cellPadding: 0.8,
-                valign: 'middle'
+                fontSize: 7, 
+                cellPadding: 1,
+                valign: 'middle',
+                overflow: 'hidden'
             },
-            columnStyles: {
-                // Bloque 1
-                0: { cellWidth: 5, halign: 'center', textColor: [150, 150, 150] },
-                1: { cellWidth: 12, fontStyle: 'bold' },
-                2: { cellWidth: 7.5, halign: 'right' },
-                3: { cellWidth: 7.5, halign: 'right' },
-                4: { cellWidth: 7.5, halign: 'right' },
-                5: { cellWidth: 7.5, halign: 'right' },
-                6: { cellWidth: 2, fillColor: [255, 255, 255], lineWidth: 0 },
-                
-                // Bloque 2
-                7: { cellWidth: 5, halign: 'center', textColor: [150, 150, 150] },
-                8: { cellWidth: 12, fontStyle: 'bold' },
-                9: { cellWidth: 7.5, halign: 'right' },
-                10: { cellWidth: 7.5, halign: 'right' },
-                11: { cellWidth: 7.5, halign: 'right' },
-                12: { cellWidth: 7.5, halign: 'right' },
-                13: { cellWidth: 2, fillColor: [255, 255, 255], lineWidth: 0 },
-
-                // Bloque 3
-                14: { cellWidth: 5, halign: 'center', textColor: [150, 150, 150] },
-                15: { cellWidth: 12, fontStyle: 'bold' },
-                16: { cellWidth: 7.5, halign: 'right' },
-                17: { cellWidth: 7.5, halign: 'right' },
-                18: { cellWidth: 7.5, halign: 'right' },
-                19: { cellWidth: 7.5, halign: 'right' }
-            },
-            margin: { left: 10, right: 10 }
+            columnStyles: dynamicColumnStyles,
+            margin: { left: marginX, right: marginX }
         });
 
         const finalY = (doc as any).lastAutoTable.finalY + 10;
         doc.setFontSize(8);
         doc.setTextColor(150);
-        doc.text(`Nota: Se muestran las últimas ${last4Dates.length} fechas de pesaje. Pesos en kg.`, 10, finalY);
-        doc.text('Página 1 de 1', 180, finalY);
+        doc.text(`Nota: Se muestran las últimas ${numDates} fechas de pesaje. Pesos en kg.`, marginX, finalY);
+        doc.text(`Página 1 de 1 — Agrogestión`, 170, finalY);
 
-        doc.save(`Potrerada_Historial_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+        doc.save(`Potrerada_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
     };
 
     const handleSaveWeighings = async () => {
