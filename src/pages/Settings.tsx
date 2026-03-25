@@ -690,15 +690,21 @@ export default function Settings() {
                         });
                     }
 
-                    // 3. Obtener pesajes existentes para evitar duplicados
-                    //    Filtramos solo por los animales que vienen en el CSV para no traer toda la DB
+                    // 3. Obtener pesajes existentes para evitar duplicados (POR LOTES de 200 para evitar Bad Request por URL larga)
                     const idsAnimalesEnCSV = Array.from(mapAnimales.values()).map(a => a.id);
-                    const { data: pesajesExistentes, error: errPesajes } = await supabase
-                        .from('registros_pesaje')
-                        .select('id_animal, fecha, peso')
-                        .in('id_animal', idsAnimalesEnCSV);
-                    
-                    if (errPesajes) throw new Error(`Error verificando duplicados de pesaje: ${errPesajes.message}`);
+                    const pesajesExistentes: any[] = [];
+                    const batchSize = 200;
+
+                    for (let i = 0; i < idsAnimalesEnCSV.length; i += batchSize) {
+                        const batch = idsAnimalesEnCSV.slice(i, i + batchSize);
+                        const { data: batchData, error: errPesajes } = await supabase
+                            .from('registros_pesaje')
+                            .select('id_animal, fecha, peso')
+                            .in('id_animal', batch);
+                        
+                        if (errPesajes) throw new Error(`Error verificando duplicados de pesaje: ${errPesajes.message}`);
+                        if (batchData) pesajesExistentes.push(...batchData);
+                    }
 
                     const setDuplicados = new Set(pesajesExistentes?.map(p => `${p.id_animal}|${p.fecha}|${p.peso}`));
 
@@ -730,10 +736,14 @@ export default function Settings() {
                         }
 
                         // VALIDACIÓN DE DUPLICADOS (Idempotencia)
-                        if (setDuplicados.has(`${anim.id}|${fecha}|${peso}`)) {
+                        const key = `${anim.id}|${fecha}|${peso}`;
+                        if (setDuplicados.has(key)) {
                             omitidosDuplicados++;
                             return;
                         }
+
+                        // Evitar duplicados dentro del mismo archivo (Intra-CSV)
+                        setDuplicados.add(key);
 
                         const etapaCSV = row.etapa?.toString().toLowerCase().trim();
                         let etapaFinal = (etapaCSV === 'cria' || etapaCSV === 'levante' || etapaCSV === 'ceba') 
