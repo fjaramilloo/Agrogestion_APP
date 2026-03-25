@@ -1019,7 +1019,7 @@ export default function Dashboard() {
                                         <Tooltip
                                             cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                                             contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
-                                            formatter={(value: any, name: string, props: any) => {
+                                            formatter={(value: any, name: any) => {
                                                 if (name === 'Levante' || name === 'Ceba') return [`${value} kg/mes`, name];
                                                 return [value, name];
                                             }}
