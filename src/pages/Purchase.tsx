@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info } from 'lucide-react';
+import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
+import PurchaseReportSimple from '../components/PurchaseReportSimple';
 
 interface OfflinePurchasePayload {
     id: string;
@@ -47,6 +48,15 @@ export default function Purchase() {
     const [lastTags, setLastTags] = useState<{ owner: string, tag: string }[]>([]);
     const [existingTags, setExistingTags] = useState<Set<string>>(new Set());
     const [showLastTags, setShowLastTags] = useState(false);
+
+    // Compra Rápida (Volátil — NO guarda en DB)
+    const [showQuickModal, setShowQuickModal] = useState(false);
+    const [quickProveedor, setQuickProveedor] = useState('');
+    const [quickKgComprados, setQuickKgComprados] = useState('');
+    const [quickAnimalCount, setQuickAnimalCount] = useState('1');
+    const [quickWeights, setQuickWeights] = useState<string[]>(['']);
+    const [showQuickReport, setShowQuickReport] = useState(false);
+    const [quickReportData, setQuickReportData] = useState<{ proveedor: string; fecha: string; animales: { numero_chapeta: string; peso_ingreso: number }[]; pesoCompraTotal: number } | null>(null);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -441,7 +451,13 @@ export default function Purchase() {
                     </div>
                     
                     <button 
-                        onClick={() => console.log('Compra rápida clickeada')}
+                        onClick={() => {
+                            setQuickProveedor('');
+                            setQuickKgComprados('');
+                            setQuickAnimalCount('1');
+                            setQuickWeights(['']);
+                            setShowQuickModal(true);
+                        }}
                         style={{ 
                             backgroundColor: 'rgba(52, 152, 219, 0.1)', 
                             color: '#3498db', 
@@ -456,7 +472,7 @@ export default function Purchase() {
                             transition: 'all 0.2s ease'
                         }}
                     >
-                        <Plus size={16} /> Compra Rápida
+                        <ShoppingCart size={16} /> Compra Rápida
                     </button>
 
                     {offlineQueue.length > 0 && isOnline && (
@@ -466,6 +482,119 @@ export default function Purchase() {
                     )}
                 </div>
             </div>
+
+            {/* MODAL COMPRA RÁPIDA (completamente volátil, no guarda en DB) */}
+            {showQuickModal && (() => {
+                const totalRecibido = quickWeights.reduce((acc, w) => acc + (parseFloat(w) || 0), 0);
+                const kgCompradosNum = parseFloat(quickKgComprados) || 0;
+                const mermaPorc = (kgCompradosNum > 0 && totalRecibido > 0) ? ((kgCompradosNum - totalRecibido) / kgCompradosNum * 100) : 0;
+                const countNum = parseInt(quickAnimalCount) || 1;
+
+                return (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', zIndex: 1500, padding: '20px', overflowY: 'auto' }} onClick={() => setShowQuickModal(false)}>
+                        <div className="card" style={{ maxWidth: '900px', width: '100%', border: '1px solid #3498db', marginTop: '20px' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+                                    <ShoppingCart size={24} color="#3498db" /> Compra Rápida — Calculadora de Merma
+                                </h2>
+                                <button onClick={() => setShowQuickModal(false)} style={{ backgroundColor: 'transparent', padding: '8px', color: 'var(--text-muted)', width: 'auto' }}><X size={24} /></button>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                                <div>
+                                    <label>Vendedor / Proveedor</label>
+                                    <select value={quickProveedor} onChange={e => setQuickProveedor(e.target.value)}>
+                                        <option value="">Seleccionar...</option>
+                                        {proveedores.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label>Kg Comprados (Origen / Báscula Proveedor)</label>
+                                    <input type="number" step="0.1" value={quickKgComprados} onChange={e => setQuickKgComprados(e.target.value)} placeholder="Ej. 6216" />
+                                </div>
+                                <div>
+                                    <label>Nro. de Animales</label>
+                                    <input type="number" min="1" max="100" value={quickAnimalCount} onChange={e => {
+                                        const val = e.target.value;
+                                        setQuickAnimalCount(val);
+                                        const num = parseInt(val) || 0;
+                                        if (num > 0 && num <= 100) {
+                                            setQuickWeights(prev => {
+                                                const next = [...prev];
+                                                if (num > next.length) for (let i = next.length; i < num; i++) next.push('');
+                                                else next.splice(num);
+                                                return next;
+                                            });
+                                        }
+                                    }} />
+                                </div>
+                            </div>
+
+                            {/* Indicador de Merma en vivo */}
+                            <div style={{ display: 'flex', gap: '20px', backgroundColor: 'rgba(52,152,219,0.05)', padding: '20px', borderRadius: '12px', marginBottom: '24px', border: '1px solid rgba(52,152,219,0.2)', justifyContent: 'space-around', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Kg Comprados</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{kgCompradosNum.toLocaleString()} <small style={{ fontSize: '0.9rem' }}>kg</small></div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Kg Recibidos</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{totalRecibido.toLocaleString()} <small style={{ fontSize: '0.9rem' }}>kg</small></div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>% Merma</div>
+                                    <div style={{ fontSize: '3rem', fontWeight: '900', color: mermaPorc > 0 ? '#e53935' : 'var(--success)', lineHeight: 1 }}>
+                                        {mermaPorc.toFixed(2)}%
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Peso Promedio</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{(totalRecibido / countNum).toFixed(1)} <small style={{ fontSize: '0.9rem' }}>kg</small></div>
+                                </div>
+                            </div>
+
+                            <label style={{ marginBottom: '12px', display: 'block', fontWeight: 'bold' }}>Pesos Individuales — Báscula Finca (kg)</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px', marginBottom: '32px' }}>
+                                {quickWeights.map((w, i) => (
+                                    <div key={i} style={{ position: 'relative' }}>
+                                        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.65rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>{i + 1}</span>
+                                        <input 
+                                            type="number" step="0.1" value={w}
+                                            onChange={e => {
+                                                const newW = [...quickWeights];
+                                                newW[i] = e.target.value;
+                                                setQuickWeights(newW);
+                                            }}
+                                            style={{ paddingLeft: '22px', textAlign: 'right', marginBottom: 0, fontSize: '1rem' }}
+                                            placeholder="0.0"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
+                                <button onClick={() => setShowQuickModal(false)} style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)', width: 'auto', padding: '0 24px' }}>Cancelar</button>
+                                <button 
+                                    onClick={() => {
+                                        if (!quickProveedor || !quickKgComprados) { alert('Selecciona el proveedor y los Kg comprados.'); return; }
+                                        const animalsForReport = quickWeights.map((w, idx) => ({ numero_chapeta: `A${idx + 1}`, peso_ingreso: parseFloat(w) || 0 }));
+                                        setQuickReportData({
+                                            proveedor: quickProveedor,
+                                            fecha: new Date().toISOString().split('T')[0],
+                                            animales: animalsForReport,
+                                            pesoCompraTotal: parseFloat(quickKgComprados)
+                                        });
+                                        setShowQuickModal(false);
+                                        setShowQuickReport(true);
+                                    }}
+                                    style={{ backgroundColor: '#3498db', width: 'auto', padding: '0 32px' }}
+                                >
+                                    <CheckCircle2 size={18} /> Generar Reporte de Merma
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
             {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
@@ -717,7 +846,19 @@ export default function Purchase() {
                 </div>
             )}
 
-            {/* Si existiera un selector para el tipo de reporte, lo usaríamos aquí */}
+            {/* Reporte Compra Rápida (PDF volátil, sin guardar en DB) */}
+            {showQuickReport && quickReportData && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, overflowY: 'auto' }}>
+                    <PurchaseReportSimple
+                        fincaNombre={userFincas?.find((f: any) => f.id_finca === fincaId)?.nombre_finca || 'Finca'}
+                        fechaCompra={quickReportData.fecha}
+                        animales={quickReportData.animales}
+                        proveedor={quickReportData.proveedor}
+                        pesoCompraTotal={quickReportData.pesoCompraTotal}
+                        onClose={() => { setShowQuickReport(false); setQuickReportData(null); }}
+                    />
+                </div>
+            )}
         </div>
     );
 }
