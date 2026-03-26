@@ -5,6 +5,7 @@ import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X } from 'lucide-rea
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { TableVirtuoso } from 'react-virtuoso';
 
 interface Pesaje {
     peso: number;
@@ -366,107 +367,131 @@ export default function Inventory() {
             </div>
 
             <div className="table-container" style={{ padding: 0 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('chapeta')}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Chapeta <ArrowUpDown size={14} opacity={sortBy === 'chapeta' ? 1 : 0.3} /></div>
-                            </th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('propietario')}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Propietario / Etapa <ArrowUpDown size={14} opacity={sortBy === 'propietario' ? 1 : 0.3} /></div>
-                            </th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('dias_pesaje')}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Último Pesaje <ArrowUpDown size={14} opacity={sortBy === 'dias_pesaje' ? 1 : 0.3} /></div>
-                            </th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Último Peso</th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>GMP Promedio</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr><td colSpan={5} style={{ padding: '44px', textAlign: 'center', color: 'var(--primary)' }}>Cargando datos del hato...</td></tr>
-                        ) : sortedAndFilteredAnimals.length === 0 ? (
-                            <tr><td colSpan={5} style={{ padding: '44px', textAlign: 'center' }}>No hay animales registrados.</td></tr>
-                        ) : (
-                            sortedAndFilteredAnimals.map((animal) => {
+                {loading ? (
+                    <div style={{ padding: '44px', textAlign: 'center', color: 'var(--primary)' }}>Cargando datos del hato...</div>
+                ) : sortedAndFilteredAnimals.length === 0 ? (
+                    <div style={{ padding: '44px', textAlign: 'center' }}>No hay animales registrados.</div>
+                ) : (
+                    <TableVirtuoso
+                        useWindowScroll
+                        data={sortedAndFilteredAnimals}
+                        components={{
+                            Table: (props) => <table {...props} style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }} />,
+                            TableRow: (props) => {
+                                const index = props['data-index'];
+                                const animal = sortedAndFilteredAnimals[index];
+                                if (!animal) return <tr {...props} />;
+                                
                                 const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
                                 const ultimoP = animal.registros_pesaje?.[0];
-                                const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
-                                const pesoU = ultimoP ? `${ultimoP.peso} kg` : `${pesoBase} kg*`;
-
                                 const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date();
                                 const pesoReferencia = ultimoP ? ultimoP.peso : pesoBase;
                                 const dias = differenceInDays(fechaReferencia, new Date(animal.fecha_ingreso)) || 1;
                                 const gananciaTotal = pesoReferencia - pesoBase;
                                 const gmpPromedio = (gananciaTotal / dias) * 30;
-
                                 const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gmpPromedio <= umbralMedioGmp;
-                                const hasRecords = (animal.registros_pesaje?.length || 0) > 1;
-                                const gmpColor = !hasRecords ? 'var(--text-muted)' : (
-                                    gmpPromedio > umbralAltoGmp ? 'var(--success)' : (
-                                        gmpPromedio > umbralMedioGmp ? 'var(--warning)' : 'var(--error)'
-                                    )
-                                );
 
                                 return (
-                                    <tr key={animal.id} 
+                                    <tr 
+                                        {...props} 
                                         onClick={() => setSelectedAnimal(animal)}
                                         className="table-row-hover"
                                         style={{
-                                        borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                        backgroundColor: isAlerta ? 'rgba(244, 67, 54, 0.05)' : 'transparent',
-                                        transition: 'background 0.2s',
-                                        cursor: 'pointer'
-                                    }}>
-                                        <td style={{ padding: '16px', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                                            <span style={{ color: 'var(--primary-light)' }}>#</span>{animal.numero_chapeta}
-                                        </td>
-                                        <td style={{ padding: '16px' }}>
-                                            <div style={{ fontWeight: '500' }}>{animal.nombre_propietario}</div>
-                                             <div style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                {animal.etapa} • <span style={{ color: 'var(--primary-light)', fontStyle: 'italic', textTransform: 'capitalize' }}>{animal.potreradaNombre}</span>
-                                                <span style={{ marginLeft: '8px', opacity: 0.8 }}>({animal.potreroNombre})</span>
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '16px' }}>
-                                            <div style={{ 
-                                                fontWeight: 'bold', 
-                                                fontSize: '1.05rem', 
-                                                color: (animal.diasDesdeUltimoPesaje || 0) > 90 ? 'var(--error)' : 'white' 
-                                            }}>
-                                                Hace {animal.diasDesdeUltimoPesaje} {animal.diasDesdeUltimoPesaje === 1 ? 'día' : 'días'}
-                                            </div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ultimoP ? fechaU : 'Ingreso: ' + format(new Date(animal.fecha_ingreso), 'dd/MM/yyyy')}</div>
-                                        </td>
-                                        <td style={{ padding: '16px' }}>
-                                            <div style={{ fontWeight: 'bold', fontSize: '1.05rem' }}>{pesoU}</div>
-                                            {(animal.registros_pesaje?.length || 0) > 1 && ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>+{(ultimoP.peso - (animal.peso_compra ?? animal.peso_ingreso)).toFixed(1)} kg ganados</div>}
-                                        </td>
-                                        <td style={{ padding: '16px' }}>
-                                            {hasRecords ? (
-                                                <>
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        color: gmpColor,
-                                                        fontWeight: 'bold'
-                                                    }}>
-                                                        {gmpPromedio.toFixed(1)} kg/mes
-                                                        {isAlerta && <span title="Bajo el umbral configurado">⚠️</span>}
-                                                    </div>
-                                                    <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Promedio histórico</div>
-                                                </>
-                                            ) : (
-                                                <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>NA</div>
-                                            )}
-                                        </td>
-                                    </tr>
+                                            ...props.style,
+                                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                            backgroundColor: isAlerta ? 'rgba(244, 67, 54, 0.05)' : 'transparent',
+                                            transition: 'background 0.2s',
+                                            cursor: 'pointer'
+                                        }}
+                                    />
                                 );
-                            })
+                            }
+                        }}
+                        fixedHeaderContent={() => (
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--background)' }}>
+                                <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('chapeta')}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Chapeta <ArrowUpDown size={14} opacity={sortBy === 'chapeta' ? 1 : 0.3} /></div>
+                                </th>
+                                <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('propietario')}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Propietario / Etapa <ArrowUpDown size={14} opacity={sortBy === 'propietario' ? 1 : 0.3} /></div>
+                                </th>
+                                <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('dias_pesaje')}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Último Pesaje <ArrowUpDown size={14} opacity={sortBy === 'dias_pesaje' ? 1 : 0.3} /></div>
+                                </th>
+                                <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Último Peso</th>
+                                <th style={{ padding: '16px', color: 'var(--text-muted)' }}>GMP Promedio</th>
+                            </tr>
                         )}
-                    </tbody>
-                </table>
+                        itemContent={(_index, animal) => {
+                            const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
+                            const ultimoP = animal.registros_pesaje?.[0];
+                            const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
+                            const pesoU = ultimoP ? `${ultimoP.peso} kg` : `${pesoBase} kg*`;
+
+                            const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date();
+                            const pesoReferencia = ultimoP ? ultimoP.peso : pesoBase;
+                            const dias = differenceInDays(fechaReferencia, new Date(animal.fecha_ingreso)) || 1;
+                            const gananciaTotal = pesoReferencia - pesoBase;
+                            const gmpPromedio = (gananciaTotal / dias) * 30;
+
+                            const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gmpPromedio <= umbralMedioGmp;
+                            const hasRecords = (animal.registros_pesaje?.length || 0) > 1;
+                            const gmpColor = !hasRecords ? 'var(--text-muted)' : (
+                                gmpPromedio > umbralAltoGmp ? 'var(--success)' : (
+                                    gmpPromedio > umbralMedioGmp ? 'var(--warning)' : 'var(--error)'
+                                )
+                            );
+
+                            return (
+                                <>
+                                    <td style={{ padding: '16px', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                        <span style={{ color: 'var(--primary-light)' }}>#</span>{animal.numero_chapeta}
+                                    </td>
+                                    <td style={{ padding: '16px' }}>
+                                        <div style={{ fontWeight: '500' }}>{animal.nombre_propietario}</div>
+                                         <div style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                            {animal.etapa} • <span style={{ color: 'var(--primary-light)', fontStyle: 'italic', textTransform: 'capitalize' }}>{animal.potreradaNombre}</span>
+                                            <span style={{ marginLeft: '8px', opacity: 0.8 }}>({animal.potreroNombre})</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '16px' }}>
+                                        <div style={{ 
+                                            fontWeight: 'bold', 
+                                            fontSize: '1.05rem', 
+                                            color: (animal.diasDesdeUltimoPesaje || 0) > 90 ? 'var(--error)' : 'white' 
+                                        }}>
+                                            Hace {animal.diasDesdeUltimoPesaje} {animal.diasDesdeUltimoPesaje === 1 ? 'día' : 'días'}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ultimoP ? fechaU : 'Ingreso: ' + format(new Date(animal.fecha_ingreso), 'dd/MM/yyyy')}</div>
+                                    </td>
+                                    <td style={{ padding: '16px' }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '1.05rem' }}>{pesoU}</div>
+                                        {(animal.registros_pesaje?.length || 0) > 1 && ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>+{(ultimoP.peso - (animal.peso_compra ?? animal.peso_ingreso)).toFixed(1)} kg ganados</div>}
+                                    </td>
+                                    <td style={{ padding: '16px' }}>
+                                        {hasRecords ? (
+                                            <>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    color: gmpColor,
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    {gmpPromedio.toFixed(1)} kg/mes
+                                                    {isAlerta && <span title="Bajo el umbral configurado">⚠️</span>}
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Promedio histórico</div>
+                                            </>
+                                        ) : (
+                                            <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>NA</div>
+                                        )}
+                                    </td>
+                                </>
+                            );
+                        }}
+                    />
+                )}
             </div>
             {/* Modal Reporte de Muerte */}
             {showMuerteModal && (
