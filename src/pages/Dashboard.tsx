@@ -645,6 +645,41 @@ export default function Dashboard() {
 
         setEvolucionPorPesaje(dataPorNum);
 
+        // --- CÁLCULO DE DISTRIBUCIÓN POR PESO PROYECTADO ---
+        // Usando los promedios reales de la finca (Fallbacks)
+        const distPesos = { rango1: 0, rango2: 0, rango3: 0, rango4: 0 };
+        const distAnimales: { rango1: any[], rango2: any[], rango3: any[], rango4: any[] } = { rango1: [], rango2: [], rango3: [], rango4: [] };
+
+        animalesFiltrados.forEach(animal => {
+            const misPsjs = pesajesPorAnimal[animal.id] || [];
+            const lastWeight = misPsjs.length > 0 ? misPsjs[misPsjs.length - 1].weight || misPsjs[misPsjs.length - 1].peso : (animal.peso_compra ?? animal.peso_ingreso);
+            const lastDate = misPsjs.length > 0 ? new Date(misPsjs[misPsjs.length - 1].fecha) : new Date(animal.fecha_ingreso);
+            
+            const gmpBase = animal.gmp_actual && Number(animal.gmp_actual) > 0 
+                            ? Number(animal.gmp_actual) * 30 
+                            : (animal.etapa_comercial === 'Ceba' ? fallbackGmpCeba : fallbackGmpLevante);
+            
+            const diasUltimoPesaje = differenceInDays(new Date(), lastDate);
+            const pesoHoy = lastWeight + (gmpBase / 30) * diasUltimoPesaje;
+
+            if (pesoHoy < 430) {
+                distPesos.rango1++;
+                distAnimales.rango1.push({ ...animal, ultimoPeso: lastWeight, pesoEstimado: pesoHoy, potrerada: animal.potreradas?.nombre || 'Sin Potrerada' });
+            } else if (pesoHoy <= 480) {
+                distPesos.rango2++;
+                distAnimales.rango2.push({ ...animal, ultimoPeso: lastWeight, pesoEstimado: pesoHoy, potrerada: animal.potreradas?.nombre || 'Sin Potrerada' });
+            } else if (pesoHoy <= 530) {
+                distPesos.rango3++;
+                distAnimales.rango3.push({ ...animal, ultimoPeso: lastWeight, pesoEstimado: pesoHoy, potrerada: animal.potreradas?.nombre || 'Sin Potrerada' });
+            } else {
+                distPesos.rango4++;
+                distAnimales.rango4.push({ ...animal, ultimoPeso: lastWeight, pesoEstimado: pesoHoy, potrerada: animal.potreradas?.nombre || 'Sin Potrerada' });
+            }
+        });
+
+        setDistribucionPesos(distPesos);
+        setAnimalesPorRango(distAnimales);
+
         // 4. Procesar gráfica de Rangos de Peso
         const dataPorRango = [
             { name: '< 400 kg', ...agrupadoPorRango.rango1 },
