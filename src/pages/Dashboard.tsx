@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment, useMemo } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -1071,7 +1071,6 @@ export default function Dashboard() {
                         {/* Cuerpo de la Gráfica */}
                         <div style={{ padding: '32px', minHeight: '400px' }}>
                             <div style={{ width: '100%', height: '400px' }}>
-                                {useMemo(() => (
                                 <ResponsiveContainer width="100%" height="100%">
                                     {vistaGrafica === 'mensual' ? (
                                         <LineChart data={evolucionGmp} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -1181,7 +1180,6 @@ export default function Dashboard() {
                                         </BarChart>
                                     )}
                                 </ResponsiveContainer>
-                                ), [vistaGrafica, evolucionGmp, evolucionPorPesaje, evolucionPorRango, detallesGmpAgrupados])}
                             </div>
                         </div>
                     </div>
