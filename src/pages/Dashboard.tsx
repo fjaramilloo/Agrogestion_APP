@@ -342,7 +342,7 @@ export default function Dashboard() {
                 }
 
                 // Calcular Distribución de Pesos Estimados
-                const gdpPromedio = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) : 0.45;
+                const gdpPromedio = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) : (10.3 / 30);
                 const dist = { rango1: 0, rango2: 0, rango3: 0, rango4: 0 };
                 const distAnimales: Record<string, any[]> = { rango1: [], rango2: [], rango3: [], rango4: [] };
                 
@@ -404,7 +404,7 @@ export default function Dashboard() {
                     const diasRef = differenceInDays(new Date(), new Date(fechaRef)) || 0;
                     
                     // Calculo de GMP individual para este lote
-                    let gmpIndiv = 0.45 * 30; // default
+                    let gmpIndiv = 10.3; // nuevo default
                     if (misPsjs.length > 0) {
                         const diffDiasTotal = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso));
                         if (diffDiasTotal > 0) {
