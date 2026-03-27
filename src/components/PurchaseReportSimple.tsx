@@ -147,6 +147,18 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
                     border-bottom: 2px solid #2e7d32;
                     display: inline-block;
                 }
+
+                @media (max-width: 768px) {
+                    .summary-grid {
+                        grid-template-columns: 1fr 1fr;
+                    }
+                    .animals-multi-column-grid {
+                        grid-template-columns: 1fr;
+                    }
+                    .report-simple-container {
+                        padding: 15px;
+                    }
+                }
             `}</style>
 
             <div className="report-simple-container">

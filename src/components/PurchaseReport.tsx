@@ -177,6 +177,27 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     border-bottom: 2px solid #2e7d32;
                     display: inline-block;
                 }
+
+                @media (max-width: 768px) {
+                    .summary-grid {
+                        grid-template-columns: 1fr 1fr;
+                    }
+                    .animals-multi-column-grid {
+                        grid-template-columns: 1fr;
+                    }
+                    .resumen-marca-container {
+                        flex-direction: column;
+                    }
+                    .resumen-marca-table {
+                        width: 100% !important;
+                        display: block;
+                        overflow-x: auto;
+                        white-space: nowrap;
+                    }
+                    .report-container {
+                        padding: 15px;
+                    }
+                }
                 `}
             </style>
 
@@ -258,8 +279,8 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                 </div>
 
                 <div className="table-title" style={{ marginTop: '20px' }}>Resumen por Marca</div>
-                <div style={{ display: 'flex', gap: '20px' }}>
-                    <table className="column-table" style={{ width: '70%' }}>
+                <div className="resumen-marca-container" style={{ display: 'flex', gap: '20px' }}>
+                    <table className="column-table resumen-marca-table" style={{ width: '70%' }}>
                         <thead>
                             <tr>
                                 <th style={{ textAlign: 'left' }}>Propietario</th>
