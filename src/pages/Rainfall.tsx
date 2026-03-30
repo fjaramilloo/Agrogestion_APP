@@ -9,6 +9,7 @@ interface RegistroLluvia {
     id: string;
     fecha: string;
     milimetros: number;
+    lectura_acumulada?: number;
     notas: string;
     creado_en: string;
 }
@@ -21,7 +22,7 @@ export default function Rainfall() {
 
     // Formulario
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
-    const [milimetros, setMilimetros] = useState('');
+    const [lecturaAcumulada, setLecturaAcumulada] = useState('');
     const [notas, setNotas] = useState('');
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
@@ -51,24 +52,43 @@ export default function Rainfall() {
 
     const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!fincaId || !milimetros) return;
+        if (!fincaId || !lecturaAcumulada) return;
 
         setSaving(true);
         setError('');
         try {
+            const nuevaLectura = parseFloat(lecturaAcumulada);
+            
+            // Buscar la lectura inmediatamente anterior a esta fecha
+            const registrosAnteriores = registros.filter(r => new Date(r.fecha) < new Date(fecha));
+            // Como ya vienen ordenados 'desc', el primero de los anteriores es el más reciente
+            const ultimoRegistro = registrosAnteriores[0];
+            
+            let lecturaAnterior = 764.4; // Valor base definido
+            if (ultimoRegistro && ultimoRegistro.lectura_acumulada) {
+                lecturaAnterior = ultimoRegistro.lectura_acumulada;
+            }
+
+            const milimetrosDia = nuevaLectura - lecturaAnterior;
+
+            if (milimetrosDia < 0) {
+                throw new Error(`La lectura (${nuevaLectura}) no puede ser menor a la lectura anterior (${lecturaAnterior}).`);
+            }
+
             const { error: insertErr } = await supabase
                 .from('registros_lluvia')
                 .insert({
                     id_finca: fincaId,
                     fecha,
-                    milimetros: parseFloat(milimetros),
+                    lectura_acumulada: nuevaLectura,
+                    milimetros: parseFloat(milimetrosDia.toFixed(1)),
                     notas: notas.trim() || null
                 });
 
             if (insertErr) throw insertErr;
 
             setShowModal(false);
-            setMilimetros('');
+            setLecturaAcumulada('');
             setNotas('');
             fetchRegistros();
         } catch (err: any) {
@@ -130,7 +150,8 @@ export default function Rainfall() {
                                 <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Fecha</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Hora de Ingreso</th>
-                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Precipitación</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Lectura Pluviómetro</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Lluvia Neta (mm)</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Notas</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Acciones</th>
                                 </tr>
@@ -150,8 +171,13 @@ export default function Rainfall() {
                                             {format(new Date(r.creado_en), 'HH:mm', { locale: es })}
                                         </td>
                                         <td style={{ padding: '16px 24px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                                                {r.lectura_acumulada ? r.lectura_acumulada : '-'}
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '16px 24px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{r.milimetros}</span>
+                                                <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{r.milimetros > 0 ? '+' : ''}{r.milimetros}</span>
                                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>mm</span>
                                             </div>
                                         </td>
@@ -191,19 +217,18 @@ export default function Rainfall() {
                                 />
                             </div>
                             <div className="form-group" style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Precipitación (mm)</label>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Lectura del Pluviómetro Acumulada</label>
                                 <div style={{ position: 'relative' }}>
                                     <input
                                         type="number"
                                         step="0.1"
                                         className="input-field"
-                                        placeholder="Ej: 150.5"
-                                        value={milimetros}
-                                        onChange={(e) => setMilimetros(e.target.value)}
+                                        placeholder="Ej: 1520.5"
+                                        value={lecturaAcumulada}
+                                        onChange={(e) => setLecturaAcumulada(e.target.value)}
                                         required
                                         style={{ paddingRight: '45px' }}
                                     />
-                                    <span style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>mm</span>
                                 </div>
                             </div>
                             <div className="form-group" style={{ marginBottom: '24px' }}>
