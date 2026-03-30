@@ -59,6 +59,8 @@ export default function Inventory() {
 
     // Modal Historial Animal
     const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
+    const [potreradasDisponibles, setPotreradasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
+    const [updatingPotrerada, setUpdatingPotrerada] = useState(false);
 
     const fetchAnimales = async () => {
         if (!fincaId) return;
@@ -138,6 +140,18 @@ export default function Inventory() {
                 if (configData.umbral_medio_gmp) setUmbralMedioGmp(configData.umbral_medio_gmp);
             }
         }
+        
+        // Cargar potreradas para el selector en el modal
+        const { data: potsData } = await supabase
+            .from('potreradas')
+            .select('id, nombre')
+            .eq('id_finca', fincaId)
+            .order('nombre', { ascending: true });
+        
+        if (potsData) {
+            setPotreradasDisponibles(potsData);
+        }
+
         setLoading(false);
     };
 
@@ -196,6 +210,43 @@ export default function Inventory() {
         } else {
             setSortBy(field);
             setSortOrder(field === 'dias_pesaje' ? 'desc' : 'asc');
+        }
+    };
+
+    const handleUpdatePotrerada = async (animalId: string, nuevaPotreradaId: string | null) => {
+        if (!fincaId) return;
+        setUpdatingPotrerada(true);
+        try {
+            const { error } = await supabase
+                .from('animales')
+                .update({ id_potrerada: nuevaPotreradaId })
+                .eq('id', animalId);
+
+            if (error) throw error;
+
+            // Actualizar estado local para no tener que recargar todo
+            setAnimales(prev => prev.map(a => 
+                a.id === animalId 
+                ? { 
+                    ...a, 
+                    id_potrerada: nuevaPotreradaId, 
+                    potreradaNombre: nuevaPotreradaId ? potreradasDisponibles.find(p => p.id === nuevaPotreradaId)?.nombre : 'Sin potrerada' 
+                  } 
+                : a
+            ));
+            
+            if (selectedAnimal && selectedAnimal.id === animalId) {
+                setSelectedAnimal(prev => prev ? {
+                    ...prev,
+                    id_potrerada: nuevaPotreradaId,
+                    potreradaNombre: nuevaPotreradaId ? potreradasDisponibles.find(p => p.id === nuevaPotreradaId)?.nombre : 'Sin potrerada'
+                } : null);
+            }
+
+        } catch (err: any) {
+            alert('Error al actualizar potrerada: ' + err.message);
+        } finally {
+            setUpdatingPotrerada(false);
         }
     };
 
@@ -589,8 +640,53 @@ export default function Inventory() {
                                     {selectedAnimal.numero_chapeta}
                                 </h2>
                                  <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.5px' }}>
-                                    {selectedAnimal.etapa} • {selectedAnimal.potreradaNombre} • {selectedAnimal.nombre_propietario}
+                                    {selectedAnimal.etapa} • {selectedAnimal.nombre_propietario}
                                 </p>
+                            </div>
+
+                            {/* Gestión de Potrerada */}
+                            <div style={{ 
+                                backgroundColor: 'rgba(255,255,255,0.03)', 
+                                padding: '16px', 
+                                borderRadius: '12px', 
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                marginBottom: '24px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '16px'
+                            }}>
+                                <div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Potrerada Actual</div>
+                                    <div style={{ fontWeight: '600', color: selectedAnimal.id_potrerada ? 'var(--primary-light)' : 'var(--text-muted)' }}>
+                                        {selectedAnimal.potreradaNombre}
+                                    </div>
+                                </div>
+                                <div style={{ flex: '0 1 200px' }}>
+                                    <select 
+                                        value={selectedAnimal.id_potrerada || ''} 
+                                        onChange={(e) => handleUpdatePotrerada(selectedAnimal.id, e.target.value || null)}
+                                        disabled={updatingPotrerada}
+                                        style={{ 
+                                            marginBottom: 0, 
+                                            fontSize: '0.85rem', 
+                                            padding: '8px 12px',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            border: '1px solid rgba(255,255,255,0.1)'
+                                        }}
+                                    >
+                                        <option value="">-- Mover a Lote --</option>
+                                        <option value="">(Sin Lote)</option>
+                                        {potreradasDisponibles.map(p => (
+                                            <option key={p.id} value={p.id}>{p.nombre}</option>
+                                        ))}
+                                    </select>
+                                    {updatingPotrerada && (
+                                        <div style={{ fontSize: '0.65rem', color: 'var(--primary-light)', marginTop: '4px', textAlign: 'right' }}>
+                                            Actualizando...
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '32px' }}>
