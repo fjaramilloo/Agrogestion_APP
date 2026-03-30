@@ -72,6 +72,7 @@ export default function Potreradas() {
     const [managingPotrerada, setManagingPotrerada] = useState<Potrerada | null>(null);
     const [animalesFinca, setAnimalesFinca] = useState<AnimalPotrero[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchTermEnLote, setSearchTermEnLote] = useState('');
     const [updatingAnimal, setUpdatingAnimal] = useState<string | null>(null);
 
     // Estados para el detalle de la potrerada
@@ -415,6 +416,11 @@ export default function Potreradas() {
         } finally {
             setUpdatingAnimal(null);
         }
+    };
+
+    const resetManagementSearch = () => {
+        setSearchTerm('');
+        setSearchTermEnLote('');
     };
 
     const filteredAnimalesFinca = animalesFinca.filter(a => {
@@ -1022,7 +1028,7 @@ export default function Potreradas() {
             )}
 
             {managingPotrerada && (
-                <div className="modal-overlay" onClick={() => setManagingPotrerada(null)}>
+                <div className="modal-overlay" onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }}>
                     <div className="card modal-content" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
                         {/* Header */}
                         <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -1030,12 +1036,12 @@ export default function Potreradas() {
                                 <h2 style={{ margin: 0, color: 'var(--primary-light)', fontSize: '1.4rem' }}>
                                     Gestionar: {managingPotrerada.nombre}
                                 </h2>
-                                <button onClick={() => { setManagingPotrerada(null); setSearchTerm(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                                <button onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
                                     <X size={20} />
                                 </button>
                             </div>
                             <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.8rem' }}>
-                                {managingPotrerada.etapa.toUpperCase()} | {animalesEnEstaPotrerada.length} animales
+                                {managingPotrerada.etapa.toUpperCase()} | {animalesFinca.filter(a => a.id_potrerada === managingPotrerada?.id).length} animales
                             </p>
                         </div>
 
@@ -1047,14 +1053,35 @@ export default function Potreradas() {
                                 <h3 style={{ fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Users size={16} color="var(--primary-light)" /> En este lote
                                 </h3>
+
+                                <div style={{ position: 'relative', marginBottom: '12px' }}>
+                                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                    <input 
+                                        type="text"
+                                        placeholder="Buscar en lote..."
+                                        value={searchTermEnLote}
+                                        onChange={e => setSearchTermEnLote(e.target.value)}
+                                        style={{ padding: '8px 8px 8px 32px', fontSize: '0.85rem', marginBottom: 0 }}
+                                    />
+                                </div>
                                 
                                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {animalesEnEstaPotrerada.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', fontSize: '0.8rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
-                                            Vacío
-                                        </div>
-                                    ) : (
-                                        animalesEnEstaPotrerada.map(a => (
+                                    {(() => {
+                                        const filtrados = animalesFinca.filter(a => 
+                                            a.id_potrerada === managingPotrerada?.id && 
+                                            (a.numero_chapeta.toLowerCase().includes(searchTermEnLote.toLowerCase()) || 
+                                             a.nombre_propietario.toLowerCase().includes(searchTermEnLote.toLowerCase()))
+                                        );
+
+                                        if (filtrados.length === 0) {
+                                            return (
+                                                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', fontSize: '0.8rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                                                    {searchTermEnLote ? 'No se encontraron resultados' : 'Vacío'}
+                                                </div>
+                                            );
+                                        }
+
+                                        return filtrados.map(a => (
                                             <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
                                                 <div>
                                                     <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#{a.numero_chapeta}</div>
@@ -1069,8 +1096,8 @@ export default function Potreradas() {
                                                     {updatingAnimal === a.id ? '...' : <Trash2 size={16} />}
                                                 </button>
                                             </div>
-                                        ))
-                                    )}
+                                        ));
+                                    })()}
                                 </div>
                             </div>
 
@@ -1119,7 +1146,7 @@ export default function Potreradas() {
 
                         {/* Footer */}
                         <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
-                            <button onClick={() => { setManagingPotrerada(null); setSearchTerm(''); }} style={{ width: 'auto', padding: '8px 24px', fontSize: '0.9rem' }}>
+                            <button onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }} style={{ width: 'auto', padding: '8px 24px', fontSize: '0.9rem' }}>
                                 Cerrar
                             </button>
                         </div>
