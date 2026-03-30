@@ -67,8 +67,8 @@ export default function Inventory() {
     const [nuevoAnimal, setNuevoAnimal] = useState({
         numero_chapeta: '',
         nombre_propietario: '',
-        especie: 'Bovino',
-        sexo: 'Macho',
+        especie: 'bovino',
+        sexo: 'M',
         etapa: 'levante',
         peso_ingreso: '',
         fecha_ingreso: new Date().toISOString().split('T')[0],
@@ -313,8 +313,8 @@ export default function Inventory() {
             setNuevoAnimal({
                 numero_chapeta: '',
                 nombre_propietario: '',
-                especie: 'Bovino',
-                sexo: 'Macho',
+                especie: 'bovino',
+                sexo: 'M',
                 etapa: 'levante',
                 peso_ingreso: '',
                 fecha_ingreso: new Date().toISOString().split('T')[0],
@@ -887,16 +887,16 @@ export default function Inventory() {
                             <div>
                                 <label>Especie</label>
                                 <select value={nuevoAnimal.especie} onChange={e => setNuevoAnimal({...nuevoAnimal, especie: e.target.value})}>
-                                    <option value="Bovino">Bovino</option>
-                                    <option value="Equino">Equino</option>
-                                    <option value="Ovino">Ovino</option>
+                                    <option value="bovino">Bovino</option>
+                                    <option value="equino">Equino</option>
+                                    <option value="ovino">Ovino</option>
                                 </select>
                             </div>
                             <div>
                                 <label>Sexo</label>
                                 <select value={nuevoAnimal.sexo} onChange={e => setNuevoAnimal({...nuevoAnimal, sexo: e.target.value})}>
-                                    <option value="Macho">Macho</option>
-                                    <option value="Hembra">Hembra</option>
+                                    <option value="M">Macho</option>
+                                    <option value="H">Hembra</option>
                                 </select>
                             </div>
                             <div>
