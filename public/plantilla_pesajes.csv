@@ -1,4 +1,4 @@
-numero_chapeta,fecha(Año-Mes-Día),peso,potrero,etapa
+numero_chapeta,fecha,peso,potrero,etapa
 001,2023-11-15,185.5,Potrero 1,levante
 001,2023-12-15,202.0,Potrero 1,levante
 002,2023-12-01,235.0,Potrero 2,levante

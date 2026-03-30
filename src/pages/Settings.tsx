@@ -523,25 +523,39 @@ export default function Settings() {
                     const chapetas = rows.map((r: any) => r.numero_chapeta);
                     if (chapetas.some((c: any) => !c)) throw new Error("Todas las filas deben tener un número de chapeta.");
                     
-                    const duplicadosInternos = chapetas.filter((c: any, index: number) => chapetas.indexOf(c) !== index);
-                    if (duplicadosInternos.length > 0) {
-                        throw new Error(`El archivo CSV contiene números de chapeta duplicados dentro del mismo archivo: ${[...new Set(duplicadosInternos)].join(', ')}`);
+                    const omitidosList: string[] = [];
+                    const rowsUnicos: any[] = [];
+                    const chapetasVistas = new Set<string>();
+
+                    for (const r of rows) {
+                        if (chapetasVistas.has(r.numero_chapeta)) {
+                            omitidosList.push(`${r.numero_chapeta} (Duplicado en CSV)`);
+                        } else {
+                            chapetasVistas.add(r.numero_chapeta);
+                            rowsUnicos.push(r);
+                        }
                     }
 
                     // 4. Identificar animales existentes en la base de datos
+                    const chapetasUnicas = Array.from(chapetasVistas);
                     const { data: existentes, error: checkError } = await supabase
                         .from('animales')
                         .select('id, numero_chapeta')
                         .eq('id_finca', fincaId)
-                        .in('numero_chapeta', chapetas);
+                        .in('numero_chapeta', chapetasUnicas);
 
                     if (checkError) throw checkError;
 
                     const existentesMap = new Map(existentes?.map(e => [e.numero_chapeta, e.id]) ?? []);
                     
                     // Lógica solicitada: OMITIR los que ya existen
-                    const rowsNuevos = rows.filter((r: any) => !existentesMap.has(r.numero_chapeta));
-                    const omitidosList = chapetas.filter((c: any) => existentesMap.has(c));
+                    const rowsNuevos = rowsUnicos.filter((r: any) => {
+                        if (existentesMap.has(r.numero_chapeta)) {
+                            omitidosList.push(`${r.numero_chapeta} (Ya existe)`);
+                            return false;
+                        }
+                        return true;
+                    });
 
                     // 5. Insertar animales nuevos
                     let insertados = 0;
