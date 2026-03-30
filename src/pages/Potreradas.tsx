@@ -430,7 +430,7 @@ export default function Potreradas() {
         return matchesSearch && isNotAlreadyInThisPot;
     });
 
-    const animalesEnEstaPotrerada = animalesFinca.filter(a => a.id_potrerada === managingPotrerada?.id);
+
 
     const handleOpenDetail = async (p: Potrerada) => {
         setSelectedDetailId(p.id);

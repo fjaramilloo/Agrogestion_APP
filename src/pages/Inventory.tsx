@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X } from 'lucide-react';
+import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
@@ -62,6 +62,21 @@ export default function Inventory() {
     const [potreradasDisponibles, setPotreradasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
     const [updatingPotrerada, setUpdatingPotrerada] = useState(false);
 
+    // Estados para Crear Animal Solo
+    const [showCrearModal, setShowCrearModal] = useState(false);
+    const [nuevoAnimal, setNuevoAnimal] = useState({
+        numero_chapeta: '',
+        nombre_propietario: '',
+        especie: 'Bovino',
+        sexo: 'Macho',
+        etapa: 'levante',
+        peso_ingreso: '',
+        fecha_ingreso: new Date().toISOString().split('T')[0],
+        id_potrerada: ''
+    });
+    const [nuevosPesajes, setNuevosPesajes] = useState<{ fecha: string; peso: string }[]>([]);
+    const [msjErrorCrear, setMsjErrorCrear] = useState('');
+
     const fetchAnimales = async () => {
         if (!fincaId) return;
         setLoading(true);
@@ -110,7 +125,6 @@ export default function Inventory() {
                 const ultimoP = registros[0];
                 const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
                 
-                // Truncar fechas al inicio del día para cálculo correcto de la diferencia
                 const hoy = new Date();
                 hoy.setHours(0, 0, 0, 0);
                 const refTruncada = new Date(fechaReferencia);
@@ -128,7 +142,6 @@ export default function Inventory() {
             });
             setAnimales(dataProcesada);
 
-            // 3. Traer los umbrales de la configuración
             const { data: configData } = await supabase
                 .from('configuracion_kpi')
                 .select('umbral_medio_gmp, umbral_alto_gmp')
@@ -141,7 +154,6 @@ export default function Inventory() {
             }
         }
         
-        // Cargar potreradas para el selector en el modal
         const { data: potsData } = await supabase
             .from('potreradas')
             .select('id, nombre')
@@ -165,7 +177,6 @@ export default function Inventory() {
         setMsjErrorMuerte('');
 
         try {
-            // 1. Validar que el animal existe y está activo
             const { data: animal, error: searchError } = await supabase
                 .from('animales')
                 .select('id')
@@ -178,7 +189,6 @@ export default function Inventory() {
                 throw new Error("Animal no encontrado o no está activo en esta finca.");
             }
 
-            // 2. Marcar como muerto
             const { error: updateError } = await supabase
                 .from('animales')
                 .update({
@@ -188,10 +198,6 @@ export default function Inventory() {
                 .eq('id', animal.id);
 
             if (updateError) throw updateError;
-
-            // 3. Opcional: Podríamos guardar la fecha de muerte en algún lado, 
-            // pero el esquema actual solo tiene 'estado'. 
-            // Por ahora solo inactivamos.
 
             setShowMuerteModal(false);
             setChapetaMuerte('');
@@ -224,7 +230,6 @@ export default function Inventory() {
 
             if (error) throw error;
 
-            // Actualizar estado local para no tener que recargar todo
             setAnimales(prev => prev.map(a => 
                 a.id === animalId 
                 ? { 
@@ -247,6 +252,82 @@ export default function Inventory() {
             alert('Error al actualizar potrerada: ' + err.message);
         } finally {
             setUpdatingPotrerada(false);
+        }
+    };
+
+    const handleCrearAnimal = async () => {
+        if (!fincaId || !nuevoAnimal.numero_chapeta || !nuevoAnimal.peso_ingreso) return;
+        setLoading(true);
+        setMsjErrorCrear('');
+
+        try {
+            const { data: exist } = await supabase
+                .from('animales')
+                .select('id')
+                .eq('id_finca', fincaId)
+                .eq('numero_chapeta', nuevoAnimal.numero_chapeta)
+                .eq('estado', 'activo')
+                .maybeSingle();
+            
+            if (exist) throw new Error(`El animal con chapeta #${nuevoAnimal.numero_chapeta} ya existe y está activo.`);
+
+            const { data: animalInsertado, error: errAnimal } = await supabase
+                .from('animales')
+                .insert([{
+                    id_finca: fincaId,
+                    numero_chapeta: nuevoAnimal.numero_chapeta,
+                    nombre_propietario: nuevoAnimal.nombre_propietario || 'Finca',
+                    especie: nuevoAnimal.especie,
+                    sexo: nuevoAnimal.sexo,
+                    etapa: nuevoAnimal.etapa,
+                    peso_ingreso: parseFloat(nuevoAnimal.peso_ingreso),
+                    fecha_ingreso: nuevoAnimal.fecha_ingreso,
+                    id_potrerada: nuevoAnimal.id_potrerada || null,
+                    estado: 'activo'
+                }])
+                .select()
+                .single();
+
+            if (errAnimal) throw errAnimal;
+
+            if (nuevosPesajes.length > 0) {
+                const pesajesData = nuevosPesajes
+                    .filter(p => p.fecha && p.peso)
+                    .map(p => ({
+                        id_animal: animalInsertado.id,
+                        id_finca: fincaId,
+                        fecha: p.fecha,
+                        peso: parseFloat(p.peso),
+                        gdp_calculada: 0
+                    }));
+
+                if (pesajesData.length > 0) {
+                    const { error: errPesajes } = await supabase
+                        .from('registros_pesaje')
+                        .insert(pesajesData);
+                    if (errPesajes) throw errPesajes;
+                }
+            }
+
+            setShowCrearModal(false);
+            setNuevoAnimal({
+                numero_chapeta: '',
+                nombre_propietario: '',
+                especie: 'Bovino',
+                sexo: 'Macho',
+                etapa: 'levante',
+                peso_ingreso: '',
+                fecha_ingreso: new Date().toISOString().split('T')[0],
+                id_potrerada: ''
+            });
+            setNuevosPesajes([]);
+            fetchAnimales();
+            alert("Animal creado exitosamente con su historial.");
+
+        } catch (err: any) {
+            setMsjErrorCrear(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -293,7 +374,6 @@ export default function Inventory() {
         };
     }, [animales]);
 
-    // Calcular GDP Promedio de todos los animales para la estimación de peso de hoy
     const gdpPromedioFinca = useMemo(() => {
         const gdpsTotales = animales.map(a => {
             const u = a.registros_pesaje?.[0];
@@ -312,12 +392,22 @@ export default function Inventory() {
                 <h1 className="title" style={{ margin: 0 }}>Animales de la Finca</h1>
 
                 {role !== 'observador' && (
-                    <button
-                        onClick={() => setShowMuerteModal(true)}
-                        style={{ width: 'auto', backgroundColor: 'var(--error)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                        <Skull size={18} /> Reportar muerte
-                    </button>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        {role === 'administrador' && (
+                            <button
+                                onClick={() => setShowCrearModal(true)}
+                                style={{ width: 'auto', backgroundColor: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Plus size={18} /> Crear Animal
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setShowMuerteModal(true)}
+                            style={{ width: 'auto', backgroundColor: 'var(--error)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Skull size={18} /> Reportar muerte
+                        </button>
+                    </div>
                 )}
             </div>
             
@@ -519,7 +609,7 @@ export default function Inventory() {
                     </tbody>
                 </table>
             </div>
-            {/* Modal Reporte de Muerte */}
+            
             {showMuerteModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowMuerteModal(false)}>
                     <div className="card" style={{ maxWidth: '450px', width: '100%', border: '1px solid var(--error)' }} onClick={e => e.stopPropagation()}>
@@ -578,7 +668,7 @@ export default function Inventory() {
                     </div>
                 </div>
             )}
-            {/* Modal Historial de Animal */}
+
             {selectedAnimal && (() => {
                 const pesoBaseModal = selectedAnimal.peso_compra ?? selectedAnimal.peso_ingreso;
                 const ultimoP = selectedAnimal.registros_pesaje?.[0];
@@ -599,7 +689,6 @@ export default function Inventory() {
                         if (gdp === 0 && ganancia !== 0) {
                             gdp = ganancia / d;
                         }
-
                         return {
                             id: p.fecha,
                             fecha: p.fecha,
@@ -644,7 +733,6 @@ export default function Inventory() {
                                 </p>
                             </div>
 
-                            {/* Gestión de Potrerada */}
                             <div style={{ 
                                 backgroundColor: 'rgba(255,255,255,0.03)', 
                                 padding: '16px', 
@@ -770,7 +858,125 @@ export default function Inventory() {
                 );
             })()}
 
-            {/* Modales */}
+            {showCrearModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowCrearModal(false)}>
+                    <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--primary)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <h2 style={{ color: 'white', margin: 0 }}>Crear Nuevo Animal</h2>
+                            <button onClick={() => setShowCrearModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)' }}><X /></button>
+                        </div>
+
+                        {msjErrorCrear && (
+                            <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem' }}>
+                                {msjErrorCrear}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                            <div>
+                                <label>Número de Chapeta*</label>
+                                <input type="text" value={nuevoAnimal.numero_chapeta} onChange={e => setNuevoAnimal({...nuevoAnimal, numero_chapeta: e.target.value})} placeholder="Ej: 450" />
+                            </div>
+                            <div>
+                                <label>Propietario</label>
+                                <input type="text" value={nuevoAnimal.nombre_propietario} onChange={e => setNuevoAnimal({...nuevoAnimal, nombre_propietario: e.target.value})} placeholder="Nombre del dueño" />
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                            <div>
+                                <label>Especie</label>
+                                <select value={nuevoAnimal.especie} onChange={e => setNuevoAnimal({...nuevoAnimal, especie: e.target.value})}>
+                                    <option value="Bovino">Bovino</option>
+                                    <option value="Equino">Equino</option>
+                                    <option value="Ovino">Ovino</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Sexo</label>
+                                <select value={nuevoAnimal.sexo} onChange={e => setNuevoAnimal({...nuevoAnimal, sexo: e.target.value})}>
+                                    <option value="Macho">Macho</option>
+                                    <option value="Hembra">Hembra</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Etapa</label>
+                                <select value={nuevoAnimal.etapa} onChange={e => setNuevoAnimal({...nuevoAnimal, etapa: e.target.value})}>
+                                    <option value="cria">Cría</option>
+                                    <option value="levante">Levante</option>
+                                    <option value="ceba">Ceba</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                            <div>
+                                <label>Peso Ingreso (kg)*</label>
+                                <input type="number" value={nuevoAnimal.peso_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, peso_ingreso: e.target.value})} placeholder="0" />
+                            </div>
+                            <div>
+                                <label>Fecha Ingreso</label>
+                                <input type="date" value={nuevoAnimal.fecha_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, fecha_ingreso: e.target.value})} />
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '24px' }}>
+                            <label>Asignar a Lote (Opcional)</label>
+                            <select value={nuevoAnimal.id_potrerada} onChange={e => setNuevoAnimal({...nuevoAnimal, id_potrerada: e.target.value})}>
+                                <option value="">-- Sin Lote --</option>
+                                {potreradasDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                            </select>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', marginBottom: '20px' }}>
+                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--primary-light)' }}>Historial de Pesajes</h3>
+                                <button 
+                                    onClick={() => setNuevosPesajes([...nuevosPesajes, { fecha: new Date().toISOString().split('T')[0], peso: '' }])}
+                                    style={{ width: 'auto', padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)' }}
+                                >
+                                    + Agregar Pesaje
+                                </button>
+                            </div>
+                            
+                            {nuevosPesajes.map((p, idx) => (
+                                <div key={idx} style={{ display: 'flex', gap: '12px', marginBottom: '8px', alignItems: 'flex-end' }}>
+                                    <div style={{ flex: 2 }}>
+                                        <label style={{ fontSize: '0.7rem' }}>Fecha</label>
+                                        <input type="date" value={p.fecha} onChange={e => {
+                                            const up = [...nuevosPesajes];
+                                            up[idx].fecha = e.target.value;
+                                            setNuevosPesajes(up);
+                                        }} style={{ marginBottom: 0 }} />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.7rem' }}>Peso (kg)</label>
+                                        <input type="number" value={p.peso} onChange={e => {
+                                            const up = [...nuevosPesajes];
+                                            up[idx].peso = e.target.value;
+                                            setNuevosPesajes(up);
+                                        }} style={{ marginBottom: 0 }} placeholder="0" />
+                                    </div>
+                                    <button 
+                                        onClick={() => setNuevosPesajes(nuevosPesajes.filter((_, i) => i !== idx))}
+                                        style={{ backgroundColor: 'transparent', color: 'var(--error)', width: 'auto', padding: '8px', marginBottom: '2px' }}
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
+                            ))}
+                            {nuevosPesajes.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>No se han agregado pesajes adicionales.</p>}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '16px' }}>
+                            <button onClick={() => setShowCrearModal(false)} style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)' }} disabled={loading}>Cancelar</button>
+                            <button onClick={handleCrearAnimal} style={{ backgroundColor: 'var(--primary)' }} disabled={loading || !nuevoAnimal.numero_chapeta || !nuevoAnimal.peso_ingreso}>
+                                {loading ? 'Creando...' : 'Guardar Animal'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
