@@ -60,6 +60,7 @@ export default function Inventory() {
     // Modal Historial Animal
     const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
     const [potreradasDisponibles, setPotreradasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
+    const [propietariosLista, setPropietariosLista] = useState<{ id: string; nombre: string }[]>([]);
     const [updatingPotrerada, setUpdatingPotrerada] = useState(false);
 
     // Estados para Crear Animal Solo
@@ -162,6 +163,16 @@ export default function Inventory() {
         
         if (potsData) {
             setPotreradasDisponibles(potsData);
+        }
+
+        const { data: propData } = await supabase
+            .from('propietarios')
+            .select('id, nombre')
+            .eq('id_finca', fincaId)
+            .order('nombre', { ascending: true });
+        
+        if (propData) {
+            setPropietariosLista(propData);
         }
 
         setLoading(false);
@@ -295,7 +306,6 @@ export default function Inventory() {
                     .filter(p => p.fecha && p.peso)
                     .map(p => ({
                         id_animal: animalInsertado.id,
-                        id_finca: fincaId,
                         fecha: p.fecha,
                         peso: parseFloat(p.peso),
                         gdp_calculada: 0
@@ -879,7 +889,15 @@ export default function Inventory() {
                             </div>
                             <div>
                                 <label>Propietario</label>
-                                <input type="text" value={nuevoAnimal.nombre_propietario} onChange={e => setNuevoAnimal({...nuevoAnimal, nombre_propietario: e.target.value})} placeholder="Nombre del dueño" />
+                                <select 
+                                    value={nuevoAnimal.nombre_propietario} 
+                                    onChange={e => setNuevoAnimal({...nuevoAnimal, nombre_propietario: e.target.value})}
+                                >
+                                    <option value="">Seleccionar propietario...</option>
+                                    {propietariosLista.map(p => (
+                                        <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 
