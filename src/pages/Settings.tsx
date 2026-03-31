@@ -624,16 +624,27 @@ export default function Settings() {
                         throw new Error(`El archivo no corresponde a la plantilla de Seguimiento de Pesajes. Faltan columnas: ${missing.join(', ')}`);
                     }
 
-                    // 1. Obtener animales existentes
-                    const { data: animalesData, error: animError } = await supabase
-                        .from('animales')
-                        .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba')
-                        .eq('id_finca', fincaId);
+                    // 1. Obtener animales existentes, pero solo los que vengan en el CSV para no superar el límite de 1000 de Supabase.
+                    const chapetasCrudas = results.data
+                        .map((r: any) => r.numero_chapeta?.toString().trim())
+                        .filter(Boolean);
+                    const chapetasEnCSVUnicas = Array.from(new Set(chapetasCrudas));
 
-                    if (animError || !animalesData) throw new Error("No se pudieron cargar los datos de los animales");
+                    const animalesData: any[] = [];
+                    for (let i = 0; i < chapetasEnCSVUnicas.length; i += 200) {
+                        const batch = chapetasEnCSVUnicas.slice(i, i + 200);
+                        const { data, error: animError } = await supabase
+                            .from('animales')
+                            .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba')
+                            .eq('id_finca', fincaId)
+                            .in('numero_chapeta', batch);
+
+                        if (animError) throw new Error("No se pudieron cargar los datos de los animales");
+                        if (data) animalesData.push(...data);
+                    }
 
                     let mapAnimales = new Map(animalesData.map(a => [
-                        a.numero_chapeta.trim(),
+                        a.numero_chapeta.toString().trim().toLowerCase(),
                         { 
                             id: a.id, 
                             etapa: a.etapa, 
@@ -645,13 +656,14 @@ export default function Settings() {
                     ]));
 
                     // 2. Identificar animales nuevos que vienen en el CSV de pesajes
-                    const chapetasEnCSV = new Set<string>();
+                    const chapetasValidSet = new Set<string>();
                     results.data.forEach((row: any) => {
                         const skip = !row.numero_chapeta || !row.peso || !row.fecha;
-                        if (!skip) chapetasEnCSV.add(row.numero_chapeta.toString().trim());
+                        if (!skip) chapetasValidSet.add(row.numero_chapeta.toString().trim());
                     });
 
-                    const chapetasNuevas = Array.from(chapetasEnCSV).filter(c => !mapAnimales.has(c));
+                    // filtramos con toLowerCase()
+                    const chapetasNuevas = Array.from(chapetasValidSet).filter(c => !mapAnimales.has(c.toLowerCase()));
                     
                     if (chapetasNuevas.length > 0) {
                         // Para animales nuevos, buscamos su pesaje más antiguo en el CSV para usarlo como ingreso
@@ -693,7 +705,7 @@ export default function Settings() {
                         
                         // Actualizar mapa con los nuevos IDs
                         creados?.forEach(a => {
-                            mapAnimales.set(a.numero_chapeta.trim(), {
+                            mapAnimales.set(a.numero_chapeta.toString().trim().toLowerCase(), {
                                 id: a.id,
                                 etapa: a.etapa,
                                 fecha_ingreso: a.fecha_ingreso,
@@ -736,7 +748,7 @@ export default function Settings() {
                         const chapeta = row.numero_chapeta?.toString().trim();
                         if (!chapeta) return;
 
-                        const anim = mapAnimales.get(chapeta);
+                        const anim = mapAnimales.get(chapeta.toLowerCase());
                         if (!anim) return; // Ya debería existir
 
                         const peso = parseFloat(row.peso);
