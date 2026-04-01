@@ -100,42 +100,44 @@ export default function Purchase() {
         if (!fincaId) return;
         const { data, error } = await supabase
             .from('animales')
-            .select('numero_chapeta, nombre_propietario')
+            .select('numero_chapeta, nombre_propietario, fecha_ingreso')
             .eq('id_finca', fincaId)
             .eq('estado', 'activo');
 
         if (error || !data) return;
 
-        const monthMap: Record<string, number> = { '0': 10, 'N': 11, 'X': 12 };
+        const owners = Array.from(new Set(data.map(a => a.nombre_propietario)));
         
-        const parsedData = data.map(a => {
-            const parts = (a.numero_chapeta || '').split('-');
-            if (parts.length !== 2) return { ...a, sortKey: 0 };
-            
-            const numPart = parts[0];
-            const myPart = parts[1];
-            
-            const num = parseInt(numPart) || 0;
-            const mChar = myPart.charAt(0);
-            const yChar = myPart.charAt(1);
-            
-            const m = monthMap[mChar] !== undefined ? monthMap[mChar] : (parseInt(mChar) || 0);
-            const y = parseInt(yChar) || 0;
-            
-            // sortKey: Year * 1,000,000 + Month * 10,000 + Number
-            const sortKey = (y * 1000000) + (m * 10000) + num;
-            return { ...a, sortKey };
-        });
-
-        const owners = Array.from(new Set(parsedData.map(d => d.nombre_propietario)));
         const latest = owners.map(owner => {
-            const ownerAnimals = parsedData.filter(d => d.nombre_propietario === owner);
-            const top = ownerAnimals.reduce((max, curr) => curr.sortKey > max.sortKey ? curr : max, ownerAnimals[0]);
-            return { owner: owner || 'Sin dueño', tag: top?.numero_chapeta || 'N/A' };
+            const ownerAnimals = data.filter(d => d.nombre_propietario === owner);
+            if (ownerAnimals.length === 0) return { owner: owner || 'Sin dueño', tag: 'N/A' };
+
+            // 1. Encontrar la fecha de ingreso más reciente para este propietario
+            const maxDateStr = ownerAnimals.reduce((max, curr) => {
+                const fCurr = curr.fecha_ingreso || '';
+                return fCurr > max ? fCurr : max;
+            }, '');
+
+            // 2. Filtrar solo los animales que entraron en esa última fecha
+            const latestBatch = ownerAnimals.filter(d => (d.fecha_ingreso || '') === maxDateStr);
+
+            // 3. Extraer el primer número que aparezca en la chapeta y encontrar el mayor
+            const extractNum = (str: string) => {
+                const match = str.match(/\d+/);
+                return match ? parseInt(match[0], 10) : 0;
+            };
+
+            const topAnimal = latestBatch.reduce((maxAnimal, currAnimal) => {
+                const maxNum = extractNum(maxAnimal.numero_chapeta || '');
+                const currNum = extractNum(currAnimal.numero_chapeta || '');
+                return currNum > maxNum ? currAnimal : maxAnimal;
+            }, latestBatch[0]);
+
+            return { owner: owner || 'Sin dueño', tag: topAnimal.numero_chapeta || 'N/A' };
         });
 
         setLastTags(latest);
-        setExistingTags(new Set(data.map(a => a.numero_chapeta.trim())));
+        setExistingTags(new Set(data.map(a => a.numero_chapeta?.trim() || '')));
     };
 
     const generarFilas = (e: React.FormEvent) => {
