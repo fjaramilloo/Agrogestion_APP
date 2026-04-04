@@ -24,6 +24,7 @@ export default function Aforos() {
 
     const [potreros, setPotreros] = useState<Potrero[]>([]);
     const [selectedPotreroId, setSelectedPotreroId] = useState('');
+    const [potreroSearch, setPotreroSearch] = useState('');
     
     // Potrero Info Context
     const [areaInfo, setAreaInfo] = useState<number | null>(null);
@@ -111,8 +112,17 @@ export default function Aforos() {
     };
 
     const updateMuestra = (index: number, val: string) => {
+        // Reemplazar comas por puntos de una vez para que sea inteligente
+        let cleanVal = val.replace(',', '.');
+        
+        // No permitir guiones (negativos)
+        cleanVal = cleanVal.replace(/-/g, '');
+
+        // Validar que solo sean números y máximo un punto decimal
+        if (!/^\d*\.?\d*$/.test(cleanVal) && cleanVal !== '') return;
+
         const n = [...muestras];
-        n[index] = val;
+        n[index] = cleanVal;
         setMuestras(n);
     };
 
@@ -204,15 +214,28 @@ export default function Aforos() {
                         
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Seleccionar Potrero</label>
+                            
+                            {/* Buscador de Potreros */}
+                            <input 
+                                type="text" 
+                                placeholder="Buscar potrero por nombre..." 
+                                value={potreroSearch}
+                                onChange={e => setPotreroSearch(e.target.value)}
+                                style={{ marginBottom: '8px' }}
+                            />
+                            
                             <select 
                                 value={selectedPotreroId} 
                                 onChange={(e) => setSelectedPotreroId(e.target.value)}
                                 required
                             >
-                                <option value="">-- Seleccione --</option>
-                                {potreros.map(p => (
-                                    <option key={p.id} value={p.id}>{p.nombre}</option>
-                                ))}
+                                <option value="">-- Seleccione un potrero --</option>
+                                {potreros
+                                    .filter(p => p.nombre.toLowerCase().includes(potreroSearch.toLowerCase()))
+                                    .map(p => (
+                                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                                    ))
+                                }
                             </select>
                         </div>
 
@@ -251,8 +274,8 @@ export default function Aforos() {
                                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', minWidth: '20px' }}>#{idx+1}</span>
                                         <input 
-                                            type="number" 
-                                            step="0.01" 
+                                            type="text"
+                                            inputMode="decimal"
                                             value={m} 
                                             onChange={e => updateMuestra(idx, e.target.value)} 
                                             placeholder="Kg"
@@ -281,7 +304,19 @@ export default function Aforos() {
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <input type="number" value={viabilidad} onChange={e => setViabilidad(e.target.value)} required min="1" max="100" style={{ margin: 0 }} />
+                                <input 
+                                    type="text" 
+                                    inputMode="numeric"
+                                    value={viabilidad} 
+                                    onChange={e => {
+                                        let v = e.target.value.replace(/\D/g, ''); // Solo números enteros
+                                        if (v !== '' && parseInt(v) > 100) v = '100'; // Tope 100%
+                                        setViabilidad(v);
+                                    }} 
+                                    required 
+                                    style={{ margin: 0 }} 
+                                    placeholder="Ej: 70"
+                                />
                                 <span style={{ color: 'var(--text-muted)' }}>%</span>
                             </div>
                         </div>
