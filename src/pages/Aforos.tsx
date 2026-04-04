@@ -246,10 +246,10 @@ export default function Aforos() {
             {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
             {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
                 
                 {/* FORMULARIO */}
-                <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="card" style={{ flex: '1 1 350px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <h2 style={{ margin: 0, color: 'var(--primary-light)', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         Nuevo Aforo
                     </h2>
@@ -385,7 +385,7 @@ export default function Aforos() {
                 </div>
 
                 {/* HISTORIAL */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ flex: '1 1 350px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <h3 style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1.2rem' }}>Historial Reciente</h3>
                     
                     {historial.length === 0 ? (
@@ -460,7 +460,7 @@ export default function Aforos() {
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                            <div>
+                            <div style={{ gridColumn: 'span 1' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Consumo/Día (Kg)</label>
                                 <input 
                                     type="text" 
@@ -481,8 +481,7 @@ export default function Aforos() {
                                 />
                             </div>
                             
-                            
-                            <div>
+                            <div style={{ gridColumn: 'span 1' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Nro de animales</label>
                                 <input 
                                     type="text" 
@@ -500,7 +499,8 @@ export default function Aforos() {
                                     style={{ width: '100%' }}
                                 />
                             </div>
-                            <div style={{ backgroundColor: 'rgba(46, 125, 50, 0.1)', borderRadius: '8px', padding: '12px', border: '1px solid rgba(46, 125, 50, 0.3)' }}>
+
+                            <div style={{ gridColumn: '1 / -1', backgroundColor: 'rgba(46, 125, 50, 0.1)', borderRadius: '8px', padding: '12px', border: '1px solid rgba(46, 125, 50, 0.3)' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--primary-light)', fontSize: '0.9rem', fontWeight: 'bold' }}>Días Ocupación</label>
                                 <input 
                                     type="text" 
