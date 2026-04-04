@@ -316,7 +316,7 @@ export default function Aforos() {
             const pNombre = potreros.find(p => p.id === selectedPotreroId)?.nombre || 'Desconocido';
             const newPayload: OfflineAforoPayload = {
                 id_temp: 'aforo_' + Math.random().toString(36).substring(7),
-                id_finca: fincaId,
+                id_finca: fincaId || '',
                 id_potrero: selectedPotreroId,
                 fecha: fecha,
                 muestras: nums,
@@ -373,6 +373,21 @@ export default function Aforos() {
             setModalCalcOpen(prev => ({ ...prev, diasLleva: cached || 'Desconocido (Offline)' }));
         }
     };
+
+    const displayHistorial = [
+        ...offlineQueue.map(q => ({
+            id: q.id_temp,
+            fecha: q.fecha,
+            promedio_muestras_kg: q.promedio_muestras_kg,
+            viabilidad: q.viabilidad,
+            aforo_real_kg: q.aforo_real_kg,
+            animales_presentes: q.animales_presentes,
+            id_potrero: q.id_potrero,
+            potrero: q.potrero,
+            isOffline: true
+        })), 
+        ...historial
+    ];
 
     return (
         <div className="page-container" style={{ maxWidth: '900px', margin: '0 auto' }}>
@@ -544,21 +559,6 @@ export default function Aforos() {
                 <div style={{ flex: '1 1 350px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <h3 style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1.2rem' }}>Historial Reciente</h3>
                     
-    const displayHistorial = [
-        ...offlineQueue.map(q => ({
-            id: q.id_temp,
-            fecha: q.fecha,
-            promedio_muestras_kg: q.promedio_muestras_kg,
-            viabilidad: q.viabilidad,
-            aforo_real_kg: q.aforo_real_kg,
-            animales_presentes: q.animales_presentes,
-            id_potrero: q.id_potrero,
-            potrero: q.potrero,
-            isOffline: true
-        })), 
-        ...historial
-    ];
-
                     {displayHistorial.length === 0 ? (
                         <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
                             <Layers size={48} style={{ opacity: 0.2, margin: '0 auto 16px auto' }} />
