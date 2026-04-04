@@ -47,6 +47,7 @@ export default function Aforos() {
     const [modalCalcOpen, setModalCalcOpen] = useState<{ open: boolean, aforo: RegistroAforo | null }>({ open: false, aforo: null });
     const [calcConsumo, setCalcConsumo] = useState('50');
     const [calcAnimales, setCalcAnimales] = useState('0');
+    const [calcDias, setCalcDias] = useState('0');
 
     useEffect(() => {
         if (!fincaId) return;
@@ -207,8 +208,13 @@ export default function Aforos() {
 
     const openCalculadora = (aforo: RegistroAforo) => {
         setModalCalcOpen({ open: true, aforo });
-        setCalcConsumo(consumoBase.toString());
-        setCalcAnimales((aforo.animales_presentes || 0).toString());
+        const animales = aforo.animales_presentes || 1;
+        const consumo = consumoBase;
+        const dias = aforo.aforo_real_kg / (animales * consumo);
+
+        setCalcConsumo(consumo.toString());
+        setCalcAnimales(animales.toString());
+        setCalcDias(dias.toFixed(1));
     };
 
     return (
@@ -423,11 +429,21 @@ export default function Aforos() {
                                     type="text" 
                                     inputMode="decimal"
                                     value={calcConsumo} 
-                                    onChange={e => setCalcConsumo(e.target.value.replace(',', '.').replace(/-/g, ''))}
+                                    onChange={e => {
+                                        let val = e.target.value.replace(',', '.').replace(/-/g, '');
+                                        // filter strict numbers
+                                        if (!/^\d*\.?\d*$/.test(val) && val !== '') return;
+                                        setCalcConsumo(val);
+                                        const C = parseFloat(val) || 0;
+                                        const A = parseFloat(calcAnimales) || 1;
+                                        if (C > 0 && A > 0) {
+                                            setCalcDias((modalCalcOpen.aforo!.aforo_real_kg / (A * C)).toFixed(1));
+                                        }
+                                    }}
                                     style={{ width: '100%' }}
                                 />
                             </div>
-                            <div></div> {/* Empty cell to match screenshot layout conceptually */}
+                            
                             
                             <div>
                                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Nro de animales</label>
@@ -435,15 +451,36 @@ export default function Aforos() {
                                     type="text" 
                                     inputMode="numeric"
                                     value={calcAnimales} 
-                                    onChange={e => setCalcAnimales(e.target.value.replace(/\D/g, ''))}
+                                    onChange={e => {
+                                        let val = e.target.value.replace(/\D/g, '');
+                                        setCalcAnimales(val);
+                                        const A = parseFloat(val) || 0;
+                                        const C = parseFloat(calcConsumo) || 1;
+                                        if (A > 0 && C > 0) {
+                                            setCalcDias((modalCalcOpen.aforo!.aforo_real_kg / (A * C)).toFixed(1));
+                                        }
+                                    }}
                                     style={{ width: '100%' }}
                                 />
                             </div>
-                            <div style={{ backgroundColor: 'rgba(46, 125, 50, 0.15)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', border: '1px solid rgba(46, 125, 50, 0.3)' }}>
-                                <span style={{ fontSize: '0.85rem', color: 'var(--primary-light)', marginBottom: '4px', textAlign: 'center', lineHeight: 1.2 }}>Días de<br/>Ocupación</span>
-                                <strong style={{ fontSize: '1.6rem', color: 'var(--success)', margin: 0 }}>
-                                    {((modalCalcOpen.aforo.aforo_real_kg) / ((parseFloat(calcAnimales) || 1) * (parseFloat(calcConsumo) || 1))).toLocaleString('es-CO', { maximumFractionDigits: 1 })}
-                                </strong>
+                            <div style={{ backgroundColor: 'rgba(46, 125, 50, 0.1)', borderRadius: '8px', padding: '12px', border: '1px solid rgba(46, 125, 50, 0.3)' }}>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--primary-light)', fontSize: '0.9rem', fontWeight: 'bold' }}>Días Ocupación</label>
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={calcDias} 
+                                    onChange={e => {
+                                        let val = e.target.value.replace(',', '.').replace(/-/g, '');
+                                        if (!/^\d*\.?\d*$/.test(val) && val !== '') return;
+                                        setCalcDias(val);
+                                        const D = parseFloat(val) || 0;
+                                        const A = parseFloat(calcAnimales) || 1;
+                                        if (D > 0 && A > 0) {
+                                            setCalcConsumo((modalCalcOpen.aforo!.aforo_real_kg / (A * D)).toFixed(1));
+                                        }
+                                    }}
+                                    style={{ width: '100%', fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--success)' }}
+                                />
                             </div>
                         </div>
 
