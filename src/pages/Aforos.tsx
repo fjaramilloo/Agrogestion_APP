@@ -16,6 +16,7 @@ interface RegistroAforo {
     viabilidad: number;
     aforo_real_kg: number;
     potrero: { nombre: string };
+    animales_presentes?: number;
 }
 
 export default function Aforos() {
@@ -25,6 +26,7 @@ export default function Aforos() {
     const [potreros, setPotreros] = useState<Potrero[]>([]);
     const [selectedPotreroId, setSelectedPotreroId] = useState('');
     const [potreroSearch, setPotreroSearch] = useState('');
+    const [consumoBase, setConsumoBase] = useState(50); // Default, from config
     
     // Potrero Info Context
     const [areaInfo, setAreaInfo] = useState<number | null>(null);
@@ -41,8 +43,22 @@ export default function Aforos() {
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
 
+    // Modal Calculadora
+    const [modalCalcOpen, setModalCalcOpen] = useState<{ open: boolean, aforo: RegistroAforo | null }>({ open: false, aforo: null });
+    const [calcConsumo, setCalcConsumo] = useState('50');
+    const [calcAnimales, setCalcAnimales] = useState('0');
+
     useEffect(() => {
         if (!fincaId) return;
+
+        const fetchConfig = async () => {
+            const { data } = await supabase.from('configuracion_kpi').select('consumo_dia_potrero').eq('id_finca', fincaId).single();
+            if (data && data.consumo_dia_potrero) {
+                setConsumoBase(data.consumo_dia_potrero);
+            }
+        };
+
+        fetchConfig();
         fetchPotreros();
         fetchHistorial();
     }, [fincaId]);
@@ -102,7 +118,7 @@ export default function Aforos() {
         const { data } = await supabase
             .from('registros_aforo')
             .select(`
-                id, fecha, promedio_muestras_kg, viabilidad, aforo_real_kg,
+                id, fecha, promedio_muestras_kg, viabilidad, aforo_real_kg, animales_presentes,
                 potrero:potreros(nombre)
             `)
             .eq('id_finca', fincaId)
@@ -187,6 +203,12 @@ export default function Aforos() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const openCalculadora = (aforo: RegistroAforo) => {
+        setModalCalcOpen({ open: true, aforo });
+        setCalcConsumo(consumoBase.toString());
+        setCalcAnimales((aforo.animales_presentes || 0).toString());
     };
 
     return (
@@ -348,7 +370,12 @@ export default function Aforos() {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {historial.map(h => (
-                                <div key={h.id} className="card" style={{ padding: '16px', borderLeft: '4px solid var(--primary)' }}>
+                                <div 
+                                    key={h.id} 
+                                    className="card hover-scale" 
+                                    style={{ padding: '16px', borderLeft: '4px solid var(--primary)', cursor: 'pointer', transition: 'all 0.2s' }}
+                                    onClick={() => openCalculadora(h)}
+                                >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                         <strong style={{ color: 'white', fontSize: '1.1rem' }}>{h.potrero?.nombre}</strong>
                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{h.fecha}</span>
@@ -372,6 +399,60 @@ export default function Aforos() {
                 </div>
 
             </div>
+
+            {/* MODAL CALCULADORA */}
+            {modalCalcOpen.open && modalCalcOpen.aforo && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '24px', position: 'relative' }}>
+                        <button onClick={() => setModalCalcOpen({ open: false, aforo: null })} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', padding: '4px' }}>x</button>
+                        
+                        <h3 style={{ margin: '0 0 20px 0', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Layers size={20} /> 
+                            Cálculo de Ocupación
+                        </h3>
+                        
+                        <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <p style={{ margin: '0 0 4px 0', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Potrero: <strong style={{ color: 'white' }}>{modalCalcOpen.aforo.potrero.nombre}</strong></p>
+                            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>Aforo Disponible: <strong style={{ color: 'var(--success)' }}>{modalCalcOpen.aforo.aforo_real_kg.toLocaleString('es-CO', { maximumFractionDigits: 0 })} Kg</strong></p>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Consumo/Día (Kg)</label>
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={calcConsumo} 
+                                    onChange={e => setCalcConsumo(e.target.value.replace(',', '.').replace(/-/g, ''))}
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
+                            <div></div> {/* Empty cell to match screenshot layout conceptually */}
+                            
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Nro de animales</label>
+                                <input 
+                                    type="text" 
+                                    inputMode="numeric"
+                                    value={calcAnimales} 
+                                    onChange={e => setCalcAnimales(e.target.value.replace(/\D/g, ''))}
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
+                            <div style={{ backgroundColor: 'rgba(46, 125, 50, 0.15)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', border: '1px solid rgba(46, 125, 50, 0.3)' }}>
+                                <span style={{ fontSize: '0.85rem', color: 'var(--primary-light)', marginBottom: '4px', textAlign: 'center', lineHeight: 1.2 }}>Días de<br/>Ocupación</span>
+                                <strong style={{ fontSize: '1.6rem', color: 'var(--success)', margin: 0 }}>
+                                    {((modalCalcOpen.aforo.aforo_real_kg) / ((parseFloat(calcAnimales) || 1) * (parseFloat(calcConsumo) || 1))).toLocaleString('es-CO', { maximumFractionDigits: 1 })}
+                                </strong>
+                            </div>
+                        </div>
+
+                        <button onClick={() => setModalCalcOpen({ open: false, aforo: null })} style={{ width: '100%' }}>
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

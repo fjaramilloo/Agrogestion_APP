@@ -86,7 +86,8 @@ export default function Settings() {
         ubicacion: '',
         proposito: '',
         precio_venta_promedio: '',
-        peso_entrada_ceba: '380'
+        peso_entrada_ceba: '380',
+        consumo_dia_potrero: '50'
     });
 
     // Filtrar fincas donde el usuario es administrador
@@ -156,7 +157,7 @@ export default function Settings() {
         // Precio de venta y umbral ceba desde configuracion_kpi
         const { data: config } = await supabase
             .from('configuracion_kpi')
-            .select('precio_venta_promedio, peso_entrada_ceba')
+            .select('precio_venta_promedio, peso_entrada_ceba, consumo_dia_potrero')
             .eq('id_finca', fincaId)
             .single();
 
@@ -167,7 +168,8 @@ export default function Settings() {
                 ubicacion: finca.ubicacion || '',
                 proposito: finca.proposito || '',
                 precio_venta_promedio: config?.precio_venta_promedio?.toString() || '0',
-                peso_entrada_ceba: config?.peso_entrada_ceba?.toString() || '380'
+                peso_entrada_ceba: config?.peso_entrada_ceba?.toString() || '380',
+                consumo_dia_potrero: config?.consumo_dia_potrero?.toString() || '50'
             });
         }
     };
@@ -232,6 +234,7 @@ export default function Settings() {
             const valorAltoGMP = parseFloat(umbralAltoGMP);
             const precioVenta = parseFloat(farmInfo.precio_venta_promedio) || 0;
             const pesoCeba = parseFloat(farmInfo.peso_entrada_ceba) || 380;
+            const consumoDia = parseFloat(farmInfo.consumo_dia_potrero) || 50;
 
             const { error: kpiError } = await supabase
                 .from('configuracion_kpi')
@@ -241,7 +244,8 @@ export default function Settings() {
                     umbral_medio_gmp: valorMedioGMP,
                     umbral_alto_gmp: valorAltoGMP,
                     precio_venta_promedio: precioVenta,
-                    peso_entrada_ceba: pesoCeba
+                    peso_entrada_ceba: pesoCeba,
+                    consumo_dia_potrero: consumoDia
                 }, { onConflict: 'id_finca' });
 
             if (kpiError) throw kpiError;
@@ -1232,6 +1236,10 @@ export default function Settings() {
                                             <div>
                                                 <label>Límite Superior Amarillo (kg/mes)</label>
                                                 <input type="number" step="0.1" value={umbralAltoGMP} onChange={(e) => setUmbralAltoGMP(e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label>Consumo en Potrero (Kg/animal/día)</label>
+                                                <input type="number" step="0.1" value={farmInfo.consumo_dia_potrero} onChange={(e) => setFarmInfo({ ...farmInfo, consumo_dia_potrero: e.target.value })} required />
                                             </div>
                                         </div>
 
