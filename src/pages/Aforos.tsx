@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Layers, Plus, Save, Trash2, Info, Grass } from 'lucide-react'; // Wait, Grass might not exist in lucide-react. Let's use ListChecks or MapPin? No, Leaf or Tree? I'll use Layers.
+import { Layers, Plus, Save, Trash2, Info } from 'lucide-react';
 
 interface Potrero {
     id: string;
@@ -117,9 +117,7 @@ export default function Aforos() {
     };
 
     const addMuestra = () => {
-        if (muestras.length < 20) {
-            setMuestras([...muestras, '']);
-        }
+        setMuestras([...muestras, '']);
     };
 
     const deleteMuestra = (idx: number) => {
@@ -244,7 +242,7 @@ export default function Aforos() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                 <label style={{ color: 'var(--text-muted)', margin: 0 }}>Muestras (Kg en 1 m²)</label>
                                 <span style={{ fontSize: '0.8rem', color: muestras.length < 8 ? 'var(--error)' : 'var(--success)' }}>
-                                    {muestras.length} / 20 máx.
+                                    {muestras.length} muestras
                                 </span>
                             </div>
                             
@@ -270,11 +268,9 @@ export default function Aforos() {
                                 ))}
                             </div>
 
-                            {muestras.length < 20 && (
-                                <button type="button" onClick={addMuestra} style={{ marginTop: '12px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: 'var(--primary-light)', padding: '8px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                    <Plus size={16} /> Agregar Muestra
-                                </button>
-                            )}
+                            <button type="button" onClick={addMuestra} style={{ marginTop: '12px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: 'var(--primary-light)', padding: '8px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                <Plus size={16} /> Agregar Muestra
+                            </button>
                         </div>
 
                         <div>
