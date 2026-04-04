@@ -20,7 +20,8 @@ import {
     Info,
     Users,
     ShoppingBag,
-    FileText
+    FileText,
+    Leaf
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -225,6 +226,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     <NavLink to="/lluvias" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                         <span className="sidebar-icon"><CloudRain size={20} /></span>
                                         <span className="sidebar-label">Lluvias</span>
+                                    </NavLink>
+                                    <NavLink to="/aforos" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                        <span className="sidebar-icon"><Leaf size={20} /></span>
+                                        <span className="sidebar-label">Aforos</span>
                                     </NavLink>
                                     <NavLink to="/movimientos" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                         <span className="sidebar-icon"><ArrowLeftRight size={20} /></span>

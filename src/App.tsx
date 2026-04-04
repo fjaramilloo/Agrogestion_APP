@@ -18,6 +18,7 @@ import Rotations from './pages/Rotations';
 import Movements from './pages/Movements';
 import Potreradas from './pages/Potreradas';
 import Mercado from './pages/Mercado';
+import Aforos from './pages/Aforos';
 import VersionNotifier from './components/VersionNotifier';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
@@ -107,6 +108,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['administrador', 'vaquero']}>
             <Mercado />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/aforos"
+        element={
+          <ProtectedRoute allowedRoles={['administrador', 'vaquero', 'observador']}>
+            <Aforos />
           </ProtectedRoute>
         }
       />
