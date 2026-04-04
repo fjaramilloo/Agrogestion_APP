@@ -16,21 +16,7 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Instalar dependencias
-        run: npm ci
-
-      - name: Build app web (Vite)
-        run: npm run build
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-
-      - name: Setup Java 17
+      - name: Setup Java 17 (debe ir primero para Capacitor)
         uses: actions/setup-java@v4
         with:
           java-version: '17'
@@ -39,8 +25,22 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Sincronizar Capacitor Android
-        run: npx cap sync android
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Instalar dependencias npm
+        run: npm ci
+
+      - name: Build app web (Vite)
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Copiar assets web a Android
+        run: npx cap copy android
 
       - name: Dar permisos a Gradle
         run: chmod +x android/gradlew
