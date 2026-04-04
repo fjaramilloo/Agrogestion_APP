@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Agrogestion</string>
+    <string name="title_activity_main">Agrogestion</string>
+    <string name="package_name">com.fedejaramilloo.agrogestion</string>
+    <string name="custom_url_scheme">com.fedejaramilloo.agrogestion</string>
+</resources>
