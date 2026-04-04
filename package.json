@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/ios": "^8.3.0",
     "@supabase/supabase-js": "^2.98.0",
     "date-fns": "^4.1.0",
     "jspdf": "^4.2.1",
@@ -23,6 +25,7 @@
     "recharts": "^3.7.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.0",
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
     "@types/papaparse": "^5.5.2",
