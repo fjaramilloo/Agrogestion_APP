@@ -16,10 +16,10 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Setup Android SDK
@@ -53,7 +53,7 @@ jobs:
       - name: Compilar APK Debug
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace --info
+          ./gradlew assembleDebug --no-daemon --stacktrace --full-stacktrace
 
       - name: Subir APK descargable
         uses: actions/upload-artifact@v4
