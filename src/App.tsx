@@ -189,19 +189,6 @@ const AppRoutes = () => {
 };
 
 function App() {
-  React.useEffect(() => {
-    // Notificamos que la app cargó correctamente (para Capgo)
-    const notifyReady = async () => {
-      try {
-        const { CapacitorUpdater } = await import('@capgo/capacitor-updater');
-        await CapacitorUpdater.notifyAppReady();
-      } catch (e) {
-        console.log('CapacitorUpdater not available');
-      }
-    };
-    notifyReady();
-  }, []);
-
   return (
     <AuthProvider>
       <Router>

@@ -6,13 +6,6 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https'
-  },
-  plugins: {
-    CapacitorUpdater: {
-      autoUpdate: false,
-      statsUrl: "https://capgo.app/api/stats",
-      resetWhenUpdateFailed: true
-    }
   }
 };
 
