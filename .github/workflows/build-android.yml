@@ -42,6 +42,7 @@ jobs:
       - name: Build app web (Vite)
         run: npm run build
         env:
+          CAPACITOR_BUILD: 'true'
           NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Sincronizar Capacitor
