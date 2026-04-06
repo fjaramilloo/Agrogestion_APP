@@ -1,0 +1,6 @@
+{
+  "appId": "com.fedejaramilloo.agrogestion",
+  "appName": "Agrogestion",
+  "channel": "production",
+  "main": "dist"
+}
