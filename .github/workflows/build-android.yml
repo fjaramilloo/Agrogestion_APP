@@ -27,8 +27,8 @@ jobs:
 
       - name: Instalar Android SDK Platform 35 y Build Tools
         run: |
+          yes | sdkmanager --licenses
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-          yes | sdkmanager --licenses || true
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
@@ -44,17 +44,16 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
-      - name: Crear local.properties con ruta del SDK
-        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
-
-      - name: Copiar assets web a Android
-        run: npx cap copy android
+      - name: Sincronizar Capacitor
+        run: npx cap sync android
 
       - name: Dar permisos a Gradle
         run: chmod +x android/gradlew
 
       - name: Compilar APK Debug
-        run: cd android && ./gradlew assembleDebug --no-daemon
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon --stacktrace --info
 
       - name: Subir APK descargable
         uses: actions/upload-artifact@v4
