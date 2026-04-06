@@ -16,7 +16,7 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Setup Java 17 (debe ir primero para Capacitor)
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
@@ -39,6 +39,9 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
+      - name: Crear local.properties con ruta del SDK
+        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+
       - name: Copiar assets web a Android
         run: npx cap copy android
 
@@ -46,9 +49,7 @@ jobs:
         run: chmod +x android/gradlew
 
       - name: Compilar APK Debug
-        run: cd android && ./gradlew assembleDebug --no-daemon --stacktrace
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: cd android && ./gradlew assembleDebug --no-daemon
 
       - name: Subir APK descargable
         uses: actions/upload-artifact@v4
