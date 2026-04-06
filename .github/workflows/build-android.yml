@@ -25,6 +25,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Instalar Android SDK Platform 36 y Build Tools
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          sdkmanager --licenses <<< $(yes | head -100) || true
+
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
