@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
   },
   plugins: {
     CapacitorUpdater: {
-      autoUpdate: true,
+      autoUpdate: false,
       statsUrl: "https://capgo.app/api/stats",
       resetWhenUpdateFailed: true
     }
