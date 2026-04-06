@@ -66,5 +66,5 @@ jobs:
         if: success() && github.ref == 'refs/heads/main'
         run: |
           npm install -g @capgo/cli
-          capgo bundle upload --token ${{ secrets.CAPGO_TOKEN }} --channel production
+          capgo bundle upload --apikey ${{ secrets.CAPGO_TOKEN }} --channel production com.fedejaramilloo.agrogestion
         continue-on-error: true
