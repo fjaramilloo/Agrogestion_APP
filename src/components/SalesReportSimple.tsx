@@ -28,8 +28,9 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                 @media print {
                     @page { 
                         size: letter;
-                        margin: 0.5cm; 
+                        margin: 15mm; 
                     }
+                    body { background: white !important; -webkit-print-color-adjust: exact; }
                     .no-print { display: none !important; }
                     
                     /* TÉCNICA PARA IMPRIMIR SOLO EL REPORTE SIN PÁGINA EN BLANCO */
@@ -45,13 +46,13 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                         top: 0 !important;
                         width: 100% !important;
                         background: white !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
                     }
-
                     .report-container {
                         box-shadow: none !important;
                         border: none !important;
                         width: 100% !important;
-                        max-width: none !important;
                         padding: 0 !important;
                         margin: 0 !important;
                     }
@@ -60,7 +61,7 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                 .report-modal-overlay {
                     position: fixed;
                     top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0,0,0,0.8);
+                    background: rgba(0,0,0,0.85);
                     z-index: 3000;
                     display: flex;
                     justify-content: center;
@@ -72,11 +73,12 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                     background: white;
                     width: 21.59cm;
                     min-height: 27.94cm;
-                    padding: 1.5cm;
+                    padding: 20mm;
                     color: #1a1a1a;
                     font-family: 'Inter', system-ui, -apple-system, sans-serif;
                     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
                     position: relative;
+                    border-radius: 4px;
                 }
 
                 .report-header {
