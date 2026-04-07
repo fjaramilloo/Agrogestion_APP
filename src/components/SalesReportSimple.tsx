@@ -31,12 +31,25 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                         margin: 0.5cm; 
                     }
                     body { background: white; }
+                    
+                    /* OCULTAR TODO LO QUE NO SEA EL REPORTE */
+                    body > *:not(.report-modal-overlay) {
+                        display: none !important;
+                    }
+
                     .report-modal-overlay { 
                         position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
                         background: white !important;
                         padding: 0 !important;
                         display: block !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        overflow: visible !important;
+                        z-index: 9999 !important;
                     }
+
                     .no-print { display: none !important; }
                     .report-container {
                         box-shadow: none !important;
