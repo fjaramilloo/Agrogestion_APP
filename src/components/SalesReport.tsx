@@ -74,32 +74,29 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                 @media print {
                     @page { 
                         size: letter;
-                        margin: 0.5cm; 
-                    }
                         margin: 15mm; 
                     }
-                    body { background: white !important; -webkit-print-color-adjust: exact; }
-                    
-                    .no-print { display: none !important; }
-                    
-                    @media print {
-                        body * {
-                            visibility: hidden;
-                        }
-                        .report-modal-overlay, .report-modal-overlay * {
-                            visibility: visible;
-                        }
-                        .report-modal-overlay {
-                            position: absolute !important;
-                            left: 0 !important;
-                            top: 0 !important;
-                            width: 100% !important;
-                            background: white !important;
-                            padding: 0 !important;
-                            margin: 0 !important;
-                        }
+                    body { 
+                        background: white !important; 
+                        -webkit-print-color-adjust: exact; 
                     }
-
+                    body * {
+                        visibility: hidden;
+                    }
+                    .report-modal-overlay, .report-modal-overlay * {
+                        visibility: visible;
+                    }
+                    .report-modal-overlay {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        background: white !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        display: block !important;
+                    }
+                    .no-print { display: none !important; }
                     .report-container { 
                         box-shadow: none !important;
                         border: none !important;
