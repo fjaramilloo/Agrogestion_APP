@@ -655,70 +655,24 @@ export default function Settings() {
                             fecha_ingreso: a.fecha_ingreso, 
                             peso_ingreso: a.peso_ingreso,
                             fecha_ingreso_ceba: a.fecha_ingreso_ceba,
-                            peso_ingreso_ceba: a.peso_ingreso_ceba
                         }
                     ]));
 
-                    // 2. Identificar animales nuevos que vienen en el CSV de pesajes
-                    const chapetasValidSet = new Set<string>();
-                    results.data.forEach((row: any) => {
-                        const skip = !row.numero_chapeta || !row.peso || !row.fecha;
-                        if (!skip) chapetasValidSet.add(row.numero_chapeta.toString().trim());
-                    });
-
-                    // filtramos con toLowerCase()
-                    const chapetasNuevas = Array.from(chapetasValidSet).filter(c => !mapAnimales.has(c.toLowerCase()));
+                    // 2. Identificar cuáles animales del CSV NO existen en la base de datos
+                    const omitidosNoExistentes: string[] = [];
+                    const chapetasEnCSV = new Set<string>();
                     
-                    if (chapetasNuevas.length > 0) {
-                        // Para animales nuevos, buscamos su pesaje más antiguo en el CSV para usarlo como ingreso
-                        const nuevosAnimalesInsert: any[] = chapetasNuevas.map(chapeta => {
-                            const pesajesAnimal = results.data.filter((r: any) => r.numero_chapeta?.toString().trim() === chapeta);
-                            // Ordenar por fecha para encontrar la más antigua
-                            pesajesAnimal.sort((a: any, b: any) => {
-                                const fA = parseFechaCol(a.fecha) || 'ZZZ';
-                                const fB = parseFechaCol(b.fecha) || 'ZZZ';
-                                return fA.localeCompare(fB);
-                            });
-                            
-                            const elMasAntiguo = pesajesAnimal[0];
-                            const fechaOld = parseFechaCol(elMasAntiguo.fecha) || new Date().toISOString().split('T')[0];
-                            const pesoOld = parseFloat(elMasAntiguo.peso) || 0;
-                            const etapaOld = elMasAntiguo.etapa?.toLowerCase() || 'levante';
-
-                            return {
-                                id_finca: fincaId,
-                                numero_chapeta: chapeta,
-                                nombre_propietario: 'Pendiente (Auto)',
-                                especie: 'bovino',
-                                sexo: 'M',
-                                etapa: etapaOld,
-                                fecha_ingreso: fechaOld,
-                                peso_ingreso: pesoOld,
-                                estado: 'activo',
-                                fecha_ingreso_ceba: etapaOld === 'ceba' ? fechaOld : null,
-                                peso_ingreso_ceba: etapaOld === 'ceba' ? pesoOld : null
-                            };
-                        });
-
-                        const { data: creados, error: errCreate } = await supabase
-                            .from('animales')
-                            .insert(nuevosAnimalesInsert)
-                            .select();
-                        
-                        if (errCreate) throw new Error(`Error creando animales nuevos: ${errCreate.message}`);
-                        
-                        // Actualizar mapa con los nuevos IDs
-                        creados?.forEach(a => {
-                            mapAnimales.set(a.numero_chapeta.toString().trim().toLowerCase(), {
-                                id: a.id,
-                                etapa: a.etapa,
-                                fecha_ingreso: a.fecha_ingreso,
-                                peso_ingreso: a.peso_ingreso,
-                                fecha_ingreso_ceba: a.fecha_ingreso_ceba,
-                                peso_ingreso_ceba: a.peso_ingreso_ceba
-                            });
-                        });
-                    }
+                    results.data.forEach((row: any) => {
+                        const chapeta = row.numero_chapeta?.toString().trim();
+                        if (chapeta) {
+                            chapetasEnCSV.add(chapeta);
+                            if (!mapAnimales.has(chapeta.toLowerCase())) {
+                                if (!omitidosNoExistentes.includes(chapeta)) {
+                                    omitidosNoExistentes.push(chapeta);
+                                }
+                            }
+                        }
+                    });
 
                     // 3. Obtener pesajes existentes para evitar duplicados (POR LOTES de 200 para evitar Bad Request por URL larga)
                     const idsAnimalesEnCSV = Array.from(mapAnimales.values()).map(a => a.id);
@@ -847,17 +801,17 @@ export default function Settings() {
                     }
 
                     // 6. Mensaje de éxito detallado
-                    let msg = `¡Carga inteligente completada!`;
+                    let msg = `¡Carga estricta completada!`;
                     const resultados = [];
-                    if (chapetasNuevas.length > 0) resultados.push(`se crearon ${chapetasNuevas.length} animales nuevos`);
-                    if (pesajesInsertados > 0) resultados.push(`se registraron ${pesajesInsertados} pesajes nuevos`);
-                    if (omitidosDuplicados > 0) resultados.push(`se omitieron ${omitidosDuplicados} pesajes que ya existían`);
+                    if (pesajesInsertados > 0) resultados.push(`se registraron ${pesajesInsertados} pesajes`);
+                    if (omitidosDuplicados > 0) resultados.push(`se omitieron ${omitidosDuplicados} duplicados`);
+                    if (omitidosNoExistentes.length > 0) resultados.push(`se ignoraron registros de ${omitidosNoExistentes.length} animales que no existen`);
                     
                     if (resultados.length > 0) {
-                        msg += ` Se procesó exitosamente: ${resultados.join(', ')}.`;
+                        msg += ` Resultados: ${resultados.join(', ')}.`;
                     }
                     if (animalesIngresoActualizados > 0) {
-                        msg += ` Además, se recalibró el peso de ingreso de ${animalesIngresoActualizados} animales con fechas más antiguas.`;
+                        msg += ` Además, se recalibró el ingreso de ${animalesIngresoActualizados} animales.`;
                     }
 
                     // Reporte detallado para pesajes
@@ -865,8 +819,8 @@ export default function Settings() {
                         tipo: 'pesajes',
                         creados: pesajesInsertados,
                         actualizados: animalesIngresoActualizados,
-                        omitidos: omitidosDuplicados,
-                        omitidosList: [] // Para pesajes no mostramos la lista completa para no saturar el modal si hay miles
+                        omitidos: omitidosDuplicados + omitidosNoExistentes.length,
+                        omitidosList: omitidosNoExistentes // Mostramos los animales que faltan en el inventario
                     });
 
                     setMsjExito(msg);
