@@ -949,6 +949,22 @@ export default function Settings() {
         });
     };
 
+    const sectionCards = [
+        { id: 'seguridad', label: 'Seguridad', icon: <Lock size={28} />, desc: 'Cuenta y acceso' },
+        { id: 'datosTecnicos', label: 'Parámetros', icon: <Home size={28} />, desc: 'KPIs y Finca' },
+        { id: 'usuarios', label: 'Personal', icon: <Users size={28} />, desc: 'Gestión de equipo' },
+        { id: 'contactosNegocio', label: 'Negocios', icon: <Briefcase size={28} />, desc: 'Contactos y socios' },
+        { id: 'cargasMasivas', label: 'Carga Masiva', icon: <Upload size={28} />, desc: 'Importar CSV/Excel' }
+    ];
+
+    const sectionCards = [
+        { id: 'seguridad', label: 'Seguridad', icon: <Lock size={28} />, desc: 'Cuenta y acceso' },
+        { id: 'datosTecnicos', label: 'Parámetros', icon: <Home size={28} />, desc: 'KPIs y Finca' },
+        { id: 'usuarios', label: 'Personal', icon: <Users size={28} />, desc: 'Gestión de equipo' },
+        { id: 'contactosNegocio', label: 'Negocios', icon: <Briefcase size={28} />, desc: 'Contactos y socios' },
+        { id: 'cargasMasivas', label: 'Carga Masiva', icon: <Upload size={28} />, desc: 'Importar CSV/Excel' }
+    ];
+
     return (
         <div className="page-container" style={{ maxWidth: '800px' }}>
             <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'left', marginBottom: '32px' }}>
@@ -1055,93 +1071,96 @@ export default function Settings() {
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
-
-                {/* Cambio de Contraseña */}
-                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div 
-                        onClick={() => toggleSection('seguridad')}
-                        style={{ 
-                            padding: '20px 24px', 
-                            cursor: 'pointer', 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center',
-                            background: collapsed.seguridad ? 'transparent' : 'rgba(255,255,255,0.03)'
-                        }}
-                    >
-                        <h3 style={{ margin: 0, color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Lock size={20} /> Seguridad de la Cuenta
-                        </h3>
-                        <Plus size={20} style={{ transform: collapsed.seguridad ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
-                    </div>
-
-                    {!collapsed.seguridad && (
-                        <div style={{ padding: '0 24px 24px 24px' }}>
-                            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                                Actualiza tu contraseña para mantener tu cuenta segura.
-                            </p>
-
-                            <form onSubmit={handleUpdatePassword}>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                                    <div>
-                                        <label>Nueva Contraseña</label>
-                                        <input
-                                            type="password"
-                                            placeholder="Contraseña segura"
-                                            value={newPassword}
-                                            onChange={e => setNewPassword(e.target.value)}
-                                            required
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label>Confirmar Contraseña</label>
-                                        <input
-                                            type="password"
-                                            placeholder="Repite la contraseña"
-                                            value={confirmPassword}
-                                            onChange={e => setConfirmPassword(e.target.value)}
-                                            required
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                </div>
-                                <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary-dark)', border: '1px solid var(--primary)' }}>
-                                    Actualizar Contraseña
-                                </button>
-                            </form>
-                        </div>
-                    )}
-                </div>
                 {(role === 'administrador' || isSuperAdmin) && (
                     <>
-                        {/* Datos Técnicos de la Finca y Umbrales */}
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <div 
-                                onClick={() => toggleSection('datosTecnicos')}
-                                style={{ 
-                                    padding: '20px 24px', 
-                                    cursor: 'pointer', 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center',
-                                    background: collapsed.datosTecnicos ? 'transparent' : 'rgba(255,255,255,0.03)'
-                                }}
-                            >
-                                <h3 style={{ margin: 0, color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Home size={20} /> Datos Técnicos y Parámetros
-                                </h3>
-                                <Plus size={20} style={{ transform: collapsed.datosTecnicos ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
-                            </div>
+                        {/* Dashboard de Ajustes (Grid) */}
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+                            gap: '16px', 
+                            marginBottom: '32px' 
+                        }}>
+                            {sectionCards.map(section => {
+                                const isActive = !collapsed[section.id as keyof typeof collapsed];
+                                return (
+                                    <div 
+                                        key={section.id}
+                                        onClick={() => toggleSection(section.id as any)}
+                                        className="card"
+                                        style={{ 
+                                            margin: 0,
+                                            padding: '24px 16px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            textAlign: 'center',
+                                            gap: '12px',
+                                            border: '2px solid',
+                                            borderColor: isActive ? 'var(--primary)' : 'transparent',
+                                            background: isActive ? 'rgba(76, 175, 80, 0.08)' : 'rgba(255,255,255,0.02)',
+                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            transform: isActive ? 'scale(1.02)' : 'none',
+                                            boxShadow: isActive ? '0 10px 20px rgba(0,0,0,0.2)' : 'none'
+                                        }}
+                                    >
+                                        <div style={{ 
+                                            color: isActive ? 'var(--primary)' : 'var(--text-muted)',
+                                            transition: 'color 0.3s'
+                                        }}>
+                                            {section.icon}
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ 
+                                                fontWeight: 'bold', 
+                                                fontSize: '1rem',
+                                                color: isActive ? 'white' : 'var(--text-muted)'
+                                            }}>{section.label}</span>
+                                            <small style={{ 
+                                                fontSize: '0.75rem', 
+                                                color: 'var(--text-muted)',
+                                                opacity: 0.8
+                                            }}>{section.desc}</small>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
 
+                        {/* Contenido de las Secciones */}
+                        <div style={{ position: 'relative' }}>
+                            {/* Seguridad */}
+                            {!collapsed.seguridad && (
+                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Lock size={20} color="var(--primary)" /> Seguridad de la Cuenta
+                                    </h3>
+                                    <form onSubmit={handleUpdatePassword}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                                            <div>
+                                                <label>Nueva Contraseña</label>
+                                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+                                            </div>
+                                            <div>
+                                                <label>Confirmar Contraseña</label>
+                                                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+                                            </div>
+                                        </div>
+                                        <button type="submit" disabled={loading} style={{ width: 'auto' }}>
+                                            {loading ? 'Actualizando...' : 'Actualizar Contraseña'}
+                                        </button>
+                                    </form>
+                                </div>
+                            )}
+
+                            {/* Datos Técnicos y Parámetros */}
                             {!collapsed.datosTecnicos && (
-                                <div style={{ padding: '0 24px 24px 24px' }}>
-                                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                                        Configure los datos geográficos y los umbrales de rendimiento para el semáforo de su hato.
-                                    </p>
-
+                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Home size={20} color="var(--primary)" /> Datos Técnicos y Parámetros
+                                    </h3>
                                     <form onSubmit={guardarConfiguracionYFinca}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                                             <div>
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Maximize size={16} /> Área Total (Ha)</label>
                                                 <input type="number" step="0.01" value={farmInfo.area_total} onChange={e => setFarmInfo({ ...farmInfo, area_total: e.target.value })} />
@@ -1175,7 +1194,7 @@ export default function Settings() {
                                             </div>
                                         </div>
 
-                                        <h4 style={{ color: 'white', marginBottom: '16px', fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>Configuración de Umbrales (Semáforo GMP)</h4>
+                                        <h4 style={{ color: 'white', marginBottom: '16px', fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>Umbrales (Semáforo GMP)</h4>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                                             <div>
                                                 <label>Umbral Bajo GDP (kg/día)</label>
@@ -1190,75 +1209,37 @@ export default function Settings() {
                                                 <input type="number" step="0.1" value={umbralAltoGMP} onChange={(e) => setUmbralAltoGMP(e.target.value)} />
                                             </div>
                                             <div>
-                                                <label>Consumo en Potrero (Kg/animal/día)</label>
+                                                <label>Consumo en Potrero (Kg/día)</label>
                                                 <input type="number" step="0.1" value={farmInfo.consumo_dia_potrero} onChange={(e) => setFarmInfo({ ...farmInfo, consumo_dia_potrero: e.target.value })} required />
                                             </div>
                                         </div>
 
                                         <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary-dark)', border: '1px solid var(--primary)' }}>
-                                            {loading ? 'Guardando...' : 'Guardar Datos y Parámetros'}
+                                            {loading ? 'Guardando...' : 'Guardar Información'}
                                         </button>
                                     </form>
                                 </div>
                             )}
-                        </div>
 
-                        {/* Gestión de Usuarios */}
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <div 
-                                onClick={() => toggleSection('usuarios')}
-                                style={{ 
-                                    padding: '20px 24px', 
-                                    cursor: 'pointer', 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center',
-                                    background: collapsed.usuarios ? 'transparent' : 'rgba(255,255,255,0.03)'
-                                }}
-                            >
-                                <h3 style={{ margin: 0, color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Users size={20} /> Gestión de Personal
-                                </h3>
-                                <Plus size={20} style={{ transform: collapsed.usuarios ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
-                            </div>
-
+                            {/* Gestión de Personal */}
                             {!collapsed.usuarios && (
-                                <div style={{ padding: '0 24px 24px 24px' }}>
-                                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                                        Cree cuentas y asígnelas a una o varias de sus fincas simultáneamente.
-                                    </p>
-
+                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Users size={20} color="var(--primary)" /> Gestión de Personal
+                                    </h3>
                                     <form onSubmit={handleCreateUser}>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                                             <div style={{ gridColumn: '1 / -1' }}>
                                                 <label>Correo Electrónico</label>
-                                                <input
-                                                    type="email"
-                                                    placeholder="empleado@finca.com"
-                                                    value={newUserEmail}
-                                                    onChange={(e) => setNewUserEmail(e.target.value)}
-                                                    required
-                                                    disabled={loading}
-                                                />
+                                                <input type="email" placeholder="trabajador@finca.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} required />
                                             </div>
                                             <div>
                                                 <label>Contraseña Temporal</label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Contraseña segura"
-                                                    value={newUserPass}
-                                                    onChange={(e) => setNewUserPass(e.target.value)}
-                                                    required
-                                                    disabled={loading}
-                                                />
+                                                <input type="text" value={newUserPass} onChange={(e) => setNewUserPass(e.target.value)} required />
                                             </div>
                                             <div>
                                                 <label>Perfil / Rol</label>
-                                                <select
-                                                    value={newUserRole}
-                                                    onChange={(e) => setNewUserRole(e.target.value as any)}
-                                                    disabled={loading}
-                                                >
+                                                <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value as any)}>
                                                     <option value="vaquero">Trabajador / Vaquero</option>
                                                     <option value="observador">Visualizador / Observador</option>
                                                 </select>
@@ -1266,157 +1247,92 @@ export default function Settings() {
                                         </div>
 
                                         <label style={{ marginBottom: '12px', display: 'block' }}>Asignar a Fincas:</label>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '24px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', marginBottom: '24px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                             {fincasAdmin.map(f => (
-                                                <div
-                                                    key={f.id_finca}
-                                                    onClick={() => toggleFincaSelection(f.id_finca)}
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '10px',
-                                                        padding: '8px 12px',
-                                                        borderRadius: '6px',
-                                                        cursor: 'pointer',
-                                                        backgroundColor: selectedFincas.includes(f.id_finca) ? 'rgba(76, 175, 80, 0.15)' : 'transparent',
-                                                        border: '1px solid',
-                                                        borderColor: selectedFincas.includes(f.id_finca) ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                >
-                                                    {selectedFincas.includes(f.id_finca) ? <CheckSquare size={18} color="var(--primary)" /> : <Square size={18} color="var(--text-muted)" />}
-                                                    <span style={{ fontSize: '0.9rem', color: selectedFincas.includes(f.id_finca) ? 'white' : 'var(--text-muted)' }}>{f.nombre_finca}</span>
+                                                <div key={f.id_finca} onClick={() => toggleFincaSelection(f.id_finca)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '6px', cursor: 'pointer', backgroundColor: selectedFincas.includes(f.id_finca) ? 'rgba(76, 175, 80, 0.1)' : 'transparent', border: '1px solid', borderColor: selectedFincas.includes(f.id_finca) ? 'var(--primary)' : 'transparent' }}>
+                                                    {selectedFincas.includes(f.id_finca) ? <CheckSquare size={16} color="var(--primary)" /> : <Square size={16} color="var(--text-muted)" />}
+                                                    <span style={{ fontSize: '0.85rem' }}>{f.nombre_finca}</span>
                                                 </div>
                                             ))}
                                         </div>
-
                                         <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)' }}>
                                             <UserPlus size={18} /> {loading ? 'Creando Usuario...' : 'Crear Usuario'}
                                         </button>
                                     </form>
                                 </div>
                             )}
-                        </div>
 
-                        {/* Contactos de Negocios */}
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <div 
-                                onClick={() => toggleSection('contactosNegocio')}
-                                style={{ 
-                                    padding: '20px 24px', 
-                                    cursor: 'pointer', 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center',
-                                    background: collapsed.contactosNegocio ? 'transparent' : 'rgba(255,255,255,0.03)'
-                                }}
-                            >
-                                <h3 style={{ margin: 0, color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Briefcase size={20} /> Contactos de Negocios
-                                </h3>
-                                <Plus size={20} style={{ transform: collapsed.contactosNegocio ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
-                            </div>
-
+                            {/* Contactos de Negocio */}
                             {!collapsed.contactosNegocio && (
-                                <div style={{ padding: '0 24px 24px 24px' }}>
-                                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
-                                        Administre los propietarios, proveedores y compradores vinculados a su operación ganadera.
-                                    </p>
-
-                                    {/* Subsección Propietarios */}
-                                    <div style={{ marginBottom: '32px' }}>
-                                        <h4 style={{ color: 'var(--primary-light)', marginBottom: '16px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <Users size={16} /> Propietarios de Ganado
-                                        </h4>
-                                        <form onSubmit={handleAddPropietario} style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                                            <input type="text" placeholder="Nombre del propietario" value={nuevoPropietario} onChange={e => setNuevoPropietario(e.target.value)} style={{ marginBottom: 0 }} />
-                                            <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoPropietario.trim()}><Plus size={18} /></button>
-                                        </form>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-                                            {propietarios.map(p => (
-                                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                                    <span style={{ fontSize: '0.9rem' }}>{p.nombre}</span>
-                                                    <button onClick={() => removePropietario(p.id)} style={{ background: 'transparent', width: 'auto', padding: 0, color: '#ef5350' }}><Trash2 size={16} /></button>
-                                                </div>
-                                            ))}
+                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Briefcase size={20} color="var(--primary)" /> Contactos de Negocios
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                        <div>
+                                            <h4 style={{ color: 'var(--primary-light)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={16}/> Propietarios</h4>
+                                            <form onSubmit={handleAddPropietario} style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                                                <input type="text" placeholder="Nuevo Propietario" value={nuevoPropietario} onChange={e => setNuevoPropietario(e.target.value)} style={{ margin: 0 }} />
+                                                <button type="submit" style={{ width: 'auto' }} disabled={loading}><Plus size={18}/></button>
+                                            </form>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                                                {propietarios.map(p => (
+                                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                                                        <span style={{ fontSize: '0.9rem' }}>{p.nombre}</span>
+                                                        <Trash2 size={16} style={{ cursor: 'pointer', color: '#ef5350' }} onClick={() => removePropietario(p.id)} />
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    {/* Subsección Proveedores */}
-                                    <div style={{ marginBottom: '32px' }}>
-                                        <h4 style={{ color: 'var(--primary-light)', marginBottom: '16px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <Truck size={16} /> Proveedores
-                                        </h4>
-                                        <form onSubmit={handleAddProveedor} style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                                            <input type="text" placeholder="Nombre del proveedor" value={nuevoProveedor} onChange={e => setNuevoProveedor(e.target.value)} style={{ marginBottom: 0 }} />
-                                            <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoProveedor.trim()}><Plus size={18} /></button>
-                                        </form>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-                                            {proveedores.map(p => (
-                                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                                    <span style={{ fontSize: '0.9rem' }}>{p.nombre}</span>
-                                                    <button onClick={() => removeProveedor(p.id)} style={{ background: 'transparent', width: 'auto', padding: 0, color: '#ef5350' }}><Trash2 size={16} /></button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Subsección Compradores */}
-                                    <div>
-                                        <h4 style={{ color: 'var(--primary-light)', marginBottom: '16px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <ShoppingCart size={16} /> Compradores
-                                        </h4>
-                                        <form onSubmit={handleAddComprador} style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                                            <input type="text" placeholder="Nombre del comprador" value={nuevoComprador} onChange={e => setNuevoComprador(e.target.value)} style={{ marginBottom: 0 }} />
-                                            <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoComprador.trim()}><Plus size={18} /></button>
-                                        </form>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-                                            {compradores.map(c => (
-                                                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                                    <span style={{ fontSize: '0.9rem' }}>{c.nombre}</span>
-                                                    <button onClick={() => removeComprador(c.id)} style={{ background: 'transparent', width: 'auto', padding: 0, color: '#ef5350' }}><Trash2 size={16} /></button>
-                                                </div>
-                                            ))}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
+                                            <div>
+                                                <h4 style={{ color: 'var(--primary-light)', marginBottom: '12px' }}><Truck size={16}/> Proveedores</h4>
+                                                <form onSubmit={handleAddProveedor} style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                                                    <input type="text" placeholder="Nuevo Proveedor" value={nuevoProveedor} onChange={e => setNuevoProveedor(e.target.value)} style={{ margin: 0 }} />
+                                                    <button type="submit" style={{ width: 'auto' }} disabled={loading}><Plus size={18}/></button>
+                                                </form>
+                                                {proveedores.map(p => <div key={p.id} style={{ padding: '8px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>{p.nombre}<Trash2 size={14} style={{ color: '#ef5350', cursor: 'pointer' }} onClick={() => removeProveedor(p.id)}/></div>)}
+                                            </div>
+                                            <div>
+                                                <h4 style={{ color: 'var(--primary-light)', marginBottom: '12px' }}><ShoppingCart size={16}/> Compradores</h4>
+                                                <form onSubmit={handleAddComprador} style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                                                    <input type="text" placeholder="Nuevo Comprador" value={nuevoComprador} onChange={e => setNuevoComprador(e.target.value)} style={{ margin: 0 }} />
+                                                    <button type="submit" style={{ width: 'auto' }} disabled={loading}><Plus size={18}/></button>
+                                                </form>
+                                                {compradores.map(c => <div key={c.id} style={{ padding: '8px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>{c.nombre}<Trash2 size={14} style={{ color: '#ef5350', cursor: 'pointer' }} onClick={() => removeComprador(c.id)}/></div>)}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
-                        </div>
 
-
-
-                        {/* Cargas Masivas */}
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <div onClick={() => toggleSection('cargasMasivas')} style={{ padding: '20px 24px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0, color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}><Upload size={20} /> Carga Masiva (CSV)</h3>
-                                <Plus size={20} style={{ transform: collapsed.cargasMasivas ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
-                            </div>
+                            {/* Cargas Masivas */}
                             {!collapsed.cargasMasivas && (
-                                <div style={{ padding: '0 24px 24px 24px' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-                                        <div style={{ padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 'bold' }}>Inventario</span>
-                                                <a href="/plantilla_animales.csv" download style={{ color: 'var(--primary-light)' }}><FileText size={16} /></a>
-                                            </div>
+                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Upload size={20} color="var(--primary)" /> Carga Masiva (CSV)
+                                    </h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                                            <FileText size={24} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
+                                            <h4 style={{ marginBottom: '8px' }}>Inventario</h4>
+                                            <button onClick={() => document.getElementById('bulkAnimalSettings')?.click()} style={{ width: '100%', marginBottom: '10px' }}>Subir CSV</button>
+                                            <a href="/plantilla_animales.csv" download style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>Plantilla</a>
                                             <input type="file" id="bulkAnimalSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkAnimalUpload} />
-                                            <button onClick={() => document.getElementById('bulkAnimalSettings')?.click()} style={{ width: '100%' }} disabled={loading}>Subir Inventario</button>
                                         </div>
-                                        <div style={{ padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 'bold' }}>Pesajes</span>
-                                                <a href="/plantilla_pesajes.csv" download style={{ color: 'var(--primary-light)' }}><FileText size={16} /></a>
-                                            </div>
+                                        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                                            <Maximize size={24} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
+                                            <h4 style={{ marginBottom: '8px' }}>Pesajes</h4>
+                                            <button onClick={() => document.getElementById('bulkPesajeSettings')?.click()} style={{ width: '100%', marginBottom: '10px' }}>Subir CSV</button>
+                                            <a href="/plantilla_pesajes.csv" download style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>Plantilla</a>
                                             <input type="file" id="bulkPesajeSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkPesajeUpload} />
-                                            <button onClick={() => document.getElementById('bulkPesajeSettings')?.click()} style={{ width: '100%' }} disabled={loading}>Subir Pesajes</button>
                                         </div>
-                                        <div style={{ padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 'bold' }}>Rotaciones</span>
-                                                <a href="/plantilla_rotaciones_potreros.csv" download style={{ color: 'var(--primary-light)' }}><FileText size={16} /></a>
-                                            </div>
+                                        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                                            <Upload size={24} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
+                                            <h4 style={{ marginBottom: '8px' }}>Rotaciones</h4>
+                                            <button onClick={() => document.getElementById('bulkRotacionSettings')?.click()} style={{ width: '100%', marginBottom: '10px' }}>Subir CSV</button>
+                                            <a href="/plantilla_rotaciones_potreros.csv" download style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>Plantilla</a>
                                             <input type="file" id="bulkRotacionSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkRotacionesUpload} />
-                                            <button onClick={() => document.getElementById('bulkRotacionSettings')?.click()} style={{ width: '100%' }} disabled={loading}>Subir Rotaciones</button>
                                         </div>
                                     </div>
                                 </div>
