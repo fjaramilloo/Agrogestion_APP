@@ -56,7 +56,14 @@ export default function Settings() {
     });
 
     const toggleSection = (section: keyof typeof collapsed) => {
-        setCollapsed(prev => ({ ...prev, [section]: !prev[section] }));
+        setCollapsed(prev => ({
+            seguridad: true,
+            datosTecnicos: true,
+            usuarios: true,
+            contactosNegocio: true,
+            cargasMasivas: true,
+            [section]: !prev[section]
+        }));
     };
 
     // Estados para creación de usuario
