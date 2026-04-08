@@ -957,13 +957,6 @@ export default function Settings() {
         { id: 'cargasMasivas', label: 'Carga Masiva', icon: <Upload size={28} />, desc: 'Importar CSV/Excel' }
     ];
 
-    const sectionCards = [
-        { id: 'seguridad', label: 'Seguridad', icon: <Lock size={28} />, desc: 'Cuenta y acceso' },
-        { id: 'datosTecnicos', label: 'Parámetros', icon: <Home size={28} />, desc: 'KPIs y Finca' },
-        { id: 'usuarios', label: 'Personal', icon: <Users size={28} />, desc: 'Gestión de equipo' },
-        { id: 'contactosNegocio', label: 'Negocios', icon: <Briefcase size={28} />, desc: 'Contactos y socios' },
-        { id: 'cargasMasivas', label: 'Carga Masiva', icon: <Upload size={28} />, desc: 'Importar CSV/Excel' }
-    ];
 
     return (
         <div className="page-container" style={{ maxWidth: '800px' }}>
