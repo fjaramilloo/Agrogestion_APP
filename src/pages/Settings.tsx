@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock } from 'lucide-react';
+import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart } from 'lucide-react';
 // @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
 
@@ -51,9 +51,7 @@ export default function Settings() {
         seguridad: true,
         datosTecnicos: true, 
         usuarios: true,
-        propietarios: true,
-        proveedores: true,
-        compradores: true,
+        contactosNegocio: true,
         cargasMasivas: true
     });
 
@@ -1300,86 +1298,86 @@ export default function Settings() {
                             )}
                         </div>
 
-                        {/* Propietarios */}
+                        {/* Contactos de Negocios */}
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                             <div 
-                                onClick={() => toggleSection('propietarios')}
+                                onClick={() => toggleSection('contactosNegocio')}
                                 style={{ 
                                     padding: '20px 24px', 
                                     cursor: 'pointer', 
                                     display: 'flex', 
                                     justifyContent: 'space-between', 
                                     alignItems: 'center',
-                                    background: collapsed.propietarios ? 'transparent' : 'rgba(255,255,255,0.03)'
+                                    background: collapsed.contactosNegocio ? 'transparent' : 'rgba(255,255,255,0.03)'
                                 }}
                             >
                                 <h3 style={{ margin: 0, color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Users size={20} /> Propietarios de Ganado
+                                    <Briefcase size={20} /> Contactos de Negocios
                                 </h3>
-                                <Plus size={20} style={{ transform: collapsed.propietarios ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
+                                <Plus size={20} style={{ transform: collapsed.contactosNegocio ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
                             </div>
 
-                            {!collapsed.propietarios && (
+                            {!collapsed.contactosNegocio && (
                                 <div style={{ padding: '0 24px 24px 24px' }}>
-                                    <form onSubmit={handleAddPropietario} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-                                        <input type="text" placeholder="Nombre" value={nuevoPropietario} onChange={e => setNuevoPropietario(e.target.value)} style={{ marginBottom: 0 }} />
-                                        <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoPropietario.trim()}><Plus size={18} /></button>
-                                    </form>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                                        {propietarios.map(p => (
-                                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                                                <span>{p.nombre}</span>
-                                                <button onClick={() => removePropietario(p.id)} style={{ background: 'transparent', width: 'auto', padding: 0 }}><Trash2 size={16} /></button>
-                                            </div>
-                                        ))}
+                                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                                        Administre los propietarios, proveedores y compradores vinculados a su operación ganadera.
+                                    </p>
+
+                                    {/* Subsección Propietarios */}
+                                    <div style={{ marginBottom: '32px' }}>
+                                        <h4 style={{ color: 'var(--primary-light)', marginBottom: '16px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Users size={16} /> Propietarios de Ganado
+                                        </h4>
+                                        <form onSubmit={handleAddPropietario} style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                                            <input type="text" placeholder="Nombre del propietario" value={nuevoPropietario} onChange={e => setNuevoPropietario(e.target.value)} style={{ marginBottom: 0 }} />
+                                            <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoPropietario.trim()}><Plus size={18} /></button>
+                                        </form>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                                            {propietarios.map(p => (
+                                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <span style={{ fontSize: '0.9rem' }}>{p.nombre}</span>
+                                                    <button onClick={() => removePropietario(p.id)} style={{ background: 'transparent', width: 'auto', padding: 0, color: '#ef5350' }}><Trash2 size={16} /></button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Proveedores */}
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <div onClick={() => toggleSection('proveedores')} style={{ padding: '20px 24px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0, color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={20} /> Proveedores</h3>
-                                <Plus size={20} style={{ transform: collapsed.proveedores ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
-                            </div>
-                            {!collapsed.proveedores && (
-                                <div style={{ padding: '0 24px 24px 24px' }}>
-                                    <form onSubmit={handleAddProveedor} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-                                        <input type="text" placeholder="Nombre" value={nuevoProveedor} onChange={e => setNuevoProveedor(e.target.value)} style={{ marginBottom: 0 }} />
-                                        <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoProveedor.trim()}><Plus size={18} /></button>
-                                    </form>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                                        {proveedores.map(p => (
-                                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                                                <span>{p.nombre}</span>
-                                                <button onClick={() => removeProveedor(p.id)} style={{ background: 'transparent', width: 'auto', padding: 0 }}><Trash2 size={16} /></button>
-                                            </div>
-                                        ))}
+                                    {/* Subsección Proveedores */}
+                                    <div style={{ marginBottom: '32px' }}>
+                                        <h4 style={{ color: 'var(--primary-light)', marginBottom: '16px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Truck size={16} /> Proveedores
+                                        </h4>
+                                        <form onSubmit={handleAddProveedor} style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                                            <input type="text" placeholder="Nombre del proveedor" value={nuevoProveedor} onChange={e => setNuevoProveedor(e.target.value)} style={{ marginBottom: 0 }} />
+                                            <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoProveedor.trim()}><Plus size={18} /></button>
+                                        </form>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                                            {proveedores.map(p => (
+                                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <span style={{ fontSize: '0.9rem' }}>{p.nombre}</span>
+                                                    <button onClick={() => removeProveedor(p.id)} style={{ background: 'transparent', width: 'auto', padding: 0, color: '#ef5350' }}><Trash2 size={16} /></button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Compradores */}
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <div onClick={() => toggleSection('compradores')} style={{ padding: '20px 24px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0, color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={20} /> Compradores</h3>
-                                <Plus size={20} style={{ transform: collapsed.compradores ? 'none' : 'rotate(45deg)', transition: 'transform 0.3s', color: 'var(--text-muted)' }} />
-                            </div>
-                            {!collapsed.compradores && (
-                                <div style={{ padding: '0 24px 24px 24px' }}>
-                                    <form onSubmit={handleAddComprador} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-                                        <input type="text" placeholder="Nombre" value={nuevoComprador} onChange={e => setNuevoComprador(e.target.value)} style={{ marginBottom: 0 }} />
-                                        <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoComprador.trim()}><Plus size={18} /></button>
-                                    </form>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                                        {compradores.map(c => (
-                                            <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                                                <span>{c.nombre}</span>
-                                                <button onClick={() => removeComprador(c.id)} style={{ background: 'transparent', width: 'auto', padding: 0 }}><Trash2 size={16} /></button>
-                                            </div>
-                                        ))}
+                                    {/* Subsección Compradores */}
+                                    <div>
+                                        <h4 style={{ color: 'var(--primary-light)', marginBottom: '16px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <ShoppingCart size={16} /> Compradores
+                                        </h4>
+                                        <form onSubmit={handleAddComprador} style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                                            <input type="text" placeholder="Nombre del comprador" value={nuevoComprador} onChange={e => setNuevoComprador(e.target.value)} style={{ marginBottom: 0 }} />
+                                            <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoComprador.trim()}><Plus size={18} /></button>
+                                        </form>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                                            {compradores.map(c => (
+                                                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <span style={{ fontSize: '0.9rem' }}>{c.nombre}</span>
+                                                    <button onClick={() => removeComprador(c.id)} style={{ background: 'transparent', width: 'auto', padding: 0, color: '#ef5350' }}><Trash2 size={16} /></button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}
