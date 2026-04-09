@@ -29,6 +29,7 @@ export default function Purchase() {
     const [propietarios, setPropietarios] = useState<{ id: string, nombre: string }[]>([]);
     const [proveedores, setProveedores] = useState<{ id: string, nombre: string }[]>([]);
     const [selectedProveedor, setSelectedProveedor] = useState('');
+    const [selectedPropietario, setSelectedPropietario] = useState('');
     const [observaciones, setObservaciones] = useState('');
     const [incluirPesoCompra, setIncluirPesoCompra] = useState(false);
     const [pesoCompraTotal, setPesoCompraTotal] = useState('');
@@ -148,7 +149,7 @@ export default function Purchase() {
         const nuevasFilas: AnimalCompra[] = Array.from({ length: num }, () => ({
             numero_chapeta: '',
             peso_ingreso: '',
-            propietario: ''
+            propietario: selectedPropietario
         }));
         setAnimales(nuevasFilas);
         setMsjExito('');
@@ -317,6 +318,7 @@ export default function Purchase() {
         setMsjError('');
         setMsjExito('');
         setSelectedProveedor('');
+        setSelectedPropietario('');
         setObservaciones('');
         setIncluirPesoCompra(false);
         setPesoCompraTotal('');
@@ -668,6 +670,27 @@ export default function Purchase() {
                             >
                                 <option value="">Seleccione un Proveedor...</option>
                                 {proveedores.map(p => (
+                                    <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ flex: '1 1 250px' }}>
+                            <label>Propietario (General)</label>
+                            <select
+                                value={selectedPropietario}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setSelectedPropietario(val);
+                                    // Si ya hay animales en la lista, los actualizamos todos con este dueño
+                                    if (animales.length > 0 && val) {
+                                        setAnimales(prev => prev.map(a => ({ ...a, propietario: val })));
+                                    }
+                                }}
+                                disabled={loading}
+                            >
+                                <option value="">Dueños compartidos / Varios...</option>
+                                {propietarios.map(p => (
                                     <option key={p.id} value={p.nombre}>{p.nombre}</option>
                                 ))}
                             </select>
