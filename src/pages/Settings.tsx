@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart } from 'lucide-react';
+import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf } from 'lucide-react';
 // @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
 
@@ -96,6 +96,14 @@ export default function Settings() {
         peso_entrada_ceba: '380',
         consumo_dia_potrero: '50'
     });
+
+    const formatCurrency = (val: string | number) => {
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            maximumFractionDigits: 0 
+        }).format(Number(val) || 0);
+    };
 
     // Filtrar fincas donde el usuario es administrador
     const fincasAdmin = userFincas.filter(f => f.rol === 'administrador' || isSuperAdmin);
@@ -1182,7 +1190,7 @@ export default function Settings() {
                                                 <input type="text" value={farmInfo.ubicacion} onChange={e => setFarmInfo({ ...farmInfo, ubicacion: e.target.value })} />
                                             </div>
                                             <div>
-                                                <label>Propósito</label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Target size={16} /> Propósito</label>
                                                 <select value={farmInfo.proposito} onChange={e => setFarmInfo({ ...farmInfo, proposito: e.target.value })}>
                                                     <option value="">Seleccione...</option>
                                                     <option value="Doble propósito">Doble propósito</option>
@@ -1193,23 +1201,27 @@ export default function Settings() {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label>Entrada Ceba (kg)</label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Scale size={16} /> Entrada Ceba (kg)</label>
                                                 <input type="number" step="0.5" value={farmInfo.peso_entrada_ceba} onChange={e => setFarmInfo({ ...farmInfo, peso_entrada_ceba: e.target.value })} />
                                             </div>
                                             <div>
-                                                {/* Espacio para completar la fila 2 si el grid es de 3 columnas */}
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={16} /> Consumo de pasto por animal (Kg/Día)</label>
+                                                <input type="number" step="0.1" value={farmInfo.consumo_dia_potrero} onChange={(e) => setFarmInfo({ ...farmInfo, consumo_dia_potrero: e.target.value })} required />
                                             </div>
                                             <div>
-                                                <label>Precio Compra (COP/kg)</label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Coins size={16} /> Precio Compra (COP/kg)</label>
                                                 <input type="number" value={farmInfo.precio_compra_promedio} onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: e.target.value })} />
+                                                <small style={{ color: 'var(--primary-light)', marginTop: '4px', display: 'block' }}>{formatCurrency(farmInfo.precio_compra_promedio)}</small>
                                             </div>
                                             <div>
-                                                <label>Precio Venta (COP/kg)</label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><DollarSign size={16} /> Precio Venta (COP/kg)</label>
                                                 <input type="number" value={farmInfo.precio_venta_promedio} onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: e.target.value })} />
+                                                <small style={{ color: 'var(--primary-light)', marginTop: '4px', display: 'block' }}>{formatCurrency(farmInfo.precio_venta_promedio)}</small>
                                             </div>
                                             <div>
-                                                <label>Costo Mensual por Animal</label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CreditCard size={16} /> Costo Mensual por Animal</label>
                                                 <input type="number" value={farmInfo.costo_mensual_animal} onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: e.target.value })} />
+                                                <small style={{ color: 'var(--primary-light)', marginTop: '4px', display: 'block' }}>{formatCurrency(farmInfo.costo_mensual_animal)}</small>
                                             </div>
                                         </div>
 
@@ -1227,10 +1239,7 @@ export default function Settings() {
                                                 <label>Límite Superior Amarillo (kg/mes)</label>
                                                 <input type="number" step="0.1" value={umbralAltoGMP} onChange={(e) => setUmbralAltoGMP(e.target.value)} />
                                             </div>
-                                            <div>
-                                                <label>Consumo en Potrero (Kg/día)</label>
-                                                <input type="number" step="0.1" value={farmInfo.consumo_dia_potrero} onChange={(e) => setFarmInfo({ ...farmInfo, consumo_dia_potrero: e.target.value })} required />
-                                            </div>
+
                                         </div>
 
                                         <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary-dark)', border: '1px solid var(--primary)' }}>
