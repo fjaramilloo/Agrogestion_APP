@@ -492,13 +492,9 @@ export default function Potreradas() {
                     fechaIngresoEtapa = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
                     pesoIngresoEtapa = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? pesoBase : null));
                 } else {
-                    if (registrosEtapa.length > 0) {
-                        fechaIngresoEtapa = registrosEtapa[0].fecha;
-                        pesoIngresoEtapa = registrosEtapa[0].peso;
-                    } else if (a.etapa?.toLowerCase() === p.etapa.toLowerCase()) {
-                        fechaIngresoEtapa = a.fecha_ingreso;
-                        pesoIngresoEtapa = pesoBase;
-                    }
+                    // Para levante y cría, el ingreso a la etapa es siempre el ingreso a la finca
+                    fechaIngresoEtapa = a.fecha_ingreso;
+                    pesoIngresoEtapa = pesoBase;
                 }
 
                 const pesajesMap: Record<string, number> = {};
