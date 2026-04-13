@@ -40,6 +40,7 @@ interface AnimalPotrero {
     pesoIngresoEtapa?: number | null;
     pesajesFiltrados?: { [fecha: string]: number };
     hasCalculatedGmp?: boolean;
+    etapa?: string;
 }
 
 interface ChartData {
@@ -680,7 +681,7 @@ export default function Potreradas() {
             let currentY = 18;
 
             // --- HEADER ORGANIZATION ---
-            const etapaStr = detailData.animales.length > 0 ? (detailData.animales[0].etapa || '').toUpperCase() : 'N/A';
+            const etapaStr = (p.etapa || '').toUpperCase();
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(14);
