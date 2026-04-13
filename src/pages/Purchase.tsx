@@ -237,14 +237,12 @@ export default function Purchase() {
                 return;
             }
 
-            const [, month, day] = fechaIngreso.split('-');
-            const dateStr = `${day}/${month}`;
             
             const uniquePropietarios = Array.from(new Set(animales.map(a => a.propietario)));
             
             const potreradasPayload = uniquePropietarios.map(prop => ({
                 id_finca: fincaId,
-                nombre: `Compra ${dateStr} ${prop}`,
+                nombre: `Levante ${prop}`,
                 etapa: 'levante'
             }));
             
@@ -258,7 +256,7 @@ export default function Purchase() {
             const potreradaIdPorPropietario = new Map();
             if (potreradasCreadas) {
                 potreradasCreadas.forEach((p: any) => {
-                    const propMatch = uniquePropietarios.find(prop => p.nombre === `Compra ${dateStr} ${prop}`);
+                    const propMatch = uniquePropietarios.find(prop => p.nombre === `Levante ${prop}`);
                     if (propMatch) {
                         potreradaIdPorPropietario.set(propMatch, p.id);
                     }
@@ -349,13 +347,11 @@ export default function Purchase() {
                     throw new Error(`Lote offline del ${payload.fechaIngreso}: Chapetas duplicadas encontradas (${existentes.map(e => e.numero_chapeta).join(', ')}). Datos saltados.`);
                 }
 
-                const [, month, day] = payload.fechaIngreso.split('-');
-                const dateStr = `${day}/${month}`;
                 const uniquePropietarios = Array.from(new Set(payload.animales.map(a => a.propietario)));
                 
                 const potreradasPayload = uniquePropietarios.map(prop => ({
                     id_finca: fincaId,
-                    nombre: `Compra ${dateStr} ${prop}`,
+                    nombre: `Levante ${prop}`,
                     etapa: 'levante'
                 }));
                 
@@ -368,7 +364,7 @@ export default function Purchase() {
                 const potreradaIdPorPropietario = new Map();
                 if (potreradasCreadas) {
                     potreradasCreadas.forEach((p: any) => {
-                        const propMatch = uniquePropietarios.find(prop => p.nombre === `Compra ${dateStr} ${prop}`);
+                        const propMatch = uniquePropietarios.find(prop => p.nombre === `Levante ${prop}`);
                         if (propMatch) potreradaIdPorPropietario.set(propMatch, p.id);
                     });
                 }

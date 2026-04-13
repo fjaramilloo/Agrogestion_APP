@@ -1279,6 +1279,17 @@ export default function Potreradas() {
                                                     <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PROPIETARIO</th>
                                                     <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>INGRESO {detailData.potrerada.etapa.toUpperCase()}</th>
                                                     <th 
+                                                        onClick={() => handleSort('pesoIngresoEtapa')}
+                                                        style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                            PESO INGRESO
+                                                            {sortConfig?.key === 'pesoIngresoEtapa' && (
+                                                                <span style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                                                            )}
+                                                        </div>
+                                                    </th>
+                                                    <th 
                                                         onClick={() => handleSort('pesoActual')}
                                                         style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
                                                     >
@@ -1313,6 +1324,9 @@ export default function Potreradas() {
                                                         <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
                                                             {a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yyyy') : '-'}
                                                         </td>
+                                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                            {a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-'}
+                                                        </td>
                                                         <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                                             {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
                                                         </td>
@@ -1333,7 +1347,7 @@ export default function Potreradas() {
                                                 ))}
                                                 {sortedAnimals.length === 0 && (
                                                     <tr>
-                                                        <td colSpan={4 + detailData.fechasColumnas.length + 1} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                                        <td colSpan={5 + detailData.fechasColumnas.length + 1} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                                             Esta potrerada no tiene animales activos.
                                                         </td>
                                                     </tr>
@@ -1345,7 +1359,7 @@ export default function Potreradas() {
                                                 return (
                                                     <tfoot>
                                                         <tr style={{ borderTop: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.04)' }}>
-                                                            <td colSpan={4 + detailData.fechasColumnas.length - 1} style={{ padding: '14px 16px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                            <td colSpan={5 + detailData.fechasColumnas.length - 1} style={{ padding: '14px 16px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                                                 {detailData.animales.length} animales &nbsp;|&nbsp; Total Kilos:
                                                             </td>
                                                             <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)', fontSize: '1rem' }}>
