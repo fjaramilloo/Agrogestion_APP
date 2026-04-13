@@ -87,6 +87,7 @@ export default function Potreradas() {
         gmpPromedioGrupo: number;
         history: ChartData[];
         diasPotreroActual: number | null;
+        areaPotreroActual: number | null;
         fincaNombre: string;
     } | null>(null);
 
@@ -468,7 +469,7 @@ export default function Potreradas() {
                     fecha_ingreso_ceba,
                     peso_ingreso_ceba,
                     id_potrero_actual,
-                    potreros (nombre),
+                    potreros (nombre, area_hectareas),
                     registros_pesaje (
                         peso,
                         fecha,
@@ -489,6 +490,7 @@ export default function Potreradas() {
             // 2. Obtener el potrero actual de la potrerada (del último movimiento o de los animales)
             const firstAnimal = animals && animals.length > 0 ? (animals[0] as any) : null;
             const potreroName = firstAnimal?.potreros?.nombre || 'Sin potrero asignado';
+            const potreroArea = firstAnimal?.potreros?.area_hectareas || null;
             
             // 2.1 Obtener los días en el potrero actual (si está activo en movimiento)
             const { data: movs } = await supabase.from('movimientos_potreros')
@@ -616,6 +618,7 @@ export default function Potreradas() {
                 gmpPromedioGrupo: avgGmp,
                 history,
                 diasPotreroActual,
+                areaPotreroActual: potreroArea,
                 fincaNombre
             });
 
@@ -688,14 +691,16 @@ export default function Potreradas() {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(22);
             doc.setTextColor(30);
-            doc.text(`Reporte de Desempeño: ${p.nombre.toUpperCase()}`, marginX, currentY);
+            doc.text(`Reporte de Desempeño: ${p.nombre}`, marginX, currentY);
 
             currentY += 10;
 
-            // --- 4 INDEPENDENT BOXES (Dashboard Style) ---
-            const boxWidth = 58;
+            // --- 5 INDEPENDENT BOXES (Dashboard Style) ---
+            const boxesCount = 5;
+            const boxWidth = 46;
             const boxHeight = 22;
-            const gap = (doc.internal.pageSize.width - (marginX * 2) - (boxWidth * 4)) / 3;
+            const totalWidthAvailable = doc.internal.pageSize.width - (marginX * 2);
+            const gap = (totalWidthAvailable - (boxWidth * boxesCount)) / (boxesCount - 1);
 
             const drawBox = (x: number, y: number, title: string, value: string, subtitle: string, valueColor: number[]) => {
                 // Box background & border
@@ -753,6 +758,14 @@ export default function Potreradas() {
 
             // Caja 4: Histórico
             drawBox(xPos, currentY, 'GMP HISTÓRICO LOTE', `${detailData.gmpPromedioGrupo.toFixed(1)} kg`, 'ACUMULADO', acumGmpColor);
+            xPos += boxWidth + gap;
+
+            // Caja 5: Carga Animal (Cabezas / Ha)
+            const numAnimales = detailData.animales.length;
+            const cargaAnimalStr = detailData.areaPotreroActual && detailData.areaPotreroActual > 0 
+                ? (numAnimales / detailData.areaPotreroActual).toFixed(2)
+                : '-';
+            drawBox(xPos, currentY, 'CARGA ANIMAL', cargaAnimalStr, 'Cabezas / Ha', [40, 40, 40]);
 
             currentY += boxHeight + 12;
 
