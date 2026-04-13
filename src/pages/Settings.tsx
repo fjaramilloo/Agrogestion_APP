@@ -1205,23 +1205,44 @@ export default function Settings() {
                                                 <input type="number" step="0.5" value={farmInfo.peso_entrada_ceba} onChange={e => setFarmInfo({ ...farmInfo, peso_entrada_ceba: e.target.value })} />
                                             </div>
                                             <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={16} /> Consumo de pasto por animal (Kg/Día)</label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}><Leaf size={16} /> Consumo Pasto (Kg/Día)</label>
                                                 <input type="number" step="0.1" value={farmInfo.consumo_dia_potrero} onChange={(e) => setFarmInfo({ ...farmInfo, consumo_dia_potrero: e.target.value })} required />
                                             </div>
                                             <div>
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Coins size={16} /> Precio Compra (COP/kg)</label>
-                                                <input type="number" value={farmInfo.precio_compra_promedio} onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: e.target.value })} />
-                                                <small style={{ color: 'var(--primary-light)', marginTop: '4px', display: 'block' }}>{formatCurrency(farmInfo.precio_compra_promedio)}</small>
+                                                <div style={{ position: 'relative' }}>
+                                                    <span style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>$</span>
+                                                    <input 
+                                                        type="number" 
+                                                        value={farmInfo.precio_compra_promedio} 
+                                                        onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: e.target.value })} 
+                                                        style={{ paddingLeft: '32px' }}
+                                                    />
+                                                </div>
                                             </div>
                                             <div>
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><DollarSign size={16} /> Precio Venta (COP/kg)</label>
-                                                <input type="number" value={farmInfo.precio_venta_promedio} onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: e.target.value })} />
-                                                <small style={{ color: 'var(--primary-light)', marginTop: '4px', display: 'block' }}>{formatCurrency(farmInfo.precio_venta_promedio)}</small>
+                                                <div style={{ position: 'relative' }}>
+                                                    <span style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>$</span>
+                                                    <input 
+                                                        type="number" 
+                                                        value={farmInfo.precio_venta_promedio} 
+                                                        onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: e.target.value })} 
+                                                        style={{ paddingLeft: '32px' }}
+                                                    />
+                                                </div>
                                             </div>
                                             <div>
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CreditCard size={16} /> Costo Mensual por Animal</label>
-                                                <input type="number" value={farmInfo.costo_mensual_animal} onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: e.target.value })} />
-                                                <small style={{ color: 'var(--primary-light)', marginTop: '4px', display: 'block' }}>{formatCurrency(farmInfo.costo_mensual_animal)}</small>
+                                                <div style={{ position: 'relative' }}>
+                                                    <span style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>$</span>
+                                                    <input 
+                                                        type="number" 
+                                                        value={farmInfo.costo_mensual_animal} 
+                                                        onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: e.target.value })} 
+                                                        style={{ paddingLeft: '32px' }}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 
