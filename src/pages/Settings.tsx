@@ -91,6 +91,8 @@ export default function Settings() {
         ubicacion: '',
         proposito: '',
         precio_venta_promedio: '',
+        precio_compra_promedio: '',
+        costo_mensual_animal: '',
         peso_entrada_ceba: '380',
         consumo_dia_potrero: '50'
     });
@@ -162,7 +164,7 @@ export default function Settings() {
         // Precio de venta y umbral ceba desde configuracion_kpi
         const { data: config } = await supabase
             .from('configuracion_kpi')
-            .select('precio_venta_promedio, peso_entrada_ceba, consumo_dia_potrero')
+            .select('precio_venta_promedio, precio_compra_promedio, costo_mensual_animal, peso_entrada_ceba, consumo_dia_potrero')
             .eq('id_finca', fincaId)
             .single();
 
@@ -173,6 +175,8 @@ export default function Settings() {
                 ubicacion: finca.ubicacion || '',
                 proposito: finca.proposito || '',
                 precio_venta_promedio: config?.precio_venta_promedio?.toString() || '0',
+                precio_compra_promedio: config?.precio_compra_promedio?.toString() || '0',
+                costo_mensual_animal: config?.costo_mensual_animal?.toString() || '0',
                 peso_entrada_ceba: config?.peso_entrada_ceba?.toString() || '380',
                 consumo_dia_potrero: config?.consumo_dia_potrero?.toString() || '50'
             });
@@ -238,6 +242,8 @@ export default function Settings() {
             const valorMedioGMP = parseFloat(umbralMedioGMP);
             const valorAltoGMP = parseFloat(umbralAltoGMP);
             const precioVenta = parseFloat(farmInfo.precio_venta_promedio) || 0;
+            const precioCompra = parseFloat(farmInfo.precio_compra_promedio) || 0;
+            const costoMensual = parseFloat(farmInfo.costo_mensual_animal) || 0;
             const pesoCeba = parseFloat(farmInfo.peso_entrada_ceba) || 380;
             const consumoDia = parseFloat(farmInfo.consumo_dia_potrero) || 50;
 
@@ -249,6 +255,8 @@ export default function Settings() {
                     umbral_medio_gmp: valorMedioGMP,
                     umbral_alto_gmp: valorAltoGMP,
                     precio_venta_promedio: precioVenta,
+                    precio_compra_promedio: precioCompra,
+                    costo_mensual_animal: costoMensual,
                     peso_entrada_ceba: pesoCeba,
                     consumo_dia_potrero: consumoDia
                 }, { onConflict: 'id_finca' });
@@ -1185,12 +1193,23 @@ export default function Settings() {
                                                 </select>
                                             </div>
                                             <div>
+                                                <label>Entrada Ceba (kg)</label>
+                                                <input type="number" step="0.5" value={farmInfo.peso_entrada_ceba} onChange={e => setFarmInfo({ ...farmInfo, peso_entrada_ceba: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                {/* Espacio para completar la fila 2 si el grid es de 3 columnas */}
+                                            </div>
+                                            <div>
+                                                <label>Precio Compra (COP/kg)</label>
+                                                <input type="number" value={farmInfo.precio_compra_promedio} onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: e.target.value })} />
+                                            </div>
+                                            <div>
                                                 <label>Precio Venta (COP/kg)</label>
                                                 <input type="number" value={farmInfo.precio_venta_promedio} onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: e.target.value })} />
                                             </div>
                                             <div>
-                                                <label>Entrada Ceba (kg)</label>
-                                                <input type="number" step="0.5" value={farmInfo.peso_entrada_ceba} onChange={e => setFarmInfo({ ...farmInfo, peso_entrada_ceba: e.target.value })} />
+                                                <label>Costo Mensual por Animal</label>
+                                                <input type="number" value={farmInfo.costo_mensual_animal} onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: e.target.value })} />
                                             </div>
                                         </div>
 
