@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeftRight, Save } from 'lucide-react';
+import { ArrowLeftRight, Save, Search, ChevronDown, Check } from 'lucide-react';
 
 export default function Movements() {
     const { fincaId, role } = useAuth();
@@ -24,6 +24,8 @@ export default function Movements() {
     const [fechaMovimiento, setFechaMovimiento] = useState(new Date().toISOString().split('T')[0]);
 
     const [rotacionMode, setRotacionMode] = useState<'misma' | 'cambiar' | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showOptions, setShowOptions] = useState(false);
 
     useEffect(() => {
         if (!fincaId) return;
@@ -189,18 +191,108 @@ export default function Movements() {
 
             <div className="card">
                 <form onSubmit={handleSaveMovement} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div>
+                    <div style={{ position: 'relative' }}>
                         <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Seleccionar Potrerada *</label>
-                        <select 
-                            value={selectedPotreradaId} 
-                            onChange={(e) => setSelectedPotreradaId(e.target.value)}
-                            required
+                        
+                        {/* Custom Searchable Select */}
+                        <div 
+                            style={{ 
+                                position: 'relative',
+                                cursor: 'pointer'
+                            }}
+                            onClick={() => setShowOptions(!showOptions)}
                         >
-                            <option value="">-- Seleccione --</option>
-                            {potreradas.map(p => (
-                                <option key={p.id} value={p.id}>{p.nombre}</option>
-                            ))}
-                        </select>
+                            <div className="input-with-icon" style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between',
+                                padding: '12px 16px',
+                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '8px',
+                                minHeight: '48px'
+                            }}>
+                                <span style={{ color: selectedPotreradaId ? 'var(--text)' : 'var(--text-muted)' }}>
+                                    {selectedPotreradaId ? potreradas.find(p => p.id === selectedPotreradaId)?.nombre : '-- Seleccione --'}
+                                </span>
+                                <ChevronDown size={20} style={{ 
+                                    transform: showOptions ? 'rotate(180deg)' : 'none',
+                                    transition: 'transform 0.2s',
+                                    opacity: 0.6
+                                }} />
+                            </div>
+
+                            {showOptions && (
+                                <div 
+                                    style={{ 
+                                        position: 'absolute',
+                                        top: '110%',
+                                        left: 0,
+                                        right: 0,
+                                        backgroundColor: '#1E1E1E',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '12px',
+                                        zIndex: 100,
+                                        boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                        overflow: 'hidden'
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Search size={16} style={{ color: 'var(--text-muted)' }} />
+                                        <input 
+                                            type="text" 
+                                            placeholder="Buscar potrerada..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            autoFocus
+                                            style={{ 
+                                                backgroundColor: 'transparent', 
+                                                border: 'none', 
+                                                padding: '4px',
+                                                fontSize: '0.95rem',
+                                                margin: 0,
+                                                width: '100%'
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                        {potreradas
+                                            .filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+                                            .map(p => (
+                                                <div 
+                                                    key={p.id}
+                                                    onClick={() => {
+                                                        setSelectedPotreradaId(p.id);
+                                                        setShowOptions(false);
+                                                        setSearchTerm('');
+                                                    }}
+                                                    style={{ 
+                                                        padding: '12px 16px',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        backgroundColor: selectedPotreradaId === p.id ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent',
+                                                        transition: 'background 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = selectedPotreradaId === p.id ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent'}
+                                                >
+                                                    <span style={{ color: selectedPotreradaId === p.id ? 'var(--primary-light)' : 'inherit' }}>{p.nombre}</span>
+                                                    {selectedPotreradaId === p.id && <Check size={16} color="var(--primary)" />}
+                                                </div>
+                                            ))}
+                                        {potreradas.filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                                            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                                No se encontraron resultados
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         {!isAdminOrCowboy && <p style={{ fontSize: '0.8rem', color: 'var(--error)', marginTop: '8px' }}>No tienes permisos para realizar movimientos.</p>}
                     </div>
 
