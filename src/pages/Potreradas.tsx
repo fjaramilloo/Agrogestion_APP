@@ -167,9 +167,13 @@ export default function Potreradas() {
                     peso_ingreso,
                     peso_compra,
                     fecha_ingreso,
+                    etapa,
+                    fecha_ingreso_ceba,
+                    peso_ingreso_ceba,
                     registros_pesaje (
                         peso,
                         fecha,
+                        etapa,
                         gdp_calculada,
                         gmp_calculada
                     )
