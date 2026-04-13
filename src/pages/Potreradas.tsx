@@ -782,7 +782,7 @@ export default function Potreradas() {
 
             // Caja 2: Ubicación
             const diasTxt = detailData.diasPotreroActual !== null ? `${detailData.diasPotreroActual} d` : '-';
-            drawBox(xPos, currentY, 'UBICACIÓN', diasTxt, detailData.potreroActual, [40, 40, 40]);
+            drawBox(xPos, currentY, 'TIEMPO EN POTRERO', diasTxt, detailData.potreroActual, [40, 40, 40]);
             xPos += boxWidth + gap;
 
             // Caja 3: Último GMP
