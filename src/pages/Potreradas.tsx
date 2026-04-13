@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +8,8 @@ import { differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 interface Potrerada {
     id: string;
@@ -94,6 +95,10 @@ export default function Potreradas() {
     const [weighingData, setWeighingData] = useState<{ [animalId: string]: string }>({});
     const [savingWeighings, setSavingWeighings] = useState(false);
     const [showWeighingForm, setShowWeighingForm] = useState(false);
+    
+    // Pdf ref & loader
+    const chartsRef = useRef<HTMLDivElement>(null);
+    const [exportingPdf, setExportingPdf] = useState(false);
 
     const fetchPotreradasData = async () => {
         if (!fincaId) return;
@@ -635,152 +640,121 @@ export default function Potreradas() {
         setShowWeighingForm(true);
     };
 
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         if (!detailData) return;
-        
-        const doc = new jsPDF('p', 'mm', 'letter');
-        const p = detailData.potrerada;
-        const fechaDoc = format(new Date(), 'dd/MM/yyyy HH:mm');
-        const usableWidth = 196; 
-        const marginX = 10;
+        setExportingPdf(true);
+        try {
+            const doc = new jsPDF('l', 'mm', 'letter');
+            const p = detailData.potrerada;
+            const fechaDoc = format(new Date(), 'dd/MM/yyyy HH:mm');
+            const marginX = 14;
+            let currentY = 20;
 
-        // Título y Cabecera
-        doc.setFontSize(18);
-        doc.setTextColor(40, 40, 40);
-        doc.text(`Informe de Potrerada: ${p.nombre}`, marginX, 20);
-        
-        doc.setFontSize(9);
-        doc.setTextColor(100);
-        doc.text(`Agrogestión v3.0 - Generado: ${fechaDoc}`, marginX, 25);
+            // Título y Cabecera
+            doc.setFontSize(22);
+            doc.setTextColor(40, 40, 40);
+            doc.text(`Informe de Desempeño: ${p.nombre}`, marginX, currentY);
+            currentY += 8;
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Agrogestión v3.0 - Generado: ${fechaDoc}`, marginX, currentY);
+            currentY += 12;
 
-        // Bloque de Resumen
-        doc.setFillColor(245, 247, 249);
-        doc.rect(marginX, 30, usableWidth, 22, 'F');
-        
-        doc.setFontSize(9);
-        doc.setTextColor(80);
-        doc.setFont('helvetica', 'bold');
-        doc.text('RESUMEN DEL LOTE', marginX + 4, 36);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text(`Etapa: ${p.etapa.toUpperCase()}`, marginX + 4, 42);
-        doc.text(`Potrero Actual: ${detailData.potreroActual}`, marginX + 4, 47);
-        
-        doc.text(`Total Animales: ${detailData.animales.length}`, marginX + 66, 42);
-        doc.text(`GMP Promedio: ${detailData.gmpPromedioGrupo.toFixed(2)} kg/mes`, marginX + 66, 47);
-        
-        doc.text(`Finca: ${detailData.potrerada.nombre}`, marginX + 130, 42);
-        doc.text(`Estado: Activo`, marginX + 130, 47);
+            // Resumen
+            doc.setFillColor(245, 247, 249);
+            doc.rect(marginX, currentY, 252, 18, 'F');
+            doc.setFontSize(10);
+            doc.setTextColor(80);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Etapa: ${p.etapa.toUpperCase()}    |    Total Animales: ${detailData.animales.length}    |    Potrero Actual: ${detailData.potreroActual}    |    GMP Lote: ${detailData.gmpPromedioGrupo.toFixed(2)} kg/mes`, marginX + 5, currentY + 11);
+            currentY += 24;
 
-        // 1. Lógica INTELIGENTE para determinar número de columnas de la hoja
-        const totalAnimals = sortedAnimals.length;
-        let numColsPage = 1;
-        if (totalAnimals > 25 && totalAnimals <= 50) numColsPage = 2;
-        else if (totalAnimals > 50) numColsPage = 3;
-
-        // 2. Identificar fechas de pesaje (máximo 4)
-        const sortedDates = [...detailData.fechasColumnas].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-        const datesToShow = sortedDates.slice(0, 4).reverse();
-        const numDates = datesToShow.length;
-
-        // 3. Calcular anchos dinámicos
-        const spacerWidth = numColsPage > 1 ? 4 : 0;
-        const blockWidth = (usableWidth - (spacerWidth * (numColsPage - 1))) / numColsPage;
-        
-        const idWidth = numColsPage === 1 ? 8 : 6;
-        const chapetaWidth = numColsPage === 1 ? 25 : 15;
-        const gmpWidth = numColsPage === 1 ? 15 : 10;
-        const weightsTotalWidth = blockWidth - idWidth - chapetaWidth - gmpWidth;
-        const weightColWidth = weightsTotalWidth / numDates;
-
-        // 4. Preparar Datos en Matriz
-        const numRows = Math.ceil(totalAnimals / numColsPage);
-        const matrixData = [];
-
-        for (let i = 0; i < numRows; i++) {
-            const row = [];
-            for (let col = 0; col < numColsPage; col++) {
-                const animalIdx = i + (col * numRows);
-                if (animalIdx < totalAnimals) {
-                    const a = sortedAnimals[animalIdx];
-                    row.push(animalIdx + 1);
-                    row.push(a.numero_chapeta);
-                    
-                    datesToShow.forEach(fecha => {
-                        const peso = a.pesajesFiltrados?.[fecha];
-                        row.push(peso ? Math.round(peso) : '-');
-                    });
-                    
-                    row.push(a.gmp ? a.gmp.toFixed(1) : '-');
-                } else {
-                    // Celdas vacías (Id + Chapeta + Fechas + GMP)
-                    for (let n = 0; n < 3 + numDates; n++) row.push('');
+            // Añadir las gráficas si existen y se pueden capturar
+            if (chartsRef.current && detailData.history.length > 1) {
+                const canvas = await html2canvas(chartsRef.current, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#1E1E1E'
+                });
+                const imgData = canvas.toDataURL('image/png');
+                
+                const imgWidth = 250;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                // Si la imagen no cabe en la primera hoja (poco probable, pero por si acaso)
+                if (currentY + imgHeight > 200) {
+                    doc.addPage();
+                    currentY = 20;
                 }
-                if (col < numColsPage - 1) row.push(''); // Espaciador
+                
+                doc.addImage(imgData, 'PNG', marginX, currentY, imgWidth, imgHeight);
+                currentY += imgHeight + 15;
             }
-            matrixData.push(row);
-        }
 
-        const dateHeaders = datesToShow.map(f => format(new Date(f + 'T12:00:00'), 'dd/MM'));
-        
-        // Construir encabezado completo
-        let fullLineHeader: string[] = [];
-        for (let c = 0; c < numColsPage; c++) {
-            fullLineHeader = [...fullLineHeader, '#', 'Chapeta', ...dateHeaders, 'GMP'];
-            if (c < numColsPage - 1) fullLineHeader.push(' ');
-        }
-
-        // 5. Estilos de columna dinámicos
-        const dynamicColumnStyles: any = {};
-        const itemsPerBlock = 3 + numDates + (numColsPage > 1 ? 1 : 0);
-
-        for (let b = 0; b < numColsPage; b++) {
-            const startIdx = b * itemsPerBlock;
-            dynamicColumnStyles[startIdx] = { cellWidth: idWidth, halign: 'center', textColor: [150, 150, 150] };
-            dynamicColumnStyles[startIdx + 1] = { cellWidth: chapetaWidth, fontStyle: 'bold' };
+            // Datos tabla
+            const tableHead = [['#', 'Chapeta', 'Propietario', `Ingreso ${p.etapa.toUpperCase()}`, 'Peso Ingreso', 'Peso Actual']];
+            const sortedDates = [...detailData.fechasColumnas].sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
             
-            for (let d = 0; d < numDates; d++) {
-                dynamicColumnStyles[startIdx + 2 + d] = { cellWidth: weightColWidth, halign: 'right' };
-            }
+            sortedDates.forEach(fecha => {
+                tableHead[0].push(`Pesaje ${format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}`);
+            });
+            tableHead[0].push('GMP Prom. (kg/m)');
+
+            const tableBody = sortedAnimals.map((a, idx) => {
+                const row = [
+                    idx + 1,
+                    `${a.numero_chapeta}`,
+                    a.nombre_propietario || '-',
+                    a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yyyy') : '-',
+                    a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-',
+                    a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'
+                ];
+
+                sortedDates.forEach(fecha => {
+                    row.push(a.pesajesFiltrados?.[fecha] ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-');
+                });
+                
+                row.push(a.gmp ? a.gmp.toFixed(1) : '-');
+                return row;
+            });
+
+            // Footer
+            const totalKilos = detailData.animales.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
+            const pesoPromedio = totalKilos / (detailData.animales.length || 1);
             
-            // Columna GMP
-            dynamicColumnStyles[startIdx + 2 + numDates] = { cellWidth: gmpWidth, halign: 'center', fontStyle: 'bold' };
-            
-            // Espaciador si no es la última columna de la página
-            if (b < numColsPage - 1) {
-                dynamicColumnStyles[startIdx + 3 + numDates] = { cellWidth: spacerWidth, fillColor: [255, 255, 255], lineWidth: 0 };
-            }
+            const rowFooter = Array(tableHead[0].length).fill('');
+            rowFooter[4] = `Promedio Lote:`;
+            rowFooter[5] = `${Math.round(pesoPromedio)} kg`; 
+
+            autoTable(doc, {
+                startY: currentY,
+                head: tableHead,
+                body: tableBody,
+                foot: [rowFooter],
+                theme: 'striped',
+                headStyles: { fillColor: [46, 125, 50], fontSize: 8, halign: 'center' },
+                footStyles: { fillColor: [240, 240, 240], textColor: [40, 40, 40], fontSize: 8, fontStyle: 'bold' },
+                styles: { fontSize: 7, halign: 'center', valign: 'middle' },
+                columnStyles: {
+                    0: { cellWidth: 10 },
+                    1: { halign: 'left', fontStyle: 'bold' },
+                    2: { halign: 'left' }
+                }
+            });
+
+            const finalY = (doc as any).lastAutoTable.finalY + 10;
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Agrogestión v3.0 - Página 1`, 260, finalY, { align: 'right' });
+
+            doc.save(`Potrerada_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+        } catch (error) {
+            console.error("Error al generar PDF:", error);
+            alert("Hubo un error al exportar el informe.");
+        } finally {
+            setExportingPdf(false);
         }
-
-        autoTable(doc, {
-            startY: 58,
-            head: [fullLineHeader],
-            body: matrixData,
-            theme: 'grid',
-            headStyles: { 
-                fillColor: [46, 125, 50], 
-                fontSize: numColsPage === 1 ? 8 : 7, 
-                halign: 'center',
-                cellPadding: 1.5
-            },
-            styles: { 
-                fontSize: numColsPage === 1 ? 8.5 : 7.5, 
-                cellPadding: 1.5,
-                valign: 'middle',
-                overflow: 'hidden'
-            },
-            columnStyles: dynamicColumnStyles,
-            margin: { left: marginX, right: marginX }
-        });
-
-        const finalY = (doc as any).lastAutoTable.finalY + 10;
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text(`Nota: Se muestran las últimas ${numDates} fechas de pesaje. Pesos en kg.`, marginX, finalY);
-        doc.text(`Agrogestión v3.0 | Página 1 de 1`, 160, finalY);
-
-        doc.save(`Potrerada_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
     };
 
     const handleSaveWeighings = async () => {
@@ -1212,8 +1186,9 @@ export default function Potreradas() {
                                                     <span className="mobile-hide">Nuevo Pesaje</span>
                                                 </button>
                                             )}
-                                            <button
+                                            <button 
                                                 onClick={handleExportPDF}
+                                                disabled={exportingPdf}
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: '6px',
                                                     background: 'rgba(255, 255, 255, 0.05)',
@@ -1223,8 +1198,8 @@ export default function Potreradas() {
                                                     fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer'
                                                 }}
                                             >
-                                                <Download size={15} />
-                                                <span className="mobile-hide">Descargar PDF</span>
+                                                {exportingPdf ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
+                                                <span className="mobile-hide">{exportingPdf ? 'Exportando...' : 'Descargar PDF'}</span>
                                             </button>
                                             <button onClick={() => setSelectedDetailId(null)} className="btn-icon">
                                                 <X size={20} />
@@ -1237,7 +1212,7 @@ export default function Potreradas() {
                                 <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
                                     
                                     {/* Gráficas Responsive */}
-                                    <div className="responsive-grid" style={{ marginBottom: '24px' }}>
+                                    <div className="responsive-grid" style={{ marginBottom: '24px' }} ref={chartsRef}>
                                         <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
                                             <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</h4>
                                             {detailData.history.length > 1 ? (
