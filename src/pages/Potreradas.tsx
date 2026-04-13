@@ -502,9 +502,25 @@ export default function Potreradas() {
                 });
 
                 const lastP = registros[0];
-                const hasGmp = lastP?.gmp_calculada !== null && lastP?.gmp_calculada !== undefined;
-                const gdp = lastP?.gdp_calculada || 0;
-                const gmp = hasGmp ? Number(lastP.gmp_calculada) : (gdp ? gdp * 30 : 0);
+                let gmp = 0;
+                let gdp = 0;
+                let hasCalculatedGmp = false;
+
+                if (lastP && fechaIngresoEtapa && pesoIngresoEtapa) {
+                    const startWeight = Number(pesoIngresoEtapa);
+                    const endWeight = Number(lastP.peso);
+                    const startDate = new Date(fechaIngresoEtapa + 'T12:00:00');
+                    const endDate = new Date(lastP.fecha + 'T12:00:00');
+                    
+                    const totalGain = endWeight - startWeight;
+                    const totalDays = differenceInDays(endDate, startDate);
+
+                    if (totalDays > 0) {
+                        gdp = totalGain / totalDays;
+                        gmp = gdp * 30;
+                        hasCalculatedGmp = true;
+                    }
+                }
 
                 return {
                     id: a.id,
@@ -517,7 +533,7 @@ export default function Potreradas() {
                     fechaIngresoEtapa: fechaIngresoEtapa,
                     pesoIngresoEtapa: pesoIngresoEtapa,
                     pesajesFiltrados: pesajesMap,
-                    hasCalculatedGmp: hasGmp || registros.length > 1
+                    hasCalculatedGmp: hasCalculatedGmp
                 };
             });
 
