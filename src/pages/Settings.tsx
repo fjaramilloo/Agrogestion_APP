@@ -99,6 +99,16 @@ export default function Settings() {
 
 
 
+    const formatNumber = (val: string) => {
+        if (!val) return '';
+        const clean = val.toString().replace(/\D/g, '');
+        return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    };
+
+    const unformatNumber = (val: string) => {
+        return val.replace(/\D/g, '');
+    };
+
     // Filtrar fincas donde el usuario es administrador
     const fincasAdmin = userFincas.filter(f => f.rol === 'administrador' || isSuperAdmin);
 
@@ -1207,9 +1217,9 @@ export default function Settings() {
                                                 <div style={{ position: 'relative' }}>
                                                     <span style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>$</span>
                                                     <input 
-                                                        type="number" 
-                                                        value={farmInfo.precio_compra_promedio} 
-                                                        onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: e.target.value })} 
+                                                        type="text" 
+                                                        value={formatNumber(farmInfo.precio_compra_promedio)} 
+                                                        onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: unformatNumber(e.target.value) })} 
                                                         style={{ paddingLeft: '32px' }}
                                                     />
                                                 </div>
@@ -1219,9 +1229,9 @@ export default function Settings() {
                                                 <div style={{ position: 'relative' }}>
                                                     <span style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>$</span>
                                                     <input 
-                                                        type="number" 
-                                                        value={farmInfo.precio_venta_promedio} 
-                                                        onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: e.target.value })} 
+                                                        type="text" 
+                                                        value={formatNumber(farmInfo.precio_venta_promedio)} 
+                                                        onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: unformatNumber(e.target.value) })} 
                                                         style={{ paddingLeft: '32px' }}
                                                     />
                                                 </div>
@@ -1231,9 +1241,9 @@ export default function Settings() {
                                                 <div style={{ position: 'relative' }}>
                                                     <span style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>$</span>
                                                     <input 
-                                                        type="number" 
-                                                        value={farmInfo.costo_mensual_animal} 
-                                                        onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: e.target.value })} 
+                                                        type="text" 
+                                                        value={formatNumber(farmInfo.costo_mensual_animal)} 
+                                                        onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: unformatNumber(e.target.value) })} 
                                                         style={{ paddingLeft: '32px' }}
                                                     />
                                                 </div>
