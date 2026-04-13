@@ -680,20 +680,23 @@ export default function Potreradas() {
             let currentY = 18;
 
             // --- HEADER ORGANIZATION ---
+            const etapaStr = detailData.animales.length > 0 ? (detailData.animales[0].etapa || '').toUpperCase() : 'N/A';
+
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            doc.setTextColor(120);
-            doc.text(`Agrogestión | Finca: ${detailData.fincaNombre}`, marginX, currentY);
+            doc.setFontSize(14);
+            doc.setTextColor(60, 60, 60);
             
-            doc.text(`Fecha: ${fechaDoc}`, 265, currentY, { align: 'right' });
+            // Línea 1
+            doc.text(`FINCA ${detailData.fincaNombre.toUpperCase()}`, marginX, currentY);
+            doc.text(`FECHA: ${fechaDoc}`, 265, currentY, { align: 'right' });
             
             currentY += 8;
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(22);
-            doc.setTextColor(30);
-            doc.text(`Reporte de Desempeño: ${p.nombre}`, marginX, currentY);
+            
+            // Línea 2
+            doc.text(`Lote: ${p.nombre}`, marginX, currentY);
+            doc.text(`Etapa: ${etapaStr}`, 265, currentY, { align: 'right' });
 
-            currentY += 10;
+            currentY += 12;
 
             // --- 5 INDEPENDENT BOXES (Dashboard Style) ---
             const boxesCount = 5;
