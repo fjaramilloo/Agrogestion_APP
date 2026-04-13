@@ -86,6 +86,8 @@ export default function Potreradas() {
         fechasColumnas: string[];
         gmpPromedioGrupo: number;
         history: ChartData[];
+        diasPotreroActual: number | null;
+        fincaNombre: string;
     } | null>(null);
 
     // Estado para ordenamiento en el detalle
@@ -480,9 +482,24 @@ export default function Potreradas() {
 
             if (animErr) throw animErr;
 
+            // 1.5 Obtener nombre Finca
+            const { data: qFinca } = await supabase.from('fincas').select('nombre').eq('id', fincaId).single();
+            const fincaNombre = qFinca?.nombre || 'Finca Sin Nombre';
+
             // 2. Obtener el potrero actual de la potrerada (del último movimiento o de los animales)
             const firstAnimal = animals && animals.length > 0 ? (animals[0] as any) : null;
             const potreroName = firstAnimal?.potreros?.nombre || 'Sin potrero asignado';
+            
+            // 2.1 Obtener los días en el potrero actual (si está activo en movimiento)
+            const { data: movs } = await supabase.from('movimientos_potreros')
+                .select('fecha_entrada')
+                .eq('id_potrerada', p.id)
+                .is('fecha_salida', null)
+                .maybeSingle();
+
+            const diasPotreroActual = movs?.fecha_entrada 
+                ? differenceInDays(new Date(), new Date(movs.fecha_entrada + 'T12:00:00')) 
+                : null;
 
             // 3. Procesar animales y sus métricas
             const processedAnimals: AnimalPotrero[] = (animals || []).map((a: any) => {
@@ -597,7 +614,9 @@ export default function Potreradas() {
                 animales: processedAnimals,
                 fechasColumnas: fechasColumnas,
                 gmpPromedioGrupo: avgGmp,
-                history
+                history,
+                diasPotreroActual,
+                fincaNombre
             });
 
         } catch (error: any) {
@@ -653,29 +672,89 @@ export default function Potreradas() {
         try {
             const doc = new jsPDF('l', 'mm', 'letter');
             const p = detailData.potrerada;
-            const fechaDoc = format(new Date(), 'dd/MM/yyyy HH:mm');
+            const fechaDoc = format(new Date(), 'dd/MM/yyyy');
             const marginX = 14;
-            let currentY = 20;
+            let currentY = 18;
 
-            // Título y Cabecera
-            doc.setFontSize(22);
-            doc.setTextColor(40, 40, 40);
-            doc.text(`Informe de Desempeño: ${p.nombre}`, marginX, currentY);
-            currentY += 8;
-            
-            doc.setFontSize(10);
-            doc.setTextColor(100);
-            doc.text(`Agrogestión v3.0 - Generado: ${fechaDoc}`, marginX, currentY);
-            currentY += 12;
-
-            // Resumen
-            doc.setFillColor(245, 247, 249);
-            doc.rect(marginX, currentY, 252, 18, 'F');
-            doc.setFontSize(10);
-            doc.setTextColor(80);
+            // --- HEADER ORGANIZATION ---
             doc.setFont('helvetica', 'normal');
-            doc.text(`Etapa: ${p.etapa.toUpperCase()}    |    Total: ${detailData.animales.length} cabezas    |    Potrero: ${detailData.potreroActual || '-'}    |    GMP Acum: ${detailData.gmpPromedioGrupo.toFixed(2)} kg/m    |    Último GMP: ${p.gmpPromedio.toFixed(2)} kg/m`, marginX + 5, currentY + 11);
-            currentY += 24;
+            doc.setFontSize(9);
+            doc.setTextColor(120);
+            doc.text(`Agrogestión | Finca: ${detailData.fincaNombre}`, marginX, currentY);
+            
+            doc.text(`Fecha: ${fechaDoc}`, 265, currentY, { align: 'right' });
+            
+            currentY += 8;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(22);
+            doc.setTextColor(30);
+            doc.text(`Reporte de Desempeño: ${p.nombre.toUpperCase()}`, marginX, currentY);
+
+            currentY += 10;
+
+            // --- 4 INDEPENDENT BOXES (Dashboard Style) ---
+            const boxWidth = 58;
+            const boxHeight = 22;
+            const gap = (doc.internal.pageSize.width - (marginX * 2) - (boxWidth * 4)) / 3;
+
+            const drawBox = (x: number, y: number, title: string, value: string, subtitle: string, valueColor: number[]) => {
+                // Box background & border
+                doc.setFillColor(252, 253, 254);
+                doc.setDrawColor(220, 224, 228);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(x, y, boxWidth, boxHeight, 2, 2, 'FD');
+
+                // Titulillo
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor(130);
+                doc.text(title.toUpperCase(), x + boxWidth / 2, y + 6, { align: 'center' });
+
+                // Valor Grande
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(16);
+                doc.setTextColor(valueColor[0], valueColor[1], valueColor[2]);
+                doc.text(value, x + boxWidth / 2, y + 15, { align: 'center' });
+
+                // Subtitulillo
+                if (subtitle) {
+                    doc.setFontSize(7);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(150);
+                    doc.text(subtitle, x + boxWidth / 2, y + 19, { align: 'center' });
+                }
+            };
+
+            // Colores Semáforo dinámicos
+            let lastGmpColor = [40, 40, 40];
+            if (p.gmpPromedio > umbralAlto) lastGmpColor = [76, 175, 80];
+            else if (p.gmpPromedio > umbralMedio) lastGmpColor = [255, 152, 0];
+            else lastGmpColor = [244, 67, 54];
+
+            let acumGmpColor = [40, 40, 40];
+            if (detailData.gmpPromedioGrupo > umbralAlto) acumGmpColor = [76, 175, 80];
+            else if (detailData.gmpPromedioGrupo > umbralMedio) acumGmpColor = [255, 152, 0];
+            else acumGmpColor = [244, 67, 54];
+
+            let xPos = marginX;
+            
+            // Caja 1: Animales
+            drawBox(xPos, currentY, 'TOTAL ANIMALES', `${detailData.animales.length}`, 'CABEZAS', [40, 40, 40]);
+            xPos += boxWidth + gap;
+
+            // Caja 2: Ubicación
+            const diasTxt = detailData.diasPotreroActual !== null ? `${detailData.diasPotreroActual} d` : '-';
+            drawBox(xPos, currentY, 'UBICACIÓN', diasTxt, detailData.potreroActual, [40, 40, 40]);
+            xPos += boxWidth + gap;
+
+            // Caja 3: Último GMP
+            drawBox(xPos, currentY, 'ÚLTIMO GMP (MES)', `${p.gmpPromedio.toFixed(1)} kg`, '', lastGmpColor);
+            xPos += boxWidth + gap;
+
+            // Caja 4: Histórico
+            drawBox(xPos, currentY, 'GMP HISTÓRICO LOTE', `${detailData.gmpPromedioGrupo.toFixed(1)} kg`, 'ACUMULADO', acumGmpColor);
+
+            currentY += boxHeight + 12;
 
             // Añadir las gráficas si existen y se pueden capturar
             if (chartsRef.current && detailData.history.length > 1) {
