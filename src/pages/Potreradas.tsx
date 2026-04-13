@@ -680,24 +680,49 @@ export default function Potreradas() {
             const marginX = 14;
             let currentY = 18;
 
-            // --- HEADER ORGANIZATION ---
-            const etapaStr = (p.etapa || '').toUpperCase();
+            // --- HEADER ORGANIZATION (Encased in a Card) ---
+            const etapaStr = p.etapa || 'N/A';
+            const headerBoxW = doc.internal.pageSize.width - (marginX * 2);
+            const headerBoxH = 20;
+            
+            // Draw Background Card for Header
+            doc.setFillColor(252, 253, 254);
+            doc.setDrawColor(220, 224, 228);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(marginX, currentY - 6, headerBoxW, headerBoxH, 2, 2, 'FD');
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(14);
+            doc.setFontSize(11);
             doc.setTextColor(60, 60, 60);
             
-            // Línea 1
-            doc.text(`FINCA ${detailData.fincaNombre.toUpperCase()}`, marginX, currentY);
-            doc.text(`FECHA: ${fechaDoc}`, 265, currentY, { align: 'right' });
-            
-            currentY += 8;
-            
-            // Línea 2
-            doc.text(`Lote: ${p.nombre}`, marginX, currentY);
-            doc.text(`Etapa: ${etapaStr}`, 265, currentY, { align: 'right' });
+            // Texto dentro del card
+            const textPadding = 6;
+            const topRowY = currentY + 1;
+            const bottomRowY = currentY + 9;
 
-            currentY += 12;
+            // Línea 1 (Finca y Fecha)
+            doc.setFont('helvetica', 'bold');
+            doc.text('Finca:', marginX + textPadding, topRowY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(detailData.fincaNombre, marginX + textPadding + 13, topRowY);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Fecha:', doc.internal.pageSize.width - marginX - textPadding - 35, topRowY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(fechaDoc, doc.internal.pageSize.width - marginX - textPadding, topRowY, { align: 'right' });
+            
+            // Línea 2 (Lote y Etapa)
+            doc.setFont('helvetica', 'bold');
+            doc.text('Lote:', marginX + textPadding, bottomRowY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(p.nombre, marginX + textPadding + 11, bottomRowY);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Etapa:', doc.internal.pageSize.width - marginX - textPadding - 35, bottomRowY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(etapaStr, doc.internal.pageSize.width - marginX - textPadding, bottomRowY, { align: 'right' });
+
+            currentY += 22;
 
             // --- 5 INDEPENDENT BOXES (Dashboard Style) ---
             const boxesCount = 5;
