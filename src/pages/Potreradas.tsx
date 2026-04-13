@@ -674,7 +674,7 @@ export default function Potreradas() {
             doc.setFontSize(10);
             doc.setTextColor(80);
             doc.setFont('helvetica', 'normal');
-            doc.text(`Etapa: ${p.etapa.toUpperCase()}    |    Total Animales: ${detailData.animales.length}    |    Potrero Actual: ${detailData.potreroActual}    |    GMP Lote: ${detailData.gmpPromedioGrupo.toFixed(2)} kg/mes`, marginX + 5, currentY + 11);
+            doc.text(`Etapa: ${p.etapa.toUpperCase()}    |    Total: ${detailData.animales.length} cabezas    |    Potrero: ${detailData.potreroActual || '-'}    |    GMP Acum: ${detailData.gmpPromedioGrupo.toFixed(2)} kg/m    |    Último GMP: ${p.gmpPromedio.toFixed(2)} kg/m`, marginX + 5, currentY + 11);
             currentY += 24;
 
             // Añadir las gráficas si existen y se pueden capturar
@@ -747,6 +747,21 @@ export default function Potreradas() {
                     0: { cellWidth: 10 },
                     1: { halign: 'left', fontStyle: 'bold' },
                     2: { halign: 'left' }
+                },
+                didParseCell: function(data) {
+                    if (data.section === 'body' && data.column.index === tableHead[0].length - 1) {
+                        const val = parseFloat(data.cell.raw as string);
+                        if (!isNaN(val)) {
+                            data.cell.styles.fontStyle = 'bold';
+                            if (val > umbralAlto) {
+                                data.cell.styles.textColor = [76, 175, 80]; // Verde (success)
+                            } else if (val > umbralMedio) {
+                                data.cell.styles.textColor = [255, 152, 0]; // Naranja (warning)
+                            } else {
+                                data.cell.styles.textColor = [244, 67, 54]; // Rojo (error)
+                            }
+                        }
+                    }
                 }
             });
 
