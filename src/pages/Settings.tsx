@@ -97,13 +97,7 @@ export default function Settings() {
         consumo_dia_potrero: '50'
     });
 
-    const formatCurrency = (val: string | number) => {
-        return new Intl.NumberFormat('es-CO', { 
-            style: 'currency', 
-            currency: 'COP', 
-            maximumFractionDigits: 0 
-        }).format(Number(val) || 0);
-    };
+
 
     // Filtrar fincas donde el usuario es administrador
     const fincasAdmin = userFincas.filter(f => f.rol === 'administrador' || isSuperAdmin);
