@@ -252,17 +252,28 @@ export default function Potreradas() {
                             validGmpLastCount++;
                         }
 
-                        // 2. GMP Acumulado (Primer pesaje vs Último pesaje)
-                        const earliestP = registros[registros.length - 1]; // El más antiguo registrado
-                        // Si solo hay un registro, comparamos contra el ingreso a la finca
-                        const startWeight = registros.length > 1 ? earliestP.peso : pesoBase;
-                        const startDate = registros.length > 1 ? new Date(earliestP.fecha) : new Date(a.fecha_ingreso);
-                        const endDate = new Date(lastP.fecha);
+                        // 2. GMP Acumulado (Ingreso Etapa/Finca vs Último pesaje)
+                        let startWeight = pesoBase;
+                        let startDate = new Date(a.fecha_ingreso + 'T12:00:00');
+
+                        if (p.etapa === 'ceba') {
+                            const registrosEtapa = registros.filter((r: any) => r.etapa?.toLowerCase() === 'ceba')
+                                .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+                            
+                            const cebaStartDate = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
+                            const cebaStartWeight = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? pesoBase : null));
+                            
+                            if (cebaStartDate && cebaStartWeight) {
+                                startDate = new Date(cebaStartDate + 'T12:00:00');
+                                startWeight = Number(cebaStartWeight);
+                            }
+                        }
+
+                        const endDate = new Date(lastP.fecha + 'T12:00:00');
+                        const totalGain = Number(lastP.peso) - Number(startWeight);
+                        const totalDays = differenceInDays(endDate, startDate);
                         
-                        const totalGain = lastP.peso - startWeight;
-                        const totalDays = differenceInDays(endDate, startDate) || 1;
-                        
-                        if (totalDays > 0 || registros.length > 1) {
+                        if (totalDays > 0) {
                             const gmpAcc = (totalGain / totalDays) * 30;
                             totalGmpAcc += gmpAcc;
                             validGmpAccCount++;
