@@ -23,6 +23,7 @@ interface DashboardStats {
     cargaAnimal: number;
     pesoPromedioEntrada: number;
     pesoPromedioSalida: number;
+    metaMinima?: number;
 }
 
 interface EvolucionItem {
@@ -67,7 +68,8 @@ export default function Dashboard() {
         produccionCarneHaAno: 0,
         cargaAnimal: 0,
         pesoPromedioEntrada: 360,
-        pesoPromedioSalida: 540
+        pesoPromedioSalida: 540,
+        metaMinima: 0
     });
     const [fincaInfo, setFincaInfo] = useState({
         nombre: '',
@@ -211,6 +213,22 @@ export default function Dashboard() {
                 });
             }
 
+            // 5.5 Obtener Punto de Equilibrio (Meta Mínima)
+            const { data: configKpi } = await supabase
+                .from('configuracion_kpi')
+                .select('precio_venta_promedio, costo_mensual_animal')
+                .eq('id_finca', fincaId)
+                .single();
+
+            let metaMinimaVal = 0;
+            if (configKpi) {
+                const precio = parseFloat(configKpi.precio_venta_promedio || 0);
+                const costo = parseFloat(configKpi.costo_mensual_animal || 0);
+                if (precio > 0) {
+                    metaMinimaVal = (costo / 0.6) / precio;
+                }
+            }
+
             if (animales && animales.length > 0) {
                 let totalDiasLevante = 0;
                 let countLevante = 0;
@@ -306,7 +324,8 @@ export default function Dashboard() {
                         ? (totalAnimales || 0) / finca.area_aprovechable
                         : 0,
                     pesoPromedioEntrada: pesoEntradaFinal,
-                    pesoPromedioSalida: pesoSalidaFinal
+                    pesoPromedioSalida: pesoSalidaFinal,
+                    metaMinima: metaMinimaVal
                 });
 
                 setRawData({
@@ -800,6 +819,12 @@ export default function Dashboard() {
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
                                     <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--success)' }}>{stats.gmpLevante.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>
+                                {stats.metaMinima && stats.metaMinima > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
+                                        <span style={{ fontSize: '0.75rem', fontStyle: 'italic' }}>Meta Mínima</span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.metaMinima.toFixed(1)} kg</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -817,6 +842,12 @@ export default function Dashboard() {
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
                                     <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--success)' }}>{stats.gmpCeba.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>
+                                {stats.metaMinima && stats.metaMinima > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
+                                        <span style={{ fontSize: '0.75rem', fontStyle: 'italic' }}>Meta Mínima</span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.metaMinima.toFixed(1)} kg</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
