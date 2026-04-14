@@ -1250,6 +1250,37 @@ export default function Settings() {
                                             </div>
                                         </div>
 
+                                        {/* KPI Dinámico de Punto de Equilibrio */}
+                                        <div style={{ 
+                                            background: 'rgba(76, 175, 80, 0.1)', 
+                                            border: '1px solid rgba(76, 175, 80, 0.2)', 
+                                            borderRadius: '12px', 
+                                            padding: '20px', 
+                                            marginBottom: '24px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            textAlign: 'center',
+                                            gap: '8px',
+                                            animation: 'pulse 2s infinite'
+                                        }}>
+                                            <div style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                                Punto de Equilibrio Estimado
+                                            </div>
+                                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'white' }}>
+                                                {(() => {
+                                                    const costo = parseFloat(farmInfo.costo_mensual_animal) || 0;
+                                                    const precio = parseFloat(farmInfo.precio_venta_promedio) || 0;
+                                                    if (precio === 0) return '0.0';
+                                                    return ((costo / 0.6) / precio).toFixed(1);
+                                                })()}
+                                                <span style={{ fontSize: '1rem', color: 'var(--text-muted)', marginLeft: '8px' }}>Kg/Mes</span>
+                                            </div>
+                                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '400px' }}>
+                                                Este es el adelanto mensual mínimo que requiere cada animal para cubrir sus costos directos e indirectos.
+                                            </p>
+                                        </div>
+
                                         <h4 style={{ color: 'white', marginBottom: '16px', fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>Umbrales (Semáforo GMP)</h4>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                                             <div>
