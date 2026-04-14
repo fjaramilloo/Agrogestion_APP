@@ -151,7 +151,7 @@ export default function Dashboard() {
             const { data: todosAnimales } = await supabase
                 .from('animales')
                 .select(`
-                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, nombre_propietario, estado, fecha_muerte, id_potrerada,
+                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado, fecha_muerte, id_potrerada,
                     potreros ( nombre ),
                     potreradas ( nombre ),
                     registros_pesaje (
@@ -255,26 +255,34 @@ export default function Dashboard() {
                         countCeba++;
                     }
 
-                    // KPI: Ganancia Mensual Promedio (GMP)
+                    // KPI: Ganancia Mensual Promedio (GMP) por Etapa
                     const misPesajes = pesajesMap[animal.id] || [];
 
                     if (misPesajes.length > 0) {
                         const ultimoPesaje = misPesajes[misPesajes.length - 1];
-                        const diffDiasTotal = differenceInDays(new Date(ultimoPesaje.fecha), new Date(animal.fecha_ingreso));
+                        let fechaBase = animal.fecha_ingreso;
+                        let pesoBase = parseFloat(animal.peso_compra ?? animal.peso_ingreso || 0);
 
-                        if (diffDiasTotal > 0) {
-                            const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
-                            const gananciaTotal = ultimoPesaje.peso - pesoBase;
-                            const gdpTotal = gananciaTotal / diffDiasTotal;
+                        if (animal.etapa === 'ceba') {
+                            // Si está en ceba, intentamos usar los datos de entrada a esa etapa
+                            fechaBase = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
+                            pesoBase = parseFloat(animal.peso_ingreso_ceba ?? (animal.peso_compra ?? animal.peso_ingreso) || 0);
+                        }
 
-                            gdpSumaTotal += gdpTotal;
+                        const diffDiasEtapa = differenceInDays(new Date(ultimoPesaje.fecha), new Date(fechaBase));
+
+                        if (diffDiasEtapa > 0) {
+                            const gananciaEtapa = ultimoPesaje.peso - pesoBase;
+                            const gdpEtapa = gananciaEtapa / diffDiasEtapa;
+
+                            gdpSumaTotal += gdpEtapa;
                             countGdpTotal++;
 
                             if (animal.etapa === 'levante') {
-                                gdpSumaLevante += gdpTotal;
+                                gdpSumaLevante += gdpEtapa;
                                 countGdpLevante++;
                             } else if (animal.etapa === 'ceba') {
-                                gdpSumaCeba += gdpTotal;
+                                gdpSumaCeba += gdpEtapa;
                                 countGdpCeba++;
                             }
                         }
