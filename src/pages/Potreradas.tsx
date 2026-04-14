@@ -934,7 +934,7 @@ export default function Potreradas() {
             doc.setTextColor(150);
             doc.text(`Agrogestión v3.0 - Página 1`, 260, finalY, { align: 'right' });
 
-            doc.save(`Potrerada_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+            doc.save(`Informe_Lote_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
         } catch (error) {
             console.error("Error al generar PDF:", error);
             alert("Hubo un error al exportar el informe.");
