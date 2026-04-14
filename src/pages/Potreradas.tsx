@@ -89,6 +89,7 @@ export default function Potreradas() {
         history: ChartData[];
         diasPotreroActual: number | null;
         areaPotreroActual: number | null;
+        areaTotalSistema: number | null;
         fincaNombre: string;
     } | null>(null);
 
@@ -507,6 +508,19 @@ export default function Potreradas() {
             const diasPotreroActual = movs?.fecha_entrada 
                 ? differenceInDays(new Date(), new Date(movs.fecha_entrada + 'T12:00:00')) 
                 : null;
+            
+            // 2.2 Calcular Área Global del Sistema (toda la rotación)
+            let areaTotalSistema = potreroArea;
+            if (p.id_rotacion) {
+                const { data: potsRot } = await supabase
+                    .from('potreros')
+                    .select('area_hectareas')
+                    .eq('id_rotacion', p.id_rotacion);
+                
+                if (potsRot && potsRot.length > 0) {
+                    areaTotalSistema = potsRot.reduce((sum, pr) => sum + (pr.area_hectareas || 0), 0);
+                }
+            }
 
             // 3. Procesar animales y sus métricas
             const processedAnimals: AnimalPotrero[] = (animals || []).map((a: any) => {
@@ -624,6 +638,7 @@ export default function Potreradas() {
                 history,
                 diasPotreroActual,
                 areaPotreroActual: potreroArea,
+                areaTotalSistema,
                 fincaNombre
             });
 
@@ -798,12 +813,12 @@ export default function Potreradas() {
             drawBox(xPos, currentY, 'TIEMPO EN POTRERO', diasTxt, detailData.potreroActual, [40, 40, 40]);
             xPos += boxWidth + colGap;
 
-            // Caja 3: Carga Animal
+            // Caja 3: Carga Global
             const numAnimales = detailData.animales.length;
-            const cargaAnimalStr = detailData.areaPotreroActual && detailData.areaPotreroActual > 0 
-                ? (numAnimales / detailData.areaPotreroActual).toFixed(2)
+            const cargaGlobalStr = detailData.areaTotalSistema && detailData.areaTotalSistema > 0 
+                ? (numAnimales / detailData.areaTotalSistema).toFixed(2)
                 : '-';
-            drawBox(xPos, currentY, 'CARGA ANIMAL', cargaAnimalStr, 'Cabezas / Hectarea', [40, 40, 40]);
+            drawBox(xPos, currentY, 'CARGA GLOBAL', cargaGlobalStr, 'Cabezas / Ha (Sistema)', [40, 40, 40]);
 
             currentY += boxHeight + rowGap;
 
