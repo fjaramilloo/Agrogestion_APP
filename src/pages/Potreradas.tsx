@@ -818,7 +818,7 @@ export default function Potreradas() {
             xPos += boxWidth + colGap;
 
             // Caja 6: Punto de Equilibrio
-            drawBox(xPos, currentY, 'PUNTO DE EQUILIBRIO', `${peKgMes.toFixed(1)} kg`, 'Meta mínima mensual', [40, 40, 40]);
+            drawBox(xPos, currentY, 'PUNTO DE EQUILIBRIO', `${peKgMes.toFixed(1)} kg`, 'GMP por animal', [40, 40, 40]);
 
             currentY += boxHeight + 12;
 
