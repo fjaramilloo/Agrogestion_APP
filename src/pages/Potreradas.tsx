@@ -25,6 +25,7 @@ interface Potrerada {
     id_rotacion: string | null;
     rotacionNombre: string | null;
     potreroActualNombre: string | null;
+    cargaGlobal: number;
 }
 
 interface AnimalPotrero {
@@ -145,6 +146,22 @@ export default function Potreradas() {
                 .eq('id_finca', fincaId)
                 .is('fecha_salida', null)
                 .order('fecha_entrada', { ascending: false });
+
+            // 1.7 Obtener áreas de potreros para cálculo de Carga Global por rotación
+            const { data: potrerosData } = await supabase
+                .from('potreros')
+                .select('id_rotacion, area_hectareas')
+                .eq('id_finca', fincaId);
+
+            const areaRotacionMap = new Map<string, number>();
+            if (potrerosData) {
+                potrerosData.forEach(pot => {
+                    if (pot.id_rotacion) {
+                        const current = areaRotacionMap.get(pot.id_rotacion) || 0;
+                        areaRotacionMap.set(pot.id_rotacion, current + (pot.area_hectareas || 0));
+                    }
+                });
+            }
 
             // Mapear potrerada_id → nombre del potrero actual
             const potreroActualMap = new Map<string, string>();
@@ -311,7 +328,10 @@ export default function Potreradas() {
                     marcas: Array.from(new Set(groupAnimals.map((a: any) => a.nombre_propietario).filter(Boolean))).sort() as string[],
                     id_rotacion: p.id_rotacion,
                     rotacionNombre: p.id_rotacion ? (rotacionNombreMap.get(p.id_rotacion) || null) : null,
-                    potreroActualNombre: potreroActualMap.get(p.id) || null
+                    potreroActualNombre: potreroActualMap.get(p.id) || null,
+                    cargaGlobal: (p.id_rotacion && areaRotacionMap.get(p.id_rotacion)) 
+                        ? (groupAnimals.length / (areaRotacionMap.get(p.id_rotacion) || 1)) 
+                        : 0
                 };
             });
 
@@ -1084,9 +1104,16 @@ export default function Potreradas() {
                                         </div>
                                     </td>
                                     <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                            <Users size={14} className="mobile-hide" />
-                                            <span>{p.animalCount}</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Users size={14} className="mobile-hide" />
+                                                <span style={{ fontWeight: '600' }}>{p.animalCount}</span>
+                                            </div>
+                                            {p.cargaGlobal > 0 && (
+                                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                    {p.cargaGlobal.toFixed(2)} C/Ha
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right' }}>
@@ -1353,6 +1380,11 @@ export default function Potreradas() {
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                                                     <TrendingUp size={14} color="var(--success)" /> <span className="mobile-hide">GMP:</span> <strong style={{color: 'var(--success)'}}>{detailData.gmpPromedioGrupo.toFixed(1)}</strong>
                                                 </div>
+                                                {detailData.potrerada.cargaGlobal > 0 && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                                                        <Scale size={14} color="var(--warning)" /> <span className="mobile-hide">Carga Global:</span> <strong style={{color: 'var(--text)'}}>{detailData.potrerada.cargaGlobal.toFixed(2)} C/Ha</strong>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
