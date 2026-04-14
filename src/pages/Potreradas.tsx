@@ -679,6 +679,18 @@ export default function Potreradas() {
         setExportingPdf(true);
         try {
             const doc = new jsPDF('l', 'mm', 'letter');
+
+            // 0. Obtener configuración para el Punto de Equilibrio
+            const { data: configKpi } = await supabase
+                .from('configuracion_kpi')
+                .select('precio_venta_promedio, costo_mensual_animal')
+                .eq('finca_id', fincaId)
+                .single();
+
+            const precioVenta = parseFloat(configKpi?.precio_venta_promedio as any) || 0;
+            const costoMensual = parseFloat(configKpi?.costo_mensual_animal as any) || 0;
+            const peKgMes = precioVenta > 0 ? (costoMensual / 0.6) / precioVenta : 0;
+
             const p = detailData.potrerada;
             const fechaDoc = format(new Date(), 'dd/MM/yyyy');
             const marginX = 14;
@@ -728,12 +740,13 @@ export default function Potreradas() {
 
             currentY += 22;
 
-            // --- 5 INDEPENDENT BOXES (Dashboard Style) ---
-            const boxesCount = 5;
-            const boxWidth = 46;
+            // --- 6 INDEPENDENT BOXES (2 ROWS OF 3) ---
+            const boxesPerRow = 3;
+            const boxWidth = 78;
             const boxHeight = 22;
+            const rowGap = 5;
             const totalWidthAvailable = doc.internal.pageSize.width - (marginX * 2);
-            const gap = (totalWidthAvailable - (boxWidth * boxesCount)) / (boxesCount - 1);
+            const colGap = (totalWidthAvailable - (boxWidth * boxesPerRow)) / (boxesPerRow - 1);
 
             const drawBox = (x: number, y: number, title: string, value: string, subtitle: string, valueColor: number[]) => {
                 // Box background & border
@@ -744,7 +757,7 @@ export default function Potreradas() {
 
                 // Titulillo
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(7);
+                doc.setFontSize(8);
                 doc.setTextColor(130);
                 doc.text(title.toUpperCase(), x + boxWidth / 2, y + 6, { align: 'center' });
 
@@ -774,31 +787,38 @@ export default function Potreradas() {
             else if (detailData.gmpPromedioGrupo > umbralMedio) acumGmpColor = [255, 152, 0];
             else acumGmpColor = [244, 67, 54];
 
+            // FILA 1
             let xPos = marginX;
-            
             // Caja 1: Animales
-            drawBox(xPos, currentY, 'TOTAL ANIMALES', `${detailData.animales.length}`, 'CABEZAS', [40, 40, 40]);
-            xPos += boxWidth + gap;
+            drawBox(xPos, currentY, 'TOTAL ANIMALES', `${detailData.animales.length} Cabezas`, 'Población actual', [40, 40, 40]);
+            xPos += boxWidth + colGap;
 
-            // Caja 2: Ubicación
-            const diasTxt = detailData.diasPotreroActual !== null ? `${detailData.diasPotreroActual} d` : '-';
+            // Caja 2: Tiempo en Potrero
+            const diasTxt = detailData.diasPotreroActual !== null ? `${detailData.diasPotreroActual} Días` : '-';
             drawBox(xPos, currentY, 'TIEMPO EN POTRERO', diasTxt, detailData.potreroActual, [40, 40, 40]);
-            xPos += boxWidth + gap;
+            xPos += boxWidth + colGap;
 
-            // Caja 3: Último GMP
-            drawBox(xPos, currentY, 'ÚLTIMO GMP (MES)', `${p.gmpPromedio.toFixed(1)} kg`, '', lastGmpColor);
-            xPos += boxWidth + gap;
-
-            // Caja 4: Histórico
-            drawBox(xPos, currentY, 'GMP HISTÓRICO LOTE', `${detailData.gmpPromedioGrupo.toFixed(1)} kg`, 'ACUMULADO', acumGmpColor);
-            xPos += boxWidth + gap;
-
-            // Caja 5: Carga Animal (Cabezas / Ha)
+            // Caja 3: Carga Animal
             const numAnimales = detailData.animales.length;
             const cargaAnimalStr = detailData.areaPotreroActual && detailData.areaPotreroActual > 0 
                 ? (numAnimales / detailData.areaPotreroActual).toFixed(2)
                 : '-';
-            drawBox(xPos, currentY, 'CARGA ANIMAL', cargaAnimalStr, 'Cabezas / Ha', [40, 40, 40]);
+            drawBox(xPos, currentY, 'CARGA ANIMAL', cargaAnimalStr, 'Cabezas / Hectarea', [40, 40, 40]);
+
+            currentY += boxHeight + rowGap;
+
+            // FILA 2
+            xPos = marginX;
+            // Caja 4: GMP Histórico
+            drawBox(xPos, currentY, 'GMP HISTÓRICO LOTE', `${detailData.gmpPromedioGrupo.toFixed(1)} kg`, 'MES ACUMULADO', acumGmpColor);
+            xPos += boxWidth + colGap;
+
+            // Caja 5: Último GMP
+            drawBox(xPos, currentY, 'ÚLTIMO GMP (MES)', `${p.gmpPromedio.toFixed(1)} kg`, 'Muestra más reciente', lastGmpColor);
+            xPos += boxWidth + colGap;
+
+            // Caja 6: Punto de Equilibrio
+            drawBox(xPos, currentY, 'PUNTO DE EQUILIBRIO', `${peKgMes.toFixed(1)} kg`, 'Meta mínima mensual', [40, 40, 40]);
 
             currentY += boxHeight + 12;
 
@@ -858,6 +878,10 @@ export default function Potreradas() {
             const rowFooter = Array(tableHead[0].length).fill('');
             rowFooter[4] = `Promedio Lote:`;
             rowFooter[5] = `${Math.round(pesoPromedio)} kg`; 
+
+            // Forzar nueva página para la tabla de animales si la primera página ya tiene mucho contenido
+            doc.addPage();
+            currentY = 20;
 
             autoTable(doc, {
                 startY: currentY,
