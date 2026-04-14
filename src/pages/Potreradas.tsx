@@ -684,7 +684,7 @@ export default function Potreradas() {
             const { data: configKpi } = await supabase
                 .from('configuracion_kpi')
                 .select('precio_venta_promedio, costo_mensual_animal')
-                .eq('finca_id', fincaId)
+                .eq('id_finca', fincaId)
                 .single();
 
             const precioVenta = parseFloat(configKpi?.precio_venta_promedio as any) || 0;
