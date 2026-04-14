@@ -261,12 +261,12 @@ export default function Dashboard() {
                     if (misPesajes.length > 0) {
                         const ultimoPesaje = misPesajes[misPesajes.length - 1];
                         let fechaBase = animal.fecha_ingreso;
-                        let pesoBase = parseFloat(animal.peso_compra ?? animal.peso_ingreso || 0);
+                        let pesoBase = parseFloat((animal.peso_compra ?? animal.peso_ingreso) || 0);
 
                         if (animal.etapa === 'ceba') {
                             // Si está en ceba, intentamos usar los datos de entrada a esa etapa
                             fechaBase = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
-                            pesoBase = parseFloat(animal.peso_ingreso_ceba ?? (animal.peso_compra ?? animal.peso_ingreso) || 0);
+                            pesoBase = parseFloat(animal.peso_ingreso_ceba ?? (animal.peso_compra ?? animal.peso_ingreso ?? 0));
                         }
 
                         const diffDiasEtapa = differenceInDays(new Date(ultimoPesaje.fecha), new Date(fechaBase));
