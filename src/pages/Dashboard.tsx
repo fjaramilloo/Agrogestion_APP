@@ -691,8 +691,8 @@ export default function Dashboard() {
         <div className="page-container" style={{ paddingBottom: '40px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
-                    <h1 className="title" style={{ margin: 0, textAlign: 'left' }}>Indicadores de Finca</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Resumen del ciclo de ceba y levante.</p>
+                    <h1 className="title" style={{ margin: 0, textAlign: 'left' }}>Indicadores de Gestión</h1>
+                    <p style={{ color: 'var(--text-muted)' }}>Análisis integral del rendimiento productivo y financiero de su operación ganadera.</p>
                 </div>
 
                 <button
