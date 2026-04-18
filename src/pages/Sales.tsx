@@ -115,6 +115,11 @@ export default function Sales() {
 
     const isCarnicero = selectedComprador.toLowerCase().includes('carnicero');
 
+    const formatCurrency = (val: string) => {
+        if (!val) return '';
+        return Number(val).toLocaleString('es-CO');
+    };
+
     const updateAnimalField = (index: number, field: keyof AnimalVenta, value: string) => {
         const newAnimales = [...animales];
         const a = { ...newAnimales[index], [field]: value };
@@ -633,14 +638,21 @@ export default function Sales() {
                                     </td>
                                     {isCarnicero && (
                                         <td style={{ padding: '8px 16px' }}>
-                                            <input
-                                                type="number"
-                                                placeholder="Precio Venta"
-                                                value={a.precio_venta || ''}
-                                                onChange={e => updateAnimalField(index, 'precio_venta', e.target.value)}
-                                                style={{ marginBottom: 0, padding: '10px', border: '1px solid var(--error)' }}
-                                                required={isCarnicero}
-                                            />
+                                            <div style={{ position: 'relative' }}>
+                                                <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>$</span>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    placeholder="Precio Venta"
+                                                    value={a.precio_venta ? formatCurrency(a.precio_venta) : ''}
+                                                    onChange={e => {
+                                                        const clean = e.target.value.replace(/\D/g, '');
+                                                        updateAnimalField(index, 'precio_venta', clean);
+                                                    }}
+                                                    style={{ marginBottom: 0, padding: '10px 10px 10px 25px', border: '1px solid var(--error)', fontWeight: 'bold' }}
+                                                    required={isCarnicero}
+                                                />
+                                            </div>
                                         </td>
                                     )}
                                     <td style={{ padding: '16px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
