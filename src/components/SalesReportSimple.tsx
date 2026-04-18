@@ -45,9 +45,12 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                         left: 0 !important;
                         top: 0 !important;
                         width: 100% !important;
+                        height: auto !important;
                         background: white !important;
                         padding: 0 !important;
                         margin: 0 !important;
+                        overflow: visible !important;
+                        display: block !important;
                     }
                     .report-container {
                         box-shadow: none !important;
@@ -55,6 +58,8 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                         width: 100% !important;
                         padding: 0 !important;
                         margin: 0 !important;
+                        height: auto !important;
+                        min-height: 0 !important;
                     }
                 }
 

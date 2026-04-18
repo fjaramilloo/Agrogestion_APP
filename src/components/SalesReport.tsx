@@ -102,9 +102,11 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         left: 0 !important;
                         top: 0 !important;
                         width: 100% !important;
+                        height: auto !important;
                         background: white !important;
                         padding: 0 !important;
                         margin: 0 !important;
+                        overflow: visible !important;
                         display: block !important;
                     }
                     .no-print { display: none !important; }
@@ -115,6 +117,8 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         max-width: none !important;
                         padding: 0 !important;
                         margin: 0 !important;
+                        height: auto !important;
+                        min-height: 0 !important;
                     }
                 }
 
