@@ -31,6 +31,9 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
     const totalAnimales = animales.length;
     const totalValor = animales.reduce((sum, a) => sum + (parseFloat(a.precio_venta || '0')), 0);
     const isEmergencia = comprador.toLowerCase().includes('carnicero');
+    const precioKiloPromedio = totalKilos > 0 ? totalValor / totalKilos : 0;
+    
+    const numColumnas = (isEmergencia || animales.length < 10) ? 1 : 3;
     
     const animalesConGMP = animales.filter(a => a.gmp && a.gmp > 0);
     const promedioGMP = animalesConGMP.length > 0 
@@ -227,6 +230,15 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                 }
 
                 .column-table tr:nth-child(even) { background: #fcfcfc; }
+
+                .stat-card.financial {
+                    background: #fef7f7;
+                    border: 1px dashed #d32f2f;
+                    grid-column: span 2;
+                    display: flex;
+                    justify-content: space-around;
+                    align-items: center;
+                }
                 `}
             </style>
 
@@ -275,7 +287,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         <div className="stat-value">{totalAnimales}</div>
                     </div>
                     <div className="stat-card">
-                        <span className="stat-label">Peso Promedio</span>
+                        <span className="stat-label">{isEmergencia ? 'Peso Prom. Estimado' : 'Peso Promedio'}</span>
                         <div className="stat-value">{Math.round(totalKilos / totalAnimales)} kg</div>
                     </div>
                     <div className="stat-card">
@@ -286,18 +298,28 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         <span className="stat-label">Meses Finca (Prom.)</span>
                         <div className="stat-value">{(promedioDiasFinca / 30).toFixed(1)} m</div>
                     </div>
-                    {totalValor > 0 && (
-                        <div className="stat-card" style={{ background: '#fef7f7', borderColor: '#d32f2f' }}>
-                            <span className="stat-label" style={{ color: '#d32f2f' }}>Valor Total Venta</span>
-                            <div className="stat-value" style={{ color: '#d32f2f' }}>$ {totalValor.toLocaleString()}</div>
-                        </div>
-                    )}
                 </div>
+
+                {totalValor > 0 && (
+                    <div className="stats-grid" style={{ gridTemplateColumns: '1fr' }}>
+                        <div className="stat-card financial">
+                            <div style={{ textAlign: 'center' }}>
+                                <span className="stat-label" style={{ color: '#d32f2f' }}>Valor Total Venta</span>
+                                <div className="stat-value" style={{ color: '#d32f2f' }}>$ {totalValor.toLocaleString()}</div>
+                            </div>
+                            <div style={{ height: '30px', width: '1px', background: '#d32f2f', opacity: 0.2 }}></div>
+                            <div style={{ textAlign: 'center' }}>
+                                <span className="stat-label" style={{ color: '#d32f2f' }}>Precio x Kilo (Prom.)</span>
+                                <div className="stat-value" style={{ color: '#d32f2f' }}>$ {Math.round(precioKiloPromedio).toLocaleString()} /kg</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="table-title">Detalle de Salida</div>
                 <div className="animals-multi-column-grid">
-                    {[0, 1, 2].map(colIdx => {
-                        const itemsPerCol = Math.ceil(animales.length / 3);
+                    {Array.from({ length: numColumnas }).map((_, colIdx) => {
+                        const itemsPerCol = Math.ceil(animales.length / numColumnas);
                         const colData = animales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
                         
                         return (
@@ -318,7 +340,10 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                                 {a.numero_chapeta}
                                                 {a.es_estimado && <span style={{ fontSize: '6px', display: 'block', color: '#d32f2f' }}>ESTIMADO</span>}
                                             </td>
-                                            <td style={{ fontWeight: 'bold' }}>{a.peso_salida}</td>
+                                            <td style={{ fontWeight: 'bold' }}>
+                                                {a.peso_salida} 
+                                                {a.es_estimado && <span style={{ fontSize: '8px', color: '#d32f2f', marginLeft: '4px' }}>(e)</span>}
+                                            </td>
                                             {totalValor > 0 && (
                                                 <td style={{ fontWeight: 'bold', fontSize: '8.5px' }}>
                                                     {a.precio_venta ? `$${parseFloat(a.precio_venta).toLocaleString()}` : '-'}
@@ -333,10 +358,10 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                             <td style={{ fontSize: '8px', color: '#666' }}>{a.propietario}</td>
                                         </tr>
                                     ))}
-                                    {/* Rellenar espacios vacios para mantener simetría si es necesario */}
-                                    {colData.length < itemsPerCol && Array.from({ length: itemsPerCol - colData.length }).map((_, i) => (
+                                    {/* Rellenar espacios vacios solo si hay más de una columna */}
+                                    {numColumnas > 1 && colData.length < itemsPerCol && Array.from({ length: itemsPerCol - colData.length }).map((_, i) => (
                                         <tr key={`empty-${i}`} style={{ height: '24px' }}>
-                                            <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+                                            <td>&nbsp;</td><td>&nbsp;</td>{totalValor > 0 && <td>&nbsp;</td>}<td>&nbsp;</td><td>&nbsp;</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -376,7 +401,9 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         </tbody>
                     </table>
                     <div style={{ flex: 1, fontSize: '9px', color: '#888', borderLeft: '1px solid #eee', paddingLeft: '15px' }}>
-                        <p><strong>Nota:</strong> Este reporte consolida todos los animales vendidos/despachados en la fecha seleccionada. Los valores de GMP se calculan basados en el historial completo.</p>
+                        <p><strong>Notas:</strong></p>
+                        <p>• Este reporte consolida todos los animales vendidos/despachados en la fecha seleccionada.</p>
+                        {isEmergencia && <p style={{ color: '#d32f2f', fontWeight: 'bold' }}>• Los pesos marcados como ESTIMADOS se calcularon proyectando el crecimiento según la GMP individual (historial de pesajes) de cada animal, debido a que su estado de salud impidió el pesaje en báscula.</p>}
                         <p style={{ marginTop: '5px' }}>Generado por Agrogestión v3.0</p>
                     </div>
                 </div>
