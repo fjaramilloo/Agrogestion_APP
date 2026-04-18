@@ -110,7 +110,8 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     font-size: 20px;
                     font-weight: 800;
                     margin-bottom: 4px;
-                    color: black;
+                    color: #1b5e20;
+                    text-transform: uppercase;
                 }
                 .report-subtitle {
                     font-size: 12px;
@@ -127,8 +128,8 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     margin-bottom: 20px;
                 }
                 .summary-item {
-                    background: #f8f9fa;
-                    border: 1px solid #eee;
+                    background: #f1f8e9;
+                    border: 1px solid #c8e6c9;
                     border-radius: 6px;
                     padding: 8px;
                     text-align: center;
@@ -139,11 +140,52 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     display: block;
                     font-size: 10px;
                     text-transform: uppercase;
-                    color: #666;
+                    color: #558b2f;
+                    font-weight: 700;
                     margin-bottom: 2px;
                 }
-                .summary-value { font-size: 14px; font-weight: 700; color: #333; }
-                .loss-value { color: #e53935; font-size: 14px; font-weight: 700; }
+                .summary-value { font-size: 14px; font-weight: 800; color: #2e7d32; }
+                .loss-value { color: #e53935; font-size: 14px; font-weight: 800; }
+
+                .btn-print {
+                    padding: 9px 18px;
+                    background: #2e7d32;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    transition: all 0.2s;
+                }
+
+                .btn-print:hover {
+                    background: #1b5e20;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 10px rgba(46, 125, 50, 0.2);
+                }
+
+                .btn-close {
+                    padding: 9px;
+                    background: #e0e0e0;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    color: #555;
+                    transition: all 0.2s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .btn-close:hover {
+                    background: #d0d0d0;
+                    color: #000;
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                }
 
                 /* Grilla de 3 columnas para animales */
                 .animals-multi-column-grid {
@@ -174,7 +216,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     font-weight: 700;
                     margin-bottom: 6px;
                     color: #333;
-                    border-bottom: 2px solid #2e7d32;
+                    border-bottom: 2px solid #1b5e20;
                     display: inline-block;
                 }
 
@@ -203,10 +245,10 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
 
             <div className="report-container">
                 <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '15px' }}>
-                    <button onClick={handlePrint} className="btn" style={{ background: '#2e7d32', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', border: 'none', fontWeight: '600' }}>
+                    <button onClick={handlePrint} className="btn-print">
                         <Printer size={16} /> Imprimir (Carta)
                     </button>
-                    <button onClick={onClose} style={{ background: '#eee', color: '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: '8px' }}>
+                    <button onClick={onClose} className="btn-close">
                         <X size={20} />
                     </button>
                 </div>

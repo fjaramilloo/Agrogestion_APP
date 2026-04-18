@@ -246,15 +246,55 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     justify-content: space-around;
                     align-items: center;
                 }
+
+                .btn-print {
+                    padding: 10px 20px;
+                    background: #2e7d32;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    transition: all 0.2s;
+                }
+
+                .btn-print:hover {
+                    background: #1b5e20;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
+                }
+
+                .btn-close {
+                    padding: 10px;
+                    background: #e0e0e0;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    color: #555;
+                    transition: all 0.2s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .btn-close:hover {
+                    background: #d0d0d0;
+                    color: #000;
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                }
                 `}
             </style>
 
             <div className="report-container">
                 <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
-                    <button onClick={handlePrint} className="btn-primary" style={{ padding: '10px 20px', background: '#2e7d32', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button onClick={handlePrint} className="btn-print">
                         <Printer size={18} /> Imprimir Informe
                     </button>
-                    <button onClick={onClose} style={{ padding: '10px', background: '#eee', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                    <button onClick={onClose} className="btn-close">
                         <X size={20} />
                     </button>
                 </div>

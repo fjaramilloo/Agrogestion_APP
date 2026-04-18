@@ -90,7 +90,7 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-start;
-                    border-bottom: 3px solid #2c3e50;
+                    border-bottom: 3px solid #1b5e20;
                     padding-bottom: 20px;
                     margin-bottom: 25px;
                 }
@@ -98,7 +98,7 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                 .header-left .finca-title {
                     font-size: 24px;
                     font-weight: 900;
-                    color: #2c3e50;
+                    color: #1b5e20;
                     text-transform: uppercase;
                     margin: 0;
                 }
@@ -136,11 +136,11 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                 }
 
                 .column-table th {
-                    background: #2c3e50;
+                    background: #455a64;
                     color: white;
                     padding: 8px;
                     font-weight: 700;
-                    border: 1px solid #1a252f;
+                    border: 1px solid #37474f;
                     text-transform: uppercase;
                 }
 
@@ -170,8 +170,46 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                 }
 
                 .sum-label { display: block; font-size: 11px; color: #999; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
-                .sum-value { font-size: 20px; font-weight: 900; color: #2c3e50; }
+                .sum-value { font-size: 20px; font-weight: 900; color: #2e7d32; }
                 .sum-unit { font-size: 12px; color: #777; font-weight: 500; margin-left: 2px; }
+
+                .btn-close {
+                    padding: 10px;
+                    background: #e0e0e0;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    color: #555;
+                    transition: all 0.2s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .btn-close:hover {
+                    background: #d0d0d0;
+                    color: #000;
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                }
+
+                .btn-print {
+                    padding: 10px 20px;
+                    background: #2e7d32;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    fontWeight: bold;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    transition: background 0.2s;
+                }
+
+                .btn-print:hover {
+                    background: #1b5e20;
+                }
 
                 .footer-note {
                     position: absolute;
@@ -188,10 +226,10 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
 
             <div className="report-container">
                 <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
-                    <button onClick={handlePrint} style={{ padding: '10px 20px', background: '#2c3e50', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button onClick={handlePrint} className="btn-print">
                         <Printer size={18} /> Imprimir / PDF
                     </button>
-                    <button onClick={onClose} style={{ padding: '10px', background: '#eee', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                    <button onClick={onClose} className="btn-close">
                         <X size={20} />
                     </button>
                 </div>
