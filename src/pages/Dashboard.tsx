@@ -430,12 +430,15 @@ export default function Dashboard() {
                     const fechaRef = ultimoP ? ultimoP.fecha : a.fecha_ingreso;
                     const diasRef = differenceInDays(new Date(), new Date(fechaRef)) || 0;
                     
-                    // Calculo de GMP individual para este lote
-                    let gmpIndiv = 10.3; // nuevo default
+                    // Calculo de GMP individual para este lote (Lógica de Etapa Ceba)
+                    const fechaBaseCeba = a.fecha_ingreso_ceba || a.fecha_ingreso;
+                    const pesoBaseCeba = parseFloat(a.peso_ingreso_ceba ?? (a.peso_compra ?? a.peso_ingreso ?? 0));
+                    
+                    let gmpIndiv = 10.3; // Fallback
                     if (misPsjs.length > 0) {
-                        const diffDiasTotal = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso));
-                        if (diffDiasTotal > 0) {
-                            gmpIndiv = ((ultimoP.peso - pesoBase) / diffDiasTotal) * 30;
+                        const diffDiasEtapa = differenceInDays(new Date(ultimoP.fecha), new Date(fechaBaseCeba));
+                        if (diffDiasEtapa > 0) {
+                            gmpIndiv = ((ultimoP.peso - pesoBaseCeba) / diffDiasEtapa) * 30;
                         }
                     }
 
