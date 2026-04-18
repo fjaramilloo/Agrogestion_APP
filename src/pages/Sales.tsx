@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { differenceInDays, format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { differenceInDays } from 'date-fns';
 import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
 
