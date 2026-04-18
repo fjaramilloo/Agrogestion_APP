@@ -117,13 +117,33 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
               gdpsTotales.push(gan/d);
           }
 
-          // GMP Total del animal: entre primer y último pesaje (o ingreso y último pesaje)
+          // GMP Total del animal: Respetando lógica de etapa (Ceba vs Levante)
           let gmpTotalAnimal = 0;
           if (ultimoP) {
-              const primerRegistro = registros[registros.length - 1]; // el más antiguo
-              const pesoBase = a.peso_compra ?? a.peso_ingreso;
-              const startWeight = registros.length > 1 ? primerRegistro.peso : pesoBase;
-              const startDate = registros.length > 1 ? new Date(primerRegistro.fecha) : new Date(a.fecha_ingreso);
+              let startWeight = a.peso_compra ?? a.peso_ingreso;
+              let startDate = new Date(a.fecha_ingreso);
+
+              if (a.etapa === 'ceba') {
+                  const regCeba = (a.registros_pesaje || [])
+                      .filter((r: any) => r.etapa === 'ceba')
+                      .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
+                  
+                  if (a.peso_ingreso_ceba || a.fecha_ingreso_ceba) {
+                      startWeight = a.peso_ingreso_ceba || (regCeba?.peso ?? startWeight);
+                      startDate = a.fecha_ingreso_ceba ? new Date(a.fecha_ingreso_ceba) : (regCeba ? new Date(regCeba.fecha) : startDate);
+                  } else if (regCeba) {
+                      startWeight = regCeba.peso;
+                      startDate = new Date(regCeba.fecha);
+                  }
+              } else {
+                  // Levante: Usar primer pesaje histórico si existe, si no ingreso
+                  const primerRegistro = registros[registros.length - 1];
+                  if (registros.length > 1) {
+                      startWeight = primerRegistro.peso;
+                      startDate = new Date(primerRegistro.fecha);
+                  }
+              }
+
               const endDate = new Date(ultimoP.fecha);
               const totalDays = differenceInDays(endDate, startDate);
               if (totalDays > 0) {
