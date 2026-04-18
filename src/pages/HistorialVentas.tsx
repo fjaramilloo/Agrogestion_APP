@@ -68,6 +68,14 @@ export default function HistorialVentas() {
     // Estado para tarjeta individual de un animal vendido
     const [selectedAnimalDetalle, setSelectedAnimalDetalle] = useState<AnimalVentaDetalle | null>(null);
 
+    // Resumen de métricas
+    const [metrics, setMetrics] = useState({
+        count: 0,
+        avgWeight: 0,
+        avgGmp: 0,
+        metaMinima: 0
+    });
+
     useEffect(() => {
         if (!fincaId) return;
         
@@ -75,12 +83,20 @@ export default function HistorialVentas() {
             setLoading(true);
             const { data: config } = await supabase
                 .from('configuracion_kpi')
-                .select('umbral_alto_gmp, umbral_medio_gmp')
+                .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio, costo_mensual_animal')
                 .eq('id_finca', fincaId)
                 .single();
+            
+            let metaMinimaVal = 0;
             if (config) {
                 setUmbralAlto(config.umbral_alto_gmp ?? 20);
                 setUmbralMedio(config.umbral_medio_gmp ?? 10);
+                
+                const precio = parseFloat(config.precio_venta_promedio || 0);
+                const costo = parseFloat(config.costo_mensual_animal || 0);
+                if (precio > 0) {
+                    metaMinimaVal = (costo / 0.6) / precio;
+                }
             }
 
             const { data, error } = await supabase
@@ -209,6 +225,29 @@ export default function HistorialVentas() {
                 // Ordenar por fecha descendente
                 ventasList.sort((a, b) => new Date(b.fechaVenta).getTime() - new Date(a.fechaVenta).getTime());
                 setVentas(ventasList);
+
+                // Calcular métricas anuales
+                const curYear = new Date().getFullYear();
+                const yearlyAnimals = data.filter(a => a.fecha_venta && new Date(a.fecha_venta).getFullYear() === curYear);
+                const countY = yearlyAnimals.length;
+                const weightY = countY > 0 ? yearlyAnimals.reduce((sum, a) => sum + (a.peso_venta || 0), 0) / countY : 0;
+                
+                let totalGmpY = 0;
+                yearlyAnimals.forEach(animal => {
+                    const regs = (animal.registros_pesaje || []).sort((x: any, y: any) => 
+                        new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+                    );
+                    const gdp = regs[0]?.gdp_calculada || 0;
+                    totalGmpY += (gdp * 30);
+                });
+                const avgGmpY = countY > 0 ? totalGmpY / countY : 0;
+
+                setMetrics({
+                    count: countY,
+                    avgWeight: weightY,
+                    avgGmp: avgGmpY,
+                    metaMinima: metaMinimaVal
+                });
             }
             setLoading(false);
         };
@@ -243,9 +282,32 @@ export default function HistorialVentas() {
             <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
                 <Tag size={32} /> Historial de Ventas
             </h1>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
                 Registro histórico de todas las ventas realizadas en la finca. Haz clic en el ícono PDF para ver el informe, o en "Ver Detalle" para inspeccionar los animales.
             </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+                <div className="glass-panel" style={{ textAlign: 'center', padding: '20px', borderTop: '4px solid var(--primary-light)' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>Animales Vendidos ({new Date().getFullYear()})</div>
+                    <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--primary-light)' }}>{metrics.count}</div>
+                </div>
+                <div className="glass-panel" style={{ textAlign: 'center', padding: '20px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>Peso Promedio Venta</div>
+                    <div style={{ fontSize: '2rem', fontWeight: '900', color: 'white' }}>{metrics.avgWeight.toFixed(0)} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>kg</span></div>
+                </div>
+                <div className="glass-panel" style={{ textAlign: 'center', padding: '20px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>GMP Promedio Historial</div>
+                    <div style={{ fontSize: '2rem', fontWeight: '900', color: (metrics.avgGmp > umbralAlto ? 'var(--success)' : (metrics.avgGmp > umbralMedio ? 'var(--warning)' : 'var(--error)')) }}>
+                        {metrics.avgGmp.toFixed(2)} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span>
+                    </div>
+                </div>
+                <div className="glass-panel" style={{ textAlign: 'center', padding: '20px', backgroundColor: 'rgba(211, 47, 47, 0.05)', border: '1px solid rgba(211, 47, 47, 0.15)' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>Meta Mínima (Eq.)</div>
+                    <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--error)' }}>
+                        {metrics.metaMinima.toFixed(2)} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span>
+                    </div>
+                </div>
+            </div>
 
             <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', gap: '16px', alignItems: 'center' }}>
                 <div style={{ flex: 1, position: 'relative' }}>
