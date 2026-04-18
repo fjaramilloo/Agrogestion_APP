@@ -29,11 +29,14 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
     // Cálculos
     const totalKilos = animales.reduce((sum, a) => sum + parseFloat(a.peso_salida.toString()), 0);
     const totalAnimales = animales.length;
-    const totalValor = animales.reduce((sum, a) => sum + (parseFloat(a.precio_venta || '0')), 0);
+    const totalValor = animales.reduce((sum, a) => {
+        const val = String(a.precio_venta || '0').replace(/\D/g, '');
+        return sum + (Number(val) || 0);
+    }, 0);
     const isEmergencia = comprador.toLowerCase().includes('carnicero');
     const precioKiloPromedio = totalKilos > 0 ? totalValor / totalKilos : 0;
     
-    const numColumnas = (isEmergencia || animales.length < 10) ? 1 : 3;
+    const numColumnas = (isEmergencia || animales.length < 5) ? 1 : 3; // Bajado el umbral para ser más conservador con el espacio
     
     const animalesConGMP = animales.filter(a => a.gmp && a.gmp > 0);
     const promedioGMP = animalesConGMP.length > 0 
@@ -301,22 +304,31 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                 </div>
 
                 {totalValor > 0 && (
-                    <div className="stats-grid" style={{ gridTemplateColumns: '1fr' }}>
-                        <div className="stat-card financial">
+                    <div className="stats-grid" style={{ gridTemplateColumns: '1fr', marginTop: '10px' }}>
+                        <div className="stat-card financial" style={{ padding: '15px' }}>
                             <div style={{ textAlign: 'center' }}>
-                                <span className="stat-label" style={{ color: '#d32f2f' }}>Valor Total Venta</span>
-                                <div className="stat-value" style={{ color: '#d32f2f' }}>$ {totalValor.toLocaleString()}</div>
+                                <span className="stat-label" style={{ color: '#d32f2f', fontSize: '10px' }}>VALOR TOTAL VENTA</span>
+                                <div className="stat-value" style={{ color: '#d32f2f', fontSize: '20px' }}>$ {totalValor.toLocaleString()}</div>
                             </div>
-                            <div style={{ height: '30px', width: '1px', background: '#d32f2f', opacity: 0.2 }}></div>
+                            <div style={{ height: '40px', width: '2px', background: '#d32f2f', opacity: 0.15 }}></div>
                             <div style={{ textAlign: 'center' }}>
-                                <span className="stat-label" style={{ color: '#d32f2f' }}>Precio x Kilo (Prom.)</span>
-                                <div className="stat-value" style={{ color: '#d32f2f' }}>$ {Math.round(precioKiloPromedio).toLocaleString()} /kg</div>
+                                <span className="stat-label" style={{ color: '#d32f2f', fontSize: '10px' }}>PRECIO x KILO ESTIMADO</span>
+                                <div className="stat-value" style={{ color: '#d32f2f', fontSize: '20px' }}>$ {Math.round(precioKiloPromedio).toLocaleString()} <span style={{ fontSize: '12px' }}>/kg</span></div>
                             </div>
                         </div>
                     </div>
                 )}
 
-                <div className="table-title">Detalle de Salida</div>
+                {isEmergencia && observaciones && (
+                    <div style={{ marginTop: '15px', padding: '12px', background: '#fff9f9', border: '1px solid #fee', borderRadius: '8px' }}>
+                        <span style={{ fontSize: '10px', color: '#d32f2f', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Motivo de la Emergencia / Observaciones de Auditoría</span>
+                        <p style={{ margin: '5px 0 0 0', color: '#333', fontSize: '12px', fontWeight: '600', lineHeight: '1.4' }}>
+                            {observaciones}
+                        </p>
+                    </div>
+                )}
+
+                <div className="table-title" style={{ marginTop: '20px' }}>Detalle de Salida Por Individual</div>
                 <div className="animals-multi-column-grid">
                     {Array.from({ length: numColumnas }).map((_, colIdx) => {
                         const itemsPerCol = Math.ceil(animales.length / numColumnas);
@@ -328,7 +340,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                     <tr>
                                         <th>Chapeta</th>
                                         <th>Peso</th>
-                                        {totalValor > 0 && <th>Valor</th>}
+                                        {totalValor > 0 && <th style={{ textAlign: 'right' }}>Valor Venta</th>}
                                         <th>GMP</th>
                                         <th>Marca</th>
                                     </tr>
@@ -345,8 +357,8 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                                 {a.es_estimado && <span style={{ fontSize: '8px', color: '#d32f2f', marginLeft: '4px' }}>(e)</span>}
                                             </td>
                                             {totalValor > 0 && (
-                                                <td style={{ fontWeight: 'bold', fontSize: '8.5px' }}>
-                                                    {a.precio_venta ? `$${parseFloat(a.precio_venta).toLocaleString()}` : '-'}
+                                                <td style={{ fontWeight: 'bold', fontSize: '9px', textAlign: 'right', color: '#d32f2f' }}>
+                                                    {a.precio_venta ? `$${parseFloat(String(a.precio_venta).replace(/\D/g, '')).toLocaleString()}` : '-'}
                                                 </td>
                                             )}
                                             <td style={{ 
