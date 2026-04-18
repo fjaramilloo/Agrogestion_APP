@@ -39,6 +39,8 @@ export default function Sales() {
     const [compradores, setCompradores] = useState<{ id: string, nombre: string }[]>([]);
     const [selectedComprador, setSelectedComprador] = useState('');
     const [observaciones, setObservaciones] = useState('');
+    const [umbralAlto, setUmbralAlto] = useState(20);
+    const [umbralMedio, setUmbralMedio] = useState(10);
 
     const [loading, setLoading] = useState(false);
     const [msjExito, setMsjExito] = useState('');
@@ -69,7 +71,17 @@ export default function Sales() {
 
         if (!fincaId) return;
 
-        const fetchCompradores = async () => {
+        const fetchConfigAndCompradores = async () => {
+            const { data: config } = await supabase
+                .from('configuracion_kpi')
+                .select('umbral_alto_gmp, umbral_medio_gmp')
+                .eq('id_finca', fincaId)
+                .single();
+            if (config) {
+                setUmbralAlto(config.umbral_alto_gmp ?? 20);
+                setUmbralMedio(config.umbral_medio_gmp ?? 10);
+            }
+
             const { data } = await supabase
                 .from('compradores')
                 .select('id, nombre')
@@ -77,7 +89,7 @@ export default function Sales() {
                 .order('nombre');
             if (data) setCompradores(data);
         };
-        fetchCompradores();
+        fetchConfigAndCompradores();
 
         return () => {
             window.removeEventListener('online', handleOnline);
@@ -697,6 +709,8 @@ export default function Sales() {
                     animales={reportData.animales}
                     comprador={reportData.comprador}
                     observaciones={reportData.observaciones}
+                    umbralAlto={umbralAlto}
+                    umbralMedio={umbralMedio}
                     onClose={() => setShowReport(false)}
                 />
             )}
