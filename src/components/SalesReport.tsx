@@ -10,6 +10,8 @@ interface AnimalReport {
     potreroNombre?: string;
     fecha_ingreso?: string;
     fecha_inicio_ceba?: string | null;
+    precio_venta?: string;
+    es_estimado?: boolean;
 }
 
 interface SalesReportProps {
@@ -17,15 +19,18 @@ interface SalesReportProps {
     fechaVenta: string;
     animales: AnimalReport[];
     comprador: string;
+    observaciones?: string;
     umbralAlto?: number;
     umbralMedio?: number;
     onClose: () => void;
 }
 
-export default function SalesReport({ fincaNombre, fechaVenta, animales, comprador, umbralAlto = 20, umbralMedio = 10, onClose }: SalesReportProps) {
+export default function SalesReport({ fincaNombre, fechaVenta, animales, comprador, observaciones, umbralAlto = 20, umbralMedio = 10, onClose }: SalesReportProps) {
     // Cálculos
     const totalKilos = animales.reduce((sum, a) => sum + parseFloat(a.peso_salida.toString()), 0);
     const totalAnimales = animales.length;
+    const totalValor = animales.reduce((sum, a) => sum + (parseFloat(a.precio_venta || '0')), 0);
+    const isEmergencia = comprador.toLowerCase().includes('carnicero');
     
     const animalesConGMP = animales.filter(a => a.gmp && a.gmp > 0);
     const promedioGMP = animalesConGMP.length > 0 
@@ -141,6 +146,17 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
 
                 .finca-name { font-size: 24px; font-weight: 900; color: #1b5e20; text-transform: uppercase; }
                 .report-type { font-size: 14px; font-weight: 600; color: #666; }
+                .emergency-badge {
+                    background: #d32f2f;
+                    color: white;
+                    padding: 4px 12px;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    font-weight: 900;
+                    display: inline-block;
+                    margin-top: 8px;
+                    letter-spacing: 1px;
+                }
                 
                 .info-grid {
                     display: grid;
@@ -228,6 +244,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     <div>
                         <div className="finca-name">{fincaNombre}</div>
                         <div className="report-type">Informe Detallado de Venta / Despacho</div>
+                        {isEmergencia && <div className="emergency-badge">⚠️ VENTA POR EMERGENCIA</div>}
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '12px', color: '#666' }}>Fecha generado</div>
@@ -244,6 +261,12 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         <label>Fecha de Salida</label>
                         <span>{format(new Date(fechaVenta + 'T12:00:00'), "dd 'de' MMMM, yyyy", { locale: es })}</span>
                     </div>
+                    {observaciones && (
+                        <div className="info-item" style={{ gridColumn: 'span 2' }}>
+                            <label>Observaciones / Motivo</label>
+                            <span style={{ fontSize: '12px', fontStyle: 'italic', color: '#d32f2f' }}>{observaciones}</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="stats-grid">
@@ -263,6 +286,12 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         <span className="stat-label">Meses Finca (Prom.)</span>
                         <div className="stat-value">{(promedioDiasFinca / 30).toFixed(1)} m</div>
                     </div>
+                    {totalValor > 0 && (
+                        <div className="stat-card" style={{ background: '#fef7f7', borderColor: '#d32f2f' }}>
+                            <span className="stat-label" style={{ color: '#d32f2f' }}>Valor Total Venta</span>
+                            <div className="stat-value" style={{ color: '#d32f2f' }}>$ {totalValor.toLocaleString()}</div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="table-title">Detalle de Salida</div>
@@ -277,6 +306,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                     <tr>
                                         <th>Chapeta</th>
                                         <th>Peso</th>
+                                        {totalValor > 0 && <th>Valor</th>}
                                         <th>GMP</th>
                                         <th>Marca</th>
                                     </tr>
@@ -284,8 +314,16 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                 <tbody>
                                     {colData.map((a, i) => (
                                         <tr key={i}>
-                                            <td style={{ fontWeight: '700', color: '#1b5e20' }}>{a.numero_chapeta}</td>
+                                            <td style={{ fontWeight: '700', color: '#1b5e20' }}>
+                                                {a.numero_chapeta}
+                                                {a.es_estimado && <span style={{ fontSize: '6px', display: 'block', color: '#d32f2f' }}>ESTIMADO</span>}
+                                            </td>
                                             <td style={{ fontWeight: 'bold' }}>{a.peso_salida}</td>
+                                            {totalValor > 0 && (
+                                                <td style={{ fontWeight: 'bold', fontSize: '8.5px' }}>
+                                                    {a.precio_venta ? `$${parseFloat(a.precio_venta).toLocaleString()}` : '-'}
+                                                </td>
+                                            )}
                                             <td style={{ 
                                                 color: (a.gmp || 0) > umbralAlto ? '#2e7d32' : (a.gmp || 0) > umbralMedio ? '#f57c00' : '#d32f2f',
                                                 fontWeight: '600'

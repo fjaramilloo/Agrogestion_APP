@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { differenceInDays, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
 
@@ -26,6 +28,8 @@ interface AnimalVenta {
     potreroNombre?: string;
     fecha_ingreso?: string;
     fecha_inicio_ceba?: string | null;
+    precio_venta?: string;
+    es_estimado?: boolean;
 }
 
 export default function Sales() {
@@ -51,7 +55,7 @@ export default function Sales() {
 
     // Reporte
     const [showReport, setShowReport] = useState(false);
-    const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalVenta[], comprador: string } | null>(null);
+    const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalVenta[], comprador: string, observaciones?: string } | null>(null);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -102,13 +106,15 @@ export default function Sales() {
         const pSalida = parseFloat(pesoSalida);
         if (isNaN(pSalida) || pSalida <= 0 || !ultimoPeso || !ultimaFecha) return 0;
         
-        const f1 = new Date(ultimaFecha);
-        const f2 = new Date(fechaVenta);
+        const f1 = new Date(ultimaFecha + 'T12:00:00');
+        const f2 = new Date(fechaVenta + 'T12:00:00');
         const dias = Math.max(1, Math.floor((f2.getTime() - f1.getTime()) / (1000 * 60 * 60 * 24)));
         
         const gdp = (pSalida - ultimoPeso) / dias;
         return gdp * 30;
     };
+
+    const isCarnicero = selectedComprador.toLowerCase().includes('carnicero');
 
     const updateAnimalField = (index: number, field: keyof AnimalVenta, value: string) => {
         const newAnimales = [...animales];
@@ -217,6 +223,34 @@ export default function Sales() {
                     fecha_ingreso: fechaIngreso,
                     fecha_inicio_ceba: fechaInicioCeba
                 };
+
+                // Si es Carnicero y no han puesto peso, estimar basado en GMP
+                if (isCarnicero && !newAnimales[index].peso_salida) {
+                    // Calculamos GMP histórico (ciclo actual)
+                    let gmpCalculado = 12.5; // Default razonable si no hay datos
+                    const registrosGmp = (data.registros_pesaje || []).sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+                    if (registrosGmp.length >= 2) {
+                        const r1 = registrosGmp[0];
+                        const r2 = registrosGmp[registrosGmp.length - 1];
+                        const dGmp = differenceInDays(new Date(r2.fecha), new Date(r1.fecha));
+                        if (dGmp > 0) {
+                            gmpCalculado = ((r2.peso - r1.peso) / dGmp) * 30;
+                        }
+                    } else if (registrosGmp.length === 1) {
+                         const r1 = registrosGmp[0];
+                         const dGmp = differenceInDays(new Date(r1.fecha), new Date(data.fecha_ingreso));
+                         if (dGmp > 0) {
+                             gmpCalculado = ((r1.peso - (data.peso_compra ?? data.peso_ingreso)) / dGmp) * 30;
+                         }
+                    }
+
+                    const diasDesdeUltimo = differenceInDays(new Date(fechaVenta), new Date(ultimaFecha));
+                    const estWeight = Number(ultimoPeso) + (diasDesdeUltimo * (gmpCalculado / 30));
+                    
+                    newAnimales[index].peso_salida = estWeight.toFixed(1);
+                    newAnimales[index].es_estimado = true;
+                    newAnimales[index].gmp = gmpCalculado;
+                }
             }
             setAnimales(newAnimales);
         } catch (err) {
@@ -235,8 +269,10 @@ export default function Sales() {
 
         try {
             if (!selectedComprador) throw new Error("Debe seleccionar un Comprador para la venta.");
+            if (isCarnicero && !observaciones.trim()) throw new Error("Para ventas al Carnicero es obligatorio detallar el motivo en observaciones.");
             if (animales.some(a => !a.validado)) throw new Error("Debe validar todas las chapetas antes de continuar.");
             if (animales.some(a => !a.peso_salida || parseFloat(a.peso_salida) <= 0)) throw new Error("Todos los animales deben tener un peso de salida válido.");
+            if (isCarnicero && animales.some(a => !a.precio_venta || parseFloat(a.precio_venta) <= 0)) throw new Error("Para ventas al Carnicero es obligatorio ingresar el valor de venta.");
 
             setShowConfirm(true);
             setMsjError('');
@@ -295,7 +331,9 @@ export default function Sales() {
                         comprador_venta: selectedComprador,
                         fecha_venta: fechaVenta,
                         peso_venta: pesoFloat,
-                        observaciones_venta: observaciones
+                        observaciones_venta: observaciones,
+                        es_emergencia: isCarnicero,
+                        precio_venta: a.precio_venta ? parseFloat(a.precio_venta) : null
                     })
                     .eq('id', a.id_animal);
 
@@ -308,7 +346,8 @@ export default function Sales() {
             setReportData({
                 fecha: fechaVenta,
                 animales: [...animales],
-                comprador: selectedComprador
+                comprador: selectedComprador,
+                observaciones: observaciones
             });
             setShowReport(true);
 
@@ -381,7 +420,9 @@ export default function Sales() {
                             comprador_venta: payload.selectedComprador,
                             fecha_venta: payload.fechaVenta,
                             peso_venta: ceba,
-                            observaciones_venta: payload.observaciones
+                            observaciones_venta: payload.observaciones,
+                            es_emergencia: payload.selectedComprador.toLowerCase().includes('carnicero'),
+                            precio_venta: a.precio_venta ? parseFloat(a.precio_venta) : null
                         })
                         .eq('id', dbId);
                     
@@ -505,13 +546,14 @@ export default function Sales() {
 
                     <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                         <div style={{ flex: '1 1 100%' }}>
-                            <label>Observaciones de la Venta</label>
+                            <label>Observaciones de la Venta {isCarnicero && <span style={{ color: 'var(--error)', fontSize: '0.7rem' }}>(OBLIGATORIO PARA EMERGENCIA)</span>}</label>
                             <input
                                 type="text"
-                                placeholder="Ej: Venta de lote para ceba, precio por kilo..."
+                                placeholder={isCarnicero ? "Especifique el motivo de la emergencia (ej: lesión, enfermedad)..." : "Ej: Venta de lote para ceba, precio por kilo..."}
                                 value={observaciones}
                                 onChange={e => setObservaciones(e.target.value)}
                                 disabled={loading || animales.length > 0}
+                                required={isCarnicero}
                             />
                         </div>
                     </div>
@@ -549,6 +591,7 @@ export default function Sales() {
                                 <th style={{ padding: '16px', color: 'var(--text-muted)', width: '60px' }}>#</th>
                                 <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Chapeta</th>
                                 <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Peso Salida (kg)</th>
+                                {isCarnicero && <th style={{ padding: '16px', color: 'var(--error)', fontSize: '0.7rem' }}>VALOR VENTA ($)</th>}
                                 <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Marca</th>
                                 <th style={{ padding: '16px', width: '50px' }}></th>
                             </tr>
@@ -573,15 +616,34 @@ export default function Sales() {
                                         </div>
                                     </td>
                                     <td style={{ padding: '8px 16px' }}>
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            placeholder="Peso final"
-                                            value={a.peso_salida}
-                                            onChange={e => updateAnimalField(index, 'peso_salida', e.target.value)}
-                                            style={{ marginBottom: 0, padding: '10px' }}
-                                        />
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                placeholder="Peso final"
+                                                value={a.peso_salida}
+                                                onChange={e => updateAnimalField(index, 'peso_salida', e.target.value)}
+                                                style={{ marginBottom: 0, padding: '10px' }}
+                                            />
+                                            {a.es_estimado && (
+                                                <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.65rem', color: 'var(--primary-light)', fontWeight: 'bold', background: 'rgba(76, 175, 80, 0.1)', padding: '2px 4px', borderRadius: '4px' }}>
+                                                    ESTIMADO
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
+                                    {isCarnicero && (
+                                        <td style={{ padding: '8px 16px' }}>
+                                            <input
+                                                type="number"
+                                                placeholder="Precio Venta"
+                                                value={a.precio_venta || ''}
+                                                onChange={e => updateAnimalField(index, 'precio_venta', e.target.value)}
+                                                style={{ marginBottom: 0, padding: '10px', border: '1px solid var(--error)' }}
+                                                required={isCarnicero}
+                                            />
+                                        </td>
+                                    )}
                                     <td style={{ padding: '16px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
                                         {a.propietario || '-'}
                                     </td>
@@ -623,6 +685,7 @@ export default function Sales() {
                     fechaVenta={reportData.fecha}
                     animales={reportData.animales}
                     comprador={reportData.comprador}
+                    observaciones={reportData.observaciones}
                     onClose={() => setShowReport(false)}
                 />
             )}
