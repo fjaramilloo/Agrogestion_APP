@@ -284,7 +284,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     )}
                 </div>
 
-                <div className="stats-grid">
+                <div className="stats-grid" style={totalValor > 0 ? { gridTemplateColumns: 'repeat(3, 1fr)' } : undefined}>
                     <div className="stat-card">
                         <span className="stat-label">Cant. Animales</span>
                         <div className="stat-value">{totalAnimales}</div>
@@ -301,32 +301,19 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         <span className="stat-label">Meses Finca (Prom.)</span>
                         <div className="stat-value">{(promedioDiasFinca / 30).toFixed(1)} m</div>
                     </div>
+                    {totalValor > 0 && (
+                        <>
+                            <div className="stat-card" style={{ background: '#fef7f7', borderColor: '#d32f2f' }}>
+                                <span className="stat-label" style={{ color: '#d32f2f' }}>Valor Total Venta</span>
+                                <div className="stat-value" style={{ color: '#d32f2f' }}>$ {totalValor.toLocaleString()}</div>
+                            </div>
+                            <div className="stat-card" style={{ background: '#fef7f7', borderColor: '#d32f2f' }}>
+                                <span className="stat-label" style={{ color: '#d32f2f' }}>Precio x Kilo Estimado</span>
+                                <div className="stat-value" style={{ color: '#d32f2f' }}>$ {Math.round(precioKiloPromedio).toLocaleString()}/kg</div>
+                            </div>
+                        </>
+                    )}
                 </div>
-
-                {totalValor > 0 && (
-                    <div className="stats-grid" style={{ gridTemplateColumns: '1fr', marginTop: '10px' }}>
-                        <div className="stat-card financial" style={{ padding: '15px' }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <span className="stat-label" style={{ color: '#d32f2f', fontSize: '10px' }}>VALOR TOTAL VENTA</span>
-                                <div className="stat-value" style={{ color: '#d32f2f', fontSize: '20px' }}>$ {totalValor.toLocaleString()}</div>
-                            </div>
-                            <div style={{ height: '40px', width: '2px', background: '#d32f2f', opacity: 0.15 }}></div>
-                            <div style={{ textAlign: 'center' }}>
-                                <span className="stat-label" style={{ color: '#d32f2f', fontSize: '10px' }}>PRECIO x KILO ESTIMADO</span>
-                                <div className="stat-value" style={{ color: '#d32f2f', fontSize: '20px' }}>$ {Math.round(precioKiloPromedio).toLocaleString()} <span style={{ fontSize: '12px' }}>/kg</span></div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {isEmergencia && observaciones && (
-                    <div style={{ marginTop: '15px', padding: '12px', background: '#fff9f9', border: '1px solid #fee', borderRadius: '8px' }}>
-                        <span style={{ fontSize: '10px', color: '#d32f2f', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Motivo de la Emergencia / Observaciones de Auditoría</span>
-                        <p style={{ margin: '5px 0 0 0', color: '#333', fontSize: '12px', fontWeight: '600', lineHeight: '1.4' }}>
-                            {observaciones}
-                        </p>
-                    </div>
-                )}
 
                 <div className="table-title" style={{ marginTop: '20px' }}>Detalle de Salida Por Individual</div>
                 <div className="animals-multi-column-grid">
