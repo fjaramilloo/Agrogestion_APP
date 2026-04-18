@@ -301,10 +301,10 @@ export default function HistorialVentas() {
                         {metrics.avgGmp.toFixed(2)} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span>
                     </div>
                 </div>
-                <div className="glass-panel" style={{ textAlign: 'center', padding: '20px', backgroundColor: 'rgba(211, 47, 47, 0.05)', border: '1px solid rgba(211, 47, 47, 0.15)' }}>
+                <div className="glass-panel" style={{ textAlign: 'center', padding: '20px' }}>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>Meta Mínima (Eq.)</div>
-                    <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--error)' }}>
-                        {metrics.metaMinima.toFixed(2)} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span>
+                    <div style={{ fontSize: '2rem', fontWeight: '900', color: 'white' }}>
+                        {metrics.metaMinima.toFixed(2)} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>kg</span>
                     </div>
                 </div>
             </div>
