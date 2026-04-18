@@ -16,6 +16,8 @@ interface AnimalVentaParaReporte {
     potreroNombre?: string;
     fecha_ingreso?: string;
     fecha_inicio_ceba?: string | null;
+    precio_venta?: string;
+    es_estimado?: boolean;
 }
 
 // Tipo enriquecido para la tarjeta de detalle de la venta
@@ -38,6 +40,7 @@ interface VentaGrupo {
     titulo: string;
     fechaVenta: string;
     comprador: string;
+    observaciones?: string;
     animalesCount: number;
     pesoPromedio: number;
     gmpPromedio: number;
@@ -95,6 +98,9 @@ export default function HistorialVentas() {
                     etapa,
                     fecha_ingreso_ceba,
                     peso_ingreso_ceba,
+                    es_emergencia,
+                    precio_venta,
+                    observaciones_venta,
                     potreros (nombre),
                     registros_pesaje (
                         peso,
@@ -135,7 +141,9 @@ export default function HistorialVentas() {
                         gmp: gmp,
                         potreroNombre: potreroNombre,
                         fecha_ingreso: animal.fecha_ingreso,
-                        fecha_inicio_ceba: fechaInicioCeba
+                        fecha_inicio_ceba: fechaInicioCeba,
+                        precio_venta: animal.precio_venta != null ? animal.precio_venta.toString() : undefined,
+                        es_estimado: animal.es_emergencia
                     };
 
                     // Datos enriquecidos para el modal de detalle
@@ -170,6 +178,7 @@ export default function HistorialVentas() {
                             titulo: `Venta - ${fecha} - ${comprador}`,
                             fechaVenta: fecha,
                             comprador: comprador,
+                            observaciones: animal.observaciones_venta,
                             animalesCount: 0,
                             pesoTotal: 0,
                             gmpTotal: 0,
@@ -379,6 +388,7 @@ export default function HistorialVentas() {
                     fechaVenta={selectedVenta.fechaVenta}
                     animales={selectedVenta.animalesReporte}
                     comprador={selectedVenta.comprador}
+                    observaciones={selectedVenta.observaciones}
                     umbralAlto={umbralAlto}
                     umbralMedio={umbralMedio}
                     onClose={() => setSelectedVenta(null)}
