@@ -627,11 +627,24 @@ export default function Potreradas() {
             // 4. Preparar datos para las gráficas (agrupar pesajes por fecha)
             const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
             animals?.forEach(a => {
+                // Inyectar el peso inicial de la etapa para que la gráfica siempre tenga un punto de partida
+                if (p.etapa === 'ceba') {
+                    const cebaDate = a.fecha_ingreso_ceba || (a.etapa === 'ceba' ? a.fecha_ingreso : null);
+                    const cebaWeight = a.peso_ingreso_ceba || (a.etapa === 'ceba' ? (a.peso_compra ?? a.peso_ingreso) : null);
+                    if (cebaDate && cebaWeight) {
+                        allWeighings.push({ fecha: cebaDate.split('T')[0], peso: Number(cebaWeight), gdp: 0 });
+                    }
+                } else {
+                    if (a.fecha_ingreso && a.peso_ingreso) {
+                        allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: Number(a.peso_ingreso), gdp: 0 });
+                    }
+                }
+
                 const registrosEtapa = (a.registros_pesaje || []).filter((r: any) => 
                     r.etapa?.toLowerCase() === p.etapa.toLowerCase()
                 );
                 registrosEtapa.forEach((r: any) => {
-                    allWeighings.push({ fecha: r.fecha, peso: Number(r.peso), gdp: Number(r.gdp_calculada || 0) });
+                    allWeighings.push({ fecha: r.fecha.split('T')[0], peso: Number(r.peso), gdp: Number(r.gdp_calculada || 0) });
                 });
             });
 
