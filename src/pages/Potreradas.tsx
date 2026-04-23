@@ -295,6 +295,9 @@ export default function Potreradas() {
                                 startDate = new Date(cebaStartDate + 'T12:00:00');
                                 startWeight = Number(cebaStartWeight);
                             }
+                        } else {
+                            // Para levante y cría, el acumulado es ganancia en la finca (desde ingreso finca)
+                            startWeight = a.peso_ingreso || pesoBase;
                         }
 
                         const endDate = new Date(lastP.fecha + 'T12:00:00');
