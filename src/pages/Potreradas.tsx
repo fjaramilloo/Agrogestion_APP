@@ -39,6 +39,8 @@ interface AnimalPotrero {
     gmp?: number;
     fechaIngresoEtapa?: string | null;
     pesoIngresoEtapa?: number | null;
+    peso_compra?: number | null;
+    peso_ingreso?: number | null;
     pesajesFiltrados?: { [fecha: string]: number };
     hasCalculatedGmp?: boolean;
     etapa?: string;
@@ -561,9 +563,9 @@ export default function Potreradas() {
                     fechaIngresoEtapa = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
                     pesoIngresoEtapa = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? pesoBase : null));
                 } else {
-                    // Para levante y cría, el ingreso a la etapa es siempre el ingreso a la finca
+                    // Para levante y cría, el ingreso a la etapa es siempre el ingreso a la finca real (no la compra)
                     fechaIngresoEtapa = a.fecha_ingreso;
-                    pesoIngresoEtapa = pesoBase;
+                    pesoIngresoEtapa = a.peso_ingreso;
                 }
 
                 const pesajesMap: Record<string, number> = {};
@@ -602,6 +604,8 @@ export default function Potreradas() {
                     gmp: gmp,
                     fechaIngresoEtapa: fechaIngresoEtapa,
                     pesoIngresoEtapa: pesoIngresoEtapa,
+                    peso_compra: a.peso_compra,
+                    peso_ingreso: a.peso_ingreso,
                     pesajesFiltrados: pesajesMap,
                     hasCalculatedGmp: hasCalculatedGmp
                 };
@@ -880,7 +884,13 @@ export default function Potreradas() {
             }
 
             // Datos tabla
-            const tableHead = [['#', 'Chapeta', 'Propietario', `Ingreso ${p.etapa.toUpperCase()}`, 'Peso Ingreso', 'Peso Actual']];
+            // Datos tabla
+            const tableHead: any[][] = [];
+            if (p.etapa === 'levante') {
+                tableHead.push(['#', 'Chapeta', 'Propietario', `Ingreso ${p.etapa.toUpperCase()}`, 'Peso Compra', 'Peso Ingreso', 'Peso Actual']);
+            } else {
+                tableHead.push(['#', 'Chapeta', 'Propietario', `Ingreso ${p.etapa.toUpperCase()}`, 'Peso Ingreso', 'Peso Actual']);
+            }
             const sortedDates = [...detailData.fechasColumnas].sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
             
             sortedDates.forEach(fecha => {
@@ -889,14 +899,19 @@ export default function Potreradas() {
             tableHead[0].push('GMP Prom. (kg/m)');
 
             const tableBody = sortedAnimals.map((a, idx) => {
-                const row = [
+                const row: any[] = [
                     idx + 1,
                     `${a.numero_chapeta}`,
                     a.nombre_propietario || '-',
-                    a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yyyy') : '-',
-                    a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-',
-                    a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'
+                    a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yyyy') : '-'
                 ];
+
+                if (p.etapa === 'levante') {
+                    row.push(a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-');
+                }
+
+                row.push(a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-');
+                row.push(a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-');
 
                 sortedDates.forEach(fecha => {
                     row.push(a.pesajesFiltrados?.[fecha] ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-');
@@ -1487,6 +1502,9 @@ export default function Potreradas() {
                                                     </th>
                                                     <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PROPIETARIO</th>
                                                     <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>INGRESO {detailData.potrerada.etapa.toUpperCase()}</th>
+                                                    {detailData.potrerada.etapa === 'levante' && (
+                                                        <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESO COMPRA</th>
+                                                    )}
                                                     <th 
                                                         onClick={() => handleSort('pesoIngresoEtapa')}
                                                         style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
@@ -1533,6 +1551,11 @@ export default function Potreradas() {
                                                         <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
                                                             {a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yyyy') : '-'}
                                                         </td>
+                                                        {detailData.potrerada.etapa === 'levante' && (
+                                                            <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                                {a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}
+                                                            </td>
+                                                        )}
                                                         <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
                                                             {a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-'}
                                                         </td>
