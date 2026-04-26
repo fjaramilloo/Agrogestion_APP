@@ -216,7 +216,6 @@ export default function Sales() {
                 // Datos adicionales para reporte solicitado
                 const potreroObj = data.potreros as any;
                 const potrero = Array.isArray(potreroObj) ? potreroObj[0]?.nombre : potreroObj?.nombre || 'Sin potrero';
-                const fechaIngreso = data.fecha_ingreso;
                 
                 // Buscar fecha de inicio en ceba
                 const registroCeba = (data.registros_pesaje || [])
@@ -239,8 +238,8 @@ export default function Sales() {
                     gmp: gmp,
                     // Extensiones para el reporte
                     potreroNombre: potrero,
-                    fecha_ingreso: fechaIngreso,
-                    peso_ingreso: data.peso_ingreso,
+                    fecha_ingreso: data.fecha_ingreso,
+                    peso_ingreso: data.peso_compra ?? data.peso_ingreso,
                     fecha_inicio_ceba: fechaInicioCeba,
                     peso_inicio_ceba: pesoInicioCeba
                 };
