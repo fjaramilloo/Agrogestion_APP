@@ -15,7 +15,9 @@ interface AnimalVentaParaReporte {
     gmp?: number;
     potreroNombre?: string;
     fecha_ingreso?: string;
+    peso_ingreso?: number;
     fecha_inicio_ceba?: string | null;
+    peso_inicio_ceba?: number | null;
     precio_venta?: string;
     es_estimado?: boolean;
 }
@@ -149,6 +151,7 @@ export default function HistorialVentas() {
                         .filter((r: any) => r.etapa === 'ceba')
                         .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
                     const fechaInicioCeba = animal.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (animal.etapa === 'ceba' ? animal.fecha_ingreso : null));
+                    const pesoInicioCeba = animal.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (animal.etapa === 'ceba' ? (animal.peso_compra ?? animal.peso_ingreso) : null));
 
                     const animalRep: AnimalVentaParaReporte = {
                         numero_chapeta: animal.numero_chapeta,
@@ -157,7 +160,9 @@ export default function HistorialVentas() {
                         gmp: gmp,
                         potreroNombre: potreroNombre,
                         fecha_ingreso: animal.fecha_ingreso,
+                        peso_ingreso: animal.peso_compra ?? animal.peso_ingreso,
                         fecha_inicio_ceba: fechaInicioCeba,
+                        peso_inicio_ceba: pesoInicioCeba,
                         precio_venta: animal.precio_venta != null ? animal.precio_venta.toString() : undefined,
                         es_estimado: animal.es_emergencia
                     };
