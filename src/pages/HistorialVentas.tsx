@@ -141,8 +141,17 @@ export default function HistorialVentas() {
                         new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                     );
                     const ultimoP = registros[0];
-                    const gdp = ultimoP?.gdp_calculada || 0;
-                    const gmp = gdp > 0 ? gdp * 30 : 0;
+                    
+                    const pesoSalida = animal.peso_venta || ultimoP?.peso || 0;
+                    const pesoIngresoDB = animal.peso_compra ?? animal.peso_ingreso ?? 0;
+                    let gmp = 0;
+
+                    if (fecha && animal.fecha_ingreso && pesoIngresoDB > 0 && pesoSalida > 0) {
+                        const d1 = new Date(animal.fecha_ingreso + 'T12:00:00');
+                        const d2 = new Date(fecha + 'T12:00:00');
+                        const dias = Math.max(1, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+                        gmp = ((pesoSalida - pesoIngresoDB) / dias) * 30;
+                    }
 
                     const potreroObj = animal.potreros as any;
                     const potreroNombre = Array.isArray(potreroObj) ? potreroObj[0]?.nombre : potreroObj?.nombre || 'Sin potrero';
@@ -238,14 +247,26 @@ export default function HistorialVentas() {
                 const weightY = countY > 0 ? yearlyAnimals.reduce((sum, a) => sum + (a.peso_venta || 0), 0) / countY : 0;
                 
                 let totalGmpY = 0;
+                let validGmpCount = 0;
+                
                 yearlyAnimals.forEach(animal => {
-                    const regs = (animal.registros_pesaje || []).sort((x: any, y: any) => 
-                        new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                    );
-                    const gdp = regs[0]?.gdp_calculada || 0;
-                    totalGmpY += (gdp * 30);
+                    const pesoSalida = animal.peso_venta || 0;
+                    const pesoIngresoDB = animal.peso_compra ?? animal.peso_ingreso ?? 0;
+                    const fechaSalida = animal.fecha_venta;
+                    const fechaIngreso = animal.fecha_ingreso;
+                    
+                    if (fechaSalida && fechaIngreso && pesoIngresoDB > 0 && pesoSalida > 0) {
+                        const d1 = new Date(fechaIngreso + 'T12:00:00');
+                        const d2 = new Date(fechaSalida + 'T12:00:00');
+                        const dias = Math.max(1, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+                        const gmpV = ((pesoSalida - pesoIngresoDB) / dias) * 30;
+                        if (gmpV > 0) {
+                            totalGmpY += gmpV;
+                            validGmpCount++;
+                        }
+                    }
                 });
-                const avgGmpY = countY > 0 ? totalGmpY / countY : 0;
+                const avgGmpY = validGmpCount > 0 ? totalGmpY / validGmpCount : 0;
 
                 setMetrics({
                     count: countY,
