@@ -26,7 +26,9 @@ interface AnimalVenta {
     gmp?: number;
     potreroNombre?: string;
     fecha_ingreso?: string;
+    peso_ingreso?: number;
     fecha_inicio_ceba?: string | null;
+    peso_inicio_ceba?: number | null;
     precio_venta?: string;
     es_estimado?: boolean;
 }
@@ -222,6 +224,7 @@ export default function Sales() {
                     .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
                 
                 let fechaInicioCeba = data.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (data.etapa === 'ceba' ? data.fecha_ingreso : null));
+                let pesoInicioCeba = data.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (data.etapa === 'ceba' ? (data.peso_compra ?? data.peso_ingreso) : null));
 
                 const gmp = a.peso_salida ? calculateGMP(a.peso_salida, ultimoPeso, ultimaFecha, fechaVenta) : 0;
 
@@ -237,7 +240,9 @@ export default function Sales() {
                     // Extensiones para el reporte
                     potreroNombre: potrero,
                     fecha_ingreso: fechaIngreso,
-                    fecha_inicio_ceba: fechaInicioCeba
+                    peso_ingreso: data.peso_ingreso,
+                    fecha_inicio_ceba: fechaInicioCeba,
+                    peso_inicio_ceba: pesoInicioCeba
                 };
 
                 // Si es Carnicero y no han puesto peso, estimar basado en GMP

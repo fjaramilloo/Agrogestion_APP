@@ -9,7 +9,9 @@ interface AnimalReport {
     gmp?: number;
     potreroNombre?: string;
     fecha_ingreso?: string;
+    peso_ingreso?: number;
     fecha_inicio_ceba?: string | null;
+    peso_inicio_ceba?: number | null;
     precio_venta?: string;
     es_estimado?: boolean;
 }
@@ -38,19 +40,60 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
     
     const numColumnas = (isEmergencia || animales.length < 5) ? 1 : 3; // Bajado el umbral para ser más conservador con el espacio
     
-    const animalesConGMP = animales.filter(a => a.gmp && a.gmp > 0);
-    const promedioGMP = animalesConGMP.length > 0 
-        ? animalesConGMP.reduce((sum: number, a) => sum + (a.gmp || 0), 0) / animalesConGMP.length
-        : 0;
 
     const calcularDias = (inicio: string, fin: string) => {
-        const d1 = new Date(inicio);
-        const d2 = new Date(fin);
+        const d1 = new Date(inicio + 'T12:00:00');
+        const d2 = new Date(fin + 'T12:00:00');
         return Math.max(0, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
     };
 
-    const diasFincaTotal = animales.reduce((sum, a) => sum + (a.fecha_ingreso ? calcularDias(a.fecha_ingreso, fechaVenta) : 0), 0);
-    const promedioDiasFinca = totalAnimales > 0 ? Math.round(diasFincaTotal / totalAnimales) : 0;
+    // Cálculos avanzados de GMP por etapas
+    let sumGMPLevante = 0, countGMPLevante = 0;
+    let sumGMPCeba = 0, countGMPCeba = 0;
+    let sumGMPTotal = 0, countGMPTotal = 0;
+    let sumDiasFinca = 0;
+
+    animales.forEach(a => {
+        const pesoSalida = parseFloat(a.peso_salida.toString());
+        const fSalida = fechaVenta;
+        const fIngreso = a.fecha_ingreso;
+        const fInicioCeba = a.fecha_inicio_ceba;
+        const pIngreso = a.peso_ingreso || 0;
+        const pInicioCeba = a.peso_inicio_ceba || 0;
+
+        // 1. GMP Levante
+        if (fIngreso && fInicioCeba && fIngreso !== fInicioCeba && pInicioCeba > pIngreso) {
+            const diasLev = calcularDias(fIngreso, fInicioCeba);
+            if (diasLev > 0) {
+                sumGMPLevante += ((pInicioCeba - pIngreso) / diasLev) * 30;
+                countGMPLevante++;
+            }
+        }
+
+        // 2. GMP Ceba
+        if (fInicioCeba && pInicioCeba > 0) {
+            const diasCeba = calcularDias(fInicioCeba, fSalida);
+            if (diasCeba > 0) {
+                sumGMPCeba += ((pesoSalida - pInicioCeba) / diasCeba) * 30;
+                countGMPCeba++;
+            }
+        }
+
+        // 3. GMP Total
+        if (fIngreso && pIngreso > 0) {
+            const diasTotal = calcularDias(fIngreso, fSalida);
+            if (diasTotal > 0) {
+                sumGMPTotal += ((pesoSalida - pIngreso) / diasTotal) * 30;
+                countGMPTotal++;
+                sumDiasFinca += diasTotal;
+            }
+        }
+    });
+
+    const gmpLevanteFinal = countGMPLevante > 0 ? sumGMPLevante / countGMPLevante : 0;
+    const gmpCebaFinal = countGMPCeba > 0 ? sumGMPCeba / countGMPCeba : 0;
+    const gmpTotalFinal = countGMPTotal > 0 ? sumGMPTotal / countGMPTotal : 0;
+    const promedioMesesFinca = countGMPTotal > 0 ? (sumDiasFinca / countGMPTotal) / 30 : 0;
 
     const porMarca = animales.reduce((acc: any, a) => {
         const marca = a.propietario || 'No definida';
@@ -59,9 +102,14 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
         }
         acc[marca].count += 1;
         acc[marca].kilos += parseFloat(a.peso_salida.toString());
-        if (a.gmp && a.gmp > 0) {
-            acc[marca].gmpSum += a.gmp;
-            acc[marca].gmpCount += 1;
+        
+        // Usamos el GMP total para el desglose por marcas para simplificar
+        if (a.fecha_ingreso && a.peso_ingreso) {
+            const dias = calcularDias(a.fecha_ingreso, fechaVenta);
+            if (dias > 0) {
+                acc[marca].gmpSum += ((parseFloat(a.peso_salida.toString()) - a.peso_ingreso) / dias) * 30;
+                acc[marca].gmpCount += 1;
+            }
         }
         return acc;
     }, {});
@@ -328,36 +376,60 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     )}
                 </div>
 
-                <div className="stats-grid" style={totalValor > 0 ? { gridTemplateColumns: 'repeat(3, 1fr)' } : undefined}>
-                    <div className="stat-card">
-                        <span className="stat-label">Cant. Animales</span>
-                        <div className="stat-value">{totalAnimales}</div>
+                <div className="stats-row">
+                    <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '10px' }}>
+                        <div className="stat-card">
+                            <span className="stat-label">Cant. Animales</span>
+                            <div className="stat-value">{totalAnimales}</div>
+                        </div>
+                        <div className="stat-card">
+                            <span className="stat-label">Total Kilos</span>
+                            <div className="stat-value">{Math.round(totalKilos).toLocaleString()} kg</div>
+                        </div>
+                        <div className="stat-card">
+                            <span className="stat-label">Peso Promedio</span>
+                            <div className="stat-value">{Math.round(totalKilos / totalAnimales)} kg</div>
+                        </div>
+                        <div className="stat-card">
+                            <span className="stat-label">Meses Finca (Prom.)</span>
+                            <div className="stat-value">{promedioMesesFinca.toFixed(1)} m</div>
+                        </div>
                     </div>
-                    <div className="stat-card">
-                        <span className="stat-label">{isEmergencia ? 'Peso Prom. Estimado' : 'Peso Promedio'}</span>
-                        <div className="stat-value">{Math.round(totalKilos / totalAnimales)} kg</div>
+
+                    <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '30px' }}>
+                        <div className="stat-card">
+                            <span className="stat-label">GMP en Levante</span>
+                            <div className="stat-value" style={{ color: gmpLevanteFinal > umbralAlto ? '#2e7d32' : gmpLevanteFinal > umbralMedio ? '#f57c00' : '#d32f2f' }}>
+                                {gmpLevanteFinal > 0 ? gmpLevanteFinal.toFixed(2) : '-'} kg
+                            </div>
+                        </div>
+                        <div className="stat-card">
+                            <span className="stat-label">GMP en Ceba</span>
+                            <div className="stat-value" style={{ color: gmpCebaFinal > umbralAlto ? '#2e7d32' : gmpCebaFinal > umbralMedio ? '#f57c00' : '#d32f2f' }}>
+                                {gmpCebaFinal > 0 ? gmpCebaFinal.toFixed(2) : '-'} kg
+                            </div>
+                        </div>
+                        <div className="stat-card">
+                            <span className="stat-label">GMP Total (Vida)</span>
+                            <div className="stat-value" style={{ color: gmpTotalFinal > umbralAlto ? '#2e7d32' : gmpTotalFinal > umbralMedio ? '#f57c00' : '#d32f2f' }}>
+                                {gmpTotalFinal > 0 ? gmpTotalFinal.toFixed(2) : '-'} kg
+                            </div>
+                        </div>
                     </div>
-                    <div className="stat-card">
-                        <span className="stat-label">GMP Promedio</span>
-                        <div className="stat-value">{promedioGMP.toFixed(2)} kg</div>
-                    </div>
-                    <div className="stat-card">
-                        <span className="stat-label">Meses Finca (Prom.)</span>
-                        <div className="stat-value">{(promedioDiasFinca / 30).toFixed(1)} m</div>
-                    </div>
-                    {totalValor > 0 && (
-                        <>
-                            <div className="stat-card" style={{ background: '#fef7f7', borderColor: '#d32f2f' }}>
+                </div>
+
+                {totalValor > 0 && (
+                    <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginBottom: '30px' }}>
+                        <div className="stat-card" style={{ background: '#fef7f7', borderColor: '#d32f2f' }}>
                                 <span className="stat-label" style={{ color: '#d32f2f' }}>Valor Total Venta</span>
                                 <div className="stat-value" style={{ color: '#d32f2f' }}>$ {totalValor.toLocaleString()}</div>
                             </div>
                             <div className="stat-card" style={{ background: '#fef7f7', borderColor: '#d32f2f' }}>
-                                <span className="stat-label" style={{ color: '#d32f2f' }}>Precio x Kilo Estimado</span>
+                                <span className="stat-label" style={{ color: '#d32f2f' }}>Precio x Kilo Promedio</span>
                                 <div className="stat-value" style={{ color: '#d32f2f' }}>$ {Math.round(precioKiloPromedio).toLocaleString()}/kg</div>
                             </div>
-                        </>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 <div className="table-title" style={{ marginTop: '20px' }}>Detalle de Salida Por Individual</div>
                 <div className="animals-multi-column-grid">
