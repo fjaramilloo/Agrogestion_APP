@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale } from 'lucide-react';
+import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale, Activity } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -853,12 +853,15 @@ export default function Potreradas() {
             drawBox(xPos, currentY, 'TIEMPO EN POTRERO', diasTxt, detailData.potreroActual, [40, 40, 40]);
             xPos += boxWidth + colGap;
 
-            // Caja 3: Carga Global
+            // Caja 3: Productividad (Kilos/Ha/Mes)
             const numAnimales = detailData.animales.length;
-            const cargaGlobalStr = detailData.areaTotalSistema && detailData.areaTotalSistema > 0 
-                ? (numAnimales / detailData.areaTotalSistema).toFixed(2)
-                : '-';
-            drawBox(xPos, currentY, 'CARGA GLOBAL', cargaGlobalStr, 'Cabezas / Ha (Sistema)', [40, 40, 40]);
+            const avgGmp = p.gmpPromedio;
+            const areaSistema = detailData.areaTotalSistema || 1;
+            
+            const kilosHaMes = (numAnimales * avgGmp) / areaSistema;
+            const cargaGlobalStr = (numAnimales / areaSistema).toFixed(2);
+            
+            drawBox(xPos, currentY, 'PRODUCTIVIDAD', `${kilosHaMes.toFixed(1)} kg/Ha/Mes`, `Carga: ${cargaGlobalStr} Cab/Ha`, [40, 40, 40]);
 
             currentY += boxHeight + rowGap;
 
@@ -1411,9 +1414,17 @@ export default function Potreradas() {
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                                                     <TrendingUp size={14} color="var(--success)" /> <span className="mobile-hide">GMP:</span> <strong style={{color: 'var(--success)'}}>{detailData.gmpPromedioGrupo.toFixed(1)}</strong>
                                                 </div>
-                                                {detailData.potrerada.cargaGlobal > 0 && (
+                                                {(() => {
+                                                    const productivity = (detailData.animales.length * detailData.potrerada.gmpPromedio) / (detailData.areaTotalSistema || 1);
+                                                    return (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                                                            <Activity size={14} color="var(--primary-light)" /> <span className="mobile-hide">Prod:</span> <strong style={{color: 'var(--primary-light)'}}>{productivity.toFixed(1)} kg/Ha/Mes</strong>
+                                                        </div>
+                                                    );
+                                                })()}
+                                                {detailData.areaTotalSistema && detailData.areaTotalSistema > 0 && (
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                        <Scale size={14} color="var(--warning)" /> <span className="mobile-hide">Carga Global:</span> <strong style={{color: 'var(--text)'}}>{detailData.potrerada.cargaGlobal.toFixed(2)} C/Ha</strong>
+                                                        <Scale size={14} color="var(--warning)" /> <span className="mobile-hide">Carga:</span> <strong style={{color: 'var(--text)'}}>{(detailData.animales.length / detailData.areaTotalSistema).toFixed(2)} C/Ha</strong>
                                                     </div>
                                                 )}
                                             </div>
