@@ -232,16 +232,16 @@ export default function Dashboard() {
             if (animales && animales.length > 0) {
                 let totalDiasLevante = 0;
                 let countLevante = 0;
-                let gdpSumaLevante = 0;
-                let countGdpLevante = 0;
+                let gmpSumaLevante = 0;
+                let countGmpLevante = 0;
                 
                 let totalDiasCeba = 0;
                 let countCeba = 0;
-                let gdpSumaCeba = 0;
-                let countGdpCeba = 0;
+                let gmpSumaCeba = 0;
+                let countGmpCeba = 0;
                 
-                let gdpSumaTotal = 0;
-                let countGdpTotal = 0;
+                let gmpSumaTotal = 0;
+                let countGmpTotal = 0;
 
                 animales.forEach((animal: any) => {
                     // KPI: Promedio de Permanencia
@@ -260,30 +260,51 @@ export default function Dashboard() {
 
                     if (misPesajes.length > 0) {
                         const ultimoPesaje = misPesajes[misPesajes.length - 1];
-                        let fechaBase = animal.fecha_ingreso;
-                        let pesoBase = parseFloat((animal.peso_compra ?? animal.peso_ingreso) || 0);
+                        
+                        let gmpEtapa = 0;
+                        let validoGmp = false;
 
-                        if (animal.etapa === 'ceba') {
-                            // Si está en ceba, intentamos usar los datos de entrada a esa etapa
-                            fechaBase = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
-                            pesoBase = parseFloat(animal.peso_ingreso_ceba ?? (animal.peso_compra ?? animal.peso_ingreso ?? 0));
+                        if (ultimoPesaje.gmp_calculada !== null && ultimoPesaje.gmp_calculada !== undefined && ultimoPesaje.gmp_calculada !== 0) {
+                            gmpEtapa = parseFloat(ultimoPesaje.gmp_calculada);
+                            validoGmp = true;
+                        } else if (ultimoPesaje.gdp_calculada !== null && ultimoPesaje.gdp_calculada !== undefined && ultimoPesaje.gdp_calculada !== 0) {
+                            gmpEtapa = parseFloat(ultimoPesaje.gdp_calculada) * 30;
+                            validoGmp = true;
+                        } else if (misPesajes.length > 1) {
+                            const penultimoPesaje = misPesajes[misPesajes.length - 2];
+                            const diffDias = differenceInDays(new Date(ultimoPesaje.fecha), new Date(penultimoPesaje.fecha));
+                            if (diffDias > 0) {
+                                gmpEtapa = ((ultimoPesaje.peso - penultimoPesaje.peso) / diffDias) * 30;
+                                validoGmp = true;
+                            }
+                        } else {
+                            let fechaBase = animal.fecha_ingreso;
+                            let pesoBase = parseFloat((animal.peso_compra ?? animal.peso_ingreso) || 0);
+
+                            if (animal.etapa === 'ceba') {
+                                fechaBase = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
+                                pesoBase = parseFloat(animal.peso_ingreso_ceba ?? (animal.peso_compra ?? animal.peso_ingreso ?? 0));
+                            }
+
+                            const diffDiasEtapa = differenceInDays(new Date(ultimoPesaje.fecha), new Date(fechaBase));
+
+                            if (diffDiasEtapa > 0) {
+                                const gananciaEtapa = ultimoPesaje.peso - pesoBase;
+                                gmpEtapa = (gananciaEtapa / diffDiasEtapa) * 30;
+                                validoGmp = true;
+                            }
                         }
 
-                        const diffDiasEtapa = differenceInDays(new Date(ultimoPesaje.fecha), new Date(fechaBase));
-
-                        if (diffDiasEtapa > 0) {
-                            const gananciaEtapa = ultimoPesaje.peso - pesoBase;
-                            const gdpEtapa = gananciaEtapa / diffDiasEtapa;
-
-                            gdpSumaTotal += gdpEtapa;
-                            countGdpTotal++;
+                        if (validoGmp) {
+                            gmpSumaTotal += gmpEtapa;
+                            countGmpTotal++;
 
                             if (animal.etapa === 'levante') {
-                                gdpSumaLevante += gdpEtapa;
-                                countGdpLevante++;
+                                gmpSumaLevante += gmpEtapa;
+                                countGmpLevante++;
                             } else if (animal.etapa === 'ceba') {
-                                gdpSumaCeba += gdpEtapa;
-                                countGdpCeba++;
+                                gmpSumaCeba += gmpEtapa;
+                                countGmpCeba++;
                             }
                         }
                     }
@@ -314,7 +335,7 @@ export default function Dashboard() {
                     }
                 }
 
-                const gmpTotalCiclo = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : 0;
+                const gmpTotalCiclo = countGmpTotal > 0 ? (gmpSumaTotal / countGmpTotal) : 0;
                 const carneHaAno = (finca?.area_aprovechable && finca.area_aprovechable > 0)
                     ? ((totalAnimales || 0) * gmpTotalCiclo * 12) / finca.area_aprovechable
                     : 0;
@@ -322,9 +343,9 @@ export default function Dashboard() {
                 setStats({
                     totalAnimales: totalAnimales || 0,
                     promedioLevanteMeses: countLevante > 0 ? (totalDiasLevante / countLevante) / 30 : 0,
-                    gmpLevante: countGdpLevante > 0 ? (gdpSumaLevante / countGdpLevante) * 30 : 0,
+                    gmpLevante: countGmpLevante > 0 ? (gmpSumaLevante / countGmpLevante) : 0,
                     promedioCebaMeses: countCeba > 0 ? (totalDiasCeba / countCeba) / 30 : 0,
-                    gmpCeba: countGdpCeba > 0 ? (gdpSumaCeba / countGdpCeba) * 30 : 0,
+                    gmpCeba: countGmpCeba > 0 ? (gmpSumaCeba / countGmpCeba) : 0,
                     gmpTotal: gmpTotalCiclo,
                     totalMuertosAno: muertosAnio || 0,
                     produccionCarneHaAno: carneHaAno,
@@ -369,7 +390,7 @@ export default function Dashboard() {
                 }
 
                 // Calcular Distribución de Pesos Estimados
-                const gdpPromedio = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) : (10.3 / 30);
+                const gdpPromedio = countGmpTotal > 0 ? ((gmpSumaTotal / countGmpTotal) / 30) : (10.3 / 30);
                 const dist = { rango1: 0, rango2: 0, rango3: 0, rango4: 0 };
                 const distAnimales: Record<string, any[]> = { rango1: [], rango2: [], rango3: [], rango4: [] };
                 
