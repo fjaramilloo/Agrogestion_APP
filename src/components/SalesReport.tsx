@@ -177,6 +177,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     z-index: 3000;
                     display: flex;
                     justify-content: center;
+                    align-items: flex-start;
                     padding: 40px 20px;
                     overflow-y: auto;
                 }
@@ -185,6 +186,8 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     background: white;
                     width: 21.59cm;
                     min-height: 27.94cm;
+                    height: max-content;
+                    margin: 0 auto;
                     padding: 20mm;
                     color: #1a1a1a;
                     font-family: 'Inter', system-ui, -apple-system, sans-serif;
