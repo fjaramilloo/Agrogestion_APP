@@ -230,7 +230,7 @@ export default function Potreradas() {
                 const ref = u ? new Date(u.fecha) : new Date(a.fecha_ingreso);
                 const days = differenceInDays(new Date(ref), new Date(a.fecha_ingreso)) || 1;
                 return u?.gdp_calculada ?? (gain / days);
-            }).filter(v => v > 0 && isFinite(v));
+            }).filter(v => isFinite(v));
             const gdpPromedioFinca = gdpsTotales.length > 0 ? (gdpsTotales.reduce((acc, curr) => acc + curr, 0) / gdpsTotales.length) : 0.45;
 
             const hoy = new Date();

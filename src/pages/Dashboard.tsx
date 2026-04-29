@@ -264,10 +264,10 @@ export default function Dashboard() {
                         let gmpEtapa = 0;
                         let validoGmp = false;
 
-                        if (ultimoPesaje.gmp_calculada !== null && ultimoPesaje.gmp_calculada !== undefined && ultimoPesaje.gmp_calculada !== 0) {
+                        if (ultimoPesaje.gmp_calculada !== null && ultimoPesaje.gmp_calculada !== undefined) {
                             gmpEtapa = parseFloat(ultimoPesaje.gmp_calculada);
                             validoGmp = true;
-                        } else if (ultimoPesaje.gdp_calculada !== null && ultimoPesaje.gdp_calculada !== undefined && ultimoPesaje.gdp_calculada !== 0) {
+                        } else if (ultimoPesaje.gdp_calculada !== null && ultimoPesaje.gdp_calculada !== undefined) {
                             gmpEtapa = parseFloat(ultimoPesaje.gdp_calculada) * 30;
                             validoGmp = true;
                         } else if (misPesajes.length > 1) {
@@ -471,7 +471,7 @@ export default function Dashboard() {
 
                     reportePots[idPot].countAll++;
                     reportePots[idPot].sumPeso += pesoEst;
-                    reportePots[idPot].sumGmp += Math.max(0, gmpIndiv);
+                    reportePots[idPot].sumGmp += gmpIndiv;
                     reportePots[idPot].countGmp++;
                     if (pesoEst >= 530) {
                         reportePots[idPot].countReady++;
@@ -664,7 +664,7 @@ export default function Dashboard() {
                     mesesCeba: parseFloat(avgMesesCeba.toFixed(1))
                 };
             })
-            .filter(d => d.levante > 0 || d.ceba > 0)
+            .filter(d => d.levante !== 0 || d.ceba !== 0)
             .slice(0, 15); // Mostrar máximo 15 pesajes para no saturar 
 
         setEvolucionPorPesaje(dataPorNum);

@@ -112,7 +112,7 @@ export default function HistorialCompras() {
                     );
                     const ultimoP = registros[0];
                     const gdp = ultimoP?.gdp_calculada || 0;
-                    const gmp = gdp > 0 ? gdp * 30 : 0;
+                    const gmp = gdp * 30;
                     const pesoActual = ultimoP?.peso || animal.peso_ingreso;
 
                     const animalRep: AnimalCompraParaReporte = {
@@ -170,10 +170,8 @@ export default function HistorialCompras() {
                     acc[key].pesoTotalIngreso += animal.peso_ingreso || 0;
                     acc[key].pesoTotalCompra += animal.peso_compra || 0;
                     acc[key].pesoTotalActual += pesoActual;
-                    if (gmp > 0) {
-                        acc[key].gmpTotal += gmp;
-                        acc[key].gmpCount++;
-                    }
+                    acc[key].gmpTotal += gmp;
+                    acc[key].gmpCount++;
                     acc[key].animalesReporte.push(animalRep);
                     acc[key].animalesDetalle.push(animalDet);
                     
@@ -357,11 +355,11 @@ export default function HistorialCompras() {
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             <span style={{
-                                                color: compra.gmpPromedio > umbralAlto ? 'var(--success)' : (compra.gmpPromedio > umbralMedio ? 'var(--warning)' : (compra.gmpPromedio > 0 ? 'var(--error)' : 'white')),
+                                                color: compra.gmpPromedio > umbralAlto ? 'var(--success)' : (compra.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)'),
                                                 fontWeight: 'bold'
                                             }}>
-                                                {compra.gmpPromedio > 0 ? compra.gmpPromedio.toFixed(1) : '-'}
-                                                {compra.gmpPromedio > 0 && <small style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>kg/m</small>}
+                                                {compra.gmpPromedio.toFixed(1)}
+                                                <small style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>kg/m</small>
                                             </span>
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'right' }}>

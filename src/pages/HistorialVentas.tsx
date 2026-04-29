@@ -220,10 +220,8 @@ export default function HistorialVentas() {
                     
                     acc[key].animalesCount++;
                     acc[key].pesoTotal += parseFloat(animalRep.peso_salida.toString());
-                    if (gmp > 0) {
-                        acc[key].gmpTotal += gmp;
-                        acc[key].gmpCount++;
-                    }
+                    acc[key].gmpTotal += gmp;
+                    acc[key].gmpCount++;
                     acc[key].animalesReporte.push(animalRep);
                     acc[key].animalesDetalle.push(animalDet);
                     
@@ -260,10 +258,8 @@ export default function HistorialVentas() {
                         const d2 = new Date(fechaSalida + 'T12:00:00');
                         const dias = Math.max(1, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
                         const gmpV = ((pesoSalida - pesoIngresoDB) / dias) * 30;
-                        if (gmpV > 0) {
-                            totalGmpY += gmpV;
-                            validGmpCount++;
-                        }
+                        totalGmpY += gmpV;
+                        validGmpCount++;
                     }
                 });
                 const avgGmpY = validGmpCount > 0 ? totalGmpY / validGmpCount : 0;
@@ -393,11 +389,11 @@ export default function HistorialVentas() {
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             <span style={{
-                                                color: venta.gmpPromedio > umbralAlto ? 'var(--success)' : (venta.gmpPromedio > umbralMedio ? 'var(--warning)' : (venta.gmpPromedio > 0 ? 'var(--error)' : 'white')),
+                                                color: venta.gmpPromedio > umbralAlto ? 'var(--success)' : (venta.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)'),
                                                 fontWeight: 'bold'
                                             }}>
-                                                {venta.gmpPromedio > 0 ? venta.gmpPromedio.toFixed(1) : '-'}
-                                                {venta.gmpPromedio > 0 && <small style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>kg/m</small>}
+                                                {venta.gmpPromedio.toFixed(1)}
+                                                <small style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>kg/m</small>
                                             </span>
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'right' }}>

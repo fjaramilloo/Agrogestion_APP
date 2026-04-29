@@ -392,7 +392,7 @@ export default function Inventory() {
             const ref = u ? new Date(u.fecha) : new Date();
             const days = differenceInDays(ref, new Date(a.fecha_ingreso)) || 1;
             return u?.gdp_calculada ?? (gain / days);
-        }).filter(v => v > 0 && isFinite(v));
+        }).filter(v => isFinite(v));
         return gdpsTotales.length > 0 ? (gdpsTotales.reduce((acc, curr) => acc + curr, 0) / gdpsTotales.length) : 0.45;
     }, [animales]);
 
