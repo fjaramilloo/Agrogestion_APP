@@ -544,6 +544,40 @@ export default function HistorialCompras() {
                                                 </tr>
                                             ))}
                                         </tbody>
+                                        <tfoot>
+                                            <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                                                <td colSpan={3} style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold' }}>TOTALES:</td>
+                                                <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                    {Math.round(detalleCompra.animalesDetalle.reduce((acc, a) => acc + (a.peso_ingreso || 0), 0)).toLocaleString()} kg
+                                                </td>
+                                                {fechasColumnas.map(fecha => {
+                                                    const total = detalleCompra.animalesDetalle.reduce((acc, a) => acc + (a.pesajesFiltrados[fecha] || 0), 0);
+                                                    return (
+                                                        <td key={fecha} style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                            {total > 0 ? `${Math.round(total).toLocaleString()} kg` : '-'}
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td></td>
+                                            </tr>
+                                            <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <td colSpan={3} style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem' }}>PROMEDIOS:</td>
+                                                <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                    {Math.round(detalleCompra.pesoPromedioIngreso)} kg
+                                                </td>
+                                                {fechasColumnas.map(fecha => {
+                                                    const validAnimals = detalleCompra.animalesDetalle.filter(a => a.pesajesFiltrados[fecha]);
+                                                    const total = validAnimals.reduce((acc, a) => acc + (a.pesajesFiltrados[fecha] || 0), 0);
+                                                    const avg = validAnimals.length > 0 ? total / validAnimals.length : 0;
+                                                    return (
+                                                        <td key={fecha} style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                            {avg > 0 ? `${Math.round(avg)} kg` : '-'}
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
                                     </table>
                                 </div>
                             </div>
