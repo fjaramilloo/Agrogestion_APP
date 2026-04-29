@@ -45,9 +45,20 @@ export default function Aforos() {
     const [consumoBase, setConsumoBase] = useState(50); // Default, from config
     
     // Online / Sync State
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [isOnline, setIsOnline] = useState(true);
     const [offlineQueue, setOfflineQueue] = useState<OfflineAforoPayload[]>([]);
     const [syncing, setSyncing] = useState(false);
+
+    const checkOnlineStatus = async () => {
+        try {
+            // Intento de conexión real (Ping)
+            const { error } = await supabase.from('fincas').select('id').limit(1);
+            if (error && error.code === 'PGRST301') return true; 
+            return !error;
+        } catch (e) {
+            return false;
+        }
+    };
     
     // Potrero Info Context
     const [areaInfo, setAreaInfo] = useState<number | null>(null);
@@ -71,21 +82,10 @@ export default function Aforos() {
     const [calcDias, setCalcDias] = useState('0');
 
     useEffect(() => {
-        const handleOnline = () => { setIsOnline(true); }
-        const handleOffline = () => setIsOnline(false);
-
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-
         const saved = localStorage.getItem('agrogestion_aforos_offline');
         if (saved) {
             try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
         }
-
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
     }, []);
 
     useEffect(() => {
@@ -189,7 +189,9 @@ export default function Aforos() {
     };
 
     const syncOfflineQueue = async () => {
-        if (!fincaId || offlineQueue.length === 0 || !navigator.onLine) return;
+        const realOnline = await checkOnlineStatus();
+        setIsOnline(realOnline);
+        if (!fincaId || offlineQueue.length === 0 || !realOnline) return;
         setSyncing(true);
         let newQueue = [...offlineQueue];
         try {
@@ -286,7 +288,11 @@ export default function Aforos() {
             return;
         }
 
-        if (isOnline) {
+        // Validar conexión real antes de decidir flujo
+        const realOnline = await checkOnlineStatus();
+        setIsOnline(realOnline);
+
+        if (realOnline) {
             setLoading(true);
             try {
                 const { error } = await supabase.from('registros_aforo').insert({
@@ -397,19 +403,40 @@ export default function Aforos() {
                 </h1>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ 
-                        display: 'flex', alignItems: 'center', gap: '6px', 
-                        padding: '6px 12px', borderRadius: '20px', fontSize: '0.9rem', fontWeight: 'bold',
-                        backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
-                        color: isOnline ? 'var(--success)' : 'var(--error)'
-                    }}>
-                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline</>}
+                    <span 
+                        onClick={() => setIsOnline(!isOnline)}
+                        title="Clic para forzar el estado de conexión"
+                        style={{ 
+                            display: 'flex', alignItems: 'center', gap: '6px', 
+                            padding: '6px 12px', borderRadius: '20px', fontSize: '0.9rem', fontWeight: 'bold',
+                            backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
+                            color: isOnline ? 'var(--success)' : '#ff9800',
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                        }}
+                    >
+                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Forzar Online)</>}
                     </span>
 
                     {offlineQueue.length > 0 && isOnline && (
-                        <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px' }}>
-                            <UploadCloud size={18} /> {syncing ? 'Sincronizando...' : `Sincronizar (${offlineQueue.length})`}
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px' }}>
+                                <UploadCloud size={18} /> {syncing ? 'Sincronizando...' : `Sincronizar (${offlineQueue.length})`}
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    if (window.confirm('¿Estás seguro de limpiar la cola de aforos pendientes?')) {
+                                        setOfflineQueue([]);
+                                        localStorage.removeItem('agrogestion_aforos_offline');
+                                        setMsjExito('Cola de aforos pendientes limpiada.');
+                                    }
+                                }}
+                                style={{ backgroundColor: 'transparent', color: 'var(--error)', border: '1px solid var(--error)', padding: '6px', width: 'auto' }}
+                                title="Limpiar todos los pendientes"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

@@ -39,7 +39,7 @@ export default function Purchase() {
     const [msjError, setMsjError] = useState('');
 
     // Offline / Sync State
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [isOnline, setIsOnline] = useState(true);
     const [offlineQueue, setOfflineQueue] = useState<OfflinePurchasePayload[]>([]);
     const [syncing, setSyncing] = useState(false);
 
@@ -60,11 +60,6 @@ export default function Purchase() {
     const [quickReportData, setQuickReportData] = useState<{ proveedor: string; fecha: string; animales: { numero_chapeta: string; peso_ingreso: number }[]; pesoCompraTotal: number } | null>(null);
 
     useEffect(() => {
-        const handleOnline = () => setIsOnline(true);
-        const handleOffline = () => setIsOnline(false);
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-
         const saved = localStorage.getItem('agrogestion_compras_offline');
         if (saved) {
             try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
@@ -90,11 +85,6 @@ export default function Purchase() {
             await fetchLastTags();
         };
         fetchPropietarios();
-
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
     }, [fincaId]);
 
     const fetchLastTags = async () => {
@@ -365,7 +355,9 @@ export default function Purchase() {
     }
 
     const syncOfflineQueue = async () => {
-        if (!fincaId || offlineQueue.length === 0 || !isOnline) return;
+        const realOnline = await checkOnlineStatus();
+        setIsOnline(realOnline);
+        if (!fincaId || offlineQueue.length === 0 || !realOnline) return;
         setSyncing(true);
         setMsjError('');
         setMsjExito('');

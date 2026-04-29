@@ -49,7 +49,7 @@ export default function Sales() {
     const [msjError, setMsjError] = useState('');
 
     // Offline / Sync State
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [isOnline, setIsOnline] = useState(true);
     const [offlineQueue, setOfflineQueue] = useState<OfflineSalesPayload[]>([]);
     const [syncing, setSyncing] = useState(false);
 
@@ -71,11 +71,6 @@ export default function Sales() {
     };
 
     useEffect(() => {
-        const handleOnline = () => setIsOnline(true);
-        const handleOffline = () => setIsOnline(false);
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-
         const saved = localStorage.getItem('agrogestion_ventas_offline');
         if (saved) {
             try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
@@ -102,11 +97,6 @@ export default function Sales() {
             if (data) setCompradores(data);
         };
         fetchConfigAndCompradores();
-
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
     }, [fincaId]);
 
     const generarFilas = (e: React.FormEvent) => {
@@ -418,7 +408,9 @@ export default function Sales() {
     }
 
     const syncOfflineQueue = async () => {
-        if (!fincaId || offlineQueue.length === 0 || !isOnline) return;
+        const realOnline = await checkOnlineStatus();
+        setIsOnline(realOnline);
+        if (!fincaId || offlineQueue.length === 0 || !realOnline) return;
         setSyncing(true);
         setMsjError('');
         setMsjExito('');
