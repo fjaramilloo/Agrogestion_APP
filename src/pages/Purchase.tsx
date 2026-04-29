@@ -45,7 +45,7 @@ export default function Purchase() {
 
     // Reporte
     const [showReport, setShowReport] = useState(false);
-    const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalCompra[], pesoCompraTotal?: number } | null>(null);
+    const [reportData, setReportData] = useState<{ fechaIngreso: string, animales: AnimalCompra[], pesoCompraTotal?: number } | null>(null);
     const [lastTags, setLastTags] = useState<{ owner: string, tag: string }[]>([]);
     const [existingTags, setExistingTags] = useState<Set<string>>(new Set());
     const [showLastTags, setShowLastTags] = useState(false);
@@ -214,10 +214,17 @@ export default function Purchase() {
     const confirmAndInsert = async () => {
         setLoading(true);
         setMsjError('');
+        setMsjExito('');
         setShowConfirm(false);
 
+        console.log("Iniciando proceso de guardado en base de datos...");
+
         try {
+            if (!fincaId) throw new Error("No se pudo identificar la finca activa.");
+            if (animales.length === 0) throw new Error("La lista de animales está vacía.");
+
             if (!isOnline) {
+                console.log("Modo offline detectado. Guardando en cola local.");
                 const newPayload: OfflinePurchasePayload = {
                     id: Date.now().toString(),
                     fechaIngreso,
@@ -234,11 +241,12 @@ export default function Purchase() {
                 setMsjExito(`¡Sin conexión! Lote de ${animales.length} animales guardado en la cola local.`);
                 handleReset();
                 setLoading(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
 
-            
-            const uniquePropietarios = Array.from(new Set(animales.map(a => a.propietario)));
+            // Sanitización de propietarios (trim)
+            const uniquePropietarios = Array.from(new Set(animales.map(a => a.propietario.trim())));
             
             const potreradasPayload = uniquePropietarios.map(prop => ({
                 id_finca: fincaId,
@@ -246,6 +254,7 @@ export default function Purchase() {
                 etapa: 'levante'
             }));
             
+            console.log("Creando/Actualizando potreradas...", potreradasPayload);
             const { data: potreradasCreadas, error: potError } = await supabase
                 .from('potreradas')
                 .upsert(potreradasPayload, { onConflict: 'id_finca,nombre' })
@@ -269,22 +278,26 @@ export default function Purchase() {
                 ? (pesoCompTotalNum / totalPesoIngresoLote) 
                 : 1;
 
-            const records = animales.map(a => ({
-                id_finca: fincaId,
-                numero_chapeta: a.numero_chapeta.trim(),
-                nombre_propietario: a.propietario,
-                id_potrerada: potreradaIdPorPropietario.get(a.propietario) || null,
-                peso_ingreso: parseFloat(a.peso_ingreso),
-                peso_compra: incluirPesoCompra ? Math.round(parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
-                fecha_ingreso: fechaIngreso,
-                proveedor_compra: selectedProveedor,
-                observaciones_compra: observaciones,
-                etapa: 'levante',
-                especie: 'bovino',
-                sexo: 'M',
-                estado: 'activo'
-            }));
+            const records = animales.map(a => {
+                const propTrim = a.propietario.trim();
+                return {
+                    id_finca: fincaId,
+                    numero_chapeta: a.numero_chapeta.trim(),
+                    nombre_propietario: propTrim,
+                    id_potrerada: potreradaIdPorPropietario.get(propTrim) || null,
+                    peso_ingreso: parseFloat(a.peso_ingreso),
+                    peso_compra: incluirPesoCompra ? Math.round(parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
+                    fecha_ingreso: fechaIngreso,
+                    proveedor_compra: selectedProveedor,
+                    observaciones_compra: observaciones,
+                    etapa: 'levante',
+                    especie: 'bovino',
+                    sexo: 'M',
+                    estado: 'activo'
+                };
+            });
 
+            console.log("Insertando animales en DB...", records);
             const { error } = await supabase.from('animales').insert(records);
             if (error) throw error;
 
@@ -295,7 +308,7 @@ export default function Purchase() {
 
             // Guardar para el reporte antes de limpiar
             setReportData({
-                fecha: fechaIngreso,
+                fechaIngreso: fechaIngreso,
                 animales: [...animales],
                 pesoCompraTotal: incluirPesoCompra ? parseFloat(pesoCompraTotal) : undefined
             });
@@ -303,11 +316,17 @@ export default function Purchase() {
 
             setAnimales([]);
             setCantidad('1');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
         } catch (err: any) {
-            setMsjError(err.message);
+            console.error("Error al registrar compra:", err);
+            setMsjError(err.message || "Ocurrió un error inesperado al guardar los datos.");
+            setLoading(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setLoading(false);
         }
+
     };
 
     const handleReset = () => {
@@ -856,7 +875,7 @@ export default function Purchase() {
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, overflowY: 'auto' }}>
                     <PurchaseReport 
                         fincaNombre={userFincas?.find((f: any) => f.id_finca === fincaId)?.nombre_finca || ''}
-                        fechaIngreso={reportData.fecha}
+                        fechaIngreso={reportData.fechaIngreso}
                         animales={reportData.animales}
                         pesoCompraTotal={reportData.pesoCompraTotal}
                         onClose={() => {
