@@ -511,9 +511,28 @@ export default function Purchase() {
                     </button>
 
                     {offlineQueue.length > 0 && isOnline && (
-                        <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <UploadCloud size={18} /> {syncing ? 'Sincronizando...' : `Subir Pendientes (${offlineQueue.length})`}
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                                onClick={syncOfflineQueue} 
+                                disabled={syncing} 
+                                style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <UploadCloud size={18} /> {syncing ? 'Sincronizando...' : `Subir Pendientes (${offlineQueue.length})`}
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    if (window.confirm('¿Estás seguro de limpiar la cola de pendientes? Esto borrará los lotes que no se han subido.')) {
+                                        setOfflineQueue([]);
+                                        localStorage.removeItem('agrogestion_compras_offline');
+                                        setMsjExito('Cola de pendientes limpiada correctamente.');
+                                    }
+                                }}
+                                style={{ backgroundColor: 'transparent', color: 'var(--error)', border: '1px solid var(--error)', width: 'auto', padding: '8px' }}
+                                title="Limpiar todos los pendientes"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
