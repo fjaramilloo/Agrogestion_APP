@@ -548,8 +548,28 @@ export default function HistorialCompras() {
                                 </div>
                             </div>
 
-                            <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
-                                <button onClick={() => setDetalleCompra(null)} style={{ width: 'auto', padding: '8px 24px', fontSize: '0.9rem' }}>
+                            <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Kilos (Llegada)</span>
+                                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                            {Math.round(detalleCompra.animalesDetalle.reduce((acc, a) => acc + (a.peso_ingreso || 0), 0)).toLocaleString()} kg
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Peso Promedio</span>
+                                        <span style={{ color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                            {Math.round(detalleCompra.pesoPromedioIngreso)} kg
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cantidad</span>
+                                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                            {detalleCompra.animalesCount} animales
+                                        </span>
+                                    </div>
+                                </div>
+                                <button onClick={() => setDetalleCompra(null)} style={{ width: 'auto', padding: '8px 32px', fontSize: '0.9rem', fontWeight: '600' }}>
                                     Cerrar
                                 </button>
                             </div>
