@@ -168,11 +168,26 @@ export default function Purchase() {
 
     const [showConfirm, setShowConfirm] = useState(false);
 
+    const checkOnlineStatus = async () => {
+        try {
+            // Intento de conexión real (Ping)
+            const { error } = await supabase.from('fincas').select('id').limit(1);
+            if (error && error.code === 'PGRST301') return true; // JWT error but reached server
+            return !error;
+        } catch (e) {
+            return false;
+        }
+    };
+
     const handleIngresarCompra = async () => {
         if (!fincaId || animales.length === 0) return;
 
         setLoading(true);
         setMsjError('');
+
+        // Validar conexión real antes de decidir flujo
+        const realOnline = await checkOnlineStatus();
+        setIsOnline(realOnline);
 
         try {
             if (!selectedProveedor) throw new Error("Debe seleccionar un Vendedor/Proveedor para la compra.");
@@ -217,13 +232,17 @@ export default function Purchase() {
         setMsjExito('');
         setShowConfirm(false);
 
-        console.log("Iniciando proceso de guardado en base de datos...");
+        // Segunda validación de conexión real antes de la inserción final
+        const realOnline = await checkOnlineStatus();
+        setIsOnline(realOnline);
+
+        console.log("Iniciando proceso de guardado en base de datos. Estado real:", realOnline ? "Online" : "Offline");
 
         try {
             if (!fincaId) throw new Error("No se pudo identificar la finca activa.");
             if (animales.length === 0) throw new Error("La lista de animales está vacía.");
 
-            if (!isOnline) {
+            if (!realOnline) {
                 console.log("Modo offline detectado. Guardando en cola local.");
                 const newPayload: OfflinePurchasePayload = {
                     id: Date.now().toString(),

@@ -56,9 +56,19 @@ export default function Sales() {
     // Reporte
     const [showConfirm, setShowConfirm] = useState(false);
 
-    // Reporte
     const [showReport, setShowReport] = useState(false);
     const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalVenta[], comprador: string, observaciones?: string } | null>(null);
+
+    const checkOnlineStatus = async () => {
+        try {
+            // Intento de conexión real (Ping)
+            const { error } = await supabase.from('fincas').select('id').limit(1);
+            if (error && error.code === 'PGRST301') return true; // JWT error but reached server
+            return !error;
+        } catch (e) {
+            return false;
+        }
+    };
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -284,8 +294,15 @@ export default function Sales() {
         setAnimales(animales.filter((_, i) => i !== index));
     };
 
-    const handlePreconfirmar = () => {
+    const handlePreconfirmar = async () => {
         if (!fincaId || animales.length === 0) return;
+
+        setLoading(true);
+        setMsjError('');
+
+        // Validar conexión real antes de decidir flujo
+        const realOnline = await checkOnlineStatus();
+        setIsOnline(realOnline);
 
         try {
             if (!selectedComprador) throw new Error("Debe seleccionar un Comprador para la venta.");
@@ -304,10 +321,15 @@ export default function Sales() {
     const handleProcesarVenta = async () => {
         setLoading(true);
         setMsjError('');
+        setMsjExito('');
         setShowConfirm(false);
 
+        // Segunda validación de conexión real antes de procesar
+        const realOnline = await checkOnlineStatus();
+        setIsOnline(realOnline);
+
         try {
-            if (!isOnline) {
+            if (!realOnline) {
                 const newPayload: OfflineSalesPayload = {
                     id: Date.now().toString(),
                     fechaVenta,
@@ -517,13 +539,48 @@ export default function Sales() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '20px', backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', color: isOnline ? 'var(--success)' : '#ff9800', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline</>}
+                    <div 
+                        onClick={() => setIsOnline(!isOnline)}
+                        title="Clic para forzar el estado de conexión"
+                        style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px', 
+                            padding: '8px 16px', 
+                            borderRadius: '20px', 
+                            backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
+                            color: isOnline ? 'var(--success)' : '#ff9800', 
+                            fontWeight: 'bold', 
+                            fontSize: '0.9rem',
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                        }}
+                    >
+                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Forzar Online)</>}
                     </div>
                     {offlineQueue.length > 0 && isOnline && (
-                        <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <UploadCloud size={18} /> {syncing ? 'Validando...' : `Sincronizar Ventas (${offlineQueue.length})`}
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                                onClick={syncOfflineQueue} 
+                                disabled={syncing} 
+                                style={{ backgroundColor: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <UploadCloud size={18} /> {syncing ? 'Validando...' : `Sincronizar Ventas (${offlineQueue.length})`}
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    if (window.confirm('¿Estás seguro de limpiar la cola de ventas pendientes? Esto borrará los lotes que no se han subido.')) {
+                                        setOfflineQueue([]);
+                                        localStorage.removeItem('agrogestion_ventas_offline');
+                                        setMsjExito('Cola de ventas pendientes limpiada correctamente.');
+                                    }
+                                }}
+                                style={{ backgroundColor: 'transparent', color: 'var(--error)', border: '1px solid var(--error)', width: 'auto', padding: '8px' }}
+                                title="Limpiar todos los pendientes"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
