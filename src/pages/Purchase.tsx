@@ -465,8 +465,24 @@ export default function Purchase() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '20px', backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', color: isOnline ? 'var(--success)' : '#ff9800', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline</>}
+                    <div 
+                        onClick={() => setIsOnline(!isOnline)}
+                        title="Clic para forzar el estado de conexión"
+                        style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px', 
+                            padding: '8px 16px', 
+                            borderRadius: '20px', 
+                            backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
+                            color: isOnline ? 'var(--success)' : '#ff9800', 
+                            fontWeight: 'bold', 
+                            fontSize: '0.9rem',
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                        }}
+                    >
+                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Forzar Online)</>}
                     </div>
                     
                     <button 
