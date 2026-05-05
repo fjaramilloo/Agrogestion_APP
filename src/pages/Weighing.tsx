@@ -370,8 +370,8 @@ export default function Weighing() {
                                 <div style={{ 
                                     fontSize: '1.5rem', 
                                     fontWeight: 'bold', 
-                                    color: (animal.gmp || 0) < 0 ? 'var(--error)' : ((animal.gmp || 0) <= umbralMedio ? 'var(--text-light)' : ((animal.gmp || 0) <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
-                                    textShadow: (animal.gmp !== undefined && animal.gmp >= 0 && animal.gmp <= umbralMedio) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
+                                    color: (animal.gmp || 0) < 0 ? 'var(--error)' : ((animal.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((animal.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
+                                    textShadow: (animal.gmp !== undefined && animal.gmp > umbralMedio && animal.gmp <= umbralAlto) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
                                 }}>
                                     {animal.gmp ? animal.gmp.toFixed(1) : '0.0'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>kg/mes</span>
                                 </div>

@@ -556,8 +556,8 @@ export default function Inventory() {
                                 const hasRecords = (animal.registros_pesaje?.length || 0) > 1;
                                 const gmpColor = !hasRecords ? 'var(--text-muted)' : (
                                     gmpPromedio < 0 ? 'var(--error)' : (
-                                        gmpPromedio <= umbralMedioGmp ? '#000000' : (
-                                            gmpPromedio <= umbralAltoGmp ? 'var(--warning)' : 'var(--success)'
+                                        gmpPromedio <= umbralMedioGmp ? 'var(--warning)' : (
+                                            gmpPromedio <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)'
                                         )
                                     )
                                 );
@@ -602,7 +602,7 @@ export default function Inventory() {
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     gap: '8px',
-                                                    color: gmpColor === '#000000' ? 'var(--text-light)' : gmpColor,
+                                                    color: gmpColor === 'var(--text-light)' ? 'white' : gmpColor,
                                                     fontWeight: 'bold'
                                                 }}>
                                                     <div style={{ 
@@ -610,7 +610,7 @@ export default function Inventory() {
                                                         height: '10px', 
                                                         borderRadius: '50%', 
                                                         backgroundColor: gmpColor,
-                                                        border: gmpColor === '#000000' ? '1px solid rgba(255,255,255,0.4)' : 'none'
+                                                        border: gmpColor === 'var(--text-light)' ? '1px solid rgba(255,255,255,0.4)' : 'none'
                                                     }}></div>
                                                     {gmpPromedio.toFixed(1)} kg/mes
                                                 </div>
@@ -860,9 +860,9 @@ export default function Inventory() {
                                                     ) : (
                                                         <>
                                                             <div style={{ 
-                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedioGmp ? 'var(--text-light)' : (item.gmp <= umbralAltoGmp ? 'var(--warning)' : 'var(--success)')), 
+                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedioGmp ? 'var(--warning)' : (item.gmp <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)')), 
                                                                 fontWeight: 'bold',
-                                                                textShadow: (item.gmp >= 0 && item.gmp <= umbralMedioGmp) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
+                                                                textShadow: (item.gmp > umbralMedioGmp && item.gmp <= umbralAltoGmp) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
                                                             }}>
                                                                 {item.gmp > 0 ? '+' : ''}{item.gmp.toFixed(1)} kg/mes
                                                             </div>

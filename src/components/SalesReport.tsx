@@ -402,19 +402,19 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '30px' }}>
                         <div className="stat-card">
                             <span className="stat-label">GMP en Levante</span>
-                            <div className="stat-value" style={{ color: gmpLevanteFinal < 0 ? '#d32f2f' : (gmpLevanteFinal <= umbralMedio ? '#000000' : (gmpLevanteFinal <= umbralAlto ? '#f57c00' : '#2e7d32')) }}>
+                            <div className="stat-value" style={{ color: gmpLevanteFinal < 0 ? '#d32f2f' : (gmpLevanteFinal <= umbralMedio ? '#f57c00' : (gmpLevanteFinal <= umbralAlto ? '#000000' : '#2e7d32')) }}>
                                 {gmpLevanteFinal !== 0 ? gmpLevanteFinal.toFixed(2) : '-'} kg
                             </div>
                         </div>
                         <div className="stat-card">
                             <span className="stat-label">GMP en Ceba</span>
-                            <div className="stat-value" style={{ color: gmpCebaFinal < 0 ? '#d32f2f' : (gmpCebaFinal <= umbralMedio ? '#000000' : (gmpCebaFinal <= umbralAlto ? '#f57c00' : '#2e7d32')) }}>
+                            <div className="stat-value" style={{ color: gmpCebaFinal < 0 ? '#d32f2f' : (gmpCebaFinal <= umbralMedio ? '#f57c00' : (gmpCebaFinal <= umbralAlto ? '#000000' : '#2e7d32')) }}>
                                 {gmpCebaFinal !== 0 ? gmpCebaFinal.toFixed(2) : '-'} kg
                             </div>
                         </div>
                         <div className="stat-card">
                             <span className="stat-label">GMP Total (Vida)</span>
-                            <div className="stat-value" style={{ color: gmpTotalFinal < 0 ? '#d32f2f' : (gmpTotalFinal <= umbralMedio ? '#000000' : (gmpTotalFinal <= umbralAlto ? '#f57c00' : '#2e7d32')) }}>
+                            <div className="stat-value" style={{ color: gmpTotalFinal < 0 ? '#d32f2f' : (gmpTotalFinal <= umbralMedio ? '#f57c00' : (gmpTotalFinal <= umbralAlto ? '#000000' : '#2e7d32')) }}>
                                 {gmpTotalFinal !== 0 ? gmpTotalFinal.toFixed(2) : '-'} kg
                             </div>
                         </div>
@@ -468,7 +468,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                                 </td>
                                             )}
                                             <td style={{ 
-                                                color: (a.gmp || 0) < 0 ? '#d32f2f' : ((a.gmp || 0) <= umbralMedio ? '#000000' : ((a.gmp || 0) <= umbralAlto ? '#f57c00' : '#2e7d32')),
+                                                color: (a.gmp || 0) < 0 ? '#d32f2f' : ((a.gmp || 0) <= umbralMedio ? '#f57c00' : ((a.gmp || 0) <= umbralAlto ? '#000000' : '#2e7d32')),
                                                 fontWeight: '600'
                                             }}>
                                                 {a.gmp ? a.gmp.toFixed(1) : '-'}

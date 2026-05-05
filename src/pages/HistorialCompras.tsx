@@ -360,7 +360,7 @@ export default function HistorialCompras() {
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             {compra.gmpPromedio !== null ? (
                                                 <span style={{
-                                                    color: compra.gmpPromedio < 0 ? 'var(--error)' : (compra.gmpPromedio <= umbralMedio ? 'var(--text-light)' : (compra.gmpPromedio <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                                    color: compra.gmpPromedio < 0 ? 'var(--error)' : (compra.gmpPromedio <= umbralMedio ? 'var(--warning)' : (compra.gmpPromedio <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                                     fontWeight: 'bold'
                                                 }}>
                                                     {compra.gmpPromedio.toFixed(1)}
@@ -544,9 +544,9 @@ export default function HistorialCompras() {
                                                     <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                         {a.gmp !== null ? (
                                                             <span style={{
-                                                                color: a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? '#000000' : (a.gmp <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                                                color: a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                                                 fontWeight: 'bold',
-                                                                textShadow: (a.gmp >= 0 && a.gmp <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                                                textShadow: (a.gmp > umbralMedio && a.gmp <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                             }}>
                                                                 {a.gmp.toFixed(1)}
                                                             </span>
@@ -695,7 +695,7 @@ export default function HistorialCompras() {
                                 </div>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>GMP</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--text-light)' : (a.gmp <= umbralAlto ? 'var(--warning)' : 'var(--success)'))) : 'var(--text-muted)' }}>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))) : 'var(--text-muted)' }}>
                                         {a.gmp !== null ? `${a.gmp.toFixed(1)} kg/m` : '-'}
                                     </div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ganancia mensual</div>
@@ -743,9 +743,9 @@ export default function HistorialCompras() {
                                                     ) : (
                                                         <>
                                                             <div style={{ 
-                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedio ? 'var(--text-light)' : (item.gmp <= umbralAlto ? 'var(--warning)' : 'var(--success)')), 
+                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedio ? 'var(--warning)' : (item.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)')), 
                                                                 fontWeight: 'bold',
-                                                                textShadow: (item.gmp >= 0 && item.gmp <= umbralMedio) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
+                                                                textShadow: (item.gmp > umbralMedio && item.gmp <= umbralAlto) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
                                                             }}>
                                                                 {item.gmp > 0 ? '+' : ''}{item.gmp.toFixed(1)} kg/mes
                                                             </div>

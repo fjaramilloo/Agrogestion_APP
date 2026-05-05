@@ -856,8 +856,8 @@ export default function Dashboard() {
                                     <span style={{ 
                                         fontWeight: 'bold', 
                                         fontSize: '1.2rem', 
-                                        color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? 'var(--text-light)' : (stats.gmpLevante <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
-                                        textShadow: (stats.gmpLevante >= 0 && stats.gmpLevante <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                        color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? 'var(--warning)' : (stats.gmpLevante <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
+                                        textShadow: (stats.gmpLevante > umbralMedio && stats.gmpLevante <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                     }}>{stats.gmpLevante.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
@@ -884,8 +884,8 @@ export default function Dashboard() {
                                     <span style={{ 
                                         fontWeight: 'bold', 
                                         fontSize: '1.2rem', 
-                                        color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? 'var(--text-light)' : (stats.gmpCeba <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
-                                        textShadow: (stats.gmpCeba >= 0 && stats.gmpCeba <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                        color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? 'var(--warning)' : (stats.gmpCeba <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
+                                        textShadow: (stats.gmpCeba > umbralMedio && stats.gmpCeba <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                     }}>{stats.gmpCeba.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
