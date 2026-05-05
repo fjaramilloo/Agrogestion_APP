@@ -544,8 +544,9 @@ export default function HistorialCompras() {
                                                     <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                         {a.gmp !== null ? (
                                                             <span style={{
-                                                                color: a.gmp > umbralAlto ? 'var(--success)' : (a.gmp > umbralMedio ? 'var(--warning)' : 'var(--error)'),
-                                                                fontWeight: 'bold'
+                                                                color: a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? '#000000' : (a.gmp <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                                                fontWeight: 'bold',
+                                                                textShadow: (a.gmp >= 0 && a.gmp <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                             }}>
                                                                 {a.gmp.toFixed(1)}
                                                             </span>

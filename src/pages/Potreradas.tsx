@@ -1159,8 +1159,9 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Últ:</span>
                                                 <span style={{ 
-                                                    color: p.gmpPromedio > umbralAlto ? 'var(--success)' : p.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)',
-                                                    fontWeight: 'bold'
+                                                    color: p.gmpPromedio < 0 ? 'var(--error)' : (p.gmpPromedio <= umbralMedio ? '#000000' : (p.gmpPromedio <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                                    fontWeight: 'bold',
+                                                    textShadow: (p.gmpPromedio >= 0 && p.gmpPromedio <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                 }}>
                                                     {p.gmpPromedio.toFixed(1)}
                                                 </span>
@@ -1168,8 +1169,9 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Acum:</span>
                                                 <span style={{ 
-                                                    color: p.gmpAcumulado > umbralAlto ? 'var(--success)' : p.gmpAcumulado > umbralMedio ? 'var(--warning)' : 'var(--error)',
-                                                    fontWeight: '500'
+                                                    color: p.gmpAcumulado < 0 ? 'var(--error)' : (p.gmpAcumulado <= umbralMedio ? '#000000' : (p.gmpAcumulado <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                                    fontWeight: '500',
+                                                    textShadow: (p.gmpAcumulado >= 0 && p.gmpAcumulado <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                 }}>
                                                     {p.gmpAcumulado.toFixed(1)}
                                                 </span>
@@ -1412,7 +1414,7 @@ export default function Potreradas() {
                                                     <MapPin size={14} color="var(--primary)" /> <span className="mobile-hide">Potrero:</span> <strong style={{color: 'var(--text)'}}>{detailData.potreroActual}</strong>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                    <TrendingUp size={14} color="var(--success)" /> <span className="mobile-hide">GMP:</span> <strong style={{color: 'var(--success)'}}>{detailData.gmpPromedioGrupo.toFixed(1)}</strong>
+                                                    <TrendingUp size={14} color={detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? '#000000' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--warning)' : 'var(--success)'))} /> <span className="mobile-hide">GMP:</span> <strong style={{color: detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? '#000000' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--warning)' : 'var(--success)'))}}>{detailData.gmpPromedioGrupo.toFixed(1)}</strong>
                                                 </div>
                                                 {(() => {
                                                     const productivity = (detailData.animales.length * detailData.potrerada.gmpPromedio) / (detailData.areaTotalSistema || 1);
@@ -1596,8 +1598,9 @@ export default function Potreradas() {
                                                         ))}
                                                         <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                             <span style={{ 
-                                                                color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : (a.gmp || 0) > umbralMedio ? 'var(--warning)' : 'var(--error)',
-                                                                fontWeight: 'bold'
+                                                                color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? '#000000' : ((a.gmp || 0) <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                                                fontWeight: 'bold',
+                                                                textShadow: ((a.gmp || 0) >= 0 && (a.gmp || 0) <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                             }}>
                                                                 {(a.gmp || 0).toFixed(1)}
                                                             </span>

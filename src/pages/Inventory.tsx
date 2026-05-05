@@ -552,11 +552,13 @@ export default function Inventory() {
                                 const gananciaTotal = pesoReferencia - pesoBase;
                                 const gmpPromedio = (gananciaTotal / dias) * 30;
 
-                                const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gmpPromedio <= umbralMedioGmp;
+                                const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gmpPromedio < 0;
                                 const hasRecords = (animal.registros_pesaje?.length || 0) > 1;
                                 const gmpColor = !hasRecords ? 'var(--text-muted)' : (
-                                    gmpPromedio > umbralAltoGmp ? 'var(--success)' : (
-                                        gmpPromedio > umbralMedioGmp ? 'var(--warning)' : 'var(--error)'
+                                    gmpPromedio < 0 ? 'var(--error)' : (
+                                        gmpPromedio <= umbralMedioGmp ? '#000000' : (
+                                            gmpPromedio <= umbralAltoGmp ? 'var(--warning)' : 'var(--success)'
+                                        )
                                     )
                                 );
 
@@ -596,19 +598,22 @@ export default function Inventory() {
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             {hasRecords ? (
-                                                <>
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        color: gmpColor,
-                                                        fontWeight: 'bold'
-                                                    }}>
-                                                        {gmpPromedio.toFixed(1)} kg/mes
-                                                        {isAlerta && <span title="Bajo el umbral configurado">⚠️</span>}
-                                                    </div>
-                                                    <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Promedio histórico</div>
-                                                </>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    color: gmpColor === '#000000' ? 'var(--text-light)' : gmpColor,
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    <div style={{ 
+                                                        width: '10px', 
+                                                        height: '10px', 
+                                                        borderRadius: '50%', 
+                                                        backgroundColor: gmpColor,
+                                                        border: gmpColor === '#000000' ? '1px solid rgba(255,255,255,0.4)' : 'none'
+                                                    }}></div>
+                                                    {gmpPromedio.toFixed(1)} kg/mes
+                                                </div>
                                             ) : (
                                                 <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>NA</div>
                                             )}

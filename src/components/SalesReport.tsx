@@ -402,20 +402,20 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '30px' }}>
                         <div className="stat-card">
                             <span className="stat-label">GMP en Levante</span>
-                            <div className="stat-value" style={{ color: gmpLevanteFinal > umbralAlto ? '#2e7d32' : gmpLevanteFinal > umbralMedio ? '#f57c00' : '#d32f2f' }}>
-                                {gmpLevanteFinal > 0 ? gmpLevanteFinal.toFixed(2) : '-'} kg
+                            <div className="stat-value" style={{ color: gmpLevanteFinal < 0 ? '#d32f2f' : (gmpLevanteFinal <= umbralMedio ? '#000000' : (gmpLevanteFinal <= umbralAlto ? '#f57c00' : '#2e7d32')) }}>
+                                {gmpLevanteFinal !== 0 ? gmpLevanteFinal.toFixed(2) : '-'} kg
                             </div>
                         </div>
                         <div className="stat-card">
                             <span className="stat-label">GMP en Ceba</span>
-                            <div className="stat-value" style={{ color: gmpCebaFinal > umbralAlto ? '#2e7d32' : gmpCebaFinal > umbralMedio ? '#f57c00' : '#d32f2f' }}>
-                                {gmpCebaFinal > 0 ? gmpCebaFinal.toFixed(2) : '-'} kg
+                            <div className="stat-value" style={{ color: gmpCebaFinal < 0 ? '#d32f2f' : (gmpCebaFinal <= umbralMedio ? '#000000' : (gmpCebaFinal <= umbralAlto ? '#f57c00' : '#2e7d32')) }}>
+                                {gmpCebaFinal !== 0 ? gmpCebaFinal.toFixed(2) : '-'} kg
                             </div>
                         </div>
                         <div className="stat-card">
                             <span className="stat-label">GMP Total (Vida)</span>
-                            <div className="stat-value" style={{ color: gmpTotalFinal > umbralAlto ? '#2e7d32' : gmpTotalFinal > umbralMedio ? '#f57c00' : '#d32f2f' }}>
-                                {gmpTotalFinal > 0 ? gmpTotalFinal.toFixed(2) : '-'} kg
+                            <div className="stat-value" style={{ color: gmpTotalFinal < 0 ? '#d32f2f' : (gmpTotalFinal <= umbralMedio ? '#000000' : (gmpTotalFinal <= umbralAlto ? '#f57c00' : '#2e7d32')) }}>
+                                {gmpTotalFinal !== 0 ? gmpTotalFinal.toFixed(2) : '-'} kg
                             </div>
                         </div>
                     </div>
@@ -468,10 +468,10 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                                 </td>
                                             )}
                                             <td style={{ 
-                                                color: (a.gmp || 0) > umbralAlto ? '#2e7d32' : (a.gmp || 0) > umbralMedio ? '#f57c00' : '#d32f2f',
+                                                color: (a.gmp || 0) < 0 ? '#d32f2f' : ((a.gmp || 0) <= umbralMedio ? '#000000' : ((a.gmp || 0) <= umbralAlto ? '#f57c00' : '#2e7d32')),
                                                 fontWeight: '600'
                                             }}>
-                                                {a.gmp && a.gmp > 0 ? a.gmp.toFixed(1) : '-'}
+                                                {a.gmp ? a.gmp.toFixed(1) : '-'}
                                             </td>
                                             <td style={{ fontSize: '8px', color: '#666' }}>{a.propietario}</td>
                                         </tr>
@@ -510,9 +510,9 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                     <td style={{ 
                                         textAlign: 'right', 
                                         fontWeight: 'bold',
-                                        color: r.promedioGMP > umbralAlto ? '#2e7d32' : (r.promedioGMP > umbralMedio ? '#f57c00' : '#d32f2f')
+                                        color: r.promedioGMP < 0 ? '#d32f2f' : (r.promedioGMP <= umbralMedio ? '#000000' : (r.promedioGMP <= umbralAlto ? '#f57c00' : '#2e7d32'))
                                     }}>
-                                        {r.promedioGMP > 0 ? r.promedioGMP.toFixed(2) : '-'}
+                                        {r.promedioGMP !== 0 ? r.promedioGMP.toFixed(2) : '-'}
                                     </td>
                                 </tr>
                             ))}

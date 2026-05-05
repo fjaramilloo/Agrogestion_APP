@@ -41,16 +41,20 @@ export default function Weighing() {
     const [loading, setLoading] = useState(false);
     const [msjError, setMsjError] = useState('');
     const [msjExito, setMsjExito] = useState('');
+    const [umbralAlto, setUmbralAlto] = useState(20);
+    const [umbralMedio, setUmbralMedio] = useState(10);
 
     useEffect(() => {
         if (!fincaId) return;
         const fetchConfig = async () => {
             const { data: config } = await supabase
                 .from('configuracion_kpi')
-                .select('peso_entrada_ceba')
+                .select('peso_entrada_ceba, umbral_alto_gmp, umbral_medio_gmp')
                 .eq('id_finca', fincaId)
                 .single();
             if (config?.peso_entrada_ceba) setPesoEntradaCeba(config.peso_entrada_ceba);
+            if (config?.umbral_alto_gmp) setUmbralAlto(config.umbral_alto_gmp);
+            if (config?.umbral_medio_gmp) setUmbralMedio(config.umbral_medio_gmp);
 
             const { data } = await supabase
                 .from('propietarios')
@@ -363,7 +367,12 @@ export default function Weighing() {
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>GMP Actual</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: animal.gmp && animal.gmp > 13 ? 'var(--success)' : 'var(--warning)' }}>
+                                <div style={{ 
+                                    fontSize: '1.5rem', 
+                                    fontWeight: 'bold', 
+                                    color: (animal.gmp || 0) < 0 ? 'var(--error)' : ((animal.gmp || 0) <= umbralMedio ? 'var(--text-light)' : ((animal.gmp || 0) <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                    textShadow: (animal.gmp !== undefined && animal.gmp >= 0 && animal.gmp <= umbralMedio) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
+                                }}>
                                     {animal.gmp ? animal.gmp.toFixed(1) : '0.0'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>kg/mes</span>
                                 </div>
                             </div>

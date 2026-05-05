@@ -71,6 +71,8 @@ export default function Dashboard() {
         pesoPromedioSalida: 540,
         metaMinima: 0
     });
+    const [umbralAlto, setUmbralAlto] = useState(20);
+    const [umbralMedio, setUmbralMedio] = useState(10);
     const [fincaInfo, setFincaInfo] = useState({
         nombre: '',
         proposito: '',
@@ -216,7 +218,7 @@ export default function Dashboard() {
             // 5.5 Obtener Punto de Equilibrio (Meta Mínima)
             const { data: configKpi } = await supabase
                 .from('configuracion_kpi')
-                .select('precio_venta_promedio, costo_mensual_animal')
+                .select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp')
                 .eq('id_finca', fincaId)
                 .single();
 
@@ -227,6 +229,8 @@ export default function Dashboard() {
                 if (precio > 0) {
                     metaMinimaVal = (costo / 0.6) / precio;
                 }
+                if (configKpi.umbral_alto_gmp) setUmbralAlto(configKpi.umbral_alto_gmp);
+                if (configKpi.umbral_medio_gmp) setUmbralMedio(configKpi.umbral_medio_gmp);
             }
 
             if (animales && animales.length > 0) {
@@ -849,7 +853,12 @@ export default function Dashboard() {
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--success)' }}>{stats.gmpLevante.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ 
+                                        fontWeight: 'bold', 
+                                        fontSize: '1.2rem', 
+                                        color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? '#000000' : (stats.gmpLevante <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                        textShadow: (stats.gmpLevante >= 0 && stats.gmpLevante <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                    }}>{stats.gmpLevante.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
@@ -872,7 +881,12 @@ export default function Dashboard() {
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--success)' }}>{stats.gmpCeba.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ 
+                                        fontWeight: 'bold', 
+                                        fontSize: '1.2rem', 
+                                        color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? '#000000' : (stats.gmpCeba <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                        textShadow: (stats.gmpCeba >= 0 && stats.gmpCeba <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                    }}>{stats.gmpCeba.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
