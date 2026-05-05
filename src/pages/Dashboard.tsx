@@ -310,9 +310,9 @@ export default function Dashboard() {
                     }
                 });
 
-                // KPI Peso Promedio Entrada (Lógica: >200 animales activos -> real, sino 360)
+                // KPI Peso Promedio Entrada (Calculado si hay animales activos)
                 let pesoEntradaFinal = 360;
-                if (animales.length > 200) {
+                if (animales.length > 0) {
                     const sumaEntrada = animales.reduce((acc: number, a: any) => acc + (parseFloat(a.peso_compra ?? a.peso_ingreso) || 0), 0);
                     pesoEntradaFinal = sumaEntrada / animales.length;
                 }
