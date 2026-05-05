@@ -993,6 +993,7 @@ export default function Inventory() {
                                     >
                                         <Trash2 size={18} />
                                     </button>
+                                </div>
                             ))}
                             {nuevosPesajes.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>No se han agregado pesajes adicionales.</p>}
                         </div>
