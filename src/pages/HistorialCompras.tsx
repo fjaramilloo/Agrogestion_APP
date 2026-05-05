@@ -24,7 +24,7 @@ interface AnimalCompraDetalle {
     peso_compra?: number | null;
     fecha_ingreso: string;
     proveedor_compra: string;
-    gmp: number;
+    gmp: number | null;
     pesoActual: number;
     pesajesFiltrados: Record<string, number>;
     registros_pesaje: { peso: number; fecha: string; gdp_calculada: number }[];
@@ -39,7 +39,7 @@ interface CompraGrupo {
     pesoPromedioIngreso: number;
     pesoTotalCompra: number;
     pesoPromedioActual: number;
-    gmpPromedio: number;
+    gmpPromedio: number | null;
     animalesReporte: AnimalCompraParaReporte[];
     animalesDetalle: AnimalCompraDetalle[];
 }
@@ -139,7 +139,7 @@ export default function HistorialCompras() {
                         peso_compra: animal.peso_compra,
                         fecha_ingreso: animal.fecha_ingreso,
                         proveedor_compra: proveedor,
-                        gmp: gmp,
+                        gmp: ultimoP ? gmp : null,
                         pesoActual: pesoActual,
                         pesajesFiltrados: pesajesMap,
                         registros_pesaje: registrosOrdenados.map((r: any) => ({
@@ -170,8 +170,12 @@ export default function HistorialCompras() {
                     acc[key].pesoTotalIngreso += animal.peso_ingreso || 0;
                     acc[key].pesoTotalCompra += animal.peso_compra || 0;
                     acc[key].pesoTotalActual += pesoActual;
-                    acc[key].gmpTotal += gmp;
-                    acc[key].gmpCount++;
+                    
+                    if (ultimoP) {
+                        acc[key].gmpTotal += gmp;
+                        acc[key].gmpCount++;
+                    }
+
                     acc[key].animalesReporte.push(animalRep);
                     acc[key].animalesDetalle.push(animalDet);
                     
@@ -182,7 +186,7 @@ export default function HistorialCompras() {
                     ...c,
                     pesoPromedioIngreso: c.animalesCount > 0 ? c.pesoTotalIngreso / c.animalesCount : 0,
                     pesoPromedioActual: c.animalesCount > 0 ? c.pesoTotalActual / c.animalesCount : 0,
-                    gmpPromedio: c.gmpCount > 0 ? c.gmpTotal / c.gmpCount : 0
+                    gmpPromedio: c.gmpCount > 0 ? c.gmpTotal / c.gmpCount : null
                 }));
                 
                 // Ordenar por fecha descendente
@@ -354,13 +358,17 @@ export default function HistorialCompras() {
                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                                            <span style={{
-                                                color: compra.gmpPromedio > umbralAlto ? 'var(--success)' : (compra.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)'),
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {compra.gmpPromedio.toFixed(1)}
-                                                <small style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>kg/m</small>
-                                            </span>
+                                            {compra.gmpPromedio !== null ? (
+                                                <span style={{
+                                                    color: compra.gmpPromedio > umbralAlto ? 'var(--success)' : (compra.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)'),
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    {compra.gmpPromedio.toFixed(1)}
+                                                    <small style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>kg/m</small>
+                                                </span>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>-</span>
+                                            )}
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -532,12 +540,16 @@ export default function HistorialCompras() {
                                                         </td>
                                                     ))}
                                                     <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                        <span style={{
-                                                            color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : (a.gmp || 0) > umbralMedio ? 'var(--warning)' : 'var(--error)',
-                                                            fontWeight: 'bold'
-                                                        }}>
-                                                            {(a.gmp || 0).toFixed(1)}
-                                                        </span>
+                                                        {a.gmp !== null ? (
+                                                            <span style={{
+                                                                color: a.gmp > umbralAlto ? 'var(--success)' : (a.gmp > umbralMedio ? 'var(--warning)' : 'var(--error)'),
+                                                                fontWeight: 'bold'
+                                                            }}>
+                                                                {a.gmp.toFixed(1)}
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ color: 'var(--text-muted)' }}>-</span>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -680,8 +692,8 @@ export default function HistorialCompras() {
                                 </div>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>GMP</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : (a.gmp || 0) > umbralMedio ? 'var(--warning)' : 'var(--error)' }}>
-                                        {(a.gmp || 0).toFixed(1)} kg/m
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp > umbralAlto ? 'var(--success)' : (a.gmp > umbralMedio ? 'var(--warning)' : 'var(--error)')) : 'var(--text-muted)' }}>
+                                        {a.gmp !== null ? `${a.gmp.toFixed(1)} kg/m` : '-'}
                                     </div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ganancia mensual</div>
                                 </div>
