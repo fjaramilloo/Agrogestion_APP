@@ -720,7 +720,11 @@ export default function HistorialVentas() {
                                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
                                                     ) : (
                                                         <>
-                                                            <div style={{ color: item.gmp > umbralAlto ? 'var(--success)' : (item.gmp > umbralMedio ? 'var(--warning)' : 'var(--error)'), fontWeight: 'bold' }}>
+                                                            <div style={{ 
+                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedio ? 'var(--text-light)' : (item.gmp <= umbralAlto ? 'var(--warning)' : 'var(--success)')), 
+                                                                fontWeight: 'bold',
+                                                                textShadow: (item.gmp >= 0 && item.gmp <= umbralMedio) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
+                                                            }}>
                                                                 {item.gmp > 0 ? '+' : ''}{item.gmp.toFixed(1)} kg/mes
                                                             </div>
                                                             <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>GDP: {item.gdp > 0 ? '+' : ''}{item.gdp.toFixed(3)} kg/día</div>
