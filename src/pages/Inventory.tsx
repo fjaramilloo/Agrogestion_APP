@@ -75,7 +75,7 @@ export default function Inventory() {
         fecha_ingreso: new Date().toISOString().split('T')[0],
         id_potrerada: ''
     });
-    const [nuevosPesajes, setNuevosPesajes] = useState<{ fecha: string; peso: string }[]>([]);
+    const [nuevosPesajes, setNuevosPesajes] = useState<{ fecha: string; peso: string; etapa: string }[]>([]);
     const [msjErrorCrear, setMsjErrorCrear] = useState('');
 
     const fetchAnimales = async () => {
@@ -301,13 +301,14 @@ export default function Inventory() {
 
             if (errAnimal) throw errAnimal;
 
-            if (nuevosPesajes.length > 0) {
+            if (animalInsertado && nuevosPesajes.length > 0) {
                 const pesajesData = nuevosPesajes
-                    .filter(p => p.fecha && p.peso)
+                    .filter(p => p.fecha && p.peso && !isNaN(parseFloat(p.peso)))
                     .map(p => ({
                         id_animal: animalInsertado.id,
                         fecha: p.fecha,
                         peso: parseFloat(p.peso),
+                        etapa: p.etapa,
                         gdp_calculada: 0
                     }));
 
@@ -950,16 +951,15 @@ export default function Inventory() {
                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                 <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--primary-light)' }}>Historial de Pesajes</h3>
                                 <button 
-                                    onClick={() => setNuevosPesajes([...nuevosPesajes, { fecha: new Date().toISOString().split('T')[0], peso: '' }])}
+                                    onClick={() => setNuevosPesajes([...nuevosPesajes, { fecha: new Date().toISOString().split('T')[0], peso: '', etapa: nuevoAnimal.etapa }])}
                                     style={{ width: 'auto', padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)' }}
                                 >
                                     + Agregar Pesaje
                                 </button>
                             </div>
-                            
-                            {nuevosPesajes.map((p, idx) => (
+                                 {nuevosPesajes.map((p, idx) => (
                                 <div key={idx} style={{ display: 'flex', gap: '12px', marginBottom: '8px', alignItems: 'flex-end' }}>
-                                    <div style={{ flex: 2 }}>
+                                    <div style={{ flex: 1.5 }}>
                                         <label style={{ fontSize: '0.7rem' }}>Fecha</label>
                                         <input type="date" value={p.fecha} onChange={e => {
                                             const up = [...nuevosPesajes];
@@ -975,13 +975,24 @@ export default function Inventory() {
                                             setNuevosPesajes(up);
                                         }} style={{ marginBottom: 0 }} placeholder="0" />
                                     </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.7rem' }}>Etapa</label>
+                                        <select value={p.etapa} onChange={e => {
+                                            const up = [...nuevosPesajes];
+                                            up[idx].etapa = e.target.value;
+                                            setNuevosPesajes(up);
+                                        }} style={{ marginBottom: 0, padding: '8px' }}>
+                                            <option value="cria">Cría</option>
+                                            <option value="levante">Levante</option>
+                                            <option value="ceba">Ceba</option>
+                                        </select>
+                                    </div>
                                     <button 
                                         onClick={() => setNuevosPesajes(nuevosPesajes.filter((_, i) => i !== idx))}
                                         style={{ backgroundColor: 'transparent', color: 'var(--error)', width: 'auto', padding: '8px', marginBottom: '2px' }}
                                     >
                                         <Trash2 size={18} />
                                     </button>
-                                </div>
                             ))}
                             {nuevosPesajes.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>No se han agregado pesajes adicionales.</p>}
                         </div>

@@ -488,7 +488,9 @@ export default function HistorialCompras() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                                 <TrendingUp size={14} color="var(--success)" />
                                                 <span>GMP Lote:</span>
-                                                <strong style={{ color: 'var(--success)' }}>{detalleCompra.gmpPromedio.toFixed(1)} kg/m</strong>
+                                                <strong style={{ color: 'var(--success)' }}>
+                                                    {detalleCompra.gmpPromedio !== null ? `${detalleCompra.gmpPromedio.toFixed(1)} kg/m` : 'N/A'}
+                                                </strong>
                                             </div>
                                         </div>
                                     </div>
