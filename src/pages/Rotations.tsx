@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info } from 'lucide-react';
+import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info, Search } from 'lucide-react';
 
 interface Potrero {
     id: string;
@@ -34,6 +34,7 @@ export default function Rotations() {
     
     const [showNuevoPotrero, setShowNuevoPotrero] = useState<string | null>(null); // null o id_rotacion
     const [nuevoPotForm, setNuevoPotForm] = useState({ nombre: '', area: '' });
+    const [searchTerm, setSearchTerm] = useState('');
 
     const isAdmin = role === 'administrador';
 
@@ -157,6 +158,24 @@ export default function Rotations() {
     const areaTotalSin = sinRotacion.reduce((sum, p) => sum + (p.area_hectareas || 0), 0);
     const areaFinca = potreros.reduce((sum, p) => sum + (p.area_hectareas || 0), 0);
 
+    const filteredGroupedData = groupedData.filter(rot => {
+        const matchesRot = rot.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesPot = rot.pots.some(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+        return matchesRot || matchesPot;
+    }).map(rot => {
+        // Si la rotación coincide con el nombre, mostramos todos sus potreros
+        // Si no, filtramos los potreros que coincidan con la búsqueda
+        if (rot.nombre.toLowerCase().includes(searchTerm.toLowerCase())) return rot;
+        return {
+            ...rot,
+            pots: rot.pots.filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+        };
+    });
+
+    const filteredSinRotacion = sinRotacion.filter(p => 
+        p.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <div className="page-container" style={{ maxWidth: '1000px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
@@ -213,8 +232,21 @@ export default function Rotations() {
                 </div>
             )}
 
+            <div style={{ marginBottom: '32px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: 1, maxWidth: '500px' }}>
+                    <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={20} />
+                    <input 
+                        type="text" 
+                        placeholder="Buscar rotación o potrero..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{ paddingLeft: '44px', margin: 0, height: '48px', fontSize: '1rem' }}
+                    />
+                </div>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                {groupedData.map(rot => (
+                {filteredGroupedData.map(rot => (
                     <div key={rot.id} className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
                         {/* Header de la Rotación */}
                         <div style={{ 
@@ -344,14 +376,14 @@ export default function Rotations() {
                 ))}
 
                 {/* Potreros Sin Rotación */}
-                {sinRotacion.length > 0 && (
+                {filteredSinRotacion.length > 0 && (
                     <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px dashed rgba(255,255,255,0.1)' }}>
                         <div style={{ padding: '16px 24px', backgroundColor: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <Info size={20} color="var(--text-muted)" />
                                 <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Sin Rotación Asignada</h3>
                                 <span style={{ fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
-                                    {sinRotacion.length} potreros • {areaTotalSin.toFixed(2)} Ha
+                                    {filteredSinRotacion.length} potreros • {areaTotalSin.toFixed(2)} Ha
                                 </span>
                             </div>
                             {isAdmin && (
@@ -379,7 +411,7 @@ export default function Rotations() {
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <tbody>
-                                    {sinRotacion.map(p => (
+                                    {filteredSinRotacion.map(p => (
                                         <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
                                             <td style={{ padding: '12px 24px' }}>
                                                 {editingPot === p.id ? (
