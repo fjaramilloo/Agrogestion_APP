@@ -856,7 +856,7 @@ export default function Dashboard() {
                                     <span style={{ 
                                         fontWeight: 'bold', 
                                         fontSize: '1.2rem', 
-                                        color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? '#000000' : (stats.gmpLevante <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                        color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? 'var(--text-light)' : (stats.gmpLevante <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
                                         textShadow: (stats.gmpLevante >= 0 && stats.gmpLevante <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                     }}>{stats.gmpLevante.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>
@@ -884,7 +884,7 @@ export default function Dashboard() {
                                     <span style={{ 
                                         fontWeight: 'bold', 
                                         fontSize: '1.2rem', 
-                                        color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? '#000000' : (stats.gmpCeba <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                        color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? 'var(--text-light)' : (stats.gmpCeba <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
                                         textShadow: (stats.gmpCeba >= 0 && stats.gmpCeba <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                     }}>{stats.gmpCeba.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>

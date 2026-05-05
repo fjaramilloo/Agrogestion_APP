@@ -319,7 +319,7 @@ export default function HistorialVentas() {
                 </div>
                 <div className="glass-panel" style={{ textAlign: 'center', padding: '20px' }}>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>GMP Promedio Historial</div>
-                    <div style={{ fontSize: '2rem', fontWeight: '900', color: (metrics.avgGmp > umbralAlto ? 'var(--success)' : (metrics.avgGmp > umbralMedio ? 'var(--warning)' : 'var(--error)')) }}>
+                    <div style={{ fontSize: '2rem', fontWeight: '900', color: (metrics.avgGmp < 0 ? 'var(--error)' : (metrics.avgGmp <= umbralMedio ? 'var(--text-light)' : (metrics.avgGmp <= umbralAlto ? 'var(--warning)' : 'var(--success)'))) }}>
                         {metrics.avgGmp.toFixed(2)} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span>
                     </div>
                 </div>
@@ -389,7 +389,7 @@ export default function HistorialVentas() {
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             <span style={{
-                                                color: venta.gmpPromedio > umbralAlto ? 'var(--success)' : (venta.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)'),
+                                                color: venta.gmpPromedio < 0 ? 'var(--error)' : (venta.gmpPromedio <= umbralMedio ? 'var(--text-light)' : (venta.gmpPromedio <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
                                                 fontWeight: 'bold'
                                             }}>
                                                 {venta.gmpPromedio.toFixed(1)}
@@ -573,7 +573,7 @@ export default function HistorialVentas() {
                                                     ))}
                                                     <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                         <span style={{
-                                                            color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : (a.gmp || 0) > umbralMedio ? 'var(--warning)' : 'var(--error)',
+                                                            color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? 'var(--text-light)' : ((a.gmp || 0) <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
                                                             fontWeight: 'bold'
                                                         }}>
                                                             {(a.gmp || 0).toFixed(1)}
@@ -673,7 +673,7 @@ export default function HistorialVentas() {
                                 </div>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>GMP</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : (a.gmp || 0) > umbralMedio ? 'var(--warning)' : 'var(--error)' }}>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? 'var(--text-light)' : ((a.gmp || 0) <= umbralAlto ? 'var(--warning)' : 'var(--success)')) }}>
                                         {(a.gmp || 0).toFixed(1)} kg/m
                                     </div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ganancia mensual</div>

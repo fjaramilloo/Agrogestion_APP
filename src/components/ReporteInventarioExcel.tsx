@@ -360,10 +360,10 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
 
   const isTotal = (row: any) => row['Rotación'] === 'TOTAL';
   const getGmpColor = (val: number) => {
-    if (val >= umbralAltoGmp) return 'var(--success, #4CAF50)';
-    if (val >= umbralMedioGmp) return 'var(--warning, #FFA726)';
-    if (val > 0) return 'var(--error, #EF5350)';
-    return 'var(--text-muted)';
+    if (val < 0) return 'var(--error, #EF5350)';
+    if (val <= umbralMedioGmp) return 'var(--text-light, #FFFFFF)';
+    if (val <= umbralAltoGmp) return 'var(--warning, #FFA726)';
+    return 'var(--success, #4CAF50)';
   };
 
   return (

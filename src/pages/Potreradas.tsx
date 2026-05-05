@@ -833,14 +833,16 @@ export default function Potreradas() {
 
             // Colores Semáforo dinámicos
             let lastGmpColor = [40, 40, 40];
-            if (p.gmpPromedio > umbralAlto) lastGmpColor = [76, 175, 80];
-            else if (p.gmpPromedio > umbralMedio) lastGmpColor = [255, 152, 0];
-            else lastGmpColor = [244, 67, 54];
+            if (p.gmpPromedio < 0) lastGmpColor = [244, 67, 54];
+            else if (p.gmpPromedio <= umbralMedio) lastGmpColor = [0, 0, 0];
+            else if (p.gmpPromedio <= umbralAlto) lastGmpColor = [255, 152, 0];
+            else lastGmpColor = [76, 175, 80];
 
             let acumGmpColor = [40, 40, 40];
-            if (detailData.gmpPromedioGrupo > umbralAlto) acumGmpColor = [76, 175, 80];
-            else if (detailData.gmpPromedioGrupo > umbralMedio) acumGmpColor = [255, 152, 0];
-            else acumGmpColor = [244, 67, 54];
+            if (detailData.gmpPromedioGrupo < 0) acumGmpColor = [244, 67, 54];
+            else if (detailData.gmpPromedioGrupo <= umbralMedio) acumGmpColor = [0, 0, 0];
+            else if (detailData.gmpPromedioGrupo <= umbralAlto) acumGmpColor = [255, 152, 0];
+            else acumGmpColor = [76, 175, 80];
 
             // FILA 1
             let xPos = marginX;
@@ -971,12 +973,14 @@ export default function Potreradas() {
                         const val = parseFloat(data.cell.raw as string);
                         if (!isNaN(val)) {
                             data.cell.styles.fontStyle = 'bold';
-                            if (val > umbralAlto) {
-                                data.cell.styles.textColor = [76, 175, 80]; // Verde (success)
-                            } else if (val > umbralMedio) {
+                            if (val < 0) {
+                                data.cell.styles.textColor = [244, 67, 54]; // Rojo (error)
+                            } else if (val <= umbralMedio) {
+                                data.cell.styles.textColor = [0, 0, 0]; // Negro (neutro)
+                            } else if (val <= umbralAlto) {
                                 data.cell.styles.textColor = [255, 152, 0]; // Naranja (warning)
                             } else {
-                                data.cell.styles.textColor = [244, 67, 54]; // Rojo (error)
+                                data.cell.styles.textColor = [76, 175, 80]; // Verde (success)
                             }
                         }
                     }
@@ -1159,7 +1163,7 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Últ:</span>
                                                 <span style={{ 
-                                                    color: p.gmpPromedio < 0 ? 'var(--error)' : (p.gmpPromedio <= umbralMedio ? '#000000' : (p.gmpPromedio <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                                    color: p.gmpPromedio < 0 ? 'var(--error)' : (p.gmpPromedio <= umbralMedio ? 'var(--text-light)' : (p.gmpPromedio <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
                                                     fontWeight: 'bold',
                                                     textShadow: (p.gmpPromedio >= 0 && p.gmpPromedio <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                 }}>
@@ -1169,7 +1173,7 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Acum:</span>
                                                 <span style={{ 
-                                                    color: p.gmpAcumulado < 0 ? 'var(--error)' : (p.gmpAcumulado <= umbralMedio ? '#000000' : (p.gmpAcumulado <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                                    color: p.gmpAcumulado < 0 ? 'var(--error)' : (p.gmpAcumulado <= umbralMedio ? 'var(--text-light)' : (p.gmpAcumulado <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
                                                     fontWeight: '500',
                                                     textShadow: (p.gmpAcumulado >= 0 && p.gmpAcumulado <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                 }}>
@@ -1414,7 +1418,7 @@ export default function Potreradas() {
                                                     <MapPin size={14} color="var(--primary)" /> <span className="mobile-hide">Potrero:</span> <strong style={{color: 'var(--text)'}}>{detailData.potreroActual}</strong>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                    <TrendingUp size={14} color={detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? '#000000' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--warning)' : 'var(--success)'))} /> <span className="mobile-hide">GMP:</span> <strong style={{color: detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? '#000000' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--warning)' : 'var(--success)'))}}>{detailData.gmpPromedioGrupo.toFixed(1)}</strong>
+                                                    <TrendingUp size={14} color={detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--text-light)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--warning)' : 'var(--success)'))} /> <span className="mobile-hide">GMP:</span> <strong style={{color: detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--text-light)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--warning)' : 'var(--success)'))}}>{detailData.gmpPromedioGrupo.toFixed(1)}</strong>
                                                 </div>
                                                 {(() => {
                                                     const productivity = (detailData.animales.length * detailData.potrerada.gmpPromedio) / (detailData.areaTotalSistema || 1);
@@ -1598,7 +1602,7 @@ export default function Potreradas() {
                                                         ))}
                                                         <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                             <span style={{ 
-                                                                color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? '#000000' : ((a.gmp || 0) <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
+                                                                color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? 'var(--text-light)' : ((a.gmp || 0) <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
                                                                 fontWeight: 'bold',
                                                                 textShadow: ((a.gmp || 0) >= 0 && (a.gmp || 0) <= umbralMedio) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                             }}>

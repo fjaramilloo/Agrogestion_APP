@@ -360,7 +360,7 @@ export default function HistorialCompras() {
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             {compra.gmpPromedio !== null ? (
                                                 <span style={{
-                                                    color: compra.gmpPromedio > umbralAlto ? 'var(--success)' : (compra.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)'),
+                                                    color: compra.gmpPromedio < 0 ? 'var(--error)' : (compra.gmpPromedio <= umbralMedio ? 'var(--text-light)' : (compra.gmpPromedio <= umbralAlto ? 'var(--warning)' : 'var(--success)')),
                                                     fontWeight: 'bold'
                                                 }}>
                                                     {compra.gmpPromedio.toFixed(1)}
@@ -695,7 +695,7 @@ export default function HistorialCompras() {
                                 </div>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>GMP</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp > umbralAlto ? 'var(--success)' : (a.gmp > umbralMedio ? 'var(--warning)' : 'var(--error)')) : 'var(--text-muted)' }}>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--text-light)' : (a.gmp <= umbralAlto ? 'var(--warning)' : 'var(--success)'))) : 'var(--text-muted)' }}>
                                         {a.gmp !== null ? `${a.gmp.toFixed(1)} kg/m` : '-'}
                                     </div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ganancia mensual</div>
