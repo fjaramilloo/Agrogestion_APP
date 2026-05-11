@@ -19,6 +19,15 @@ const parseFechaCol = (fechaStr: string) => {
     return fechaStr;
 };
 
+// MEJORA: Limpiador automático de números (borra espacios, letras, $, etc)
+const cleanNumber = (val: any): number => {
+    if (val === null || val === undefined) return 0;
+    // Mantiene solo números y el punto decimal
+    const str = val.toString().replace(/[^0-9.-]/g, '');
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? 0 : parsed;
+};
+
 export default function Settings() {
     const { fincaId, role, userFincas, isSuperAdmin } = useAuth();
     const [umbral, setUmbral] = useState('0.434');
@@ -36,6 +45,7 @@ export default function Settings() {
         omitidos: number;
         omitidosList: string[];
     } | null>(null);
+    const [importProgress, setImportProgress] = useState<{ current: number, total: number } | null>(null);
 
     // Estados para Cambio de Contraseña
     const [newPassword, setNewPassword] = useState('');
@@ -525,7 +535,7 @@ export default function Settings() {
                         // Mapeo flexible de fechas
                         const rawFecha = row.fecha_ingreso || row['fecha_ingreso(Año-Mes-Día)'] || row.fecha_ingreso_ceba || row.fecha || row.Fecha;
                         const fechaFinal = parseFechaCol(rawFecha) || new Date().toISOString().split('T')[0];
-                        const pesoIngreso = parseFloat(row.peso_ingreso) || 0;
+                        const pesoIngreso = cleanNumber(row.peso_ingreso);
 
                         return {
                             id_finca: fincaId,
@@ -565,17 +575,24 @@ export default function Settings() {
                         }
                     }
 
-                    // 4. Identificar animales existentes en la base de datos
+                    // 4. Identificar animales existentes en la base de datos (MEJORA: EN BATCH de 200)
                     const chapetasUnicas = Array.from(chapetasVistas);
-                    const { data: existentes, error: checkError } = await supabase
-                        .from('animales')
-                        .select('id, numero_chapeta')
-                        .eq('id_finca', fincaId)
-                        .in('numero_chapeta', chapetasUnicas);
+                    const existentes: any[] = [];
+                    
+                    for (let i = 0; i < chapetasUnicas.length; i += 200) {
+                        const batch = chapetasUnicas.slice(i, i + 200);
+                        const { data: batchData, error: checkError } = await supabase
+                            .from('animales')
+                            .select('id, numero_chapeta')
+                            .eq('id_finca', fincaId)
+                            .in('numero_chapeta', batch);
+                        
+                        if (checkError) throw checkError;
+                        if (batchData) existentes.push(...batchData);
+                        setImportProgress({ current: i + batch.length, total: chapetasUnicas.length });
+                    }
 
-                    if (checkError) throw checkError;
-
-                    const existentesMap = new Map(existentes?.map(e => [e.numero_chapeta, e.id]) ?? []);
+                    const existentesMap = new Map(existentes.map(e => [e.numero_chapeta, e.id]));
                     
                     // Lógica solicitada: OMITIR los que ya existen
                     const rowsNuevos = rowsUnicos.filter((r: any) => {
@@ -617,6 +634,7 @@ export default function Settings() {
                     setShowErrorModal(true);
                 } finally {
                     setLoading(false);
+                    setImportProgress(null);
                     e.target.value = '';
                 }
             }
@@ -734,7 +752,7 @@ export default function Settings() {
                         const anim = mapAnimales.get(chapeta.toLowerCase());
                         if (!anim) return; // Ya debería existir
 
-                        const peso = parseFloat(row.peso);
+                        const peso = cleanNumber(row.peso);
                         const rawFecha = row.fecha || row['fecha(Año-Mes-Día)'] || row['Fecha'];
                         const fecha = parseFechaCol(rawFecha) || new Date().toISOString().split('T')[0];
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
@@ -791,38 +809,51 @@ export default function Settings() {
                         throw new Error("El archivo no contenía datos válidos.");
                     }
 
-                    // 4. Ejecutar actualizaciones de animales (Ingreso y Ceba)
+                    // 4. Ejecutar actualizaciones de animales (Ingreso y Ceba) - MEJORA: AHORA EN BATCH
                     let animalesIngresoActualizados = 0;
-                    if (ingresoAActualizar.size > 0) {
-                        for (const [idAnimal, nuevoDato] of ingresoAActualizar.entries()) {
-                            const { error: updErr } = await supabase
+                    if (ingresoAActualizar.size > 0 || cebaUpdates.size > 0) {
+                        const allIds = Array.from(new Set([...ingresoAActualizar.keys(), ...cebaUpdates.keys()]));
+                        animalesIngresoActualizados = allIds.length;
+                        
+                        // Procesar actualizaciones en lotes de 100 para ser ultra seguros
+                        for (let i = 0; i < allIds.length; i += 100) {
+                            const batchIds = allIds.slice(i, i + 100);
+                            const updates = batchIds.map(id => {
+                                const ingreso = ingresoAActualizar.get(id);
+                                const ceba = cebaUpdates.get(id);
+                                const up: any = { id };
+                                if (ingreso) {
+                                    up.fecha_ingreso = ingreso.fecha;
+                                    up.peso_ingreso = ingreso.peso;
+                                }
+                                if (ceba) {
+                                    up.etapa = 'ceba';
+                                    up.ok_ceba = true;
+                                    up.fecha_ingreso_ceba = ceba.fecha;
+                                    up.peso_ingreso_ceba = ceba.peso;
+                                }
+                                return up;
+                            });
+
+                            const { error: upsertErr } = await supabase
                                 .from('animales')
-                                .update({ fecha_ingreso: nuevoDato.fecha, peso_ingreso: nuevoDato.peso })
-                                .eq('id', idAnimal);
-                            if (!updErr) animalesIngresoActualizados++;
+                                .upsert(updates);
+                            
+                            if (upsertErr) console.error("Error en upsert de animales:", upsertErr);
+                            setImportProgress({ current: i + batchIds.length, total: allIds.length });
                         }
                     }
 
-                    if (cebaUpdates.size > 0) {
-                        for (const [id, data] of cebaUpdates.entries()) {
-                            await supabase
-                                .from('animales')
-                                .update({ 
-                                    etapa: 'ceba', 
-                                    ok_ceba: true,
-                                    fecha_ingreso_ceba: data.fecha,
-                                    peso_ingreso_ceba: data.peso
-                                })
-                                .eq('id', id);
-                        }
-                    }
-
-                    // 5. Insertar los nuevos pesajes
+                    // 5. Insertar los nuevos pesajes - MEJORA: AHORA EN BATCH DE 200
                     let pesajesInsertados = 0;
                     if (recordsInsert.length > 0) {
-                        const { error: insertError } = await supabase.from('registros_pesaje').insert(recordsInsert);
-                        if (insertError) throw insertError;
-                        pesajesInsertados = recordsInsert.length;
+                        for (let i = 0; i < recordsInsert.length; i += 200) {
+                            const batch = recordsInsert.slice(i, i + 200);
+                            const { error: insertError } = await supabase.from('registros_pesaje').insert(batch);
+                            if (insertError) throw insertError;
+                            pesajesInsertados += batch.length;
+                            setImportProgress({ current: i + batch.length, total: recordsInsert.length });
+                        }
                     }
 
                     // 6. Mensaje de éxito detallado
@@ -1425,6 +1456,33 @@ export default function Settings() {
                     </>
                 )}
             </div>
+
+            {loading && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[3000] p-4">
+                    <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+                        <div className="relative w-20 h-20 mx-auto mb-6">
+                            <div className="absolute inset-0 border-4 border-emerald-100 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent animate-spin"></div>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-2">Procesando...</h3>
+                        <p className="text-gray-500 mb-6">Por favor espera un momento mientras guardamos los datos.</p>
+                        
+                        {importProgress && (
+                            <div className="w-full bg-gray-100 rounded-full h-3 mb-2 overflow-hidden">
+                                <div 
+                                    className="bg-emerald-500 h-full transition-all duration-300 ease-out"
+                                    style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                                ></div>
+                            </div>
+                        )}
+                        {importProgress && (
+                            <p className="text-sm font-medium text-emerald-600">
+                                {importProgress.current} de {importProgress.total} registros
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
