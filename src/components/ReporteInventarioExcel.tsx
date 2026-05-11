@@ -184,11 +184,12 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           group[rotacionName][potreroName].animales.push({
               ...a,
               ultimo_peso: ultimoP ? ultimoP.peso : (a.peso_compra ?? a.peso_ingreso),
-              fecha_ultimo_pesaje: ultimoP ? ultimoP.fecha : a.fecha_ingreso
+              fecha_ultimo_pesaje: ultimoP ? ultimoP.fecha : a.fecha_ingreso,
+              gmp_aplicada: gmpTotalAnimal // GUARDAMOS LA GMP PARA EL CÁLCULO POSTERIOR
           });
         });
 
-        const gdpPromedioFinca = gdpsTotales.length > 0 ? (gdpsTotales.reduce((acc, curr) => acc + curr, 0) / gdpsTotales.length) : 0.45;
+
 
         // Transformar en filas de reporte
         const rowsOutput: any[] = [];
@@ -212,7 +213,9 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                     const refDate = new Date(anim.fecha_ultimo_pesaje);
                     refDate.setHours(0,0,0,0);
                     const diff = differenceInDays(hoy, refDate) || 0;
-                    sumPesoE += Number(anim.ultimo_peso) + (diff * gdpPromedioFinca);
+                    // USAR LA GMP INDIVIDUAL: Usamos la GMP que guardamos específicamente para este animal
+                    const gdpIndividual = Number(anim.gmp_aplicada || 0) / 30;
+                    sumPesoE += Number(anim.ultimo_peso) + (diff * (gdpIndividual || 0.45));
                     dates.push(refDate);
                 });
 

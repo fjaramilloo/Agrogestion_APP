@@ -113,7 +113,7 @@ export default function Dashboard() {
         nombre: string,
         animales: any[]
     } | null>(null);
-    const [cochoneraData, setCochoneraData] = useState<{
+    const [proximosDespachos, setProximosDespachos] = useState<{
         id: string;
         nombre: string;
         cantidad: number;
@@ -309,19 +309,34 @@ export default function Dashboard() {
                 }
 
                 // Calcular Distribución de Pesos Estimados
-                const gdpPromedio = resumen ? (parseFloat(resumen.gmp_promedio_total || 0) / 30) : (10.3 / 30);
                 const dist = { rango1: 0, rango2: 0, rango3: 0, rango4: 0 };
                 const distAnimales: Record<string, any[]> = { rango1: [], rango2: [], rango3: [], rango4: [] };
                 
                 animales.forEach((animal: any) => {
-                    const misPesajes = pesajesMap[animal.id] || [];
-                    const ultimoP = misPesajes[misPesajes.length - 1];
+                    const misPsjs = pesajesMap[animal.id] || [];
+                    const ultimoP = misPsjs[misPsjs.length - 1];
                     const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
                     const pesoRef = ultimoP ? ultimoP.peso : pesoBase;
                     const fechaRef = ultimoP ? ultimoP.fecha : animal.fecha_ingreso;
-                    
                     const dias = differenceInDays(new Date(), new Date(fechaRef)) || 0;
-                    const estimado = pesoRef + (dias * gdpPromedio);
+
+                    // PRIORIZAR GMP INDIVIDUAL PARA COINCIDENCIA TOTAL
+                    let gmpIndiv = 0;
+                    if (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
+                        gmpIndiv = Number(ultimoP.gmp_calculada);
+                    } else if (ultimoP) {
+                        // Fallback manual si no hay dato en BD
+                        const fechaBase = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
+                        const pesoBaseE = parseFloat(animal.peso_ingreso_ceba ?? (animal.peso_compra ?? animal.peso_ingreso ?? 0));
+                        const diffDiasEtapa = differenceInDays(new Date(ultimoP.fecha), new Date(fechaBase));
+                        if (diffDiasEtapa > 0) {
+                            gmpIndiv = ((ultimoP.peso - pesoBaseE) / diffDiasEtapa) * 30;
+                        }
+                    }
+
+                    if (gmpIndiv === 0) gmpIndiv = 10.3; // Fallback mínimo
+
+                    const estimado = pesoRef + (dias * (gmpIndiv / 30));
 
                     const objAnimal = {
                         ...animal,
@@ -347,7 +362,7 @@ export default function Dashboard() {
                 setDistribucionPesos(dist);
                 setAnimalesPorRango(distAnimales);
 
-                // --- CALCULO DE LA COCHONERA (Próximos Despachos) ---
+                // --- CÁLCULO DE PRÓXIMOS DESPACHOS (Lotes listos para venta) ---
                 const reportePots: Record<string, { 
                     id: string, 
                     nombre: string, 
@@ -370,15 +385,18 @@ export default function Dashboard() {
                     const fechaRef = ultimoP ? ultimoP.fecha : a.fecha_ingreso;
                     const diasRef = differenceInDays(new Date(), new Date(fechaRef)) || 0;
                     
-                    // Calculo de GMP individual para este lote (Lógica de Etapa Ceba)
-                    const fechaBaseCeba = a.fecha_ingreso_ceba || a.fecha_ingreso;
-                    const pesoBaseCeba = parseFloat(a.peso_ingreso_ceba ?? (a.peso_compra ?? a.peso_ingreso ?? 0));
-                    
+                    // Calculo de GMP individual para este lote: PRIORIZAR VALOR OFICIAL
                     let gmpIndiv = 10.3; // Fallback
-                    if (misPsjs.length > 0) {
-                        const diffDiasEtapa = differenceInDays(new Date(ultimoP.fecha), new Date(fechaBaseCeba));
-                        if (diffDiasEtapa > 0) {
-                            gmpIndiv = ((ultimoP.peso - pesoBaseCeba) / diffDiasEtapa) * 30;
+                    if (ultimoP) {
+                        if (ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
+                            gmpIndiv = Number(ultimoP.gmp_calculada);
+                        } else {
+                            const fechaBaseCeba = a.fecha_ingreso_ceba || a.fecha_ingreso;
+                            const pesoBaseCeba = parseFloat(a.peso_ingreso_ceba ?? (a.peso_compra ?? a.peso_ingreso ?? 0));
+                            const diffDiasEtapa = differenceInDays(new Date(ultimoP.fecha), new Date(fechaBaseCeba));
+                            if (diffDiasEtapa > 0) {
+                                gmpIndiv = ((ultimoP.peso - pesoBaseCeba) / diffDiasEtapa) * 30;
+                            }
                         }
                     }
 
@@ -412,7 +430,7 @@ export default function Dashboard() {
                     const faltanKg = Math.max(0, 530 - pesoProm);
                     const dias = gmpProm > 0 ? Math.ceil(faltanKg / (gmpProm / 30)) : 999;
 
-                    setCochoneraData({
+                    setProximosDespachos({
                         id: best.id,
                         nombre: best.nombre,
                         cantidad: best.countAll,
@@ -925,8 +943,8 @@ export default function Dashboard() {
                                     </div>
                                     <div 
                                         onClick={() => {
-                                            if (cochoneraData) {
-                                                navigate('/potreradas', { state: { idPotrerada: cochoneraData.id } });
+                                            if (proximosDespachos) {
+                                                navigate('/potreradas', { state: { idPotrerada: proximosDespachos.id } });
                                             }
                                         }}
                                         style={{ 
@@ -938,30 +956,30 @@ export default function Dashboard() {
                                             background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%)', 
                                             borderRadius: '16px',
                                             border: '1px solid rgba(76, 175, 80, 0.3)',
-                                            cursor: cochoneraData ? 'pointer' : 'default',
+                                            cursor: proximosDespachos ? 'pointer' : 'default',
                                             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                                             position: 'relative',
                                             overflow: 'hidden'
                                         }}
-                                        onMouseOver={(e) => { if(cochoneraData) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)'; } }}
-                                        onMouseOut={(e) => { if(cochoneraData) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; } }}
+                                        onMouseOver={(e) => { if(proximosDespachos) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)'; } }}
+                                        onMouseOut={(e) => { if(proximosDespachos) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; } }}
                                     >
                                         <div style={{ color: 'var(--primary-light)', fontSize: '0.85rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
                                             <ShoppingCart size={18} /> Alerta de Próximos Despachos
                                         </div>
                                         
-                                        {cochoneraData ? (
+                                        {proximosDespachos ? (
                                             <>
                                                 <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'white', marginBottom: '12px', lineHeight: '1.2' }}>
-                                                    Lote: <span style={{ color: 'var(--primary-light)' }}>{cochoneraData.nombre}</span>
+                                                    Lote: <span style={{ color: 'var(--primary-light)' }}>{proximosDespachos.nombre}</span>
                                                 </div>
                                                 <div style={{ fontSize: '1.05rem', lineHeight: '1.6', color: 'rgba(255,255,255,0.9)' }}>
-                                                    Tienes <b style={{ color: 'white', fontSize: '1.2rem' }}>{cochoneraData.listos}</b> animales de más de 530 kg. 
+                                                    Tienes <b style={{ color: 'white', fontSize: '1.2rem' }}>{proximosDespachos.listos}</b> animales de más de 530 kg. 
                                                     <br />
                                                     <span style={{ display: 'block', marginTop: '12px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
-                                                        {cochoneraData.diasFaltantes === 0 
-                                                            ? `¡Lote de ${cochoneraData.cantidad} animales LISTO para despacho!` 
-                                                            : `Próximo lote (${cochoneraData.cantidad} animales): Listos en ${cochoneraData.diasFaltantes} días (Basado en la GMP actual de ${cochoneraData.gmpLote.toFixed(1)} kg/mes)`
+                                                        {proximosDespachos.diasFaltantes === 0 
+                                                            ? `¡Lote de ${proximosDespachos.cantidad} animales LISTO para despacho!` 
+                                                            : `Próximo lote (${proximosDespachos.cantidad} animales): Listos en ${proximosDespachos.diasFaltantes} días (Basado en la GMP actual de ${proximosDespachos.gmpLote.toFixed(1)} kg/mes)`
                                                         }
                                                     </span>
                                                 </div>
