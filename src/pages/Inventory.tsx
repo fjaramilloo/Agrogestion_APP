@@ -380,17 +380,7 @@ export default function Inventory() {
         };
     }, [animales]);
 
-    const gdpPromedioFinca = useMemo(() => {
-        const gdpsTotales = animales.map(a => {
-            const u = a.registros_pesaje?.[0];
-            const pesoBase = a.peso_compra ?? a.peso_ingreso;
-            const gain = (u?.peso ?? pesoBase) - pesoBase;
-            const ref = u ? new Date(u.fecha) : new Date();
-            const days = differenceInDays(ref, new Date(a.fecha_ingreso)) || 1;
-            return u?.gdp_calculada ?? (gain / days);
-        }).filter(v => isFinite(v));
-        return gdpsTotales.length > 0 ? (gdpsTotales.reduce((acc, curr) => acc + curr, 0) / gdpsTotales.length) : 0.45;
-    }, [animales]);
+
 
     return (
         <div className="page-container">
@@ -717,7 +707,19 @@ export default function Inventory() {
 
                 const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(selectedAnimal.fecha_ingreso);
                 const diasHoy = differenceInDays(new Date(), refDate) || 0;
-                const estimadoHoy = pesoU + (diasHoy * gdpPromedioFinca);
+                
+                // USAR GMP INDIVIDUAL PARA COHERENCIA
+                let gmpIndiv = 0;
+                if (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
+                    gmpIndiv = Number(ultimoP.gmp_calculada);
+                } else if (ultimoP) {
+                    const gainTotal = ultimoP.peso - pesoBaseModal;
+                    const daysTotal = differenceInDays(new Date(ultimoP.fecha), new Date(selectedAnimal.fecha_ingreso)) || 1;
+                    gmpIndiv = (gainTotal / daysTotal) * 30;
+                }
+                if (gmpIndiv === 0) gmpIndiv = 10.3;
+
+                const estimadoHoy = pesoU + (diasHoy * (gmpIndiv / 30));
 
                 const timeline = [
                     ...(selectedAnimal.registros_pesaje || []).map((p, i, arr) => {
@@ -836,7 +838,7 @@ export default function Inventory() {
                                         {estimadoHoy.toFixed(1)} kg
                                     </div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                        GDP Finca: {gdpPromedioFinca.toFixed(3)} kg/día
+
                                     </div>
                                 </div>
                             </div>

@@ -175,20 +175,6 @@ export default function Potreradas() {
 
             setAnimalesFinca(animalesProcesados);
 
-            // Calcular GDP Promedio de la finca para la estimación (como en Inventory.tsx)
-            const gdpsTotales = (animals || []).map((a: any) => {
-                const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
-                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                );
-                const u = registros[0];
-                const pesoBase = a.peso_compra ?? a.peso_ingreso;
-                const gain = (u?.peso ?? pesoBase) - pesoBase;
-                const ref = u ? new Date(u.fecha) : new Date(a.fecha_ingreso);
-                const days = differenceInDays(new Date(ref), new Date(a.fecha_ingreso)) || 1;
-                return u?.gdp_calculada ?? (gain / days);
-            }).filter(v => isFinite(v));
-            const gdpPromedioFinca = gdpsTotales.length > 0 ? (gdpsTotales.reduce((acc, curr) => acc + curr, 0) / gdpsTotales.length) : 0.45;
-
             const hoy = new Date();
             hoy.setHours(0, 0, 0, 0);
 
@@ -236,43 +222,40 @@ export default function Potreradas() {
                             validGmpLastCount++;
                         }
 
-                        // 2. GMP Acumulado (Ingreso Etapa/Finca vs Último pesaje)
-                        let startWeight = pesoBase;
-                        let startDate = new Date(a.fecha_ingreso + 'T12:00:00');
-
-                        if (p.etapa === 'ceba') {
-                            const registrosEtapa = registros.filter((r: any) => r.etapa?.toLowerCase() === 'ceba')
-                                .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
-                            
-                            const cebaStartDate = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
-                            const cebaStartWeight = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? pesoBase : null));
-                            
-                            if (cebaStartDate && cebaStartWeight) {
-                                startDate = new Date(cebaStartDate + 'T12:00:00');
-                                startWeight = Number(cebaStartWeight);
-                            }
+                        // 2. GMP Acumulado y Proyección (Sincronizado)
+                        let gmpIndiv = 0;
+                        if (lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined) {
+                            gmpIndiv = Number(lastP.gmp_calculada);
                         } else {
-                            // Para levante y cría, el acumulado es ganancia en la finca (desde ingreso finca)
-                            startWeight = a.peso_ingreso || pesoBase;
+                            const startW = p.etapa === 'ceba' ? (a.peso_ingreso_ceba || pesoBase) : (a.peso_ingreso || pesoBase);
+                            const startD = new Date((p.etapa === 'ceba' ? (a.fecha_ingreso_ceba || a.fecha_ingreso) : a.fecha_ingreso) + 'T12:00:00');
+                            const endD = new Date(lastP.fecha + 'T12:00:00');
+                            const tGain = Number(lastP.peso) - Number(startW);
+                            const tDays = differenceInDays(endD, startD);
+                            if (tDays > 0) gmpIndiv = (tGain / tDays) * 30;
                         }
 
-                        const endDate = new Date(lastP.fecha + 'T12:00:00');
-                        const totalGain = Number(lastP.peso) - Number(startWeight);
-                        const totalDays = differenceInDays(endDate, startDate);
-                        
-                        if (totalDays > 0) {
-                            const gmpAcc = (totalGain / totalDays) * 30;
-                            totalGmpAcc += gmpAcc;
-                            validGmpAccCount++;
-                        }
+                        if (gmpIndiv === 0) gmpIndiv = 10.3;
+
+                        totalGmpAcc += gmpIndiv;
+                        validGmpAccCount++;
+
+                        const fechaRef = new Date(lastP.fecha);
+                        fechaRef.setHours(0,0,0,0);
+                        const diff = differenceInDays(hoy, fechaRef) || 0;
+                        totalPesoEstimado += Number(lastP.peso) + (diff * (gmpIndiv / 30));
+                    } else {
+                        // Sin pesajes
+                        const fechaRef = new Date(a.fecha_ingreso);
+                        fechaRef.setHours(0,0,0,0);
+                        const diff = differenceInDays(hoy, fechaRef) || 0;
+                        totalPesoEstimado += Number(pesoBase) + (diff * (10.3 / 30));
                     }
 
-                    const fechaRef = new Date(lastP ? lastP.fecha : a.fecha_ingreso);
-                    fechaRef.setHours(0,0,0,0);
-                    const diff = differenceInDays(hoy, fechaRef);
-                    
-                    totalPesoEstimado += pesoActual + (diff * gdpPromedioFinca);
-                    totalDiasPesaje += diff;
+                    const fechaRefP = new Date(lastP ? lastP.fecha : a.fecha_ingreso);
+                    fechaRefP.setHours(0,0,0,0);
+                    const diffP = differenceInDays(hoy, fechaRefP);
+                    totalDiasPesaje += diffP;
                     validDateCount++;
                 });
 
