@@ -113,51 +113,34 @@ export default function Potreradas() {
         setLoading(true);
 
         try {
-            const { data: config } = await supabase
-                .from('configuracion_kpi')
-                .select('umbral_alto_gmp, umbral_medio_gmp')
-                .eq('id_finca', fincaId)
-                .single();
-                
-            if (config) {
-                setUmbralAlto(config.umbral_alto_gmp ?? 20);
-                setUmbralMedio(config.umbral_medio_gmp ?? 10);
+            // MEJORA 1: Todas las consultas iniciales en paralelo
+            const [configRes, potsRes, rotsRes, movsRes, potsDataRes, animRes] = await Promise.all([
+                supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp').eq('id_finca', fincaId).single(),
+                supabase.from('potreradas').select('*').eq('id_finca', fincaId).order('nombre', { ascending: true }),
+                supabase.from('rotaciones').select('id, nombre').eq('id_finca', fincaId).order('nombre', { ascending: true }),
+                supabase.from('movimientos_potreros').select('id_potrerada, id_potrero, fecha_entrada, fecha_salida, potreros(nombre)').eq('id_finca', fincaId).is('fecha_salida', null).order('fecha_entrada', { ascending: false }),
+                supabase.from('potreros').select('id_rotacion, area_hectareas').eq('id_finca', fincaId),
+                supabase.from('animales').select(`
+                    id, numero_chapeta, nombre_propietario, id_potrerada,
+                    peso_ingreso, peso_compra, fecha_ingreso, etapa,
+                    fecha_ingreso_ceba, peso_ingreso_ceba,
+                    potreradas ( nombre ),
+                    registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
+                `).eq('id_finca', fincaId).eq('estado', 'activo')
+            ]);
+
+            if (configRes.data) {
+                setUmbralAlto(configRes.data.umbral_alto_gmp ?? 20);
+                setUmbralMedio(configRes.data.umbral_medio_gmp ?? 10);
             }
 
-            // 1. Obtener todas las potreradas de la finca
-            const { data: pots, error: potsErr } = await supabase
-                .from('potreradas')
-                .select('*')
-                .eq('id_finca', fincaId)
-                .order('nombre', { ascending: true });
-
-            if (potsErr) throw potsErr;
-
-            // 1.5 Obtener rotaciones para los selectores y nombre
-            const { data: rotsData } = await supabase
-                .from('rotaciones')
-                .select('id, nombre')
-                .eq('id_finca', fincaId)
-                .order('nombre', { ascending: true });
-            setRotaciones(rotsData || []);
-
-            // 1.6 Obtener potreros actuales de cada potrerada (último movimiento activo)
-            const { data: movimientos } = await supabase
-                .from('movimientos_potreros')
-                .select('id_potrerada, id_potrero, fecha_entrada, fecha_salida, potreros(nombre)')
-                .eq('id_finca', fincaId)
-                .is('fecha_salida', null)
-                .order('fecha_entrada', { ascending: false });
-
-            // 1.7 Obtener áreas de potreros para cálculo de Carga Global por rotación
-            const { data: potrerosData } = await supabase
-                .from('potreros')
-                .select('id_rotacion, area_hectareas')
-                .eq('id_finca', fincaId);
+            const pots = potsRes.data || [];
+            const animals = animRes.data || [];
+            setRotaciones(rotsRes.data || []);
 
             const areaRotacionMap = new Map<string, number>();
-            if (potrerosData) {
-                potrerosData.forEach(pot => {
+            if (potsDataRes.data) {
+                potsDataRes.data.forEach(pot => {
                     if (pot.id_rotacion) {
                         const current = areaRotacionMap.get(pot.id_rotacion) || 0;
                         areaRotacionMap.set(pot.id_rotacion, current + (pot.area_hectareas || 0));
@@ -165,43 +148,16 @@ export default function Potreradas() {
                 });
             }
 
-            // Mapear potrerada_id → nombre del potrero actual
             const potreroActualMap = new Map<string, string>();
-            (movimientos || []).forEach((m: any) => {
+            (movsRes.data || []).forEach((m: any) => {
                 if (!potreroActualMap.has(m.id_potrerada)) {
                     potreroActualMap.set(m.id_potrerada, m.potreros?.nombre || '');
                 }
             });
 
-            // Mapear rotacion_id → nombre
-            const rotacionNombreMap = new Map((rotsData || []).map((r: any) => [r.id, r.nombre]));
+            const rotacionNombreMap = new Map((rotsRes.data || []).map((r: any) => [r.id, r.nombre]));
 
-            const { data: animals, error: animErr } = await supabase
-                .from('animales')
-                .select(`
-                    id, 
-                    numero_chapeta,
-                    nombre_propietario,
-                    id_potrerada,
-                    potreradas ( nombre ),
-                    peso_ingreso,
-                    peso_compra,
-                    fecha_ingreso,
-                    etapa,
-                    fecha_ingreso_ceba,
-                    peso_ingreso_ceba,
-                    registros_pesaje (
-                        peso,
-                        fecha,
-                        etapa,
-                        gdp_calculada,
-                        gmp_calculada
-                    )
-                `)
-                .eq('id_finca', fincaId)
-                .eq('estado', 'activo');
-
-            if (animErr) throw animErr;
+            if (animRes.error) throw animRes.error;
 
             const animalesProcesados: AnimalPotrero[] = (animals || []).map((a: any) => {
                 const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
@@ -213,7 +169,7 @@ export default function Potreradas() {
                     nombre_propietario: a.nombre_propietario,
                     id_potrerada: a.id_potrerada,
                     potreradaNombre: a.potreradas?.nombre,
-                    pesoActual: registros[0] ? registros[0].peso : a.peso_ingreso
+                    pesoActual: registros[0] ? registros[0].peso : (a.peso_compra ?? a.peso_ingreso)
                 };
             });
 
@@ -486,62 +442,33 @@ export default function Potreradas() {
         setSelectedDetailId(p.id);
         setDetailLoading(true);
         try {
-            // 1. Obtener animales de esta potrerada y sus pesajes
-            const { data: animals, error: animErr } = await supabase
-                .from('animales')
-                .select(`
-                    id,
-                    numero_chapeta,
-                    nombre_propietario,
-                    peso_ingreso,
-                    peso_compra,
-                    fecha_ingreso,
-                    etapa,
-                    fecha_ingreso_ceba,
-                    peso_ingreso_ceba,
-                    id_potrero_actual,
-                    potreros (nombre, area_hectareas),
-                    registros_pesaje (
-                        peso,
-                        fecha,
-                        etapa,
-                        gdp_calculada,
-                        gmp_calculada
-                    )
-                `)
-                .eq('id_potrerada', p.id)
-                .eq('estado', 'activo');
+            // MEJORA 3: Consultas de detalle en paralelo
+            const [animRes, fincaRes, movsRes] = await Promise.all([
+                supabase.from('animales').select(`
+                    id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra,
+                    fecha_ingreso, etapa, fecha_ingreso_ceba, peso_ingreso_ceba,
+                    id_potrero_actual, potreros (nombre, area_hectareas),
+                    registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada)
+                `).eq('id_potrerada', p.id).eq('estado', 'activo'),
+                supabase.from('fincas').select('nombre').eq('id', fincaId).single(),
+                supabase.from('movimientos_potreros').select('fecha_entrada').eq('id_potrerada', p.id).is('fecha_salida', null).maybeSingle()
+            ]);
 
-            if (animErr) throw animErr;
+            if (animRes.error) throw animRes.error;
+            const animals = animRes.data || [];
+            const fincaNombre = fincaRes.data?.nombre || 'Finca Sin Nombre';
 
-            // 1.5 Obtener nombre Finca
-            const { data: qFinca } = await supabase.from('fincas').select('nombre').eq('id', fincaId).single();
-            const fincaNombre = qFinca?.nombre || 'Finca Sin Nombre';
-
-            // 2. Obtener el potrero actual de la potrerada (del último movimiento o de los animales)
-            const firstAnimal = animals && animals.length > 0 ? (animals[0] as any) : null;
+            const firstAnimal = animals.length > 0 ? (animals[0] as any) : null;
             const potreroName = firstAnimal?.potreros?.nombre || 'Sin potrero asignado';
             const potreroArea = firstAnimal?.potreros?.area_hectareas || null;
             
-            // 2.1 Obtener los días en el potrero actual (si está activo en movimiento)
-            const { data: movs } = await supabase.from('movimientos_potreros')
-                .select('fecha_entrada')
-                .eq('id_potrerada', p.id)
-                .is('fecha_salida', null)
-                .maybeSingle();
-
-            const diasPotreroActual = movs?.fecha_entrada 
-                ? differenceInDays(new Date(), new Date(movs.fecha_entrada + 'T12:00:00')) 
+            const diasPotreroActual = movsRes.data?.fecha_entrada 
+                ? differenceInDays(new Date(), new Date(movsRes.data.fecha_entrada + 'T12:00:00')) 
                 : null;
             
-            // 2.2 Calcular Área Global del Sistema (toda la rotación)
             let areaTotalSistema = potreroArea;
             if (p.id_rotacion) {
-                const { data: potsRot } = await supabase
-                    .from('potreros')
-                    .select('area_hectareas')
-                    .eq('id_rotacion', p.id_rotacion);
-                
+                const { data: potsRot } = await supabase.from('potreros').select('area_hectareas').eq('id_rotacion', p.id_rotacion);
                 if (potsRot && potsRot.length > 0) {
                     areaTotalSistema = potsRot.reduce((sum, pr) => sum + (pr.area_hectareas || 0), 0);
                 }
