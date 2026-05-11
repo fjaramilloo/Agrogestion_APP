@@ -10,6 +10,7 @@ interface Pesaje {
     peso: number;
     fecha: string;
     gdp_calculada: number;
+    gmp_calculada?: number;
     potreros?: { nombre: string } | null;
 }
 
@@ -535,10 +536,9 @@ export default function Inventory() {
                                 const pesoReferencia = ultimoP ? ultimoP.peso : pesoBase;
                                 const dias = differenceInDays(fechaReferencia, new Date(animal.fecha_ingreso)) || 1;
                                 const gananciaTotal = pesoReferencia - pesoBase;
-                                const gmpPromedio = (gananciaTotal / dias) * 30;
-
-                                const isAlerta = (animal.registros_pesaje?.length || 0) > 1 && gmpPromedio < 0;
-                                const hasRecords = (animal.registros_pesaje?.length || 0) > 1;
+                                const hasRecords = !!ultimoP;
+                                const gmpPromedio = ultimoP?.gmp_calculada ? Number(ultimoP.gmp_calculada) : (gananciaTotal / dias) * 30;
+                                const isAlerta = hasRecords && gmpPromedio < 0;
                                 const gmpColor = !hasRecords ? 'var(--text-muted)' : (
                                     gmpPromedio < 0 ? 'var(--error)' : (
                                         gmpPromedio <= umbralMedioGmp ? 'var(--warning)' : (
