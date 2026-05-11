@@ -118,41 +118,36 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           }
 
           // GMP Total del animal: Respetando lógica de etapa (Ceba vs Levante)
+          // GMP Total del animal: Sincronizado con lógica de Potreradas (Último intervalo)
           let gmpTotalAnimal = 0;
           if (ultimoP) {
-              let startWeight = a.peso_compra ?? a.peso_ingreso;
-              let startDate = new Date(a.fecha_ingreso);
+              const registrosSorted = [...registros].sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+              
+              let startWeight = 0;
+              let startDate: Date | null = null;
 
-              if (a.etapa === 'ceba') {
-                  const regCeba = (a.registros_pesaje || [])
-                      .filter((r: any) => r.etapa === 'ceba')
-                      .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
-                  
-                  if (a.peso_ingreso_ceba || a.fecha_ingreso_ceba) {
-                      startWeight = a.peso_ingreso_ceba || (regCeba?.peso ?? startWeight);
-                      startDate = a.fecha_ingreso_ceba ? new Date(a.fecha_ingreso_ceba) : (regCeba ? new Date(regCeba.fecha) : startDate);
-                  } else if (regCeba) {
-                      startWeight = regCeba.peso;
-                      startDate = new Date(regCeba.fecha);
-                  }
+              if (registrosSorted.length >= 2) {
+                  // Caso ideal: Entre los dos últimos pesajes
+                  startWeight = registrosSorted[1].peso;
+                  startDate = new Date(registrosSorted[1].fecha);
               } else {
-                  // Levante: Usar primer pesaje histórico si existe, si no ingreso
-                  const primerRegistro = registros[registros.length - 1];
-                  if (registros.length > 1) {
-                      startWeight = primerRegistro.peso;
-                      startDate = new Date(primerRegistro.fecha);
+                  // Fallback: Contra el ingreso
+                  startWeight = a.peso_compra ?? a.peso_ingreso;
+                  startDate = new Date(a.fecha_ingreso);
+                  
+                  // Ajuste especial para Ceba si solo hay un pesaje
+                  if (a.etapa === 'ceba' && a.fecha_ingreso_ceba) {
+                      startWeight = a.peso_ingreso_ceba;
+                      startDate = new Date(a.fecha_ingreso_ceba);
                   }
               }
 
               const endDate = new Date(ultimoP.fecha);
               const totalDays = differenceInDays(endDate, startDate);
-              if (totalDays >= 10) { // MEJORA: Solo calcular GMP si hay al menos 10 días para evitar fluctuaciones locas
+              
+              if (totalDays >= 10 && startWeight > 0) {
                   const totalGain = ultimoP.peso - startWeight;
                   gmpTotalAnimal = (totalGain / totalDays) * 30;
-              } else if (totalDays > 0 && totalDays < 10) {
-                  // Si hay menos de 10 días, el dato no es estadísticamente confiable para proyectar un mes,
-                  // pero si quieres mostrar algo, podrías no sumarlo al promedio o usar un valor neutro.
-                  gmpTotalAnimal = 0; 
               }
           }
 
