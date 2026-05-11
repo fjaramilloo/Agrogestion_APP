@@ -489,6 +489,20 @@ export default function Settings() {
                     const mapPotreradas = new Map(pds?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
                     const mapPotreros = new Map(pts?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
 
+                    // VALIDACIÓN PREVENTIVA: Revisar si los potreros del CSV existen
+                    const potrerosNoReconocidos = new Set<string>();
+                    results.data.forEach((row: any) => {
+                        const pNombre = row.potrero?.toString().trim();
+                        if (pNombre && !mapPotreros.has(pNombre.toLowerCase())) {
+                            potrerosNoReconocidos.add(pNombre);
+                        }
+                    });
+
+                    if (potrerosNoReconocidos.size > 0) {
+                        const lista = Array.from(potrerosNoReconocidos).join(', ');
+                        throw new Error(`¡ERROR DE UBICACIÓN! Los siguientes potreros en tu Excel NO existen en la App: [${lista}]. Por favor, créalos en la sección de Potreros o corrige sus nombres en el Excel para que coincidan exactamente (ej. 'Iracales' vs 'Iracales 1').`);
+                    }
+
                     // 2. Detectar potreradas nuevas que vengan en el CSV y crearlas
                     //    Usamos la etapa del animal para la potrerada
                     const potreradasNuevas = new Map<string, string>(); // nombre_lower -> etapa
@@ -737,6 +751,20 @@ export default function Settings() {
 
                     const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
                     const mapPotreros = new Map(pts?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
+
+                    // VALIDACIÓN PREVENTIVA: Revisar si los potreros del CSV de pesajes existen
+                    const potrerosNoReconocidos = new Set<string>();
+                    results.data.forEach((row: any) => {
+                        const pNombre = row.potrero?.toString().trim();
+                        if (pNombre && !mapPotreros.has(pNombre.toLowerCase())) {
+                            potrerosNoReconocidos.add(pNombre);
+                        }
+                    });
+
+                    if (potrerosNoReconocidos.size > 0) {
+                        const lista = Array.from(potrerosNoReconocidos).join(', ');
+                        throw new Error(`¡ERROR DE UBICACIÓN EN PESAJES! Los siguientes potreros en tu Excel de PESAJES NO existen en la App: [${lista}]. Por favor, créalos o corrige sus nombres en el Excel.`);
+                    }
 
                     const recordsInsert: any[] = [];
                     const errores: string[] = [];

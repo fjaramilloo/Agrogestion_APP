@@ -146,9 +146,13 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
 
               const endDate = new Date(ultimoP.fecha);
               const totalDays = differenceInDays(endDate, startDate);
-              if (totalDays > 0) {
+              if (totalDays >= 10) { // MEJORA: Solo calcular GMP si hay al menos 10 días para evitar fluctuaciones locas
                   const totalGain = ultimoP.peso - startWeight;
                   gmpTotalAnimal = (totalGain / totalDays) * 30;
+              } else if (totalDays > 0 && totalDays < 10) {
+                  // Si hay menos de 10 días, el dato no es estadísticamente confiable para proyectar un mes,
+                  // pero si quieres mostrar algo, podrías no sumarlo al promedio o usar un valor neutro.
+                  gmpTotalAnimal = 0; 
               }
           }
 
@@ -248,7 +252,8 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                 totalRow[m] = rowsOutput.reduce((sum: number, r: any) => sum + (r[m] || 0), 0);
             });
             totalRow['Total Ganado'] = granTotalGanado;
-            totalRow['GMP Total'] = granGmpCount > 0 ? Number((granGmpSum / granGmpCount).toFixed(1)) : 0;
+            const granGmpProm = granGmpCount > 0 ? (granGmpSum / granGmpCount) : 0;
+            totalRow['GMP Total'] = Number(granGmpProm.toFixed(1));
             totalRow['Último Pesaje'] = '';
             totalRow['Peso Promedio'] = granTotalGanado > 0 ? Number((granTotalPesoReal / granTotalGanado).toFixed(1)) : 0;
             totalRow['Peso Estimado Hoy'] = granTotalGanado > 0 ? Number((granTotalPesoEst / granTotalGanado).toFixed(1)) : 0;
@@ -431,7 +436,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                                     textAlign: 'center', 
                                     padding: '10px', 
                                     fontWeight: 'bold', 
-                                    color: isTotal(row) ? 'var(--primary-light)' : getGmpColor(row['GMP Total'])
+                                    color: getGmpColor(row['GMP Total'])
                                 }}>
                                     {row['GMP Total'] > 0 ? '+' : ''}{row['GMP Total']} <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>kg/mes</span>
                                 </td>

@@ -41,6 +41,7 @@ export default function Inventory() {
     const [animales, setAnimales] = useState<Animal[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [filterEtapa, setFilterEtapa] = useState('');
     const [filterPotrero, setFilterPotrero] = useState('');
     const [filterPotrerada, setFilterPotrerada] = useState('');
@@ -163,6 +164,14 @@ export default function Inventory() {
 
         setLoading(false);
     };
+
+    // Debounce search term to improve performance with 1700+ animals
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     useEffect(() => {
         fetchAnimales();
@@ -331,9 +340,9 @@ export default function Inventory() {
     const sortedAndFilteredAnimals = useMemo(() => {
         return animales
             .filter(a => {
-                const matchesSearch = a.numero_chapeta.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    a.nombre_propietario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    (a.potreradaNombre || '').toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesSearch = a.numero_chapeta.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+                    a.nombre_propietario.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+                    (a.potreradaNombre || '').toLowerCase().includes(debouncedSearchTerm.toLowerCase());
                 const matchesEtapa = filterEtapa ? a.etapa === filterEtapa : true;
                 const matchesPotrero = filterPotrero ? a.potreroNombre === filterPotrero : true;
                 const matchesPotrerada = filterPotrerada ? a.potreradaNombre === filterPotrerada : true;
@@ -353,7 +362,7 @@ export default function Inventory() {
                 }
                 return sortOrder === 'asc' ? res : -res;
             });
-    }, [animales, searchTerm, filterEtapa, filterPotrero, filterPotrerada, filterPropietario, sortBy, sortOrder]);
+    }, [animales, debouncedSearchTerm, filterEtapa, filterPotrero, filterPotrerada, filterPropietario, sortBy, sortOrder]);
 
     const { uniquePotreros, uniquePotreradas, uniquePropietarios } = useMemo(() => {
         const potreros = new Set<string>();
