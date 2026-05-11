@@ -118,27 +118,31 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           }
 
           // GMP Total del animal: Respetando lógica de etapa (Ceba vs Levante)
-          // GMP Total del animal: Sincronizado con lógica de Potreradas (Último intervalo)
+          // GMP Acumulada del animal: Desde ingreso/etapa hasta el último pesaje (Coincide con "Acum" en la App)
           let gmpTotalAnimal = 0;
           if (ultimoP) {
-              const registrosSorted = [...registros].sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-              
-              let startWeight = 0;
-              let startDate: Date | null = null;
+              let startWeight = a.peso_compra ?? a.peso_ingreso;
+              let startDate = new Date(a.fecha_ingreso);
 
-              if (registrosSorted.length >= 2) {
-                  // Caso ideal: Entre los dos últimos pesajes
-                  startWeight = registrosSorted[1].peso;
-                  startDate = new Date(registrosSorted[1].fecha);
-              } else {
-                  // Fallback: Contra el ingreso
-                  startWeight = a.peso_compra ?? a.peso_ingreso;
-                  startDate = new Date(a.fecha_ingreso);
+              if (a.etapa === 'ceba') {
+                  // Lógica de Ceba: Desde que entró a ceba
+                  const regCeba = (a.registros_pesaje || [])
+                      .filter((r: any) => r.etapa === 'ceba')
+                      .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
                   
-                  // Ajuste especial para Ceba si solo hay un pesaje
-                  if (a.etapa === 'ceba' && a.fecha_ingreso_ceba) {
-                      startWeight = a.peso_ingreso_ceba;
-                      startDate = new Date(a.fecha_ingreso_ceba);
+                  if (a.peso_ingreso_ceba || a.fecha_ingreso_ceba) {
+                      startWeight = a.peso_ingreso_ceba || (regCeba?.peso ?? startWeight);
+                      startDate = a.fecha_ingreso_ceba ? new Date(a.fecha_ingreso_ceba) : (regCeba ? new Date(regCeba.fecha) : startDate);
+                  } else if (regCeba) {
+                      startWeight = regCeba.peso;
+                      startDate = new Date(regCeba.fecha);
+                  }
+              } else {
+                  // Lógica de Levante: Desde el primer pesaje o ingreso
+                  const primerRegistro = registros[registros.length - 1];
+                  if (registros.length > 1) {
+                      startWeight = primerRegistro.peso;
+                      startDate = new Date(primerRegistro.fecha);
                   }
               }
 
