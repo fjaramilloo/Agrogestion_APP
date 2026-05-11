@@ -56,7 +56,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           .select(`
             id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra, fecha_ingreso, etapa, id_potrero_actual,
             potreros ( nombre, id_rotacion, rotaciones ( nombre ) ),
-            registros_pesaje ( peso, fecha, gdp_calculada )
+            registros_pesaje ( peso, fecha, gdp_calculada, gmp_calculada )
           `)
           .eq('estado', 'activo')
           .eq('id_finca', fincaId);
@@ -118,40 +118,43 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           }
 
           // GMP Total del animal: Respetando lógica de etapa (Ceba vs Levante)
-          // GMP Acumulada del animal: Desde ingreso/etapa hasta el último pesaje (Coincide con "Acum" en la App)
+          // GMP Acumulada del animal: Priorizar valor oficial de la base de datos para total coincidencia con la App
           let gmpTotalAnimal = 0;
           if (ultimoP) {
-              let startWeight = a.peso_compra ?? a.peso_ingreso;
-              let startDate = new Date(a.fecha_ingreso);
-
-              if (a.etapa === 'ceba') {
-                  // Lógica de Ceba: Desde que entró a ceba
-                  const regCeba = (a.registros_pesaje || [])
-                      .filter((r: any) => r.etapa === 'ceba')
-                      .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
-                  
-                  if (a.peso_ingreso_ceba || a.fecha_ingreso_ceba) {
-                      startWeight = a.peso_ingreso_ceba || (regCeba?.peso ?? startWeight);
-                      startDate = a.fecha_ingreso_ceba ? new Date(a.fecha_ingreso_ceba) : (regCeba ? new Date(regCeba.fecha) : startDate);
-                  } else if (regCeba) {
-                      startWeight = regCeba.peso;
-                      startDate = new Date(regCeba.fecha);
-                  }
+              if (ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
+                  gmpTotalAnimal = Number(ultimoP.gmp_calculada);
               } else {
-                  // Lógica de Levante: Desde el primer pesaje o ingreso
-                  const primerRegistro = registros[registros.length - 1];
-                  if (registros.length > 1) {
-                      startWeight = primerRegistro.peso;
-                      startDate = new Date(primerRegistro.fecha);
-                  }
-              }
+                  // Fallback manual si no existe el dato calculado en BD
+                  let startWeight = a.peso_compra ?? a.peso_ingreso;
+                  let startDate = new Date(a.fecha_ingreso);
 
-              const endDate = new Date(ultimoP.fecha);
-              const totalDays = differenceInDays(endDate, startDate);
-              
-              if (totalDays >= 10 && startWeight > 0) {
-                  const totalGain = ultimoP.peso - startWeight;
-                  gmpTotalAnimal = (totalGain / totalDays) * 30;
+                  if (a.etapa === 'ceba') {
+                      const regCeba = (a.registros_pesaje || [])
+                          .filter((r: any) => r.etapa === 'ceba')
+                          .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
+                      
+                      if (a.peso_ingreso_ceba || a.fecha_ingreso_ceba) {
+                          startWeight = a.peso_ingreso_ceba || (regCeba?.peso ?? startWeight);
+                          startDate = a.fecha_ingreso_ceba ? new Date(a.fecha_ingreso_ceba) : (regCeba ? new Date(regCeba.fecha) : startDate);
+                      } else if (regCeba) {
+                          startWeight = regCeba.peso;
+                          startDate = new Date(regCeba.fecha);
+                      }
+                  } else {
+                      const primerRegistro = registros[registros.length - 1];
+                      if (registros.length > 1) {
+                          startWeight = primerRegistro.peso;
+                          startDate = new Date(primerRegistro.fecha);
+                      }
+                  }
+
+                  const endDate = new Date(ultimoP.fecha);
+                  const totalDays = differenceInDays(endDate, startDate);
+                  
+                  if (totalDays >= 10 && startWeight > 0) {
+                      const totalGain = ultimoP.peso - startWeight;
+                      gmpTotalAnimal = (totalGain / totalDays) * 30;
+                  }
               }
           }
 
