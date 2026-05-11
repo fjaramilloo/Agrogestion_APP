@@ -82,39 +82,54 @@ export default function Inventory() {
         if (!fincaId) return;
         setLoading(true);
 
-        const { data: config } = await supabase
-            .from('configuracion_kpi')
-            .select('umbral_alto_gmp, umbral_medio_gmp')
-            .eq('id_finca', fincaId)
-            .single();
-        if (config) {
-            setUmbralAltoGmp(config.umbral_alto_gmp ?? 20);
-            setUmbralMedioGmp(config.umbral_medio_gmp ?? 10);
+        // MEJORA B+C: Consultas en paralelo (configuracion + animales + potreradas + propietarios)
+        const [configRes, animalesRes, potsRes, propRes] = await Promise.all([
+            supabase
+                .from('configuracion_kpi')
+                .select('umbral_alto_gmp, umbral_medio_gmp')
+                .eq('id_finca', fincaId)
+                .single(),
+            supabase
+                .from('animales')
+                .select(`
+                    id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
+                    peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
+                    peso_ingreso_ceba, estado, id_potrerada, creado_en,
+                    potreradas ( nombre ),
+                    potreros ( nombre ),
+                    registros_pesaje (
+                        peso, fecha, gdp_calculada, gmp_calculada,
+                        potreros ( nombre )
+                    )
+                `)
+                .eq('id_finca', fincaId)
+                .eq('estado', 'activo')
+                .order('creado_en', { ascending: false }),
+            supabase
+                .from('potreradas')
+                .select('id, nombre')
+                .eq('id_finca', fincaId)
+                .order('nombre', { ascending: true }),
+            supabase
+                .from('propietarios')
+                .select('id, nombre')
+                .eq('id_finca', fincaId)
+                .order('nombre', { ascending: true })
+        ]);
+
+        // Aplicar config
+        if (configRes.data) {
+            setUmbralAltoGmp(configRes.data.umbral_alto_gmp ?? 20);
+            setUmbralMedioGmp(configRes.data.umbral_medio_gmp ?? 10);
         }
 
-        const { data, error } = await supabase
-            .from('animales')
-            .select(`
-                *,
-                potreradas ( nombre ),
-                potreros ( nombre ),
-                registros_pesaje (
-                    peso,
-                    fecha,
-                    gdp_calculada,
-                    potreros ( nombre )
-                )
-            `)
-            .eq('id_finca', fincaId)
-            .eq('estado', 'activo')
-            .order('creado_en', { ascending: false });
-
-        if (!error && data) {
-            const dataProcesada = data.map((a: any) => {
+        // MEJORA A: Procesar solo el ULTIMO pesaje por animal para la lista
+        if (!animalesRes.error && animalesRes.data) {
+            const dataProcesada = animalesRes.data.map((a: any) => {
+                // Ordenar y deduplicar todos los pesajes
                 let registros = (a.registros_pesaje || []).sort((x: any, y: any) =>
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                 );
-
                 const unique = new Set();
                 registros = registros.filter((p: any) => {
                     const dateOnly = p.fecha.split('T')[0];
@@ -123,57 +138,27 @@ export default function Inventory() {
                     return true;
                 });
 
-                const ultimoP = registros[0];
-                const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
-                
-                const hoy = new Date();
-                hoy.setHours(0, 0, 0, 0);
-                const refTruncada = new Date(fechaReferencia);
-                refTruncada.setHours(0, 0, 0, 0);
-                const diasDesdeUltimoPesaje = differenceInDays(hoy, refTruncada);
-                const potreroActual = a.potreros?.nombre || 'Sin potrero';
+                // Solo guardamos el ultimo pesaje para la vista de lista
+                const ultimoP = registros[0] || null;
+                const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+                const fechaRef = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
+                fechaRef.setHours(0, 0, 0, 0);
+                const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
 
                 return {
                     ...a,
-                    registros_pesaje: registros,
-                    potreroNombre: potreroActual,
+                    // Solo el ultimo pesaje en la lista (el historial completo se carga al abrir el modal)
+                    registros_pesaje: ultimoP ? [ultimoP] : [],
+                    potreroNombre: a.potreros?.nombre || 'Sin potrero',
                     potreradaNombre: a.potreradas?.nombre || 'Sin potrerada',
                     diasDesdeUltimoPesaje
                 };
             });
             setAnimales(dataProcesada);
-
-            const { data: configData } = await supabase
-                .from('configuracion_kpi')
-                .select('umbral_medio_gmp, umbral_alto_gmp')
-                .eq('id_finca', fincaId)
-                .single();
-            
-            if (configData) {
-                if (configData.umbral_alto_gmp) setUmbralAltoGmp(configData.umbral_alto_gmp);
-                if (configData.umbral_medio_gmp) setUmbralMedioGmp(configData.umbral_medio_gmp);
-            }
-        }
-        
-        const { data: potsData } = await supabase
-            .from('potreradas')
-            .select('id, nombre')
-            .eq('id_finca', fincaId)
-            .order('nombre', { ascending: true });
-        
-        if (potsData) {
-            setPotreradasDisponibles(potsData);
         }
 
-        const { data: propData } = await supabase
-            .from('propietarios')
-            .select('id, nombre')
-            .eq('id_finca', fincaId)
-            .order('nombre', { ascending: true });
-        
-        if (propData) {
-            setPropietariosLista(propData);
-        }
+        if (potsRes.data) setPotreradasDisponibles(potsRes.data);
+        if (propRes.data) setPropietariosLista(propRes.data);
 
         setLoading(false);
     };
@@ -564,7 +549,30 @@ export default function Inventory() {
 
                                 return (
                                     <tr key={animal.id} 
-                                        onClick={() => setSelectedAnimal(animal)}
+                                        onClick={async () => {
+                                            setSelectedAnimal(animal);
+                                            const { data: historial } = await supabase
+                                                .from('registros_pesaje')
+                                                .select('peso, fecha, gdp_calculada, gmp_calculada, potreros(nombre)')
+                                                .eq('id_animal', animal.id)
+                                                .order('fecha', { ascending: false });
+                                            if (historial) {
+                                                const unique = new Set<string>();
+                                                const dedup: Pesaje[] = historial
+                                                    .filter((p: any) => {
+                                                        const d = p.fecha.split('T')[0];
+                                                        if (unique.has(d)) return false;
+                                                        unique.add(d); return true;
+                                                    })
+                                                    .map((p: any) => ({
+                                                        peso: p.peso,
+                                                        fecha: p.fecha,
+                                                        gdp_calculada: p.gdp_calculada,
+                                                        potreros: Array.isArray(p.potreros) ? (p.potreros[0] || null) : p.potreros
+                                                    }));
+                                                setSelectedAnimal(prev => prev ? { ...prev, registros_pesaje: dedup } : null);
+                                            }
+                                        }}
                                         className="table-row-hover"
                                         style={{
                                         borderBottom: '1px solid rgba(255,255,255,0.05)',
