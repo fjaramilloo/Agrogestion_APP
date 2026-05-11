@@ -128,7 +128,7 @@ export default function Purchase() {
         });
 
         setLastTags(latest);
-        setExistingTags(new Set(data.map(a => a.numero_chapeta?.trim() || '')));
+        setExistingTags(new Set(data.map(a => a.numero_chapeta?.trim().toUpperCase() || '')));
     };
 
     const generarFilas = (e: React.FormEvent) => {
@@ -182,9 +182,14 @@ export default function Purchase() {
         try {
             if (!selectedProveedor) throw new Error("Debe seleccionar un Vendedor/Proveedor para la compra.");
 
-            const chapetas = animales.map(a => a.numero_chapeta.trim());
+            const chapetas = animales.map(a => a.numero_chapeta.trim().toUpperCase());
             if (chapetas.some(c => !c)) throw new Error("Todas las chapetas son obligatorias.");
-            if (new Set(chapetas).size !== chapetas.length) throw new Error("No puede haber chapetas duplicadas en la lista actual.");
+            
+            // Validar duplicados internos (insensible a mayúsculas)
+            if (new Set(chapetas).size !== chapetas.length) {
+                const duplicados = chapetas.filter((item, index) => chapetas.indexOf(item) !== index);
+                throw new Error(`Hay chapetas repetidas en la lista actual: ${Array.from(new Set(duplicados)).join(', ')}`);
+            }
 
             animales.forEach(a => {
                 const peso = parseFloat(a.peso_ingreso);
@@ -291,7 +296,7 @@ export default function Purchase() {
                 const propTrim = a.propietario.trim();
                 return {
                     id_finca: fincaId,
-                    numero_chapeta: a.numero_chapeta.trim(),
+                    numero_chapeta: a.numero_chapeta.trim().toUpperCase(),
                     nombre_propietario: propTrim,
                     id_potrerada: potreradaIdPorPropietario.get(propTrim) || null,
                     peso_ingreso: parseFloat(a.peso_ingreso),
@@ -366,7 +371,14 @@ export default function Purchase() {
 
         try {
             for (const payload of offlineQueue) {
-                const chapetas = payload.animales.map(a => a.numero_chapeta.trim());
+                const chapetas = payload.animales.map(a => a.numero_chapeta.trim().toUpperCase());
+                
+                // Validar duplicados internos en el lote offline
+                if (new Set(chapetas).size !== chapetas.length) {
+                    const duplicados = chapetas.filter((item, index) => chapetas.indexOf(item) !== index);
+                    throw new Error(`Lote offline del ${payload.fechaIngreso}: Tiene chapetas duplicadas internamente (${Array.from(new Set(duplicados)).join(', ')}).`);
+                }
+
                 const { data: existentes } = await supabase
                     .from('animales')
                     .select('numero_chapeta')
@@ -374,7 +386,7 @@ export default function Purchase() {
                     .in('numero_chapeta', chapetas);
                 
                 if (existentes && existentes.length > 0) {
-                    throw new Error(`Lote offline del ${payload.fechaIngreso}: Chapetas duplicadas encontradas (${existentes.map(e => e.numero_chapeta).join(', ')}). Datos saltados.`);
+                    throw new Error(`Lote offline del ${payload.fechaIngreso}: Estas chapetas ya existen en la base de datos (${existentes.map(e => e.numero_chapeta).join(', ')}).`);
                 }
 
                 const uniquePropietarios = Array.from(new Set(payload.animales.map(a => a.propietario)));
@@ -407,7 +419,7 @@ export default function Purchase() {
 
                 const records = payload.animales.map(a => ({
                     id_finca: fincaId,
-                    numero_chapeta: a.numero_chapeta.trim(),
+                    numero_chapeta: a.numero_chapeta.trim().toUpperCase(),
                     nombre_propietario: a.propietario,
                     id_potrerada: potreradaIdPorPropietario.get(a.propietario) || null,
                     peso_ingreso: parseFloat(a.peso_ingreso),
@@ -839,8 +851,8 @@ export default function Purchase() {
                         </thead>
                         <tbody>
                             {animales.map((a, index) => {
-                                    const tagTrimmed = a.numero_chapeta.trim();
-                                    const isDuplicateInList = tagTrimmed !== '' && animales.filter(item => item.numero_chapeta.trim() === tagTrimmed).length > 1;
+                                    const tagTrimmed = a.numero_chapeta.trim().toUpperCase();
+                                    const isDuplicateInList = tagTrimmed !== '' && animales.filter(item => item.numero_chapeta.trim().toUpperCase() === tagTrimmed).length > 1;
                                     const isDuplicateInDB = tagTrimmed !== '' && existingTags.has(tagTrimmed);
                                     const hasError = isDuplicateInList || isDuplicateInDB;
 
