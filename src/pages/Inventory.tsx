@@ -425,8 +425,15 @@ export default function Inventory() {
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Alertas (GDP Bajo)</div>
                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--error)' }}>
                         {animales.filter(a => {
+                            const ultimoP = a.registros_pesaje?.[0];
+                            if (!ultimoP) return false;
+                            
                             const pesoBase = a.peso_compra ?? a.peso_ingreso;
-                            return (a.registros_pesaje?.length || 0) > 1 && ((a.registros_pesaje[0].peso - pesoBase) / (differenceInDays(new Date(a.registros_pesaje[0].fecha), new Date(a.fecha_ingreso)) || 1) * 30) <= umbralMedioGmp;
+                            const fechaRef = new Date(ultimoP.fecha);
+                            const dias = differenceInDays(fechaRef, new Date(a.fecha_ingreso)) || 1;
+                            const gmp = ultimoP.gmp_calculada ? Number(ultimoP.gmp_calculada) : ((ultimoP.peso - pesoBase) / dias) * 30;
+                            
+                            return gmp <= umbralMedioGmp;
                         }).length}
                     </div>
                 </div>
