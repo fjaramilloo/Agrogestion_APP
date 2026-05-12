@@ -181,7 +181,7 @@ export default function NotificationCenter() {
     return (
         <div className="notification-center" ref={dropdownRef}>
             <button className="notification-btn" onClick={toggleDropdown} title="Notificaciones">
-                {loading ? <Loader2 size={22} strokeWidth={2.5} className="animate-spin" /> : <Bell size={22} strokeWidth={2.5} />}
+                {loading ? <Loader2 size={20} className="animate-spin" /> : <Bell size={20} />}
                 {unreadCount > 0 && <span className="notification-badge" />}
             </button>
 
