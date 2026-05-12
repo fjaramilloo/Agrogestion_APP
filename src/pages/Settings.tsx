@@ -53,6 +53,8 @@ export default function Settings() {
 
     const [newUserEmail, setNewUserEmail] = useState('');
     const [newUserPass, setNewUserPass] = useState('');
+    const [newUserNombre, setNewUserNombre] = useState('');
+    const [newUserApellido, setNewUserApellido] = useState('');
     const [newUserRole, setNewUserRole] = useState<'vaquero' | 'observador'>('vaquero');
     const [selectedFincas, setSelectedFincas] = useState<string[]>([]);
     
@@ -323,7 +325,9 @@ export default function Settings() {
                 p_email: newUserEmail,
                 p_password: newUserPass,
                 p_finca_ids: selectedFincas,
-                p_rol: newUserRole
+                p_rol: newUserRole,
+                p_nombre: newUserNombre,
+                p_apellido: newUserApellido
             });
 
             if (error) throw error;
@@ -331,6 +335,8 @@ export default function Settings() {
             setMsjExito(`Usuario ${newUserEmail} creado y asignado a ${selectedFincas.length} fincas.`);
             setNewUserEmail('');
             setNewUserPass('');
+            setNewUserNombre('');
+            setNewUserApellido('');
             setSelectedFincas([fincaId || '']);
         } catch (err: any) {
             setMsjError('Error creando usuario: ' + err.message);
@@ -1375,6 +1381,14 @@ export default function Settings() {
                                             <div style={{ gridColumn: '1 / -1' }}>
                                                 <label>Correo Electrónico</label>
                                                 <input type="email" placeholder="trabajador@finca.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} required />
+                                            </div>
+                                            <div>
+                                                <label>Nombre</label>
+                                                <input type="text" placeholder="Ej: Juan" value={newUserNombre} onChange={(e) => setNewUserNombre(e.target.value)} required />
+                                            </div>
+                                            <div>
+                                                <label>Apellido</label>
+                                                <input type="text" placeholder="Ej: Pérez" value={newUserApellido} onChange={(e) => setNewUserApellido(e.target.value)} required />
                                             </div>
                                             <div>
                                                 <label>Contraseña Temporal</label>
