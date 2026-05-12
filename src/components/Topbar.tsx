@@ -1,5 +1,6 @@
 import { Leaf, User, Menu } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationCenter from './NotificationCenter';
 import './Topbar.css';
 
 interface TopbarProps {
@@ -28,6 +29,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             </div>
 
             <div className="topbar-right">
+                <NotificationCenter />
                 <div className="topbar-user">
                     <div className="topbar-avatar">
                         <User size={18} />
