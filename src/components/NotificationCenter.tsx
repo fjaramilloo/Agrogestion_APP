@@ -44,7 +44,8 @@ export default function NotificationCenter() {
                     )
                 `)
                 .eq('id_finca', fincaId)
-                .eq('estado', 'activo');
+                .eq('estado', 'activo')
+                .order('fecha', { foreignTable: 'registros_pesaje', ascending: false });
 
             if (error) throw error;
 
