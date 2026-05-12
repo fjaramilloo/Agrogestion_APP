@@ -176,9 +176,9 @@ export default function NotificationCenter() {
                         newNotifications.push({
                             id: `cambio-potrero-${p.id}`,
                             title: 'Cambio de Potrero Necesario',
-                            message: `El lote "${p.nombre}" lleva ${diasEnPotrero} días en "${p.potreros?.nombre}". Límite de ${limiteDias} días alcanzado según ${fuente}.`,
+                            description: `El lote "${p.nombre}" lleva ${diasEnPotrero} días en "${(p.potreros as any)?.nombre || 'Potrero desconocido'}". Límite de ${limiteDias} días alcanzado según ${fuente}.`,
                             type: 'warning',
-                            date: format(hoy, 'HH:mm'),
+                            time: format(hoy, 'HH:mm'),
                             read: false,
                             roles: ['administrador', 'vaquero'],
                             target: '/potreradas',
