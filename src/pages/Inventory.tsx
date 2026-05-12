@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2 } from 'lucide-react';
@@ -38,6 +39,7 @@ interface Animal {
 
 export default function Inventory() {
     const { fincaId, role } = useAuth();
+    const location = useLocation();
     const [animales, setAnimales] = useState<Animal[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -46,12 +48,28 @@ export default function Inventory() {
     const [filterPotrero, setFilterPotrero] = useState('');
     const [filterPotrerada, setFilterPotrerada] = useState('');
     const [filterPropietario, setFilterPropietario] = useState('');
+    const [filterLateWeighing, setFilterLateWeighing] = useState(false);
+    const [filterNegativeGain, setFilterNegativeGain] = useState(false);
     
     // sorting states
     const [sortBy, setSortBy] = useState('dias_pesaje');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [umbralAltoGmp, setUmbralAltoGmp] = useState(20);
     const [umbralMedioGmp, setUmbralMedioGmp] = useState(10);
+
+    // Efecto para capturar filtros desde notificaciones
+    useEffect(() => {
+        const state = location.state as { filterType?: string };
+        if (state?.filterType === 'vencidos') {
+            setFilterLateWeighing(true);
+            setFilterNegativeGain(false);
+            window.history.replaceState({}, document.title);
+        } else if (state?.filterType === 'perdida') {
+            setFilterNegativeGain(true);
+            setFilterLateWeighing(false);
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
 
     // Estados para Muerte
     const [showMuerteModal, setShowMuerteModal] = useState(false);
@@ -347,7 +365,18 @@ export default function Inventory() {
                 const matchesPotrero = filterPotrero ? a.potreroNombre === filterPotrero : true;
                 const matchesPotrerada = filterPotrerada ? a.potreradaNombre === filterPotrerada : true;
                 const matchesPropietario = filterPropietario ? a.nombre_propietario === filterPropietario : true;
-                return matchesSearch && matchesEtapa && matchesPotrero && matchesPotrerada && matchesPropietario;
+                
+                // Filtros de notificaciones
+                const matchesVencidos = filterLateWeighing ? (a.diasDesdeUltimoPesaje || 0) > 90 : true;
+                const matchesPerdida = filterNegativeGain ? (() => {
+                    const registros = a.registros_pesaje || [];
+                    if (registros.length >= 2) {
+                        return Number(registros[0].peso) < Number(registros[1].peso);
+                    }
+                    return false;
+                })() : true;
+
+                return matchesSearch && matchesEtapa && matchesPotrero && matchesPotrerada && matchesPropietario && matchesVencidos && matchesPerdida;
             })
             .sort((a, b) => {
                 let res = 0;
@@ -362,7 +391,7 @@ export default function Inventory() {
                 }
                 return sortOrder === 'asc' ? res : -res;
             });
-    }, [animales, debouncedSearchTerm, filterEtapa, filterPotrero, filterPotrerada, filterPropietario, sortBy, sortOrder]);
+    }, [animales, debouncedSearchTerm, filterEtapa, filterPotrero, filterPotrerada, filterPropietario, filterLateWeighing, filterNegativeGain, sortBy, sortOrder]);
 
     const { uniquePotreros, uniquePotreradas, uniquePropietarios } = useMemo(() => {
         const potreros = new Set<string>();

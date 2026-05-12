@@ -3,6 +3,7 @@ import { Bell, ShoppingCart, Activity, AlertTriangle, CheckCircle, Loader2 } fro
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { differenceInDays, format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import './NotificationCenter.css';
 
 interface Notification {
@@ -13,6 +14,8 @@ interface Notification {
     type: 'success' | 'warning' | 'error' | 'info';
     read: boolean;
     roles?: string[];
+    target?: string;
+    targetState?: any;
 }
 
 export default function NotificationCenter() {
@@ -21,6 +24,7 @@ export default function NotificationCenter() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const { role, fincaId } = useAuth();
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const navigate = useNavigate();
 
     const fetchAlerts = async () => {
         if (!fincaId) return;
@@ -67,7 +71,9 @@ export default function NotificationCenter() {
                     time: format(hoy, 'HH:mm'),
                     type: 'warning',
                     read: false,
-                    roles: ['administrador', 'vaquero']
+                    roles: ['administrador', 'vaquero'],
+                    target: '/inventario',
+                    targetState: { filterType: 'vencidos' }
                 });
             }
 
@@ -75,8 +81,6 @@ export default function NotificationCenter() {
             const conPerdida = animals?.filter((a: any) => {
                 const registros = a.registros_pesaje || [];
                 if (registros.length >= 2) {
-                    // Supabase devuelve por orden de inserción/fecha usualmente, 
-                    // pero para estar seguros comparamos los dos más recientes
                     const sorted = [...registros].sort((x: any, y: any) => 
                         new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                     );
@@ -93,7 +97,9 @@ export default function NotificationCenter() {
                     time: format(hoy, 'HH:mm'),
                     type: 'error',
                     read: false,
-                    roles: ['administrador']
+                    roles: ['administrador'],
+                    target: '/inventario',
+                    targetState: { filterType: 'perdida' }
                 });
             }
 
@@ -126,7 +132,9 @@ export default function NotificationCenter() {
                         time: format(hoy, 'HH:mm'),
                         type: 'success',
                         read: false,
-                        roles: ['administrador', 'observador']
+                        roles: ['administrador', 'observador'],
+                        target: '/potreradas',
+                        targetState: { idPotrerada: id }
                     });
                 }
             });
@@ -157,6 +165,19 @@ export default function NotificationCenter() {
 
     const markAllAsRead = () => {
         setNotifications(notifications.map(n => ({ ...n, read: true })));
+    };
+
+    const handleNotificationClick = (n: Notification) => {
+        // Marcar como leída
+        setNotifications(notifications.map(item => 
+            item.id === n.id ? { ...item, read: true } : item
+        ));
+        
+        // Navegar si hay target
+        if (n.target) {
+            navigate(n.target, { state: n.targetState });
+            setIsOpen(false);
+        }
     };
 
     // Cerrar al hacer clic fuera
@@ -208,11 +229,7 @@ export default function NotificationCenter() {
                                 <div 
                                     key={n.id} 
                                     className={`notification-item ${!n.read ? 'unread' : ''}`}
-                                    onClick={() => {
-                                        setNotifications(notifications.map(item => 
-                                            item.id === n.id ? { ...item, read: true } : item
-                                        ));
-                                    }}
+                                    onClick={() => handleNotificationClick(n)}
                                 >
                                     <div className={`notification-icon-wrapper notification-${n.type}`}>
                                         {getIcon(n.type)}
