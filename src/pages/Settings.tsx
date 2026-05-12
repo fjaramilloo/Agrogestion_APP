@@ -994,6 +994,7 @@ export default function Settings() {
                         const potName = row.nombre_potrero?.toString().trim();
                         const rotName = row.nombre_rotacion?.toString().trim();
                         const area = parseFloat(row.area_hectareas) || 0;
+                        const diasBase = parseInt(row.dias_ocupacion_base) || 1;
                         const rotId = rotName ? mapRotaciones.get(rotName.toLowerCase()) : null;
 
                         if (!potName) continue;
@@ -1002,7 +1003,7 @@ export default function Settings() {
                         if (existingPot) {
                             // Si el potrero ya existe, actualizamos su área. 
                             // Y solo cambiamos la rotación si se proporcionó una nueva.
-                            const updateData: any = { area_hectareas: area };
+                            const updateData: any = { area_hectareas: area, dias_ocupacion_base: diasBase };
                             if (rotId) {
                                 updateData.id_rotacion = rotId;
                             }
@@ -1018,7 +1019,8 @@ export default function Settings() {
                                 id_finca: fincaId,
                                 nombre: potName,
                                 area_hectareas: area,
-                                id_rotacion: rotId
+                                id_rotacion: rotId,
+                                dias_ocupacion_base: diasBase
                             });
                         }
                     }

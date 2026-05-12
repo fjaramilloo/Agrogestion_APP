@@ -1,6 +1,5 @@
-nombre_rotacion,nombre_potrero,area_hectareas
-Rotación 1,Potrero A1,2.5
-Rotación 1,Potrero A2,3.0
-Rotación 2,Potrero B1,1.8
-Rotación 2,Potrero B2,2.2
-,Potrero sin rotación,5.0
+nombre_rotacion,nombre_potrero,area_hectareas,dias_ocupacion_base
+Rotacion Engorde 1,Potrero 1,2.5,3
+Rotacion Engorde 1,Potrero 2,2.8,4
+Rotacion Engorde 1,Potrero 3,2.2,2
+Rotacion Cria A,Potrero 10,4.0,5
