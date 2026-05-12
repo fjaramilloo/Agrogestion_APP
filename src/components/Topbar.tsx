@@ -1,4 +1,4 @@
-import { Leaf, User, Menu } from 'lucide-react';
+import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationCenter from './NotificationCenter';
 import './Topbar.css';
@@ -8,14 +8,25 @@ interface TopbarProps {
 }
 
 export default function Topbar({ onToggleSidebar }: TopbarProps) {
-    const { role, isSuperAdmin } = useAuth();
+    const { role, isSuperAdmin, profile } = useAuth();
 
-    const getRolLabel = () => {
+    const getUserDisplay = () => {
+        if (profile?.nombre) {
+            return `${profile.nombre} ${profile.apellido || ''}`.trim();
+        }
         if (isSuperAdmin) return 'Super Admin';
         if (role === 'administrador') return 'Administrador';
         if (role === 'vaquero') return 'Vaquero';
         if (role === 'observador') return 'Observador';
         return 'Usuario';
+    };
+
+    const getRoleIcon = () => {
+        if (isSuperAdmin) return <Crown size={18} />;
+        if (role === 'administrador') return <ShieldCheck size={18} />;
+        if (role === 'vaquero') return <UserCog size={18} />;
+        if (role === 'observador') return <Eye size={18} />;
+        return <User size={18} />;
     };
 
     return (
@@ -32,10 +43,10 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                 <NotificationCenter />
                 <div className="topbar-user">
                     <div className="topbar-avatar">
-                        <User size={18} />
+                        {getRoleIcon()}
                     </div>
                     <div className="topbar-user-info">
-                        <span className="topbar-user-role">{getRolLabel()}</span>
+                        <span className="topbar-user-role">{getUserDisplay()}</span>
                     </div>
                 </div>
             </div>

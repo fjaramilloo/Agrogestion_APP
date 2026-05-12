@@ -10,12 +10,18 @@ interface UserFinca {
     rol: UserRole;
 }
 
+interface UserProfile {
+    nombre: string | null;
+    apellido: string | null;
+}
+
 interface AuthState {
     user: User | null;
     session: Session | null;
     role: UserRole;
     fincaId: string | null;
     userFincas: UserFinca[];
+    profile: UserProfile | null;
     isSuperAdmin: boolean;
     loading: boolean;
     signOut: () => Promise<void>;
@@ -29,6 +35,7 @@ const AuthContext = createContext<AuthState>({
     role: null,
     fincaId: null,
     userFincas: [],
+    profile: null,
     isSuperAdmin: false,
     loading: true,
     signOut: async () => { },
@@ -42,6 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [role, setRole] = useState<UserRole>(null);
     const [fincaId, setFincaId] = useState<string | null>(null);
     const [userFincas, setUserFincas] = useState<UserFinca[]>([]);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -66,6 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setRole(null);
                     setFincaId(null);
                     setUserFincas([]);
+                    setProfile(null);
                     setIsSuperAdmin(false);
                     setLoading(false);
                 }
@@ -107,7 +116,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setRole(validFinca.rol);
             }
 
-            // 2. Verificamos si es superadmin
+            // 2. Verificamos Perfil
+            const { data: perfilData } = await supabase
+                .from('perfiles')
+                .select('nombre, apellido')
+                .eq('id', userId)
+                .single();
+            
+            if (perfilData) {
+                setProfile({
+                    nombre: perfilData.nombre,
+                    apellido: perfilData.apellido
+                });
+            }
+
+            // 3. Verificamos si es superadmin
             const { data: adminData } = await supabase
                 .from('superadmins')
                 .select('id_usuario')
@@ -148,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role,
             fincaId,
             userFincas,
+            profile,
             isSuperAdmin,
             loading,
             signOut,
