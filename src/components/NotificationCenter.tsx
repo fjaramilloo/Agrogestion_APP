@@ -139,6 +139,55 @@ export default function NotificationCenter() {
                 }
             });
 
+            // 4. Alerta de Cambio de Potrero (Basado en Aforo o regla de 28 días)
+            const { data: potreradas } = await supabase
+                .from('potreradas')
+                .select(`
+                    id, 
+                    nombre, 
+                    id_potrero, 
+                    fecha_entrada,
+                    potreros ( nombre )
+                `)
+                .not('id_potrero', 'is', null);
+
+            if (potreradas) {
+                for (const p of potreradas) {
+                    const diasEnPotrero = differenceInDays(hoy, new Date(p.fecha_entrada));
+                    
+                    // Buscar el aforo más reciente para este potrero (puede ser antes o después de la entrada)
+                    const { data: aforo } = await supabase
+                        .from('registros_aforo')
+                        .select('dias_pastoreo_estimados, fecha')
+                        .eq('id_potrero', p.id_potrero)
+                        .order('fecha', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    let limiteDias = 28; // Estándar por defecto
+                    let fuente = 'regla estándar (28 días)';
+
+                    if (aforo) {
+                        limiteDias = Math.floor(Number(aforo.dias_pastoreo_estimados) || 28);
+                        fuente = `aforo realizado el ${format(new Date(aforo.fecha), 'dd/MM/yyyy')}`;
+                    }
+
+                    if (diasEnPotrero >= limiteDias) {
+                        newNotifications.push({
+                            id: `cambio-potrero-${p.id}`,
+                            title: 'Cambio de Potrero Necesario',
+                            message: `El lote "${p.nombre}" lleva ${diasEnPotrero} días en "${p.potreros?.nombre}". Límite de ${limiteDias} días alcanzado según ${fuente}.`,
+                            type: 'warning',
+                            date: format(hoy, 'HH:mm'),
+                            read: false,
+                            roles: ['administrador', 'vaquero'],
+                            target: '/potreradas',
+                            targetState: { idPotrerada: p.id }
+                        });
+                    }
+                }
+            }
+
             const readToday = JSON.parse(localStorage.getItem(`read_notifications_${fincaId}`) || '{}');
             const hoyStr = format(hoy, 'yyyy-MM-dd');
 
