@@ -139,7 +139,16 @@ export default function NotificationCenter() {
                 }
             });
 
-            setNotifications(newNotifications);
+            const readToday = JSON.parse(localStorage.getItem(`read_notifications_${fincaId}`) || '{}');
+            const hoyStr = format(hoy, 'yyyy-MM-dd');
+
+            // Filtrar las que ya se leyeron hoy
+            const finalNotifications = newNotifications.filter(n => {
+                if (readToday[n.id] === hoyStr) return false;
+                return true;
+            });
+
+            setNotifications(finalNotifications);
         } catch (err) {
             console.error("Error calculando alertas:", err);
         } finally {
@@ -164,11 +173,25 @@ export default function NotificationCenter() {
     const toggleDropdown = () => setIsOpen(!isOpen);
 
     const markAllAsRead = () => {
+        const hoyStr = format(new Date(), 'yyyy-MM-dd');
+        const readToday = JSON.parse(localStorage.getItem(`read_notifications_${fincaId}`) || '{}');
+        
+        notifications.forEach(n => {
+            readToday[n.id] = hoyStr;
+        });
+
+        localStorage.setItem(`read_notifications_${fincaId}`, JSON.stringify(readToday));
         setNotifications(notifications.map(n => ({ ...n, read: true })));
     };
 
     const handleNotificationClick = (n: Notification) => {
-        // Marcar como leída
+        // Guardar en localStorage que ya se leyó hoy
+        const hoyStr = format(new Date(), 'yyyy-MM-dd');
+        const readToday = JSON.parse(localStorage.getItem(`read_notifications_${fincaId}`) || '{}');
+        readToday[n.id] = hoyStr;
+        localStorage.setItem(`read_notifications_${fincaId}`, JSON.stringify(readToday));
+
+        // Marcar como leída en el estado
         setNotifications(notifications.map(item => 
             item.id === n.id ? { ...item, read: true } : item
         ));
