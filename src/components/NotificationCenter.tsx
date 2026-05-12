@@ -139,7 +139,7 @@ export default function NotificationCenter() {
                 }
             });
 
-            // 4. Alerta de Cambio de Potrero (Prioridad: Aforo < 20 días > Días Base Potrero)
+            // 4. Alerta de Cambio de Potrero (Solo para rotaciones de 2+ potreros)
             const { data: potreradas } = await supabase
                 .from('potreradas')
                 .select(`
@@ -149,7 +149,12 @@ export default function NotificationCenter() {
                     fecha_entrada,
                     potreros ( 
                         nombre,
-                        dias_ocupacion_base
+                        dias_ocupacion_base,
+                        id_rotacion,
+                        rotaciones ( 
+                            nombre,
+                            potreros ( id )
+                        )
                     )
                 `)
                 .not('id_potrero', 'is', null);
@@ -159,6 +164,13 @@ export default function NotificationCenter() {
                 veinteDiasAtras.setDate(veinteDiasAtras.getDate() - 20);
 
                 for (const p of potreradas) {
+                    const potreroData = p.potreros as any;
+                    const rotacion = potreroData?.rotaciones;
+                    
+                    // Solo alertar si el potrero pertenece a una rotación con más de 1 potrero
+                    const numPotrerosEnRotacion = rotacion?.potreros?.length || 0;
+                    if (numPotrerosEnRotacion <= 1) continue;
+
                     const diasEnPotrero = differenceInDays(hoy, new Date(p.fecha_entrada));
                     
                     // Buscar aforo más reciente (máximo 20 días de antigüedad)
@@ -172,8 +184,7 @@ export default function NotificationCenter() {
                         .maybeSingle();
 
                     // Obtener días base del potrero específico
-                    const potreroData = p.potreros as any;
-                    const diasBase = potreroData?.dias_ocupacion_base || 28; // Fallback de seguridad
+                    const diasBase = potreroData?.dias_ocupacion_base || 28;
 
                     let limiteDias = diasBase;
                     let fuente = `regla base del potrero (${diasBase} días)`;
@@ -187,7 +198,7 @@ export default function NotificationCenter() {
                         newNotifications.push({
                             id: `cambio-potrero-${p.id}`,
                             title: 'Cambio de Potrero Necesario',
-                            description: `El lote "${p.nombre}" lleva ${diasEnPotrero} días en "${potreroData?.nombre || 'Potrero'}". Límite de ${limiteDias} días según ${fuente}.`,
+                            description: `El lote "${p.nombre}" lleva ${diasEnPotrero} días en "${potreroData?.nombre || 'Potrero'}" (${rotacion?.nombre}). Límite de ${limiteDias} días según ${fuente}.`,
                             type: 'warning',
                             time: format(hoy, 'HH:mm'),
                             read: false,
