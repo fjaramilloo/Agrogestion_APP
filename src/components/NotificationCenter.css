@@ -37,21 +37,34 @@
 
 .notification-dropdown {
     position: absolute;
-    top: calc(100% + 12px);
+    top: calc(100% + 10px);
     right: 0;
-    width: 320px;
-    background: rgba(25, 25, 25, 0.95);
-    backdrop-filter: blur(12px);
+    width: 360px;
+    max-width: calc(100vw - 32px); /* Evita que se salga en móviles */
+    background: #1a1a1a;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
     z-index: 1000;
     overflow: hidden;
-    animation: slideIn 0.3s ease;
+    animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes slideIn {
-    from { opacity: 0; transform: translateY(10px); }
+/* Ajustes específicos para móviles */
+@media (max-width: 480px) {
+    .notification-dropdown {
+        position: fixed; /* En móviles muy pequeños, mejor fijarlo relativo a la pantalla */
+        top: 70px;
+        right: 16px;
+        left: 16px;
+        width: auto;
+        max-width: none;
+    }
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
@@ -61,12 +74,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .notification-header h3 {
     margin: 0;
-    font-size: 1rem;
-    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
 }
 
 .notification-list {
