@@ -164,3 +164,31 @@
 .notification-warning { background: rgba(255, 152, 0, 0.15); color: var(--warning); }
 .notification-error { background: rgba(244, 67, 54, 0.15); color: var(--error); }
 .notification-info { background: rgba(33, 150, 243, 0.15); color: #2196f3; }
+
+/* Agrupación por Fincas */
+.notification-finca-group {
+    border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+.notification-finca-header {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 16px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--primary-light);
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.notification-finca-header::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 12px;
+    background: var(--primary-light);
+    margin-right: 8px;
+    border-radius: 4px;
+}

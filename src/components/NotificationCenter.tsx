@@ -16,6 +16,8 @@ interface Notification {
     roles?: string[];
     target?: string;
     targetState?: any;
+    fincaId: string;
+    fincaNombre: string;
 }
 
 export default function NotificationCenter() {
@@ -27,10 +29,23 @@ export default function NotificationCenter() {
     const navigate = useNavigate();
 
     const fetchAlerts = async () => {
-        if (!fincaId) return;
         setLoading(true);
         try {
-            // OPTIMIZACIÓN: Traer solo las columnas estrictamente necesarias para las alertas
+            // 0. Obtener todas las fincas del usuario
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: userFincas } = await supabase
+                .from('fincas_usuarios')
+                .select('id_finca, fincas(nombre)')
+                .eq('id_usuario', user.id);
+
+            if (!userFincas || userFincas.length === 0) return;
+
+            const fincaIds = userFincas.map(f => f.id_finca);
+            const fincaNamesMap = new Map(userFincas.map(f => [f.id_finca, (f.fincas as any).nombre]));
+
+            // 1. Obtener animales de TODAS las fincas
             const { data: animals, error } = await supabase
                 .from('animales')
                 .select(`
@@ -40,6 +55,7 @@ export default function NotificationCenter() {
                     peso_ingreso,
                     peso_compra,
                     id_potrerada,
+                    id_finca,
                     potreradas (nombre),
                     registros_pesaje (
                         peso,
@@ -47,7 +63,7 @@ export default function NotificationCenter() {
                         gmp_calculada
                     )
                 `)
-                .eq('id_finca', fincaId)
+                .in('id_finca', fincaIds)
                 .eq('estado', 'activo')
                 .order('fecha', { foreignTable: 'registros_pesaje', ascending: false });
 
@@ -56,96 +72,109 @@ export default function NotificationCenter() {
             const newNotifications: Notification[] = [];
             const hoy = new Date();
             
-            // 1. Detección de Pesajes Vencidos (> 90 días)
-            const vencidos = animals?.filter((a: any) => {
-                const registros = a.registros_pesaje || [];
-                const ultimaFecha = registros.length > 0 ? new Date(registros[0].fecha) : new Date(a.fecha_ingreso);
-                return differenceInDays(hoy, ultimaFecha) > 90;
-            }) || [];
+            // 1. Procesar alertas por cada Finca
+            fincaIds.forEach(fid => {
+                const fName = fincaNamesMap.get(fid) || 'Finca';
+                const fincaAnimals = animals?.filter(a => a.id_finca === fid) || [];
 
-            if (vencidos.length > 0) {
-                newNotifications.push({
-                    id: 'pesajes-vencidos',
-                    title: 'Pesajes Vencidos',
-                    description: `Hay ${vencidos.length} animales que no se han pesado en más de 90 días.`,
-                    time: format(hoy, 'HH:mm'),
-                    type: 'warning',
-                    read: false,
-                    roles: ['administrador', 'vaquero'],
-                    target: '/inventario',
-                    targetState: { filterType: 'vencidos' }
+                // A. Pesajes Vencidos (> 90 días)
+                const vencidos = fincaAnimals.filter((a: any) => {
+                    const registros = a.registros_pesaje || [];
+                    const ultimaFecha = registros.length > 0 ? new Date(registros[0].fecha) : new Date(a.fecha_ingreso);
+                    return differenceInDays(hoy, ultimaFecha) > 90;
                 });
-            }
 
-            // 2. Detección de Ganancia Negativa (Pérdida de peso)
-            const conPerdida = animals?.filter((a: any) => {
-                const registros = a.registros_pesaje || [];
-                if (registros.length >= 2) {
-                    const sorted = [...registros].sort((x: any, y: any) => 
-                        new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                    );
-                    return Number(sorted[0].peso) < Number(sorted[1].peso);
-                }
-                return false;
-            }) || [];
-
-            if (conPerdida.length > 0) {
-                newNotifications.push({
-                    id: 'ganancia-negativa',
-                    title: 'Alerta de Salud',
-                    description: `${conPerdida.length} animales registraron pérdida de peso en su último control.`,
-                    time: format(hoy, 'HH:mm'),
-                    type: 'error',
-                    read: false,
-                    roles: ['administrador'],
-                    target: '/inventario',
-                    targetState: { filterType: 'perdida' }
-                });
-            }
-
-            // 3. Lotes Listos para Despacho (> 530kg promedio estimado)
-            const potsMap: Record<string, { nombre: string, pesos: number[] }> = {};
-            animals?.forEach((a: any) => {
-                if (!a.id_potrerada) return;
-                const potName = a.potreradas?.nombre || 'Sin nombre';
-                if (!potsMap[a.id_potrerada]) potsMap[a.id_potrerada] = { nombre: potName, pesos: [] };
-                
-                const registros = a.registros_pesaje || [];
-                const ultimoP = registros[0];
-                const pesoRef = ultimoP ? ultimoP.peso : (a.peso_compra ?? a.peso_ingreso);
-                const fechaRef = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
-                const dias = differenceInDays(hoy, fechaRef) || 0;
-                const gmp = (ultimoP?.gmp_calculada !== null && ultimoP?.gmp_calculada !== undefined) 
-                    ? Number(ultimoP.gmp_calculada) : 10.3;
-                
-                const estimado = pesoRef + (dias * (gmp / 30));
-                potsMap[a.id_potrerada].pesos.push(estimado);
-            });
-
-            Object.entries(potsMap).forEach(([id, data]) => {
-                const avg = data.pesos.reduce((a, b) => a + b, 0) / data.pesos.length;
-                if (avg >= 530) {
+                if (vencidos.length > 0) {
                     newNotifications.push({
-                        id: `lote-listo-${id}`,
-                        title: 'Lote Listo para Despacho',
-                        description: `El lote ${data.nombre} promedia ${Math.round(avg)} kg estimado hoy.`,
+                        id: `pesajes-vencidos-${fid}`,
+                        title: 'Pesajes Vencidos',
+                        description: `Hay ${vencidos.length} animales que no se han pesado en más de 90 días.`,
                         time: format(hoy, 'HH:mm'),
-                        type: 'success',
+                        type: 'warning',
                         read: false,
-                        roles: ['administrador', 'observador'],
-                        target: '/potreradas',
-                        targetState: { idPotrerada: id }
+                        roles: ['administrador', 'vaquero'],
+                        target: '/inventario',
+                        targetState: { filterType: 'vencidos' },
+                        fincaId: fid,
+                        fincaNombre: fName
                     });
                 }
+
+                // B. Detección de Ganancia Negativa
+                const conPerdida = fincaAnimals.filter((a: any) => {
+                    const registros = a.registros_pesaje || [];
+                    if (registros.length >= 2) {
+                        const sorted = [...registros].sort((x: any, y: any) => 
+                            new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+                        );
+                        return Number(sorted[0].peso) < Number(sorted[1].peso);
+                    }
+                    return false;
+                });
+
+                if (conPerdida.length > 0) {
+                    newNotifications.push({
+                        id: `ganancia-negativa-${fid}`,
+                        title: 'Alerta de Salud',
+                        description: `${conPerdida.length} animales registraron pérdida de peso en su último control.`,
+                        time: format(hoy, 'HH:mm'),
+                        type: 'error',
+                        read: false,
+                        roles: ['administrador'],
+                        target: '/inventario',
+                        targetState: { filterType: 'perdida' },
+                        fincaId: fid,
+                        fincaNombre: fName
+                    });
+                }
+
+                // C. Lotes Listos para Despacho (> 530kg promedio estimado)
+                const potsMap: Record<string, { nombre: string, pesos: number[] }> = {};
+                fincaAnimals.forEach((a: any) => {
+                    if (!a.id_potrerada) return;
+                    const potName = a.potreradas?.nombre || 'Sin nombre';
+                    if (!potsMap[a.id_potrerada]) potsMap[a.id_potrerada] = { nombre: potName, pesos: [] };
+                    
+                    const registros = a.registros_pesaje || [];
+                    const ultimoP = registros[0];
+                    const pesoRef = ultimoP ? ultimoP.peso : (a.peso_compra ?? a.peso_ingreso);
+                    const fechaRef = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
+                    const dias = differenceInDays(hoy, fechaRef) || 0;
+                    const gmp = (ultimoP?.gmp_calculada !== null && ultimoP?.gmp_calculada !== undefined) 
+                        ? Number(ultimoP.gmp_calculada) : 10.3;
+                    
+                    const estimado = pesoRef + (dias * (gmp / 30));
+                    potsMap[a.id_potrerada].pesos.push(estimado);
+                });
+
+                Object.entries(potsMap).forEach(([id, data]) => {
+                    const avg = data.pesos.reduce((a, b) => a + b, 0) / data.pesos.length;
+                    if (avg >= 530) {
+                        newNotifications.push({
+                            id: `lote-listo-${id}`,
+                            title: 'Lote Listo para Despacho',
+                            description: `El lote ${data.nombre} promedia ${Math.round(avg)} kg estimado hoy.`,
+                            time: format(hoy, 'HH:mm'),
+                            type: 'success',
+                            read: false,
+                            roles: ['administrador', 'observador'],
+                            target: '/potreradas',
+                            targetState: { idPotrerada: id },
+                            fincaId: fid,
+                            fincaNombre: fName
+                        });
+                    }
+                });
             });
 
-            // 4. Alerta de Cambio de Potrero (Solo para rotaciones de 2+ potreros)
+            // 2. Alerta de Cambio de Potrero (Multi-finca)
             const { data: potreradas } = await supabase
                 .from('potreradas')
                 .select(`
                     id, 
                     nombre, 
                     id_potrero, 
+                    id_finca,
                     fecha_entrada,
                     potreros ( 
                         nombre,
@@ -157,6 +186,7 @@ export default function NotificationCenter() {
                         )
                     )
                 `)
+                .in('id_finca', fincaIds)
                 .not('id_potrero', 'is', null);
 
             if (potreradas) {
@@ -204,13 +234,15 @@ export default function NotificationCenter() {
                             read: false,
                             roles: ['administrador', 'vaquero'],
                             target: '/potreradas',
-                            targetState: { idPotrerada: p.id }
+                            targetState: { idPotrerada: p.id },
+                            fincaId: p.id_finca,
+                            fincaNombre: fincaNamesMap.get(p.id_finca) || 'Finca'
                         });
                     }
                 }
             }
 
-            const readToday = JSON.parse(localStorage.getItem(`read_notifications_${fincaId}`) || '{}');
+            const readToday = JSON.parse(localStorage.getItem(`read_notifications_global`) || '{}');
             const hoyStr = format(hoy, 'yyyy-MM-dd');
 
             // Filtrar las que ya se leyeron hoy
@@ -245,13 +277,13 @@ export default function NotificationCenter() {
 
     const markAllAsRead = () => {
         const hoyStr = format(new Date(), 'yyyy-MM-dd');
-        const readToday = JSON.parse(localStorage.getItem(`read_notifications_${fincaId}`) || '{}');
+        const readToday = JSON.parse(localStorage.getItem(`read_notifications_global`) || '{}');
         
         notifications.forEach(n => {
             readToday[n.id] = hoyStr;
         });
 
-        localStorage.setItem(`read_notifications_${fincaId}`, JSON.stringify(readToday));
+        localStorage.setItem(`read_notifications_global`, JSON.stringify(readToday));
         setNotifications(notifications.map(n => ({ ...n, read: true })));
     };
 
@@ -319,20 +351,31 @@ export default function NotificationCenter() {
                                 Analizando datos...
                             </div>
                         ) : filteredNotifications.length > 0 ? (
-                            filteredNotifications.map(n => (
-                                <div 
-                                    key={n.id} 
-                                    className={`notification-item ${!n.read ? 'unread' : ''}`}
-                                    onClick={() => handleNotificationClick(n)}
-                                >
-                                    <div className={`notification-icon-wrapper notification-${n.type}`}>
-                                        {getIcon(n.type)}
-                                    </div>
-                                    <div className="notification-content">
-                                        <div className="notification-title">{n.title}</div>
-                                        <div className="notification-desc">{n.description}</div>
-                                        <span className="notification-time">{n.time}</span>
-                                    </div>
+                            Object.entries(
+                                filteredNotifications.reduce((acc, n) => {
+                                    if (!acc[n.fincaNombre]) acc[n.fincaNombre] = [];
+                                    acc[n.fincaNombre].push(n);
+                                    return acc;
+                                }, {} as Record<string, Notification[]>)
+                            ).map(([fName, fNotifications]) => (
+                                <div key={fName} className="notification-finca-group">
+                                    <div className="notification-finca-header">{fName}</div>
+                                    {fNotifications.map(n => (
+                                        <div 
+                                            key={n.id} 
+                                            className={`notification-item ${!n.read ? 'unread' : ''}`}
+                                            onClick={() => handleNotificationClick(n)}
+                                        >
+                                            <div className={`notification-icon-wrapper notification-${n.type}`}>
+                                                {getIcon(n.type)}
+                                            </div>
+                                            <div className="notification-content">
+                                                <div className="notification-title">{n.title}</div>
+                                                <div className="notification-desc">{n.description}</div>
+                                                <span className="notification-time">{n.time}</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ))
                         ) : (
