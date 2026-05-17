@@ -24,6 +24,7 @@ interface DashboardStats {
     pesoPromedioEntrada: number;
     pesoPromedioSalida: number;
     metaMinima?: number;
+    animalesSinPotrero?: number;
 }
 
 interface EvolucionItem {
@@ -221,7 +222,9 @@ export default function Dashboard() {
 
             // Filtrar los grupos principales en memoria
             const animales = todosAnimales?.filter(a => a.estado === 'activo') || [];
+            const sinPotreradaCount = animales.filter(a => !a.id_potrerada).length;
 
+            setStats(prev => ({ ...prev, animalesSinPotrero: sinPotreradaCount }));
 
             const pesajesMap: Record<string, any[]> = {};
             const pesajesFlat: any[] = [];
@@ -721,6 +724,7 @@ export default function Dashboard() {
                                     minWidth: '150px',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s ease',
+                                    position: 'relative'
                                 }}
                                 onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
                                 onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
@@ -729,6 +733,31 @@ export default function Dashboard() {
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
                                     {stats.totalAnimales} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Cabezas</span>
                                 </div>
+                                {(stats.animalesSinPotrero || 0) > 0 && (
+                                    <div 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate('/inventario', { state: { filterType: 'sin_potrerada' } });
+                                        }}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-10px',
+                                            right: '-10px',
+                                            background: 'var(--error)',
+                                            color: 'white',
+                                            padding: '4px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 2px 8px rgba(244, 67, 54, 0.4)',
+                                            border: '1px solid rgba(255,255,255,0.2)'
+                                        }}
+                                        title="Ver animales sin potrerada asignada"
+                                    >
+                                        {stats.animalesSinPotrero} sin asignar
+                                    </div>
+                                )}
                             </div>
                             <div 
                                 onClick={handleOpenMuertes}
