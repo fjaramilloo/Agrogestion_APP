@@ -57,7 +57,7 @@ export default function Inventory() {
     const [umbralAltoGmp, setUmbralAltoGmp] = useState(20);
     const [umbralMedioGmp, setUmbralMedioGmp] = useState(10);
 
-    // Efecto para capturar filtros desde notificaciones y navegación
+    // Efecto para capturar filtros desde notificaciones
     useEffect(() => {
         const state = location.state as { filterType?: string };
         if (state?.filterType === 'vencidos') {
@@ -68,11 +68,8 @@ export default function Inventory() {
             setFilterNegativeGain(true);
             setFilterLateWeighing(false);
             window.history.replaceState({}, document.title);
-        } else if (state?.filterType === 'sin_potrerada') {
-            setFilterPotrerada('Sin potrerada');
-            window.history.replaceState({}, document.title);
         }
-    }, [location.state]);
+    }, [location]);
 
     // Estados para Muerte
     const [showMuerteModal, setShowMuerteModal] = useState(false);

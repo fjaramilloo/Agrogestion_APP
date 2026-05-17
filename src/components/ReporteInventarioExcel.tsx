@@ -43,7 +43,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
 
         const { data: allPotrerosData } = await supabase.from('potreros').select('nombre, id_rotacion').eq('id_finca', fincaId);
         const rotationPotreros: Record<string, string[]> = {};
-        allPotrerosData?.forEach(p => {
+        allPotrerosData?.forEach((p: any) => {
           if (p.id_rotacion) {
             if (!rotationPotreros[p.id_rotacion]) rotationPotreros[p.id_rotacion] = [];
             rotationPotreros[p.id_rotacion].push(p.nombre);
