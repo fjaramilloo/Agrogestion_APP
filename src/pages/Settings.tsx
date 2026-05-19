@@ -7,17 +7,43 @@ import Papa from 'papaparse';
 
 const parseFechaCol = (fechaStr: string) => {
     if (!fechaStr) return null;
-    if (fechaStr.includes('/')) {
-        const parts = fechaStr.split('/');
+    let s = fechaStr.toString().trim();
+    // Quitar parte de hora si existe
+    if (s.includes(' ')) {
+        s = s.split(' ')[0];
+    }
+    if (s.includes('T')) {
+        s = s.split('T')[0];
+    }
+    if (s.includes('/')) {
+        const parts = s.split('/');
         if (parts.length === 3) {
-            let d = parts[0], m = parts[1], y = parts[2];
-            // Si el año viene de 2 dígitos (ej 24), lo pasamos a 2024
+            let d = parts[0].trim(), m = parts[1].trim(), y = parts[2].trim();
+            // Si viene en formato YYYY/MM/DD
+            if (d.length === 4) {
+                return `${d}-${m.padStart(2, '0')}-${y.padStart(2, '0')}`;
+            }
             if (y.length === 2) y = '20' + y;
             return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
         }
+    } else if (s.includes('-')) {
+        const parts = s.split('-');
+        if (parts.length === 3) {
+            let p1 = parts[0].trim(), p2 = parts[1].trim(), p3 = parts[2].trim();
+            // Si viene en formato YYYY-MM-DD
+            if (p1.length === 4) {
+                return `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`;
+            }
+            // Si viene en formato DD-MM-YYYY o similar
+            if (p3.length === 2) p3 = '20' + p3;
+            if (p3.length === 4) {
+                return `${p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`;
+            }
+        }
     }
-    return fechaStr;
+    return s;
 };
+
 
 // MEJORA: Limpiador automático de números (borra espacios, letras, $, etc)
 const cleanNumber = (val: any): number => {
@@ -632,6 +658,26 @@ export default function Settings() {
                             .select();
                         if (errIns) throw errIns;
                         insertados = nuevosAnimales?.length ?? 0;
+
+                        // Insertar pesaje inicial en registros_pesaje para cada animal creado
+                        if (nuevosAnimales && nuevosAnimales.length > 0) {
+                            const pesajesIniciales = nuevosAnimales.map((animal: any) => ({
+                                id_animal: animal.id,
+                                peso: animal.peso_ingreso,
+                                fecha: animal.fecha_ingreso,
+                                etapa: animal.etapa,
+                                id_potrero: animal.id_potrero_actual,
+                                gdp_calculada: 0
+                            }));
+
+                            const { error: errPesajesInit } = await supabase
+                                .from('registros_pesaje')
+                                .insert(pesajesIniciales);
+
+                            if (errPesajesInit) {
+                                console.error("Error al crear pesajes iniciales para animales nuevos:", errPesajesInit);
+                            }
+                        }
                     }
 
                     // 6. Preparar reporte detallado
@@ -852,10 +898,10 @@ export default function Settings() {
                         // Procesar actualizaciones en lotes de 100 para ser ultra seguros
                         for (let i = 0; i < allIds.length; i += 100) {
                             const batchIds = allIds.slice(i, i + 100);
-                            const updates = batchIds.map(id => {
+                            const updatePromises = batchIds.map(id => {
                                 const ingreso = ingresoAActualizar.get(id);
                                 const ceba = cebaUpdates.get(id);
-                                const up: any = { id };
+                                const up: any = {};
                                 if (ingreso) {
                                     up.fecha_ingreso = ingreso.fecha;
                                     up.peso_ingreso = ingreso.peso;
@@ -866,14 +912,17 @@ export default function Settings() {
                                     up.fecha_ingreso_ceba = ceba.fecha;
                                     up.peso_ingreso_ceba = ceba.peso;
                                 }
-                                return up;
+                                return supabase
+                                    .from('animales')
+                                    .update(up)
+                                    .eq('id', id);
                             });
 
-                            const { error: upsertErr } = await supabase
-                                .from('animales')
-                                .upsert(updates);
-                            
-                            if (upsertErr) console.error("Error en upsert de animales:", upsertErr);
+                            const results = await Promise.all(updatePromises);
+                            const errors = results.filter(r => r.error);
+                            if (errors.length > 0) {
+                                console.error("Error al actualizar animales durante la recalibración:", errors);
+                            }
                             setImportProgress({ current: i + batchIds.length, total: allIds.length });
                         }
                     }
