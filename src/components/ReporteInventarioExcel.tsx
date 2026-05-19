@@ -222,7 +222,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                 const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => d.getTime()))) : null;
                 const count = pData.animales.length;
 
-                const gmpProm = pData.gmpCount > 0 ? pData.gmpSum / pData.gmpCount : 0;
+                const gmpProm = pData.gmpCount > 0 ? pData.gmpSum / pData.gmpCount : null;
 
                 const row: any = {
                     'Rotación': rotName,
@@ -232,7 +232,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                     row[m] = pData.marcasCounts[m] || 0;
                 });
                 row['Total Ganado'] = count;
-                row['GMP Total'] = Number(gmpProm.toFixed(1));
+                row['GMP Total'] = gmpProm !== null ? Number(gmpProm.toFixed(1)) : null;
                 row['Último Pesaje'] = maxDate ? format(maxDate, 'dd/MM/yyyy') : 'N/A';
                 row['Peso Promedio'] = count > 0 ? Number((sumPesoReal / count).toFixed(1)) : 0;
                 row['Peso Estimado Hoy'] = count > 0 ? Number((sumPesoE / count).toFixed(1)) : 0;
@@ -257,8 +257,8 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                 totalRow[m] = rowsOutput.reduce((sum: number, r: any) => sum + (r[m] || 0), 0);
             });
             totalRow['Total Ganado'] = granTotalGanado;
-            const granGmpProm = granGmpCount > 0 ? (granGmpSum / granGmpCount) : 0;
-            totalRow['GMP Total'] = Number(granGmpProm.toFixed(1));
+            const granGmpProm = granGmpCount > 0 ? (granGmpSum / granGmpCount) : null;
+            totalRow['GMP Total'] = granGmpProm !== null ? Number(granGmpProm.toFixed(1)) : null;
             totalRow['Último Pesaje'] = '';
             totalRow['Peso Promedio'] = granTotalGanado > 0 ? Number((granTotalPesoReal / granTotalGanado).toFixed(1)) : 0;
             totalRow['Peso Estimado Hoy'] = granTotalGanado > 0 ? Number((granTotalPesoEst / granTotalGanado).toFixed(1)) : 0;
@@ -314,7 +314,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
         row['Potrero'],
         ...marcas.map(m => row[m] || '-'),
         row['Total Ganado'],
-        row['GMP Total'],
+        row['GMP Total'] !== null && row['GMP Total'] !== undefined ? `${row['GMP Total'] > 0 ? '+' : ''}${row['GMP Total']} kg/mes` : '-',
         row['Último Pesaje'],
         `${row['Peso Promedio']} kg`,
         `${row['Peso Estimado Hoy']} kg`
@@ -369,7 +369,8 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
   };
 
   const isTotal = (row: any) => row['Rotación'] === 'TOTAL';
-  const getGmpColor = (val: number) => {
+  const getGmpColor = (val: number | null | undefined) => {
+    if (val === null || val === undefined) return 'var(--text-muted, rgba(255,255,255,0.4))';
     if (val < 0) return 'var(--error, #EF5350)';
     if (val <= umbralMedioGmp) return 'var(--warning, #FFA726)';
     if (val <= umbralAltoGmp) return 'var(--text-light, #FFFFFF)';
@@ -443,7 +444,13 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                                     fontWeight: 'bold', 
                                     color: getGmpColor(row['GMP Total'])
                                 }}>
-                                    {row['GMP Total'] > 0 ? '+' : ''}{row['GMP Total']} <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>kg/mes</span>
+                                    {row['GMP Total'] !== null && row['GMP Total'] !== undefined ? (
+                                        <>
+                                            {row['GMP Total'] > 0 ? '+' : ''}{row['GMP Total']} <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>kg/mes</span>
+                                        </>
+                                    ) : (
+                                        '-'
+                                    )}
                                 </td>
                                 <td style={{ textAlign: 'center', padding: '10px', color: 'var(--text-muted)' }}>{row['Último Pesaje']}</td>
                                 <td style={{ textAlign: 'right', padding: '10px' }}>{row['Peso Promedio']} kg</td>
