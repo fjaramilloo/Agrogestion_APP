@@ -1091,6 +1091,8 @@ export default function Inventory() {
                     propietario={filterPropietario}
                     animales={animales.filter(a => a.nombre_propietario === filterPropietario)}
                     onClose={() => setShowPropietarioDashboard(false)}
+                    umbralAlto={umbralAltoGmp}
+                    umbralMedio={umbralMedioGmp}
                 />
             )}
         </div>

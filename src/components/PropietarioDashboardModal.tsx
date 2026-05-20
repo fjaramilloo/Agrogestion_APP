@@ -32,13 +32,28 @@ interface PropietarioDashboardProps {
     propietario: string;
     animales: Animal[];
     onClose: () => void;
+    umbralAlto?: number;
+    umbralMedio?: number;
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28DFF', '#FF6384'];
 
-export default function PropietarioDashboardModal({ propietario, animales, onClose }: PropietarioDashboardProps) {
+export default function PropietarioDashboardModal({ 
+    propietario, 
+    animales, 
+    onClose,
+    umbralAlto = 20,
+    umbralMedio = 10
+}: PropietarioDashboardProps) {
     const printRef = useRef<HTMLDivElement>(null);
     const [isExporting, setIsExporting] = useState(false);
+
+    const getGmpColor = (gmpValue: number) => {
+        if (gmpValue < 0) return 'var(--error)';
+        if (gmpValue <= umbralMedio) return 'var(--warning)';
+        if (gmpValue <= umbralAlto) return 'var(--text-light)';
+        return 'var(--success)';
+    };
 
     const { 
         totalAnimales, 
@@ -222,7 +237,7 @@ export default function PropietarioDashboardModal({ propietario, animales, onClo
                         </div>
                         <div style={{ padding: '20px', borderRadius: '12px', background: 'rgba(33, 150, 243, 0.05)', border: '1px solid rgba(33, 150, 243, 0.1)' }}>
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>GMP Promedio Global</div>
-                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#64B5F6' }}>{gmpPromedioGlobal.toFixed(2)} kg/mes</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: getGmpColor(gmpPromedioGlobal) }}>{gmpPromedioGlobal.toFixed(2)} kg/mes</div>
                         </div>
                     </div>
 
@@ -234,13 +249,13 @@ export default function PropietarioDashboardModal({ propietario, animales, onClo
                             </h3>
                             <div style={{ height: '250px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
+                                    <PieChart margin={{ top: 10, right: 30, left: 30, bottom: 10 }}>
                                         <Pie
                                             data={datosEtapas}
                                             cx="50%"
                                             cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={90}
+                                            innerRadius={50}
+                                            outerRadius={70}
                                             paddingAngle={5}
                                             dataKey="value"
                                             label={({name, percent}) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
@@ -306,7 +321,11 @@ export default function PropietarioDashboardModal({ propietario, animales, onClo
                                             <td style={{ padding: '12px', fontWeight: '500', textTransform: 'capitalize' }}>{ubi.nombre}</td>
                                             <td style={{ padding: '12px', textAlign: 'right', color: 'var(--primary-light)' }}>{ubi.cantidad}</td>
                                             <td style={{ padding: '12px', textAlign: 'right' }}>{ubi.pesoPromedio.toFixed(1)} kg</td>
-                                            <td style={{ padding: '12px', textAlign: 'right', color: ubi.gmpPromedio > 10 ? 'var(--success)' : 'var(--warning)' }}>
+                                            <td style={{ 
+                                                padding: '12px', 
+                                                textAlign: 'right', 
+                                                color: ubi.gmpPromedio > 0 ? getGmpColor(ubi.gmpPromedio) : 'var(--text-muted)' 
+                                            }}>
                                                 {ubi.gmpPromedio > 0 ? `${ubi.gmpPromedio.toFixed(2)} kg/m` : 'N/A'}
                                             </td>
                                         </tr>
