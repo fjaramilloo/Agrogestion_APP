@@ -436,56 +436,61 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
 
                 <div className="table-title" style={{ marginTop: '20px' }}>Detalle de Salida Por Individual</div>
                 <div className="animals-multi-column-grid">
-                    {Array.from({ length: numColumnas }).map((_, colIdx) => {
-                        const itemsPerCol = Math.ceil(animales.length / numColumnas);
-                        const colData = animales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
-                        
-                        return (
-                            <table key={colIdx} className="column-table">
-                                <thead>
-                                    <tr>
-                                        <th>Chapeta</th>
-                                        <th>Peso</th>
-                                        {totalValor > 0 && <th style={{ textAlign: 'right' }}>Valor Venta</th>}
-                                        <th>GMP</th>
-                                        <th>Marca</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {colData.map((a, i) => (
-                                        <tr key={i}>
-                                            <td style={{ fontWeight: '700', color: '#1b5e20' }}>
-                                                {a.numero_chapeta}
-                                                {a.es_estimado && <span style={{ fontSize: '6px', display: 'block', color: '#d32f2f' }}>ESTIMADO</span>}
-                                            </td>
-                                            <td style={{ fontWeight: 'bold' }}>
-                                                {a.peso_salida} 
-                                                {a.es_estimado && <span style={{ fontSize: '8px', color: '#d32f2f', marginLeft: '4px' }}>(e)</span>}
-                                            </td>
-                                            {totalValor > 0 && (
-                                                <td style={{ fontWeight: 'bold', fontSize: '9px', textAlign: 'right', color: '#d32f2f' }}>
-                                                    {a.precio_venta ? `$${parseFloat(String(a.precio_venta).replace(/\D/g, '')).toLocaleString()}` : '-'}
-                                                </td>
-                                            )}
-                                            <td style={{ 
-                                                color: (a.gmp || 0) < 0 ? '#d32f2f' : ((a.gmp || 0) <= umbralMedio ? '#f57c00' : ((a.gmp || 0) <= umbralAlto ? '#000000' : '#2e7d32')),
-                                                fontWeight: '600'
-                                            }}>
-                                                {a.gmp ? a.gmp.toFixed(1) : '-'}
-                                            </td>
-                                            <td style={{ fontSize: '8px', color: '#666' }}>{a.propietario}</td>
-                                        </tr>
-                                    ))}
-                                    {/* Rellenar espacios vacios solo si hay más de una columna */}
-                                    {numColumnas > 1 && colData.length < itemsPerCol && Array.from({ length: itemsPerCol - colData.length }).map((_, i) => (
-                                        <tr key={`empty-${i}`} style={{ height: '24px' }}>
-                                            <td>&nbsp;</td><td>&nbsp;</td>{totalValor > 0 && <td>&nbsp;</td>}<td>&nbsp;</td><td>&nbsp;</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    {(() => {
+                        const sortedAnimales = [...animales].sort((a, b) =>
+                            a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true, sensitivity: 'base' })
                         );
-                    })}
+                        return Array.from({ length: numColumnas }).map((_, colIdx) => {
+                            const itemsPerCol = Math.ceil(sortedAnimales.length / numColumnas);
+                            const colData = sortedAnimales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
+                            
+                            return (
+                                <table key={colIdx} className="column-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Chapeta</th>
+                                            <th>Peso</th>
+                                            {totalValor > 0 && <th style={{ textAlign: 'right' }}>Valor Venta</th>}
+                                            <th>GMP</th>
+                                            <th>Marca</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {colData.map((a, i) => (
+                                            <tr key={i}>
+                                                <td style={{ fontWeight: '700', color: '#1b5e20' }}>
+                                                    {a.numero_chapeta}
+                                                    {a.es_estimado && <span style={{ fontSize: '6px', display: 'block', color: '#d32f2f' }}>ESTIMADO</span>}
+                                                </td>
+                                                <td style={{ fontWeight: 'bold' }}>
+                                                    {a.peso_salida} 
+                                                    {a.es_estimado && <span style={{ fontSize: '8px', color: '#d32f2f', marginLeft: '4px' }}>(e)</span>}
+                                                </td>
+                                                {totalValor > 0 && (
+                                                    <td style={{ fontWeight: 'bold', fontSize: '9px', textAlign: 'right', color: '#d32f2f' }}>
+                                                        {a.precio_venta ? `$${parseFloat(String(a.precio_venta).replace(/\D/g, '')).toLocaleString()}` : '-'}
+                                                    </td>
+                                                )}
+                                                <td style={{ 
+                                                    color: (a.gmp || 0) < 0 ? '#d32f2f' : ((a.gmp || 0) <= umbralMedio ? '#f57c00' : ((a.gmp || 0) <= umbralAlto ? '#000000' : '#2e7d32')),
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {a.gmp ? a.gmp.toFixed(1) : '-'}
+                                                </td>
+                                                <td style={{ fontSize: '8px', color: '#666' }}>{a.propietario}</td>
+                                            </tr>
+                                        ))}
+                                        {/* Rellenar espacios vacios solo si hay más de una columna */}
+                                        {numColumnas > 1 && colData.length < itemsPerCol && Array.from({ length: itemsPerCol - colData.length }).map((_, i) => (
+                                            <tr key={`empty-${i}`} style={{ height: '24px' }}>
+                                                <td>&nbsp;</td><td>&nbsp;</td>{totalValor > 0 && <td>&nbsp;</td>}<td>&nbsp;</td><td>&nbsp;</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            );
+                        });
+                    })()}
                 </div>
 
                 <div className="table-title">Resumen por Propietario</div>

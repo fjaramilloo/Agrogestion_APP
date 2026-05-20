@@ -290,34 +290,39 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
 
                 <div className="table-title">Detalle de Ingresos</div>
                 <div className="animals-multi-column-grid">
-                    {[0, 1, 2].map(colIdx => {
-                        // Dividir el array en 3 partes
-                        const itemsPerCol = Math.ceil(animales.length / 3);
-                        const colItems = animales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
-                        
-                        return (
-                            <table key={colIdx} className="column-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '20px' }}>#</th>
-                                        <th>Chapeta</th>
-                                        <th style={{ textAlign: 'right' }}>Peso</th>
-                                        <th>Prop.</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {colItems.map((a, i) => (
-                                        <tr key={i}>
-                                            <td style={{ color: '#888', fontSize: '8px' }}>{colIdx * itemsPerCol + i + 1}</td>
-                                            <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
-                                            <td style={{ fontWeight: '700', textAlign: 'right' }}>{a.peso_ingreso}</td>
-                                            <td style={{ color: '#666', fontSize: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>{a.propietario}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    {(() => {
+                        const sortedAnimales = [...animales].sort((a, b) =>
+                            a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true, sensitivity: 'base' })
                         );
-                    })}
+                        return [0, 1, 2].map(colIdx => {
+                            // Dividir el array en 3 partes
+                            const itemsPerCol = Math.ceil(sortedAnimales.length / 3);
+                            const colItems = sortedAnimales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
+                            
+                            return (
+                                <table key={colIdx} className="column-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '20px' }}>#</th>
+                                            <th>Chapeta</th>
+                                            <th style={{ textAlign: 'right' }}>Peso</th>
+                                            <th>Prop.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {colItems.map((a, i) => (
+                                            <tr key={i}>
+                                                <td style={{ color: '#888', fontSize: '8px' }}>{colIdx * itemsPerCol + i + 1}</td>
+                                                <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
+                                                <td style={{ fontWeight: '700', textAlign: 'right' }}>{a.peso_ingreso}</td>
+                                                <td style={{ color: '#666', fontSize: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>{a.propietario}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            );
+                        });
+                    })()}
                 </div>
 
                 <div className="table-title" style={{ marginTop: '20px' }}>Resumen por Marca</div>

@@ -250,31 +250,36 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
 
                 <div className="table-title">Detalle de Ingresos</div>
                 <div className="animals-multi-column-grid">
-                    {[0, 1, 2].map(colIdx => {
-                        const itemsPerCol = Math.ceil(animales.length / 3);
-                        const colItems = animales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
-                        
-                        return (
-                            <table key={colIdx} className="column-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '20px' }}>#</th>
-                                        <th>Chapeta</th>
-                                        <th style={{ textAlign: 'right' }}>Peso (kg)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {colItems.map((a, i) => (
-                                        <tr key={i}>
-                                            <td style={{ color: '#888', fontSize: '8px' }}>{colIdx * itemsPerCol + i + 1}</td>
-                                            <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
-                                            <td style={{ fontWeight: '700', textAlign: 'right' }}>{parseFloat(a.peso_ingreso.toString()).toFixed(1)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    {(() => {
+                        const sortedAnimales = [...animales].sort((a, b) =>
+                            a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true, sensitivity: 'base' })
                         );
-                    })}
+                        return [0, 1, 2].map(colIdx => {
+                            const itemsPerCol = Math.ceil(sortedAnimales.length / 3);
+                            const colItems = sortedAnimales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
+                            
+                            return (
+                                <table key={colIdx} className="column-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '20px' }}>#</th>
+                                            <th>Chapeta</th>
+                                            <th style={{ textAlign: 'right' }}>Peso (kg)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {colItems.map((a, i) => (
+                                            <tr key={i}>
+                                                <td style={{ color: '#888', fontSize: '8px' }}>{colIdx * itemsPerCol + i + 1}</td>
+                                                <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
+                                                <td style={{ fontWeight: '700', textAlign: 'right' }}>{parseFloat(a.peso_ingreso.toString()).toFixed(1)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            );
+                        });
+                    })()}
                 </div>
 
                 <div style={{ marginTop: '20px', fontSize: '9px', color: '#888', borderTop: '1px solid #eee', paddingTop: '10px' }}>
