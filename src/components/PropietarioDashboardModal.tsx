@@ -284,7 +284,7 @@ export default function PropietarioDashboardModal({
                                         </Pie>
                                         <RechartsTooltip 
                                             contentStyle={{ backgroundColor: 'rgba(30, 30, 45, 0.9)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                                            formatter={(value: number, name: string) => [`${value} animales`, name]}
+                                            formatter={(value: any, name: any) => [`${value} animales`, name]}
                                         />
                                     </PieChart>
                                 </ResponsiveContainer>
