@@ -1,8 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { X, Download, TrendingUp, MapPin, Target } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { X, Download, TrendingUp, MapPin, Target, PieChart as PieChartIcon } from 'lucide-react';
 import { 
     PieChart, Pie, Cell, 
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -230,7 +230,7 @@ export default function PropietarioDashboardModal({ propietario, animales, onClo
                         {/* Gráfico Etapas */}
                         <div style={{ padding: '20px', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', background: 'rgba(0,0,0,0.2)' }}>
                             <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <PieChart size={18} /> Distribución por Etapas
+                                <PieChartIcon size={18} /> Distribución por Etapas
                             </h3>
                             <div style={{ height: '250px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
@@ -243,9 +243,9 @@ export default function PropietarioDashboardModal({ propietario, animales, onClo
                                             outerRadius={90}
                                             paddingAngle={5}
                                             dataKey="value"
-                                            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                            label={({name, percent}) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                                         >
-                                            {datosEtapas.map((entry, index) => (
+                                            {datosEtapas.map((_, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
@@ -271,7 +271,7 @@ export default function PropietarioDashboardModal({ propietario, animales, onClo
                                             <YAxis stroke="rgba(255,255,255,0.5)" tick={{fill: 'rgba(255,255,255,0.5)', fontSize: 12}} />
                                             <RechartsTooltip 
                                                 contentStyle={{ backgroundColor: 'rgba(30, 30, 45, 0.9)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                                                formatter={(value: number) => [`${value.toFixed(2)} kg/m`, 'GMP']}
+                                                formatter={(value: any) => [`${Number(value).toFixed(2)} kg/m`, 'GMP']}
                                             />
                                             <Line type="monotone" dataKey="gmp" stroke="var(--primary)" strokeWidth={3} dot={{r: 4, fill: 'var(--primary)'}} />
                                         </LineChart>
