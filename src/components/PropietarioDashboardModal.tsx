@@ -63,12 +63,14 @@ export default function PropietarioDashboardModal({
         datosUbicaciones,
         datosTendenciaGmp
     } = useMemo(() => {
+        // gmpUltimo = gmp_calculada del último pesaje (período entre últimos dos pesajes)
+        // gmpHistorico = ganancia acumulada desde fecha_ingreso hasta último pesaje
         let totalPeso = 0;
         let sumaGmp = 0;
         let animalesConGmp = 0;
 
         const etapasMap = new Map<string, number>();
-        const ubicacionesMap = new Map<string, { count: number, peso: number, sumGmp: number, countGmp: number }>();
+        const ubicacionesMap = new Map<string, { count: number, peso: number, sumGmpUltimo: number, countGmpUltimo: number, sumGmpHistorico: number, countGmpHistorico: number }>();
         const mesesGmpMap = new Map<string, { sum: number, count: number }>();
 
         animales.forEach(a => {
@@ -80,15 +82,27 @@ export default function PropietarioDashboardModal({
             const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
             const diasHoy = differenceInDays(new Date(), refDate) || 0;
             
-            let gmpIndiv = 0;
+            // GMP Última: del último período entre pesajes (gmp_calculada del trigger)
+            let gmpUltimo = 0;
             if (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
-                gmpIndiv = Number(ultimoP.gmp_calculada);
+                gmpUltimo = Number(ultimoP.gmp_calculada);
             } else if (ultimoP) {
+                // Fallback: calcular con el período completo si no hay gmp_calculada
                 const gainTotal = ultimoP.peso - pesoBase;
                 const daysTotal = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso)) || 1;
-                gmpIndiv = (gainTotal / daysTotal) * 30;
+                gmpUltimo = (gainTotal / daysTotal) * 30;
             }
 
+            // GMP Histórica: ganancia acumulada desde ingreso hasta último pesaje
+            let gmpHistorico = 0;
+            if (ultimoP) {
+                const gainAcumulada = ultimoP.peso - pesoBase;
+                const diasAcumulados = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso)) || 1;
+                gmpHistorico = (gainAcumulada / diasAcumulados) * 30;
+            }
+
+            // Para estimado y semáforo global usamos gmpUltimo
+            const gmpIndiv = gmpUltimo;
             const estimadoHoy = pesoU + (diasHoy * (gmpIndiv / 30));
             totalPeso += estimadoHoy;
 
@@ -105,14 +119,18 @@ export default function PropietarioDashboardModal({
             const ubicacion = a.potreradaNombre !== 'Sin potrerada' ? a.potreradaNombre : (a.potreroNombre !== 'Sin potrero' ? a.potreroNombre : 'Sin Asignar');
             const ubiKey = ubicacion || 'Sin Asignar';
             if (!ubicacionesMap.has(ubiKey)) {
-                ubicacionesMap.set(ubiKey, { count: 0, peso: 0, sumGmp: 0, countGmp: 0 });
+                ubicacionesMap.set(ubiKey, { count: 0, peso: 0, sumGmpUltimo: 0, countGmpUltimo: 0, sumGmpHistorico: 0, countGmpHistorico: 0 });
             }
             const ubiData = ubicacionesMap.get(ubiKey)!;
             ubiData.count++;
             ubiData.peso += estimadoHoy;
-            if (gmpIndiv > 0) {
-                ubiData.sumGmp += gmpIndiv;
-                ubiData.countGmp++;
+            if (gmpUltimo !== 0) {
+                ubiData.sumGmpUltimo += gmpUltimo;
+                ubiData.countGmpUltimo++;
+            }
+            if (gmpHistorico !== 0) {
+                ubiData.sumGmpHistorico += gmpHistorico;
+                ubiData.countGmpHistorico++;
             }
 
             // Tendencia Histórica
@@ -134,7 +152,8 @@ export default function PropietarioDashboardModal({
                 nombre,
                 cantidad: data.count,
                 pesoPromedio: data.count > 0 ? (data.peso / data.count) : 0,
-                gmpPromedio: data.countGmp > 0 ? (data.sumGmp / data.countGmp) : 0
+                gmpUltimo: data.countGmpUltimo > 0 ? (data.sumGmpUltimo / data.countGmpUltimo) : 0,
+                gmpHistorico: data.countGmpHistorico > 0 ? (data.sumGmpHistorico / data.countGmpHistorico) : 0
             }))
             .sort((a, b) => b.cantidad - a.cantidad);
 
@@ -310,9 +329,16 @@ export default function PropietarioDashboardModal({
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                                         <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Potrerada / Potrero</th>
-                                        <th style={{ padding: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>Cant. Animales</th>
-                                        <th style={{ padding: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>Peso Promedio</th>
-                                        <th style={{ padding: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>GMP Promedio</th>
+                                        <th style={{ padding: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>Cant.</th>
+                                        <th style={{ padding: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>Peso Prom.</th>
+                                        <th style={{ padding: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>
+                                            GMP Última
+                                            <div style={{ fontSize: '0.7rem', fontWeight: 'normal', color: 'var(--text-muted)', opacity: 0.7 }}>último período</div>
+                                        </th>
+                                        <th style={{ padding: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>
+                                            GMP Histórica
+                                            <div style={{ fontSize: '0.7rem', fontWeight: 'normal', color: 'var(--text-muted)', opacity: 0.7 }}>desde ingreso</div>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -324,15 +350,23 @@ export default function PropietarioDashboardModal({
                                             <td style={{ 
                                                 padding: '12px', 
                                                 textAlign: 'right', 
-                                                color: ubi.gmpPromedio > 0 ? getGmpColor(ubi.gmpPromedio) : 'var(--text-muted)' 
+                                                fontWeight: '600',
+                                                color: ubi.gmpUltimo !== 0 ? getGmpColor(ubi.gmpUltimo) : 'var(--text-muted)' 
                                             }}>
-                                                {ubi.gmpPromedio > 0 ? `${ubi.gmpPromedio.toFixed(2)} kg/m` : 'N/A'}
+                                                {ubi.gmpUltimo !== 0 ? `${ubi.gmpUltimo.toFixed(2)} kg/m` : 'N/A'}
+                                            </td>
+                                            <td style={{ 
+                                                padding: '12px', 
+                                                textAlign: 'right',
+                                                color: ubi.gmpHistorico !== 0 ? getGmpColor(ubi.gmpHistorico) : 'var(--text-muted)' 
+                                            }}>
+                                                {ubi.gmpHistorico !== 0 ? `${ubi.gmpHistorico.toFixed(2)} kg/m` : 'N/A'}
                                             </td>
                                         </tr>
                                     ))}
                                     {datosUbicaciones.length === 0 && (
                                         <tr>
-                                            <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                            <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                                 No hay datos de ubicación disponibles.
                                             </td>
                                         </tr>
