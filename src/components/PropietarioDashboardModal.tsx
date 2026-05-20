@@ -263,21 +263,20 @@ export default function PropietarioDashboardModal({
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
                         {/* Gráfico Etapas */}
                         <div style={{ padding: '20px', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', background: 'rgba(0,0,0,0.2)' }}>
-                            <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <PieChartIcon size={18} /> Distribución por Etapas
                             </h3>
-                            <div style={{ height: '250px' }}>
+                            <div style={{ height: '170px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart margin={{ top: 10, right: 30, left: 30, bottom: 10 }}>
+                                    <PieChart>
                                         <Pie
                                             data={datosEtapas}
                                             cx="50%"
                                             cy="50%"
-                                            innerRadius={50}
+                                            innerRadius={45}
                                             outerRadius={70}
-                                            paddingAngle={5}
+                                            paddingAngle={4}
                                             dataKey="value"
-                                            label={({name, percent}) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                                         >
                                             {datosEtapas.map((_, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -285,9 +284,31 @@ export default function PropietarioDashboardModal({
                                         </Pie>
                                         <RechartsTooltip 
                                             contentStyle={{ backgroundColor: 'rgba(30, 30, 45, 0.9)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                            formatter={(value: number, name: string) => [`${value} animales`, name]}
                                         />
                                     </PieChart>
                                 </ResponsiveContainer>
+                            </div>
+                            {/* Leyenda con número y porcentaje */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                                {(() => {
+                                    const total = datosEtapas.reduce((s, e) => s + e.value, 0);
+                                    return datosEtapas.map((etapa, idx) => {
+                                        const pct = total > 0 ? ((etapa.value / total) * 100).toFixed(1) : '0';
+                                        return (
+                                            <div key={etapa.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: COLORS[idx % COLORS.length], flexShrink: 0 }} />
+                                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>{etapa.name}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: COLORS[idx % COLORS.length] }}>{etapa.value} animales</span>
+                                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', minWidth: '42px', textAlign: 'right' }}>{pct}%</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
 
