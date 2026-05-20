@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2 } from 'lucide-react';
+import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2 } from 'lucide-react';
+import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
@@ -82,6 +83,9 @@ export default function Inventory() {
     const [potreradasDisponibles, setPotreradasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
     const [propietariosLista, setPropietariosLista] = useState<{ id: string; nombre: string }[]>([]);
     const [updatingPotrerada, setUpdatingPotrerada] = useState(false);
+
+    // Modal Propietario Dashboard
+    const [showPropietarioDashboard, setShowPropietarioDashboard] = useState(false);
 
     // Estados para Crear Animal Solo
     const [showCrearModal, setShowCrearModal] = useState(false);
@@ -534,6 +538,14 @@ export default function Inventory() {
                         style={{ width: 'auto', background: 'transparent', color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px' }}
                     >
                         Limpiar
+                    </button>
+                )}
+                {filterPropietario && (
+                    <button
+                        onClick={() => setShowPropietarioDashboard(true)}
+                        style={{ width: 'auto', background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <BarChart2 size={18} /> Resumen de Propietario
                     </button>
                 )}
             </div>
@@ -1072,6 +1084,14 @@ export default function Inventory() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showPropietarioDashboard && filterPropietario && (
+                <PropietarioDashboardModal
+                    propietario={filterPropietario}
+                    animales={animales.filter(a => a.nombre_propietario === filterPropietario)}
+                    onClose={() => setShowPropietarioDashboard(false)}
+                />
             )}
         </div>
     );
