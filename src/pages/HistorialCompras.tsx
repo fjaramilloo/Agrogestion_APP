@@ -111,9 +111,18 @@ export default function HistorialCompras() {
                         new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                     );
                     const ultimoP = registros[0];
-                    const gdp = ultimoP?.gdp_calculada || 0;
-                    const gmp = gdp * 30;
                     const pesoActual = ultimoP?.peso || animal.peso_ingreso;
+                    
+                    let gmp: number | null = null;
+                    if (ultimoP && animal.peso_ingreso && animal.fecha_ingreso) {
+                        const dias = differenceInDays(new Date(ultimoP.fecha + 'T12:00:00'), new Date(animal.fecha_ingreso + 'T12:00:00'));
+                        if (dias > 0) {
+                            const gananciaTotal = ultimoP.peso - animal.peso_ingreso;
+                            gmp = (gananciaTotal / dias) * 30;
+                        } else {
+                            gmp = 0;
+                        }
+                    }
 
                     const animalRep: AnimalCompraParaReporte = {
                         numero_chapeta: animal.numero_chapeta,
@@ -139,7 +148,7 @@ export default function HistorialCompras() {
                         peso_compra: animal.peso_compra,
                         fecha_ingreso: animal.fecha_ingreso,
                         proveedor_compra: proveedor,
-                        gmp: ultimoP ? gmp : null,
+                        gmp: gmp,
                         pesoActual: pesoActual,
                         pesajesFiltrados: pesajesMap,
                         registros_pesaje: registrosOrdenados.map((r: any) => ({
@@ -171,7 +180,7 @@ export default function HistorialCompras() {
                     acc[key].pesoTotalCompra += animal.peso_compra || 0;
                     acc[key].pesoTotalActual += pesoActual;
                     
-                    if (ultimoP) {
+                    if (gmp !== null) {
                         acc[key].gmpTotal += gmp;
                         acc[key].gmpCount++;
                     }
