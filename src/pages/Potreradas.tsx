@@ -222,17 +222,18 @@ export default function Potreradas() {
                             validGmpLastCount++;
                         }
 
-                        // 2. GMP Acumulado y Proyección (Sincronizado)
+                        // 2. GMP Acumulado Histórica: desde ingreso hasta último pesaje
+                        // Siempre se calcula como promedio histórico (NO usa gmp_calculada del último período)
                         let gmpIndiv = 0;
-                        if (lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined) {
-                            gmpIndiv = Number(lastP.gmp_calculada);
-                        } else {
-                            const startW = p.etapa === 'ceba' ? (a.peso_ingreso_ceba || pesoBase) : (a.peso_ingreso || pesoBase);
-                            const startD = new Date((p.etapa === 'ceba' ? (a.fecha_ingreso_ceba || a.fecha_ingreso) : a.fecha_ingreso) + 'T12:00:00');
+                        {
+                            const startW = Number(a.peso_ingreso || pesoBase);
+                            const startD = new Date((a.fecha_ingreso || '') + 'T12:00:00');
                             const endD = new Date(lastP.fecha + 'T12:00:00');
-                            const tGain = Number(lastP.peso) - Number(startW);
+                            const tGain = Number(lastP.peso) - startW;
                             const tDays = differenceInDays(endD, startD);
-                            if (tDays > 0) gmpIndiv = (tGain / tDays) * 30;
+                            if (tDays > 0) {
+                                gmpIndiv = (tGain / tDays) * 30;
+                            }
                         }
 
                         if (gmpIndiv === 0) gmpIndiv = 10.3;
