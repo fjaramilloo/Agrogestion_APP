@@ -34,14 +34,28 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
                         size: letter; 
                         margin: 0.5cm; 
                     }
+                    html, body {
+                        overflow: visible !important;
+                        height: auto !important;
+                    }
                     body * { visibility: hidden; }
-                    .report-modal-overlay { background: none !important; padding: 0 !important; }
-                    .report-simple-container, .report-simple-container * { visibility: visible; }
-                    .report-simple-container {
-                        position: absolute;
-                        left: 0; top: 0;
-                        width: 100%;
-                        padding: 0;
+                    .report-modal-overlay, .report-modal-overlay * { 
+                        visibility: visible; 
+                    }
+                    .report-modal-overlay { 
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        background: none !important; 
+                        padding: 0 !important; 
+                        display: block !important;
+                        overflow: visible !important;
+                    }
+                    .report-simple-container { 
+                        position: static !important;
+                        width: 100% !important; 
+                        padding: 0 !important;
+                        margin: 0 !important;
                         background: white !important;
                         color: black !important;
                         box-shadow: none !important;
