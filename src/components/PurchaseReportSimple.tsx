@@ -190,7 +190,7 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
                     display: inline-block;
                 }
 
-                @media (max-width: 768px) {
+                @media screen and (max-width: 768px) {
                     .summary-grid {
                         grid-template-columns: 1fr 1fr;
                     }
