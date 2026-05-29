@@ -821,13 +821,24 @@ export default function Potreradas() {
             // Datos tabla
             const tableHead: any[][] = [];
             if (p.etapa === 'levante') {
-                tableHead.push(['#', 'Chapeta', 'Propietario', `Ingreso ${p.etapa.toUpperCase()}`, 'Peso Compra', 'Peso Ingreso', 'Peso Actual']);
+                const fechaIngreso = sortedAnimals[0]?.fechaIngresoEtapa
+                    ? format(new Date(sortedAnimals[0].fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yy')
+                    : '';
+                tableHead.push(['#', 'Chapeta', 'Propietario', `Peso Compra\n${fechaIngreso}`, `Peso Ingreso\n${fechaIngreso}`, 'Peso Actual']);
             } else {
-                tableHead.push(['#', 'Chapeta', 'Propietario', `Ingreso ${p.etapa.toUpperCase()}`, 'Peso Ingreso', 'Peso Actual']);
+                const fechaIngreso = sortedAnimals[0]?.fechaIngresoEtapa
+                    ? format(new Date(sortedAnimals[0].fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yy')
+                    : '';
+                tableHead.push(['#', 'Chapeta', 'Propietario', `Peso Ingreso\n${fechaIngreso}`, 'Peso Actual']);
             }
-            const sortedDates = [...detailData.fechasColumnas].sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
+
+            // Filtrar fechas que no sean la fecha de ingreso (igual que en la tabla visual)
+            const ingresoFecha = sortedAnimals[0]?.fechaIngresoEtapa || null;
+            const activeSortedDates = [...detailData.fechasColumnas]
+                .sort((a,b) => new Date(a).getTime() - new Date(b).getTime())
+                .filter(fecha => fecha !== ingresoFecha && detailData.animales.some(a => a.pesajesFiltrados && a.pesajesFiltrados[fecha] && a.fechaIngresoEtapa !== fecha));
             
-            sortedDates.forEach(fecha => {
+            activeSortedDates.forEach(fecha => {
                 tableHead[0].push(`Pesaje ${format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}`);
             });
             tableHead[0].push('GMP Prom. (kg/m)');
@@ -837,7 +848,6 @@ export default function Potreradas() {
                     idx + 1,
                     `${a.numero_chapeta}`,
                     a.nombre_propietario || '-',
-                    a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yyyy') : '-'
                 ];
 
                 if (p.etapa === 'levante') {
@@ -847,21 +857,62 @@ export default function Potreradas() {
                 row.push(a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-');
                 row.push(a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-');
 
-                sortedDates.forEach(fecha => {
-                    row.push(a.pesajesFiltrados?.[fecha] ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-');
+                activeSortedDates.forEach(fecha => {
+                    const isEntryDate = a.fechaIngresoEtapa === fecha;
+                    row.push(a.pesajesFiltrados?.[fecha] && !isEntryDate ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-');
                 });
                 
                 row.push(a.gmp ? a.gmp.toFixed(1) : '-');
                 return row;
             });
 
-            // Footer
-            const totalKilos = detailData.animales.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
-            const pesoPromedio = totalKilos / (detailData.animales.length || 1);
-            
-            const rowFooter = Array(tableHead[0].length).fill('');
-            rowFooter[4] = `Promedio Lote:`;
-            rowFooter[5] = `${Math.round(pesoPromedio)} kg`; 
+            // Footer - TOTALES row
+            const colCount = tableHead[0].length;
+            const rowTotales = Array(colCount).fill('');
+            rowTotales[2] = 'TOTALES:';
+
+            let colIdx = 3;
+            if (p.etapa === 'levante') {
+                const totalCompra = detailData.animales.reduce((sum, a) => sum + (a.peso_compra || 0), 0);
+                rowTotales[colIdx] = totalCompra > 0 ? `${Math.round(totalCompra).toLocaleString('es-CO')} kg` : '-';
+                colIdx++;
+            }
+            const totalIngreso = detailData.animales.reduce((sum, a) => sum + (a.pesoIngresoEtapa || 0), 0);
+            rowTotales[colIdx] = totalIngreso > 0 ? `${Math.round(totalIngreso).toLocaleString('es-CO')} kg` : '-';
+            colIdx++;
+            const totalActual = detailData.animales.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
+            rowTotales[colIdx] = totalActual > 0 ? `${Math.round(totalActual).toLocaleString('es-CO')} kg` : '-';
+            colIdx++;
+            activeSortedDates.forEach(fecha => {
+                const total = detailData.animales.reduce((acc, a) => acc + (a.pesajesFiltrados?.[fecha] || 0), 0);
+                rowTotales[colIdx] = total > 0 ? `${Math.round(total).toLocaleString('es-CO')} kg` : '-';
+                colIdx++;
+            });
+
+            // Footer - PROMEDIOS row
+            const rowPromedios = Array(colCount).fill('');
+            rowPromedios[2] = 'PROMEDIOS:';
+            let promIdx = 3;
+            if (p.etapa === 'levante') {
+                const valid = detailData.animales.filter(a => a.peso_compra);
+                const prom = valid.length > 0 ? valid.reduce((s, a) => s + (a.peso_compra || 0), 0) / valid.length : 0;
+                rowPromedios[promIdx] = prom > 0 ? `${Math.round(prom)} kg` : '-';
+                promIdx++;
+            }
+            const validIng = detailData.animales.filter(a => a.pesoIngresoEtapa);
+            const promIng = validIng.length > 0 ? validIng.reduce((s, a) => s + (a.pesoIngresoEtapa || 0), 0) / validIng.length : 0;
+            rowPromedios[promIdx] = promIng > 0 ? `${Math.round(promIng)} kg` : '-';
+            promIdx++;
+            const promActual = detailData.animales.length > 0 ? totalActual / detailData.animales.length : 0;
+            rowPromedios[promIdx] = promActual > 0 ? `${Math.round(promActual)} kg` : '-';
+            promIdx++;
+            activeSortedDates.forEach(fecha => {
+                const validAnimals = detailData.animales.filter(a => a.pesajesFiltrados?.[fecha]);
+                const total = validAnimals.reduce((acc, a) => acc + (a.pesajesFiltrados![fecha] || 0), 0);
+                const avg = validAnimals.length > 0 ? total / validAnimals.length : 0;
+                rowPromedios[promIdx] = avg > 0 ? `${Math.round(avg)} kg` : '-';
+                promIdx++;
+            });
 
             // Forzar nueva página para la tabla de animales si la primera página ya tiene mucho contenido
             doc.addPage();
@@ -871,7 +922,7 @@ export default function Potreradas() {
                 startY: currentY,
                 head: tableHead,
                 body: tableBody,
-                foot: [rowFooter],
+                foot: [rowTotales, rowPromedios],
                 theme: 'striped',
                 headStyles: { fillColor: [46, 125, 50], fontSize: 8, halign: 'center' },
                 footStyles: { fillColor: [240, 240, 240], textColor: [40, 40, 40], fontSize: 8, fontStyle: 'bold' },
@@ -896,6 +947,11 @@ export default function Potreradas() {
                                 data.cell.styles.textColor = [76, 175, 80]; // Verde (success)
                             }
                         }
+                    }
+                    // Fila PROMEDIOS: fondo verde suave y texto verde
+                    if (data.section === 'foot' && data.row.index === 1) {
+                        data.cell.styles.fillColor = [232, 245, 233];
+                        data.cell.styles.textColor = [46, 125, 50];
                     }
                 }
             });
