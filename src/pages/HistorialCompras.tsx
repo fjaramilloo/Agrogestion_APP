@@ -474,7 +474,7 @@ export default function HistorialCompras() {
 
             {/* MODAL DETALLE DE COMPRA */}
             {detalleCompra && (() => {
-                const fechasColumnas = getFechasColumnas(detalleCompra.animalesDetalle);
+                const fechasColumnas = getFechasColumnas(detalleCompra.animalesDetalle).filter(f => f !== detalleCompra.fechaCompra);
                 return (
                     <div className="modal-overlay">
                         <div className="card modal-content" style={{ maxWidth: '960px' }}>
