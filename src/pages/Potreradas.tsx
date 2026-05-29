@@ -103,6 +103,7 @@ export default function Potreradas() {
     const [weighingData, setWeighingData] = useState<{ [animalId: string]: string }>({});
     const [savingWeighings, setSavingWeighings] = useState(false);
     const [showWeighingForm, setShowWeighingForm] = useState(false);
+    const [weighingDate, setWeighingDate] = useState(new Date().toISOString().split('T')[0]);
     
     // Pdf ref & loader
     const chartsRef = useRef<HTMLDivElement>(null);
@@ -637,6 +638,7 @@ export default function Potreradas() {
         const initial: { [id: string]: string } = {};
         detailData.animales.forEach(a => { initial[a.id] = ''; });
         setWeighingData(initial);
+        setWeighingDate(new Date().toISOString().split('T')[0]);
         setShowWeighingForm(true);
     };
 
@@ -914,7 +916,6 @@ export default function Potreradas() {
 
     const handleSaveWeighings = async () => {
         if (!detailData) return;
-        const today = new Date().toISOString().split('T')[0]; // 2026-03-14
         const etapa = detailData.potrerada.etapa;
 
         // Filtrar solo los que tienen peso ingresado
@@ -926,7 +927,7 @@ export default function Potreradas() {
             .map(a => ({
                 id_animal: a.id,
                 peso: Number(weighingData[a.id]),
-                fecha: today,
+                fecha: weighingDate,
                 etapa: etapa,
                 id_potrero: null
             }));
@@ -1581,9 +1582,24 @@ export default function Potreradas() {
                                     <h2 style={{ margin: '0 0 4px 0', color: 'var(--primary-light)', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Scale size={20} /> Nuevo Pesaje
                                     </h2>
-                                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                                        {detailData.potrerada.nombre} &nbsp;·&nbsp; Fecha: <strong style={{ color: 'var(--text)' }}>{new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>
-                                    </p>
+                                    <div style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {detailData.potrerada.nombre} &nbsp;·&nbsp; Fecha: 
+                                        <input 
+                                            type="date" 
+                                            value={weighingDate} 
+                                            onChange={(e) => setWeighingDate(e.target.value)} 
+                                            style={{ 
+                                                background: 'rgba(255,255,255,0.05)', 
+                                                border: '1px solid rgba(255,255,255,0.1)', 
+                                                borderRadius: '6px', 
+                                                padding: '4px 8px', 
+                                                color: 'var(--text)', 
+                                                fontSize: '0.82rem',
+                                                fontFamily: 'inherit',
+                                                marginLeft: '4px'
+                                            }} 
+                                        />
+                                    </div>
                                 </div>
                                 <button onClick={() => { setShowWeighingForm(false); setWeighingData({}); }} className="btn-icon">
                                     <X size={20} />
@@ -1600,9 +1616,10 @@ export default function Potreradas() {
                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <thead>
                                         <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '40%' }}>Chapeta</th>
-                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '30%' }}>Peso Actual</th>
-                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '30%' }}>Nuevo Peso (kg)</th>
+                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Chapeta</th>
+                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Propietario</th>
+                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Peso Actual</th>
+                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Nuevo Peso (kg)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1618,6 +1635,7 @@ export default function Potreradas() {
                                                         background: hasWeight ? 'rgba(46,204,113,0.04)' : 'transparent'
                                                     }}>
                                                         <td style={{ padding: '10px 16px', fontWeight: 'bold', fontSize: '0.95rem' }}>#{a.numero_chapeta}</td>
+                                                        <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{a.nombre_propietario}</td>
                                                         <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                                                             {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
                                                         </td>
