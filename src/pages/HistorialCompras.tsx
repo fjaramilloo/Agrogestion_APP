@@ -520,8 +520,14 @@ export default function HistorialCompras() {
                                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                                 <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>CHAPETA</th>
                                                 <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>PROPIETARIO</th>
-                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>PESO COMPRA</th>
-                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>PESO INGRESO</th>
+                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                                    <div style={{ fontWeight: 'bold' }}>PESO COMPRA</div>
+                                                    <div style={{ fontSize: '0.65rem', marginTop: '2px', opacity: 0.8 }}>{detalleCompra.fechaCompra && detalleCompra.fechaCompra !== 'Sin fecha' ? format(new Date(detalleCompra.fechaCompra + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
+                                                </th>
+                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                                    <div style={{ fontWeight: 'bold' }}>PESO INGRESO</div>
+                                                    <div style={{ fontSize: '0.65rem', marginTop: '2px', opacity: 0.8 }}>{detalleCompra.fechaCompra && detalleCompra.fechaCompra !== 'Sin fecha' ? format(new Date(detalleCompra.fechaCompra + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
+                                                </th>
                                                 {fechasColumnas.map(fecha => (
                                                     <th key={fecha} style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                                                         PESAJE {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}
@@ -542,11 +548,9 @@ export default function HistorialCompras() {
                                                     <td style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
                                                     <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                                         <div style={{ fontWeight: 'bold' }}>{a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}</div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{detalleCompra.fechaCompra && detalleCompra.fechaCompra !== 'Sin fecha' ? format(new Date(detalleCompra.fechaCompra + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
                                                     </td>
                                                     <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                                         <div style={{ fontWeight: 'bold' }}>{a.peso_ingreso ? `${Math.round(a.peso_ingreso)} kg` : '-'}</div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fecha_ingreso ? format(new Date(a.fecha_ingreso + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
                                                     </td>
                                                     {fechasColumnas.map(fecha => (
                                                         <td key={fecha} style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
