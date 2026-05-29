@@ -1537,23 +1537,67 @@ export default function Potreradas() {
                                                 )}
                                             </tbody>
                                             {detailData.animales.length > 0 && (() => {
-                                                const totalKilos = detailData.animales.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
-                                                const pesoPromedio = totalKilos / detailData.animales.length;
+                                                const validCompra = detailData.animales.filter(a => a.peso_compra);
+                                                const totalCompra = validCompra.reduce((sum, a) => sum + (a.peso_compra || 0), 0);
+                                                const promCompra = validCompra.length > 0 ? totalCompra / validCompra.length : 0;
+
+                                                const validIngreso = detailData.animales.filter(a => a.pesoIngresoEtapa);
+                                                const totalIngreso = validIngreso.reduce((sum, a) => sum + (a.pesoIngresoEtapa || 0), 0);
+                                                const promIngreso = validIngreso.length > 0 ? totalIngreso / validIngreso.length : 0;
+
+                                                const validActual = detailData.animales.filter(a => a.pesoActual);
+                                                const totalActual = validActual.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
+                                                const promActual = validActual.length > 0 ? totalActual / validActual.length : 0;
+
                                                 return (
                                                     <tfoot>
-                                                        <tr style={{ borderTop: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.04)' }}>
-                                                            <td colSpan={4 + activeFechasColumnas.length - 1} style={{ padding: '14px 16px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                                {detailData.animales.length} animales &nbsp;|&nbsp; Total Kilos:
+                                                        <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                                                            <td colSpan={2} style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold' }}>TOTALES:</td>
+                                                            {detailData.potrerada.etapa === 'levante' && (
+                                                                <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                    {totalCompra > 0 ? `${Math.round(totalCompra).toLocaleString('es-CO')} kg` : '-'}
+                                                                </td>
+                                                            )}
+                                                            <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                {totalIngreso > 0 ? `${Math.round(totalIngreso).toLocaleString('es-CO')} kg` : '-'}
                                                             </td>
-                                                            <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)', fontSize: '1rem' }}>
-                                                                {Math.round(totalKilos).toLocaleString('es-CO')} kg
+                                                            <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                {totalActual > 0 ? `${Math.round(totalActual).toLocaleString('es-CO')} kg` : '-'}
                                                             </td>
-                                                            <td style={{ padding: '14px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '2px', textTransform: 'uppercase' }}>Prom. Lote</div>
-                                                                <span style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1rem' }}>
-                                                                    {Math.round(pesoPromedio)} kg
-                                                                </span>
+                                                            {activeFechasColumnas.map(fecha => {
+                                                                const total = detailData.animales.reduce((acc, a) => acc + (a.pesajesFiltrados && a.pesajesFiltrados[fecha] ? a.pesajesFiltrados[fecha] : 0), 0);
+                                                                return (
+                                                                    <td key={fecha} style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                        {total > 0 ? `${Math.round(total).toLocaleString('es-CO')} kg` : '-'}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            <td></td>
+                                                        </tr>
+                                                        <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                            <td colSpan={2} style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem' }}>PROMEDIOS:</td>
+                                                            {detailData.potrerada.etapa === 'levante' && (
+                                                                <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                                    {promCompra > 0 ? `${Math.round(promCompra).toLocaleString('es-CO')} kg` : '-'}
+                                                                </td>
+                                                            )}
+                                                            <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                                {promIngreso > 0 ? `${Math.round(promIngreso).toLocaleString('es-CO')} kg` : '-'}
                                                             </td>
+                                                            <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                                {promActual > 0 ? `${Math.round(promActual).toLocaleString('es-CO')} kg` : '-'}
+                                                            </td>
+                                                            {activeFechasColumnas.map(fecha => {
+                                                                const validAnimals = detailData.animales.filter(a => a.pesajesFiltrados && a.pesajesFiltrados[fecha]);
+                                                                const total = validAnimals.reduce((acc, a) => acc + (a.pesajesFiltrados![fecha] || 0), 0);
+                                                                const avg = validAnimals.length > 0 ? total / validAnimals.length : 0;
+                                                                return (
+                                                                    <td key={fecha} style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                                        {avg > 0 ? `${Math.round(avg).toLocaleString('es-CO')} kg` : '-'}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            <td></td>
                                                         </tr>
                                                     </tfoot>
                                                 );
