@@ -37,6 +37,7 @@ interface CompraGrupo {
     proveedor: string;
     animalesCount: number;
     pesoPromedioIngreso: number;
+    pesoTotalIngreso: number;
     pesoTotalCompra: number;
     pesoPromedioActual: number;
     gmpPromedio: number | null;
