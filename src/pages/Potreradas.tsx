@@ -1316,7 +1316,11 @@ export default function Potreradas() {
                             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--primary)' }}>
                                 Cargando información...
                             </div>
-                        ) : detailData ? (
+                        ) : detailData ? (() => {
+                            const activeFechasColumnas = detailData.fechasColumnas.filter(fecha => 
+                                detailData.animales.some(a => a.pesajesFiltrados && a.pesajesFiltrados[fecha] && a.fechaIngresoEtapa !== fecha)
+                            );
+                            return (
                             <>
                                 {/* Header */}
                                 <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -1446,7 +1450,6 @@ export default function Potreradas() {
                                                         </div>
                                                     </th>
                                                     <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PROPIETARIO</th>
-                                                    <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>INGRESO {detailData.potrerada.etapa.toUpperCase()}</th>
                                                     {detailData.potrerada.etapa === 'levante' && (
                                                         <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESO COMPRA</th>
                                                     )}
@@ -1472,7 +1475,7 @@ export default function Potreradas() {
                                                             )}
                                                         </div>
                                                     </th>
-                                                    {detailData.fechasColumnas.map(fecha => (
+                                                    {activeFechasColumnas.map(fecha => (
                                                         <th key={fecha} style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESAJE {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}</th>
                                                     ))}
                                                     <th 
@@ -1493,25 +1496,27 @@ export default function Potreradas() {
                                                     <tr key={a.id} style={{ borderBottom: idx < sortedAnimals.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                                                         <td style={{ padding: '12px 16px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>#{a.numero_chapeta}</td>
                                                         <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
-                                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
-                                                            {a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yyyy') : '-'}
-                                                        </td>
                                                         {detailData.potrerada.etapa === 'levante' && (
-                                                            <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
-                                                                {a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}
+                                                            <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                                <div style={{ fontWeight: 'bold' }}>{a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}</div>
+                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
                                                             </td>
                                                         )}
-                                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
-                                                            {a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-'}
+                                                        <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                            <div style={{ fontWeight: 'bold' }}>{a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-'}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
                                                         </td>
                                                         <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                                             {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
                                                         </td>
-                                                        {detailData.fechasColumnas.map(fecha => (
-                                                            <td key={fecha} style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--text)' }}>
-                                                                {a.pesajesFiltrados?.[fecha] ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-'}
-                                                            </td>
-                                                        ))}
+                                                        {activeFechasColumnas.map(fecha => {
+                                                            const isEntryDate = a.fechaIngresoEtapa === fecha;
+                                                            return (
+                                                                <td key={fecha} style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                    {a.pesajesFiltrados && a.pesajesFiltrados[fecha] && !isEntryDate ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-'}
+                                                                </td>
+                                                            );
+                                                        })}
                                                         <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                             <span style={{ 
                                                                 color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((a.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
@@ -1525,7 +1530,7 @@ export default function Potreradas() {
                                                 ))}
                                                 {sortedAnimals.length === 0 && (
                                                     <tr>
-                                                        <td colSpan={5 + detailData.fechasColumnas.length + 1} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                                        <td colSpan={4 + activeFechasColumnas.length + 1} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                                             Esta potrerada no tiene animales activos.
                                                         </td>
                                                     </tr>
@@ -1537,7 +1542,7 @@ export default function Potreradas() {
                                                 return (
                                                     <tfoot>
                                                         <tr style={{ borderTop: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.04)' }}>
-                                                            <td colSpan={5 + detailData.fechasColumnas.length - 1} style={{ padding: '14px 16px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                            <td colSpan={4 + activeFechasColumnas.length - 1} style={{ padding: '14px 16px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                                                 {detailData.animales.length} animales &nbsp;|&nbsp; Total Kilos:
                                                             </td>
                                                             <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)', fontSize: '1rem' }}>
@@ -1564,7 +1569,8 @@ export default function Potreradas() {
                             </button>
                         </div>
                             </>
-                        ) : (
+                            );
+                        })() : (
                             <div style={{ padding: '40px', textAlign: 'center' }}>No se pudo cargar la información.</div>
                         )}
                     </div>
