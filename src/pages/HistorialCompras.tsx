@@ -341,7 +341,8 @@ export default function HistorialCompras() {
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Compra / Fecha</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Proveedor</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Animales</th>
-                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Peso Prom.</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Peso Prom. Compra</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Peso Prom. Actual</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>GMP Lote</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Acciones</th>
                                 </tr>
@@ -364,7 +365,11 @@ export default function HistorialCompras() {
                                             <span style={{ fontWeight: 'bold', color: 'white' }}>{compra.animalesCount}</span>
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                                            <span style={{ fontWeight: 'bold', color: 'white' }}>{Math.round(compra.pesoPromedioIngreso)}</span>
+                                            <span style={{ fontWeight: 'bold', color: 'var(--text-muted)' }}>{Math.round(compra.pesoPromedioIngreso)}</span>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
+                                        </td>
+                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                            <span style={{ fontWeight: 'bold', color: 'white' }}>{Math.round(compra.pesoPromedioActual)}</span>
                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
