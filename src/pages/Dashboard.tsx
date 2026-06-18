@@ -198,7 +198,7 @@ export default function Dashboard() {
             const { data: todosAnimales } = await supabase
                 .from('animales')
                 .select(`
-                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado, fecha_muerte, id_potrerada, comprador_venta, fecha_venta, observacion,
+                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado, fecha_muerte, id_potrerada, comprador_venta, fecha_venta, observaciones_venta,
                     potreros ( nombre ),
                     potreradas ( nombre ),
                     registros_pesaje (
@@ -285,7 +285,8 @@ export default function Dashboard() {
                         muertesCompletas.push({
                             ...a,
                             tipo_baja: esMuertoReal ? 'muerto' : 'carnicero',
-                            fecha_baja: fechaRef
+                            fecha_baja: fechaRef,
+                            observacion: esMuertoReal ? 'Animal registrado como muerto' : a.observaciones_venta
                         });
                         if (fechaRef && fechaRef.startsWith(currentYear)) {
                             muertesCount++;
