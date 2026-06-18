@@ -122,23 +122,12 @@ export default function Dashboard() {
         gmpLote: number;
     } | null>(null);
 
-    const handleOpenMuertes = async () => {
+    const handleOpenMuertes = () => {
         setMuertesModalVisible(true);
-        if (muertesData.length === 0) {
-            setLoadingMuertes(true);
-            const { data } = await supabase
-                .from('animales')
-                .select('chapeta, fecha_muerte, observacion')
-                .eq('id_finca', fincaId)
-                .eq('estado', 'muerto')
-                .order('fecha_muerte', { ascending: false });
-            if (data) setMuertesData(data);
-            setLoadingMuertes(false);
-        }
     };
 
     const muertesByYear = muertesData.reduce((acc, animal) => {
-        const year = animal.fecha_muerte ? animal.fecha_muerte.substring(0, 4) : 'Desconocido';
+        const year = animal.fecha_baja ? animal.fecha_baja.substring(0, 4) : 'Desconocido';
         if (!acc[year]) acc[year] = [];
         acc[year].push(animal);
         return acc;
@@ -210,7 +199,7 @@ export default function Dashboard() {
             const { data: todosAnimales } = await supabase
                 .from('animales')
                 .select(`
-                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado, fecha_muerte, id_potrerada,
+                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado, fecha_muerte, id_potrerada, comprador_venta, fecha_venta, observacion,
                     potreros ( nombre ),
                     potreradas ( nombre ),
                     registros_pesaje (
@@ -283,6 +272,33 @@ export default function Dashboard() {
                     })),
                     pesajes: pesajesFlat
                 });
+
+                // --- CALCULAR MUERTES Y VENDIDOS A CARNICERO ---
+                const currentYear = new Date().getFullYear().toString();
+                let muertesCount = 0;
+                const muertesCompletas: any[] = [];
+                (todosAnimales || []).forEach(a => {
+                    const isMuerto = a.estado === 'muerto';
+                    const isCarnicero = a.estado === 'vendido' && a.comprador_venta && a.comprador_venta.toLowerCase().includes('carnicero');
+                    if (isMuerto || isCarnicero) {
+                        const esMuertoReal = isMuerto;
+                        const fechaRef = isMuerto ? a.fecha_muerte : a.fecha_venta;
+                        muertesCompletas.push({
+                            ...a,
+                            tipo_baja: esMuertoReal ? 'muerto' : 'carnicero',
+                            fecha_baja: fechaRef
+                        });
+                        if (fechaRef && fechaRef.startsWith(currentYear)) {
+                            muertesCount++;
+                        }
+                    }
+                });
+                
+                // Ordenar muertesData descendente por fecha_baja
+                muertesCompletas.sort((a, b) => new Date(b.fecha_baja || 0).getTime() - new Date(a.fecha_baja || 0).getTime());
+                setMuertesData(muertesCompletas);
+
+                setStats(prev => ({ ...prev, totalMuertosAno: muertesCount }));
 
                 // Agrupar lluvias por mes
                 const gruposLluvia: Record<string, number> = {};
@@ -1256,7 +1272,7 @@ export default function Dashboard() {
                                 boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
                             }} onClick={e => e.stopPropagation()}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                                    <h2 style={{ margin: 0, color: 'white' }}>Registro Histórico de Muertes</h2>
+                                    <h2 style={{ margin: 0, color: 'white' }}>Registro de Muertes y Descartes</h2>
                                     <button onClick={() => setMuertesModalVisible(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 8px' }}>&times;</button>
                                 </div>
                                 <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
@@ -1283,9 +1299,16 @@ export default function Dashboard() {
                                                             gap: '16px'
                                                         }}>
                                                             <div>
-                                                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'white' }}>Chapeta: {m.chapeta || 'N/A'}</div>
+                                                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    Chapeta: {m.numero_chapeta || m.chapeta || 'N/A'}
+                                                                    {m.tipo_baja === 'carnicero' ? (
+                                                                        <span style={{ fontSize: '0.7rem', background: 'rgba(255, 152, 0, 0.2)', color: 'var(--warning)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>Carnicero</span>
+                                                                    ) : (
+                                                                        <span style={{ fontSize: '0.7rem', background: 'rgba(244, 67, 54, 0.2)', color: 'var(--error)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>Muerto</span>
+                                                                    )}
+                                                                </div>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                                                    {m.fecha_muerte ? format(new Date(m.fecha_muerte), "d 'de' MMMM", { locale: es }) : 'Sin fecha'}
+                                                                    {m.fecha_baja ? format(new Date(m.fecha_baja), "d 'de' MMMM", { locale: es }) : 'Sin fecha'}
                                                                 </div>
                                                             </div>
                                                             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '50%', textAlign: 'right', fontStyle: 'italic', wordBreak: 'break-word' }}>
