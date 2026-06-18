@@ -55,7 +55,6 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [muertesModalVisible, setMuertesModalVisible] = useState(false);
     const [muertesData, setMuertesData] = useState<any[]>([]);
-    const [loadingMuertes, setLoadingMuertes] = useState(false);
 
     const [stats, setStats] = useState<DashboardStats>({
         totalAnimales: 0,
@@ -1276,9 +1275,7 @@ export default function Dashboard() {
                                     <button onClick={() => setMuertesModalVisible(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 8px' }}>&times;</button>
                                 </div>
                                 <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
-                                    {loadingMuertes ? (
-                                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-light)' }}>Cargando registros...</div>
-                                    ) : muertesData.length === 0 ? (
+                                    {muertesData.length === 0 ? (
                                         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No hay muertes registradas.</div>
                                     ) : (
                                         Object.keys(muertesByYear).sort((a,b) => b.localeCompare(a)).map(year => (
