@@ -86,6 +86,9 @@ export default function Inventory() {
 
     // Modal Propietario Dashboard
     const [showPropietarioDashboard, setShowPropietarioDashboard] = useState(false);
+    const [showCapitalModal, setShowCapitalModal] = useState(false);
+    const [capitalInvertido, setCapitalInvertido] = useState('');
+    const [precioVentaPromedio, setPrecioVentaPromedio] = useState(0);
 
     // Estados para Crear Animal Solo
     const [showCrearModal, setShowCrearModal] = useState(false);
@@ -110,7 +113,7 @@ export default function Inventory() {
         const [configRes, animalesRes, potsRes, propRes] = await Promise.all([
             supabase
                 .from('configuracion_kpi')
-                .select('umbral_alto_gmp, umbral_medio_gmp')
+                .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio')
                 .eq('id_finca', fincaId)
                 .single(),
             supabase
@@ -145,6 +148,7 @@ export default function Inventory() {
         if (configRes.data) {
             setUmbralAltoGmp(configRes.data.umbral_alto_gmp ?? 20);
             setUmbralMedioGmp(configRes.data.umbral_medio_gmp ?? 10);
+            setPrecioVentaPromedio(parseFloat(configRes.data.precio_venta_promedio || 0));
         }
 
         // MEJORA A: Procesar solo el ULTIMO pesaje por animal para la lista
@@ -542,10 +546,10 @@ export default function Inventory() {
                 )}
                 {filterPropietario && (
                     <button
-                        onClick={() => setShowPropietarioDashboard(true)}
+                        onClick={() => { setCapitalInvertido(''); setShowCapitalModal(true); }}
                         style={{ width: 'auto', background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
-                        <BarChart2 size={18} /> Resumen de Propietario
+                        <BarChart2 size={18} /> Informe de Propietario
                     </button>
                 )}
             </div>
@@ -1086,6 +1090,58 @@ export default function Inventory() {
                 </div>
             )}
 
+            {/* Modal para ingresar capital invertido antes de generar el informe */}
+            {showCapitalModal && filterPropietario && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '20px' }} onClick={() => setShowCapitalModal(false)}>
+                    <div className="card" style={{ maxWidth: '480px', width: '100%', border: '1px solid rgba(76,175,80,0.3)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>💰</div>
+                            <h2 style={{ color: 'white', margin: '0 0 8px 0' }}>Capital Invertido</h2>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                                Ingresa el valor total que tiene <strong style={{ color: 'var(--primary-light)' }}>{filterPropietario}</strong> invertido en la finca (valor de compra total de sus animales).
+                            </p>
+                        </div>
+                        <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Capital Invertido (COP $)</label>
+                            <input
+                                type="number"
+                                placeholder="Ej: 50000000"
+                                value={capitalInvertido}
+                                onChange={e => setCapitalInvertido(e.target.value)}
+                                style={{ fontSize: '1.2rem', fontWeight: 'bold', textAlign: 'right' }}
+                                autoFocus
+                            />
+                            {capitalInvertido && parseFloat(capitalInvertido) > 0 && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--primary-light)', marginTop: '6px', textAlign: 'right' }}>
+                                    {parseFloat(capitalInvertido).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
+                                </div>
+                            )}
+                        </div>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '24px' }}>
+                            Este dato solo se usa para calcular la rentabilidad del informe y no se guarda en la base de datos.
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => setShowCapitalModal(false)}
+                                style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)', flex: 1 }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowCapitalModal(false);
+                                    setShowPropietarioDashboard(true);
+                                }}
+                                style={{ backgroundColor: 'var(--primary)', flex: 2 }}
+                                disabled={!capitalInvertido || parseFloat(capitalInvertido) <= 0}
+                            >
+                                Generar Informe
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showPropietarioDashboard && filterPropietario && (
                 <PropietarioDashboardModal
                     propietario={filterPropietario}
@@ -1093,6 +1149,8 @@ export default function Inventory() {
                     onClose={() => setShowPropietarioDashboard(false)}
                     umbralAlto={umbralAltoGmp}
                     umbralMedio={umbralMedioGmp}
+                    capitalInvertido={parseFloat(capitalInvertido) || 0}
+                    precioVentaPromedio={precioVentaPromedio}
                 />
             )}
         </div>
