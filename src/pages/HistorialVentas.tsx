@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Tag, Calendar, Users, FileText, X, Info, TrendingUp } from 'lucide-react';
+import { Search, Tag, Calendar, Users, FileText, X, Info, TrendingUp, Download, Loader2 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SalesReport from '../components/SalesReport';
 import SalesReportSimple from '../components/SalesReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface AnimalVentaParaReporte {
     numero_chapeta: string;
@@ -66,6 +68,8 @@ export default function HistorialVentas() {
 
     // Estado para abrir modal de detalle de venta (estilo Potreradas)
     const [detalleVenta, setDetalleVenta] = useState<VentaGrupo | null>(null);
+    const [exportingDetallePdf, setExportingDetallePdf] = useState(false);
+    const printRef = useRef<HTMLDivElement>(null);
 
     // Estado para tarjeta individual de un animal vendido
     const [selectedAnimalDetalle, setSelectedAnimalDetalle] = useState<AnimalVentaDetalle | null>(null);
@@ -299,6 +303,31 @@ export default function HistorialVentas() {
         return Array.from(fechasSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     };
 
+    const handleExportPDF = async () => {
+        if (!printRef.current || !detalleVenta) return;
+        setExportingDetallePdf(true);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 100)); // reflow
+            const canvas = await html2canvas(printRef.current, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#121212',
+                logging: false,
+                windowWidth: 1200
+            });
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`Venta_${detalleVenta.titulo.replace(/\s+/g, '_')}_${formatFecha(detalleVenta.fechaVenta).replace(/\s+/g, '_')}.pdf`);
+        } catch (error) {
+            console.error('Error al exportar PDF:', error);
+        } finally {
+            setExportingDetallePdf(false);
+        }
+    };
+
     return (
         <div className="page-container">
             <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
@@ -495,11 +524,32 @@ export default function HistorialVentas() {
             ================================================================ */}
             {detalleVenta && (() => {
                 const fechasColumnas = getFechasColumnas(detalleVenta.animalesDetalle);
+                
+                const chartData = fechasColumnas.map(fecha => {
+                    const validPesos = detalleVenta.animalesDetalle.filter(a => a.pesajesFiltrados && a.pesajesFiltrados[fecha]);
+                    const sumPeso = validPesos.reduce((sum, a) => sum + (a.pesajesFiltrados[fecha] || 0), 0);
+                    const pesoPromedio = validPesos.length > 0 ? sumPeso / validPesos.length : 0;
+                    return {
+                        fechaStr: format(new Date(fecha + 'T12:00:00'), 'dd MMM', { locale: es }),
+                        fecha,
+                        pesoPromedio: Math.round(pesoPromedio),
+                        gmpPromedio: 0
+                    };
+                });
+                
+                for (let i = 1; i < chartData.length; i++) {
+                    const prev = chartData[i - 1];
+                    const curr = chartData[i];
+                    const days = Math.round((new Date(curr.fecha).getTime() - new Date(prev.fecha).getTime()) / (1000 * 3600 * 24)) || 1;
+                    curr.gmpPromedio = Number((((curr.pesoPromedio - prev.pesoPromedio) / days) * 30).toFixed(1));
+                }
+
                 return (
                     <div className="modal-overlay">
-                        <div className="card modal-content" style={{ maxWidth: '960px' }}>
-                            {/* Header */}
-                            <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div className="card modal-content" style={{ maxWidth: '960px', padding: 0 }}>
+                            <div ref={printRef} style={{ backgroundColor: '#121212', borderRadius: '16px' }}>
+                                {/* Header */}
+                                <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <h2 style={{ margin: '0 0 8px 0', color: 'var(--primary-light)', fontSize: 'clamp(1.1rem, 4vw, 1.5rem)' }}>
@@ -522,15 +572,73 @@ export default function HistorialVentas() {
                                                 <strong style={{ color: 'var(--success)' }}>{detalleVenta.gmpPromedio.toFixed(1)} kg/m</strong>
                                             </div>
                                         </div>
+                                        </div>
                                     </div>
-                                    <button onClick={() => setDetalleVenta(null)} className="btn-icon">
-                                        <X size={20} />
-                                    </button>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <button 
+                                            onClick={handleExportPDF}
+                                            disabled={exportingDetallePdf}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '6px',
+                                                background: 'rgba(255, 255, 255, 0.05)',
+                                                color: 'white',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '8px', padding: '7px 14px',
+                                                fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer'
+                                            }}
+                                        >
+                                            {exportingDetallePdf ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
+                                            <span className="mobile-hide">{exportingDetallePdf ? 'Exportando...' : 'Descargar PDF'}</span>
+                                        </button>
+                                        <button onClick={() => setDetalleVenta(null)} className="btn-icon">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Contenido con scroll */}
                             <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+                                
+                                {/* Gráficas Responsive */}
+                                {chartData.length > 0 && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                                        <div className="card" style={{ padding: '16px', height: '280px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
+                                            <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</h4>
+                                            {chartData.length > 0 ? (
+                                                <ResponsiveContainer width="100%" height="85%">
+                                                    <LineChart data={chartData}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                                        <XAxis dataKey="fechaStr" stroke="var(--text-muted)" fontSize={12} />
+                                                        <YAxis stroke="var(--text-muted)" fontSize={12} domain={['auto', 'auto']} />
+                                                        <RechartsTooltip contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                                                        <Line type="monotone" dataKey="pesoPromedio" name="Peso (kg)" stroke="var(--primary)" strokeWidth={3} dot={{ fill: 'var(--primary)', r: 4 }} activeDot={{ r: 6 }} />
+                                                    </LineChart>
+                                                </ResponsiveContainer>
+                                            ) : (
+                                                <div style={{ height: '85%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>Información insuficiente</div>
+                                            )}
+                                        </div>
+
+                                        <div className="card" style={{ padding: '16px', height: '280px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
+                                            <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</h4>
+                                            {chartData.length > 1 ? (
+                                                <ResponsiveContainer width="100%" height="85%">
+                                                    <LineChart data={chartData.slice(1)}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                                        <XAxis dataKey="fechaStr" stroke="var(--text-muted)" fontSize={12} />
+                                                        <YAxis stroke="var(--text-muted)" fontSize={12} domain={['auto', 'auto']} />
+                                                        <RechartsTooltip contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                                                        <Line type="monotone" dataKey="gmpPromedio" name="GMP (kg/m)" stroke="var(--success)" strokeWidth={3} dot={{ fill: 'var(--success)', r: 4 }} activeDot={{ r: 6 }} />
+                                                    </LineChart>
+                                                </ResponsiveContainer>
+                                            ) : (
+                                                <div style={{ height: '85%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>Información insuficiente</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <h4 style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Info size={14} /> Detalle por Animal — clic en una fila para ver la tarjeta del animal
                                 </h4>
@@ -540,13 +648,14 @@ export default function HistorialVentas() {
                                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                                 <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>CHAPETA</th>
                                                 <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>PROPIETARIO</th>
-                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>F. ENTRADA FINCA</th>
-                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>PESO ENTRADA</th>
+                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>PESO COMPRA</th>
+                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>PESO INGRESO</th>
                                                 {fechasColumnas.map(fecha => (
                                                     <th key={fecha} style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                                                         PESAJE {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}
                                                     </th>
                                                 ))}
+                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>PESO VENTA</th>
                                                 <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>GMP</th>
                                             </tr>
                                         </thead>
@@ -560,17 +669,22 @@ export default function HistorialVentas() {
                                                 >
                                                     <td style={{ padding: '12px', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
                                                     <td style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
-                                                    <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
-                                                        {a.fecha_ingreso ? format(new Date(a.fecha_ingreso + 'T12:00:00'), 'dd/MM/yyyy') : '-'}
+                                                    <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                        <div style={{ fontWeight: 'bold' }}>{a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fecha_compra ? format(new Date(a.fecha_compra + 'T12:00:00'), 'dd/MM/yy') : (a.fecha_ingreso ? format(new Date(a.fecha_ingreso + 'T12:00:00'), 'dd/MM/yy') : '-')}</div>
                                                     </td>
-                                                    <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                                        {a.peso_ingreso ? `${Math.round(a.peso_ingreso)} kg` : '-'}
+                                                    <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                        <div style={{ fontWeight: 'bold' }}>{a.peso_ingreso ? `${Math.round(a.peso_ingreso)} kg` : '-'}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fecha_ingreso ? format(new Date(a.fecha_ingreso + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
                                                     </td>
                                                     {fechasColumnas.map(fecha => (
                                                         <td key={fecha} style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                                             {a.pesajesFiltrados[fecha] ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-'}
                                                         </td>
                                                     ))}
+                                                    <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)' }}>
+                                                        {a.peso_venta ? `${Math.round(a.peso_venta)} kg` : '-'}
+                                                    </td>
                                                     <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                         <span style={{
                                                             color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((a.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
@@ -589,8 +703,71 @@ export default function HistorialVentas() {
                                                 </tr>
                                             )}
                                         </tbody>
+                                        {detalleVenta.animalesDetalle.length > 0 && (() => {
+                                            const validCompra = detalleVenta.animalesDetalle.filter(a => a.peso_compra);
+                                            const totalCompra = validCompra.reduce((sum, a) => sum + (a.peso_compra || 0), 0);
+                                            const promCompra = validCompra.length > 0 ? totalCompra / validCompra.length : 0;
+
+                                            const validIngreso = detalleVenta.animalesDetalle.filter(a => a.peso_ingreso);
+                                            const totalIngreso = validIngreso.reduce((sum, a) => sum + (a.peso_ingreso || 0), 0);
+                                            const promIngreso = validIngreso.length > 0 ? totalIngreso / validIngreso.length : 0;
+
+                                            const validVenta = detalleVenta.animalesDetalle.filter(a => a.peso_venta);
+                                            const totalVenta = validVenta.reduce((sum, a) => sum + (a.peso_venta || 0), 0);
+                                            const promVenta = validVenta.length > 0 ? totalVenta / validVenta.length : 0;
+
+                                            return (
+                                                <tfoot>
+                                                    <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                                                        <td colSpan={2} style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold' }}>TOTALES:</td>
+                                                        <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                            {totalCompra > 0 ? `${Math.round(totalCompra).toLocaleString('es-CO')} kg` : '-'}
+                                                        </td>
+                                                        <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                            {totalIngreso > 0 ? `${Math.round(totalIngreso).toLocaleString('es-CO')} kg` : '-'}
+                                                        </td>
+                                                        {fechasColumnas.map(fecha => {
+                                                            const total = detalleVenta.animalesDetalle.reduce((acc, a) => acc + (a.pesajesFiltrados && a.pesajesFiltrados[fecha] ? a.pesajesFiltrados[fecha] : 0), 0);
+                                                            return (
+                                                                <td key={fecha} style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                    {total > 0 ? `${Math.round(total).toLocaleString('es-CO')} kg` : '-'}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                        <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)' }}>
+                                                            {totalVenta > 0 ? `${Math.round(totalVenta).toLocaleString('es-CO')} kg` : '-'}
+                                                        </td>
+                                                        <td></td>
+                                                    </tr>
+                                                    <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <td colSpan={2} style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem' }}>PROMEDIOS:</td>
+                                                        <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                            {promCompra > 0 ? `${Math.round(promCompra).toLocaleString('es-CO')} kg` : '-'}
+                                                        </td>
+                                                        <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                            {promIngreso > 0 ? `${Math.round(promIngreso).toLocaleString('es-CO')} kg` : '-'}
+                                                        </td>
+                                                        {fechasColumnas.map(fecha => {
+                                                            const validAnimals = detalleVenta.animalesDetalle.filter(a => a.pesajesFiltrados && a.pesajesFiltrados[fecha]);
+                                                            const total = validAnimals.reduce((acc, a) => acc + (a.pesajesFiltrados![fecha] || 0), 0);
+                                                            const avg = validAnimals.length > 0 ? total / validAnimals.length : 0;
+                                                            return (
+                                                                <td key={`prom-${fecha}`} style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                                    {avg > 0 ? `${Math.round(avg).toLocaleString('es-CO')} kg` : '-'}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                        <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                            {promVenta > 0 ? `${Math.round(promVenta).toLocaleString('es-CO')} kg` : '-'}
+                                                        </td>
+                                                        <td></td>
+                                                    </tr>
+                                                </tfoot>
+                                            );
+                                        })()}
                                     </table>
                                 </div>
+                            </div>
                             </div>
 
                             {/* Footer */}
