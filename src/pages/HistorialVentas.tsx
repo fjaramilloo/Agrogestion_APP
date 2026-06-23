@@ -572,7 +572,6 @@ export default function HistorialVentas() {
                                                 <strong style={{ color: 'var(--success)' }}>{detalleVenta.gmpPromedio.toFixed(1)} kg/m</strong>
                                             </div>
                                         </div>
-                                        </div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <button 
@@ -671,7 +670,7 @@ export default function HistorialVentas() {
                                                     <td style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
                                                     <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                                         <div style={{ fontWeight: 'bold' }}>{a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}</div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fecha_compra ? format(new Date(a.fecha_compra + 'T12:00:00'), 'dd/MM/yy') : (a.fecha_ingreso ? format(new Date(a.fecha_ingreso + 'T12:00:00'), 'dd/MM/yy') : '-')}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.peso_compra && a.fecha_ingreso ? format(new Date(a.fecha_ingreso + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
                                                     </td>
                                                     <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                                         <div style={{ fontWeight: 'bold' }}>{a.peso_ingreso ? `${Math.round(a.peso_ingreso)} kg` : '-'}</div>
