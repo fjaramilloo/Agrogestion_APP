@@ -525,29 +525,48 @@ export default function HistorialVentas() {
             {detalleVenta && (() => {
                 const fechasColumnas = getFechasColumnas(detalleVenta.animalesDetalle);
                 
-                const chartData = fechasColumnas.map(fecha => {
-                    const validPesos = detalleVenta.animalesDetalle.filter(a => a.pesajesFiltrados && a.pesajesFiltrados[fecha]);
-                    const sumPeso = validPesos.reduce((sum, a) => sum + (a.pesajesFiltrados[fecha] || 0), 0);
-                    const pesoPromedio = validPesos.length > 0 ? sumPeso / validPesos.length : 0;
-                    return {
-                        fechaStr: format(new Date(fecha + 'T12:00:00'), 'dd MMM', { locale: es }),
-                        fecha,
-                        pesoPromedio: Math.round(pesoPromedio),
-                        gmpPromedio: 0
-                    };
+                // Construir el history exactamente como en Potreradas:
+                // 1. Inyectar el peso de ingreso de cada animal como punto de partida (gdp=0)
+                // 2. Agregar todos los pesajes reales con su gdp_calculada
+                // 3. Agrupar por fecha y promediar peso y gdp
+                // 4. gmpPromedio = promedio gdp * 30
+                const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
+                detalleVenta.animalesDetalle.forEach(a => {
+                    // Punto de ingreso
+                    const pesoIngreso = a.peso_ingreso || 0;
+                    if (a.fecha_ingreso && pesoIngreso) {
+                        allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: pesoIngreso, gdp: 0 });
+                    }
+                    // Pesajes reales
+                    (a.registros_pesaje || []).forEach(r => {
+                        allWeighings.push({ fecha: r.fecha.split('T')[0], peso: Number(r.peso), gdp: Number(r.gdp_calculada || 0) });
+                    });
                 });
-                
-                for (let i = 1; i < chartData.length; i++) {
-                    const prev = chartData[i - 1];
-                    const curr = chartData[i];
-                    const days = Math.round((new Date(curr.fecha).getTime() - new Date(prev.fecha).getTime()) / (1000 * 3600 * 24)) || 1;
-                    curr.gmpPromedio = Number((((curr.pesoPromedio - prev.pesoPromedio) / days) * 30).toFixed(1));
-                }
+
+                const groupedByDate: { [key: string]: { totalPeso: number; totalGdp: number; count: number } } = {};
+                allWeighings.forEach(w => {
+                    if (!groupedByDate[w.fecha]) {
+                        groupedByDate[w.fecha] = { totalPeso: 0, totalGdp: 0, count: 0 };
+                    }
+                    groupedByDate[w.fecha].totalPeso += w.peso;
+                    groupedByDate[w.fecha].totalGdp += w.gdp;
+                    groupedByDate[w.fecha].count += 1;
+                });
+
+                const chartData = Object.keys(groupedByDate)
+                    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+                    .map(date => ({
+                        fechaStr: format(new Date(date + 'T12:00:00'), 'dd MMM', { locale: es }),
+                        fecha: date,
+                        pesoPromedio: Math.round(groupedByDate[date].totalPeso / groupedByDate[date].count),
+                        gmpPromedio: Number(((groupedByDate[date].totalGdp / groupedByDate[date].count) * 30).toFixed(1))
+                    }));
+
 
                 return (
                     <div className="modal-overlay">
                         <div className="card modal-content" style={{ maxWidth: '960px', padding: 0 }}>
-                            <div ref={printRef} style={{ backgroundColor: '#121212', borderRadius: '16px' }}>
+                            <div ref={printRef} style={{ backgroundColor: '#121212', borderRadius: '16px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                                 {/* Header */}
                                 <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
