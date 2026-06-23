@@ -39,7 +39,7 @@ interface Animal {
 }
 
 export default function Inventory() {
-    const { fincaId, role } = useAuth();
+    const { fincaId, role, userFincas } = useAuth();
     const location = useLocation();
     const [animales, setAnimales] = useState<Animal[]>([]);
     const [loading, setLoading] = useState(true);
@@ -83,6 +83,8 @@ export default function Inventory() {
     const [potreradasDisponibles, setPotreradasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
     const [propietariosLista, setPropietariosLista] = useState<{ id: string; nombre: string }[]>([]);
     const [updatingPotrerada, setUpdatingPotrerada] = useState(false);
+
+    const fincaNombre = userFincas.find(f => f.id_finca === fincaId)?.nombre_finca || 'Finca';
 
     // Modal Propietario Dashboard
     const [showPropietarioDashboard, setShowPropietarioDashboard] = useState(false);
@@ -1145,6 +1147,7 @@ export default function Inventory() {
             {showPropietarioDashboard && filterPropietario && (
                 <PropietarioDashboardModal
                     propietario={filterPropietario}
+                    fincaNombre={fincaNombre}
                     animales={animales.filter(a => a.nombre_propietario === filterPropietario)}
                     onClose={() => setShowPropietarioDashboard(false)}
                     umbralAlto={umbralAltoGmp}
