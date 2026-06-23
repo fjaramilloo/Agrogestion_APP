@@ -332,14 +332,14 @@ export default function PropietarioDashboardModal({
                 </div>
 
                 {/* Contenedor a exportar */}
-                <div ref={printRef} style={{ padding: '24px', backgroundColor: theme.bg, color: theme.textMain }}>
+                <div ref={printRef} style={{ padding: '20px', backgroundColor: theme.bg, color: theme.textMain }}>
                     
                     {/* Encabezado del informe */}
-                    <div style={{ marginBottom: '28px', paddingBottom: '20px', borderBottom: `1px solid ${theme.borderDivider}` }}>
-                        <div style={{ fontSize: '0.75rem', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>
+                    <div style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: `1px solid ${theme.borderDivider}` }}>
+                        <div style={{ fontSize: '0.75rem', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '2px' }}>
                             Informe de Rendimiento {fincaNombre && `• ${fincaNombre}`}
                         </div>
-                        <h1 style={{ margin: '0 0 4px 0', fontSize: '1.8rem', color: theme.textMain }}>{propietario}</h1>
+                        <h1 style={{ margin: '0 0 2px 0', fontSize: '1.6rem', color: theme.textMain }}>{propietario}</h1>
                         <div style={{ color: theme.textMuted, fontSize: '0.85rem' }}>
                             Generado el {format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es })} • {totalAnimales} animales activos
                         </div>
@@ -347,34 +347,34 @@ export default function PropietarioDashboardModal({
 
                     {/* ======= SECCIÓN 1: INDICADORES GANADEROS ======= */}
                     <div style={{ marginBottom: '8px' }}>
-                        <h2 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            <span style={{ fontSize: '1rem' }}>🐄</span> Indicadores Ganaderos
+                        <h2 style={{ margin: '0 0 12px 0', fontSize: '1.05rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            <span style={{ fontSize: '0.95rem' }}>🐄</span> Indicadores Ganaderos
                         </h2>
                     </div>
 
                     {/* Tarjetas KPI */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
-                        <div style={{ padding: '20px', borderRadius: '12px', background: theme.kpiGreenBg, border: `1px solid ${theme.kpiGreenBorder}` }}>
-                            <div style={{ color: theme.textMuted, fontSize: '0.9rem', marginBottom: '8px' }}>Total Animales</div>
-                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary)' }}>{totalAnimales}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                        <div style={{ padding: '16px', borderRadius: '10px', background: theme.kpiGreenBg, border: `1px solid ${theme.kpiGreenBorder}` }}>
+                            <div style={{ color: theme.textMuted, fontSize: '0.85rem', marginBottom: '4px' }}>Total Animales</div>
+                            <div style={{ fontSize: '1.7rem', fontWeight: 'bold', color: 'var(--primary)' }}>{totalAnimales}</div>
                         </div>
-                        <div style={{ padding: '20px', borderRadius: '12px', background: theme.kpiAmberBg, border: `1px solid ${theme.kpiAmberBorder}` }}>
-                            <div style={{ color: theme.textMuted, fontSize: '0.9rem', marginBottom: '8px' }}>Peso Total Estimado</div>
-                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{pesoTotalEstimado.toLocaleString(undefined, {maximumFractionDigits:0})} kg</div>
+                        <div style={{ padding: '16px', borderRadius: '10px', background: theme.kpiAmberBg, border: `1px solid ${theme.kpiAmberBorder}` }}>
+                            <div style={{ color: theme.textMuted, fontSize: '0.85rem', marginBottom: '4px' }}>Peso Total Estimado</div>
+                            <div style={{ fontSize: '1.7rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{pesoTotalEstimado.toLocaleString(undefined, {maximumFractionDigits:0})} kg</div>
                         </div>
-                        <div style={{ padding: '20px', borderRadius: '12px', background: theme.kpiBlueBg, border: `1px solid ${theme.kpiBlueBorder}` }}>
-                            <div style={{ color: theme.textMuted, fontSize: '0.9rem', marginBottom: '8px' }}>GMP Promedio Global</div>
-                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: getGmpColor(gmpPromedioGlobal) }}>{gmpPromedioGlobal.toFixed(2)} kg/mes</div>
+                        <div style={{ padding: '16px', borderRadius: '10px', background: theme.kpiBlueBg, border: `1px solid ${theme.kpiBlueBorder}` }}>
+                            <div style={{ color: theme.textMuted, fontSize: '0.85rem', marginBottom: '4px' }}>GMP Promedio Global</div>
+                            <div style={{ fontSize: '1.7rem', fontWeight: 'bold', color: getGmpColor(gmpPromedioGlobal) }}>{gmpPromedioGlobal.toFixed(2)} kg/mes</div>
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '28px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                         {/* Gráfico Etapas */}
-                        <div style={{ padding: '20px', border: `1px solid ${theme.borderColor}`, borderRadius: '12px', background: theme.cardBg }}>
-                            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', color: theme.textLight, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <PieChartIcon size={18} /> Distribución por Etapas
+                        <div style={{ padding: '16px', border: `1px solid ${theme.borderColor}`, borderRadius: '10px', background: theme.cardBg }}>
+                            <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', color: theme.textLight, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <PieChartIcon size={16} /> Distribución por Etapas
                             </h3>
-                            <div style={{ height: '170px' }}>
+                            <div style={{ height: '140px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie data={datosEtapas} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={4} dataKey="value">
@@ -414,11 +414,11 @@ export default function PropietarioDashboardModal({
                         </div>
 
                         {/* Tendencia GMP */}
-                        <div style={{ padding: '20px', border: `1px solid ${theme.borderColor}`, borderRadius: '12px', background: theme.cardBg }}>
-                            <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', color: theme.textLight, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <TrendingUp size={18} /> Evolución GMP (Últimos Pesajes)
+                        <div style={{ padding: '16px', border: `1px solid ${theme.borderColor}`, borderRadius: '10px', background: theme.cardBg }}>
+                            <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: theme.textLight, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <TrendingUp size={16} /> Evolución GMP (Últimos Pesajes)
                             </h3>
-                            <div style={{ height: '250px' }}>
+                            <div style={{ height: '180px' }}>
                                 {datosTendenciaGmp.length > 0 ? (
                                     <ResponsiveContainer width="100%" height="100%">
                                         <LineChart data={datosTendenciaGmp} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
@@ -444,9 +444,9 @@ export default function PropietarioDashboardModal({
                     </div>
 
                     {/* Tabla de Ubicaciones */}
-                    <div style={{ padding: '20px', border: `1px solid ${theme.borderColor}`, borderRadius: '12px', background: theme.cardBg, marginBottom: '32px' }}>
-                        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', color: theme.textLight, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <MapPin size={18} /> Resumen por Ubicación
+                    <div style={{ padding: '16px', border: `1px solid ${theme.borderColor}`, borderRadius: '10px', background: theme.cardBg, marginBottom: '20px' }}>
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: theme.textLight, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <MapPin size={16} /> Resumen por Ubicación
                         </h3>
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -497,72 +497,72 @@ export default function PropietarioDashboardModal({
                             {/* Divisor de sección */}
                             <div style={{ 
                                 borderTop: '2px solid rgba(76,175,80,0.3)', 
-                                marginBottom: '28px',
-                                paddingTop: '28px'
+                                marginBottom: '16px',
+                                paddingTop: '16px'
                             }}>
-                                <h2 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                    <DollarSign size={18} /> Análisis Financiero del Portafolio
+                                <h2 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    <DollarSign size={16} /> Análisis Financiero del Portafolio
                                 </h2>
-                                <p style={{ margin: '0 0 20px 0', color: theme.textMuted, fontSize: '0.85rem' }}>
+                                <p style={{ margin: '0 0 12px 0', color: theme.textMuted, fontSize: '0.8rem' }}>
                                     Cálculo de rentabilidad basado en capital invertido de {formatCOP(financiero.capitalInvertido)} y precio de venta de {formatCOP(financiero.precioVentaPromedio)}/kg.
                                 </p>
                             </div>
 
                             {/* KPIs Financieros principales */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                                <div style={{ padding: '20px', borderRadius: '12px', background: theme.cardBg, border: `1px solid ${theme.borderColor}` }}>
-                                    <div style={{ color: theme.textMuted, fontSize: '0.8rem', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Capital Invertido</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: theme.textMain }}>{formatCOP(financiero.capitalInvertido)}</div>
-                                    <div style={{ fontSize: '0.75rem', color: theme.textMuted, marginTop: '4px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ padding: '16px', borderRadius: '10px', background: theme.cardBg, border: `1px solid ${theme.borderColor}` }}>
+                                    <div style={{ color: theme.textMuted, fontSize: '0.75rem', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Capital Invertido</div>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: theme.textMain }}>{formatCOP(financiero.capitalInvertido)}</div>
+                                    <div style={{ fontSize: '0.7rem', color: theme.textMuted, marginTop: '2px' }}>
                                         {formatCOP(Math.round(financiero.precioPorKiloCompra))}/kg compra
                                     </div>
                                 </div>
-                                <div style={{ padding: '20px', borderRadius: '12px', background: theme.kpiAmberBg, border: `1px solid ${theme.kpiAmberBorder}` }}>
-                                    <div style={{ color: theme.textMuted, fontSize: '0.8rem', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valorización Actual</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{formatCOP(Math.round(financiero.valorizacionActual))}</div>
-                                    <div style={{ fontSize: '0.75rem', color: theme.textMuted, marginTop: '4px' }}>
+                                <div style={{ padding: '16px', borderRadius: '10px', background: theme.kpiAmberBg, border: `1px solid ${theme.kpiAmberBorder}` }}>
+                                    <div style={{ color: theme.textMuted, fontSize: '0.75rem', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valorización Actual</div>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{formatCOP(Math.round(financiero.valorizacionActual))}</div>
+                                    <div style={{ fontSize: '0.7rem', color: theme.textMuted, marginTop: '2px' }}>
                                         {pesoTotalEstimado.toFixed(0)} kg × {formatCOP(financiero.precioVentaPromedio)}/kg
                                     </div>
                                 </div>
-                                <div style={{ padding: '20px', borderRadius: '12px', background: financiero.utilidadSocioTotal >= 0 ? theme.kpiGreenBg : theme.kpiRedBg, border: `1px solid ${financiero.utilidadSocioTotal >= 0 ? theme.kpiGreenBorder : theme.kpiRedBorder}` }}>
-                                    <div style={{ color: theme.textMuted, fontSize: '0.8rem', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Utilidad Bruta Total</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: financiero.utilidadBrutaTotal >= 0 ? 'var(--primary)' : 'var(--error)' }}>
+                                <div style={{ padding: '16px', borderRadius: '10px', background: financiero.utilidadSocioTotal >= 0 ? theme.kpiGreenBg : theme.kpiRedBg, border: `1px solid ${financiero.utilidadSocioTotal >= 0 ? theme.kpiGreenBorder : theme.kpiRedBorder}` }}>
+                                    <div style={{ color: theme.textMuted, fontSize: '0.75rem', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Utilidad Bruta Total</div>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: financiero.utilidadBrutaTotal >= 0 ? 'var(--primary)' : 'var(--error)' }}>
                                         {formatCOP(Math.round(financiero.utilidadBrutaTotal))}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: theme.textMuted, marginTop: '4px' }}>
+                                    <div style={{ fontSize: '0.7rem', color: theme.textMuted, marginTop: '2px' }}>
                                         Participación socio (40%): {formatCOP(Math.round(financiero.utilidadSocioTotal))}
                                     </div>
                                 </div>
                             </div>
 
                             {/* KPIs de Rentabilidad */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '28px' }}>
-                                <div style={{ padding: '20px', borderRadius: '12px', background: theme.kpiBlueBg, border: `1px solid ${theme.kpiBlueBorder}` }}>
-                                    <div style={{ color: theme.textMuted, fontSize: '0.8rem', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ingreso Mensual Portafolio</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#3b82f6' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ padding: '16px', borderRadius: '10px', background: theme.kpiBlueBg, border: `1px solid ${theme.kpiBlueBorder}` }}>
+                                    <div style={{ color: theme.textMuted, fontSize: '0.75rem', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ingreso Mensual Portafolio</div>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#3b82f6' }}>
                                         {formatCOP(Math.round(financiero.gananciaMensualTotal))}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: theme.textMuted, marginTop: '4px' }}>por mes (proyectado)</div>
+                                    <div style={{ fontSize: '0.7rem', color: theme.textMuted, marginTop: '2px' }}>por mes (proyectado)</div>
                                 </div>
-                                <div style={{ padding: '20px', borderRadius: '12px', background: theme.kpiGreenBg, border: `1px solid ${theme.kpiGreenBorder}` }}>
-                                    <div style={{ color: theme.textMuted, fontSize: '0.8rem', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rentabilidad Mensual</div>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: financiero.rentabilidadMensualGlobal >= 0 ? 'var(--primary)' : 'var(--error)' }}>
+                                <div style={{ padding: '16px', borderRadius: '10px', background: theme.kpiGreenBg, border: `1px solid ${theme.kpiGreenBorder}` }}>
+                                    <div style={{ color: theme.textMuted, fontSize: '0.75rem', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rentabilidad Mensual</div>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: financiero.rentabilidadMensualGlobal >= 0 ? 'var(--primary)' : 'var(--error)' }}>
                                         {(financiero.rentabilidadMensualGlobal * 100).toFixed(2)}%
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: theme.textMuted, marginTop: '4px' }}>sobre capital invertido</div>
+                                    <div style={{ fontSize: '0.7rem', color: theme.textMuted, marginTop: '2px' }}>sobre capital invertido</div>
                                 </div>
-                                <div style={{ padding: '20px', borderRadius: '12px', background: financiero.tea >= 0.05 ? theme.kpiGreenBg : theme.kpiAmberBg, border: `1px solid ${financiero.tea >= 0.05 ? theme.kpiGreenBorder : theme.kpiAmberBorder}` }}>
-                                    <div style={{ color: theme.textMuted, fontSize: '0.8rem', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                <div style={{ padding: '16px', borderRadius: '10px', background: financiero.tea >= 0.05 ? theme.kpiGreenBg : theme.kpiAmberBg, border: `1px solid ${financiero.tea >= 0.05 ? theme.kpiGreenBorder : theme.kpiAmberBorder}` }}>
+                                    <div style={{ color: theme.textMuted, fontSize: '0.75rem', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                         Rentabilidad Anual (TEA)
                                     </div>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: financiero.tea >= 0.05 ? 'var(--success)' : 'var(--warning)' }}>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: financiero.tea >= 0.05 ? 'var(--success)' : 'var(--warning)' }}>
                                         {(financiero.tea * 100).toFixed(2)}%
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: theme.textMuted, marginTop: '4px' }}>Tasa Efectiva Anual</div>
+                                    <div style={{ fontSize: '0.7rem', color: theme.textMuted, marginTop: '2px' }}>Tasa Efectiva Anual</div>
                                 </div>
                             </div>
                             
-                            <div style={{ marginTop: '12px', fontSize: '0.75rem', color: theme.textMuted, fontStyle: 'italic', textAlign: 'center' }}>
+                            <div style={{ marginTop: '8px', fontSize: '0.7rem', color: theme.textMuted, fontStyle: 'italic', textAlign: 'center' }}>
                                 * Los pesos estimados se calculan proyectando el GMP del último período hacia hoy. La rentabilidad es sobre la participación del 40% del socio, con base en el capital invertido declarado.
                             </div>
                         </>
