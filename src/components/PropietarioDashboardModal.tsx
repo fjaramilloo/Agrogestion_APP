@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { X, Download, TrendingUp, MapPin, Target, PieChart as PieChartIcon, DollarSign, TrendingDown } from 'lucide-react';
+import { X, Download, TrendingUp, MapPin, Target, PieChart as PieChartIcon, DollarSign } from 'lucide-react';
 import { 
     PieChart, Pie, Cell, 
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
