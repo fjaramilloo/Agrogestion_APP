@@ -114,6 +114,7 @@ export default function Potreradas() {
     const [selectedAnimalsToMove, setSelectedAnimalsToMove] = useState<Set<string>>(new Set());
     const [targetPotreradaId, setTargetPotreradaId] = useState<string>('');
     const [movingAnimals, setMovingAnimals] = useState(false);
+    const [searchMoveAnimals, setSearchMoveAnimals] = useState('');
 
     const fetchPotreradasData = async () => {
         if (!fincaId) return;
@@ -980,6 +981,7 @@ export default function Potreradas() {
     const handleOpenMoveModal = () => {
         setSelectedAnimalsToMove(new Set());
         setTargetPotreradaId('');
+        setSearchMoveAnimals('');
         setShowMoveModal(true);
     };
 
@@ -994,11 +996,22 @@ export default function Potreradas() {
 
     const handleSelectAllAnimals = () => {
         if (!detailData) return;
-        if (selectedAnimalsToMove.size === detailData.animales.length) {
-            setSelectedAnimalsToMove(new Set());
-        } else {
-            setSelectedAnimalsToMove(new Set(detailData.animales.map(a => a.id)));
-        }
+        const term = searchMoveAnimals.toLowerCase().trim();
+        const visibleAnimals = detailData.animales.filter(a =>
+            !term ||
+            a.numero_chapeta.toLowerCase().includes(term) ||
+            (a.nombre_propietario || '').toLowerCase().includes(term)
+        );
+        const allVisibleSelected = visibleAnimals.every(a => selectedAnimalsToMove.has(a.id));
+        setSelectedAnimalsToMove(prev => {
+            const next = new Set(prev);
+            if (allVisibleSelected) {
+                visibleAnimals.forEach(a => next.delete(a.id));
+            } else {
+                visibleAnimals.forEach(a => next.add(a.id));
+            }
+            return next;
+        });
     };
 
     const handleConfirmMoveAnimals = async () => {
@@ -1802,6 +1815,35 @@ export default function Potreradas() {
 
                         {/* Lista de animales con checklist */}
                         <div style={{ padding: '12px 24px 4px' }}>
+                            {/* Buscador */}
+                            <div style={{ position: 'relative', marginBottom: '10px' }}>
+                                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por chapeta o propietario..."
+                                    value={searchMoveAnimals}
+                                    onChange={e => setSearchMoveAnimals(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 10px 8px 32px',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '8px',
+                                        color: 'var(--text)',
+                                        fontSize: '0.85rem',
+                                        boxSizing: 'border-box',
+                                        outline: 'none',
+                                    }}
+                                />
+                                {searchMoveAnimals && (
+                                    <button
+                                        onClick={() => setSearchMoveAnimals('')}
+                                        style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                                    >
+                                        <X size={13} />
+                                    </button>
+                                )}
+                            </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>
                                     Animales ({selectedAnimalsToMove.size} seleccionados)
@@ -1828,11 +1870,22 @@ export default function Potreradas() {
                                 <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px', fontSize: '0.9rem' }}>
                                     Esta potrerada no tiene animales.
                                 </div>
-                            ) : (
-                                detailData.animales
+                            ) : (() => {
+                                const term = searchMoveAnimals.toLowerCase().trim();
+                                const filtered = detailData.animales
                                     .slice()
                                     .sort((a, b) => a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true }))
-                                    .map(animal => {
+                                    .filter(a =>
+                                        !term ||
+                                        a.numero_chapeta.toLowerCase().includes(term) ||
+                                        (a.nombre_propietario || '').toLowerCase().includes(term)
+                                    );
+                                if (filtered.length === 0) return (
+                                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px', fontSize: '0.85rem' }}>
+                                        Sin resultados para "<strong>{searchMoveAnimals}</strong>"
+                                    </div>
+                                );
+                                return filtered.map(animal => {
                                         const checked = selectedAnimalsToMove.has(animal.id);
                                         return (
                                             <div
@@ -1871,8 +1924,8 @@ export default function Potreradas() {
                                                 </div>
                                             </div>
                                         );
-                                    })
-                            )}
+                                    });
+                            })()}
                         </div>
 
                         {/* Footer */}
