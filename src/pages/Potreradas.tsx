@@ -109,6 +109,12 @@ export default function Potreradas() {
     const chartsRef = useRef<HTMLDivElement>(null);
     const [exportingPdf, setExportingPdf] = useState(false);
 
+    // Estado para modal de mover animales
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [selectedAnimalsToMove, setSelectedAnimalsToMove] = useState<Set<string>>(new Set());
+    const [targetPotreradaId, setTargetPotreradaId] = useState<string>('');
+    const [movingAnimals, setMovingAnimals] = useState(false);
+
     const fetchPotreradasData = async () => {
         if (!fincaId) return;
         setLoading(true);
@@ -970,6 +976,55 @@ export default function Potreradas() {
         }
     };
 
+    // Mover animales de potrerada
+    const handleOpenMoveModal = () => {
+        setSelectedAnimalsToMove(new Set());
+        setTargetPotreradaId('');
+        setShowMoveModal(true);
+    };
+
+    const handleToggleAnimalMove = (animalId: string) => {
+        setSelectedAnimalsToMove(prev => {
+            const next = new Set(prev);
+            if (next.has(animalId)) next.delete(animalId);
+            else next.add(animalId);
+            return next;
+        });
+    };
+
+    const handleSelectAllAnimals = () => {
+        if (!detailData) return;
+        if (selectedAnimalsToMove.size === detailData.animales.length) {
+            setSelectedAnimalsToMove(new Set());
+        } else {
+            setSelectedAnimalsToMove(new Set(detailData.animales.map(a => a.id)));
+        }
+    };
+
+    const handleConfirmMoveAnimals = async () => {
+        if (!detailData || selectedAnimalsToMove.size === 0 || !targetPotreradaId) return;
+        setMovingAnimals(true);
+        try {
+            const ids = Array.from(selectedAnimalsToMove);
+            const { error } = await supabase
+                .from('animales')
+                .update({ id_potrerada: targetPotreradaId })
+                .in('id', ids);
+            if (error) throw error;
+            setShowMoveModal(false);
+            setSelectedAnimalsToMove(new Set());
+            setTargetPotreradaId('');
+            // Refrescar detalle y lista
+            await fetchPotreradasData();
+            await handleOpenDetail(detailData.potrerada);
+        } catch (err) {
+            console.error('Error moviendo animales:', err);
+            alert('Ocurrió un error al mover los animales. Intenta de nuevo.');
+        } finally {
+            setMovingAnimals(false);
+        }
+    };
+
     const handleSaveWeighings = async () => {
         if (!detailData) return;
         const etapa = detailData.potrerada.etapa;
@@ -1409,6 +1464,21 @@ export default function Potreradas() {
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             {role !== 'observador' && (
+                                                <>
+                                                <button
+                                                    onClick={handleOpenMoveModal}
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                                        background: 'rgba(251, 191, 36, 0.12)',
+                                                        color: '#fbbf24',
+                                                        border: '1px solid rgba(251, 191, 36, 0.3)',
+                                                        borderRadius: '8px', padding: '7px 14px',
+                                                        fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <Users size={15} />
+                                                    <span className="mobile-hide">Mover Animales</span>
+                                                </button>
                                                 <button
                                                     onClick={handleOpenWeighingForm}
                                                     style={{
@@ -1423,6 +1493,7 @@ export default function Potreradas() {
                                                     <Scale size={15} />
                                                     <span className="mobile-hide">Nuevo Pesaje</span>
                                                 </button>
+                                                </>
                                             )}
                                             <button 
                                                 onClick={handleExportPDF}
@@ -1673,6 +1744,172 @@ export default function Potreradas() {
                         })() : (
                             <div style={{ padding: '40px', textAlign: 'center' }}>No se pudo cargar la información.</div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Mover Animales */}
+            {showMoveModal && detailData && (
+                <div className="modal-overlay" onClick={() => { if (!movingAnimals) setShowMoveModal(false); }}>
+                    <div className="card modal-content" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h2 style={{ margin: '0 0 4px 0', color: '#fbbf24', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Users size={20} /> Mover Animales de Potrerada
+                                    </h2>
+                                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                                        Desde: <strong style={{ color: 'var(--text)' }}>{detailData.potrerada.nombre}</strong>
+                                    </p>
+                                </div>
+                                <button onClick={() => setShowMoveModal(false)} className="btn-icon" disabled={movingAnimals}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Destino */}
+                        <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '600' }}>
+                                Potrerada destino
+                            </label>
+                            <select
+                                value={targetPotreradaId}
+                                onChange={e => setTargetPotreradaId(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 14px',
+                                    background: 'rgba(255,255,255,0.06)',
+                                    border: `1px solid ${targetPotreradaId ? 'rgba(251,191,36,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                                    borderRadius: '8px',
+                                    color: 'var(--text)',
+                                    fontSize: '0.9rem',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <option value="">— Seleccionar potrerada —</option>
+                                {potreradas
+                                    .filter(p => p.id !== detailData.potrerada.id)
+                                    .map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.nombre} ({p.etapa}) — {p.animalCount} animales
+                                        </option>
+                                    ))
+                                }
+                            </select>
+                        </div>
+
+                        {/* Lista de animales con checklist */}
+                        <div style={{ padding: '12px 24px 4px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>
+                                    Animales ({selectedAnimalsToMove.size} seleccionados)
+                                </span>
+                                <button
+                                    onClick={handleSelectAllAnimals}
+                                    style={{
+                                        background: 'none',
+                                        border: '1px solid rgba(251,191,36,0.4)',
+                                        borderRadius: '6px',
+                                        color: '#fbbf24',
+                                        fontSize: '0.78rem',
+                                        padding: '4px 10px',
+                                        cursor: 'pointer',
+                                        fontWeight: '600',
+                                    }}
+                                >
+                                    {selectedAnimalsToMove.size === detailData.animales.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                                </button>
+                            </div>
+                        </div>
+                        <div style={{ maxHeight: '280px', overflowY: 'auto', padding: '0 24px 16px' }}>
+                            {detailData.animales.length === 0 ? (
+                                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px', fontSize: '0.9rem' }}>
+                                    Esta potrerada no tiene animales.
+                                </div>
+                            ) : (
+                                detailData.animales
+                                    .slice()
+                                    .sort((a, b) => a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true }))
+                                    .map(animal => {
+                                        const checked = selectedAnimalsToMove.has(animal.id);
+                                        return (
+                                            <div
+                                                key={animal.id}
+                                                onClick={() => handleToggleAnimalMove(animal.id)}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '12px',
+                                                    padding: '10px 12px',
+                                                    marginBottom: '4px',
+                                                    borderRadius: '8px',
+                                                    background: checked ? 'rgba(251,191,36,0.10)' : 'rgba(255,255,255,0.03)',
+                                                    border: `1px solid ${checked ? 'rgba(251,191,36,0.35)' : 'rgba(255,255,255,0.06)'}`,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s ease',
+                                                }}
+                                            >
+                                                <div style={{
+                                                    width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
+                                                    background: checked ? '#fbbf24' : 'transparent',
+                                                    border: `2px solid ${checked ? '#fbbf24' : 'rgba(255,255,255,0.3)'}`,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    transition: 'all 0.15s ease',
+                                                }}>
+                                                    {checked && <span style={{ color: '#000', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#{animal.numero_chapeta}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{animal.nombre_propietario}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: '0.82rem', color: 'var(--primary-light)', fontWeight: '600' }}>
+                                                        {animal.pesoActual ? `${Math.round(animal.pesoActual)} kg` : '-'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                            <button
+                                onClick={() => setShowMoveModal(false)}
+                                disabled={movingAnimals}
+                                style={{
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: '1px solid rgba(255,255,255,0.12)',
+                                    borderRadius: '8px', padding: '9px 20px',
+                                    color: 'var(--text)', cursor: 'pointer', fontSize: '0.88rem',
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleConfirmMoveAnimals}
+                                disabled={movingAnimals || selectedAnimalsToMove.size === 0 || !targetPotreradaId}
+                                style={{
+                                    background: selectedAnimalsToMove.size > 0 && targetPotreradaId ? '#fbbf24' : 'rgba(251,191,36,0.2)',
+                                    border: 'none',
+                                    borderRadius: '8px', padding: '9px 20px',
+                                    color: selectedAnimalsToMove.size > 0 && targetPotreradaId ? '#000' : 'rgba(251,191,36,0.5)',
+                                    cursor: selectedAnimalsToMove.size > 0 && targetPotreradaId ? 'pointer' : 'not-allowed',
+                                    fontSize: '0.88rem', fontWeight: '700',
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    transition: 'all 0.15s ease',
+                                }}
+                            >
+                                {movingAnimals ? (
+                                    <><Loader2 size={15} className="spin" /> Moviendo...</>
+                                ) : (
+                                    <><Users size={15} /> Mover {selectedAnimalsToMove.size > 0 ? `${selectedAnimalsToMove.size} animal${selectedAnimalsToMove.size !== 1 ? 'es' : ''}` : 'animales'}</>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
