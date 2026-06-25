@@ -479,7 +479,7 @@ export default function Potreradas() {
                 let fechaIngresoEtapa = null;
                 let pesoIngresoEtapa = null;
 
-                const pesoBase = a.peso_compra ?? a.peso_ingreso;
+                const pesoBase = a.peso_ingreso ?? a.peso_compra;
 
                 if (p.etapa === 'ceba') {
                     fechaIngresoEtapa = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
@@ -500,19 +500,25 @@ export default function Potreradas() {
                 let gdp = 0;
                 let hasCalculatedGmp = false;
 
-                if (lastP && fechaIngresoEtapa && pesoIngresoEtapa) {
-                    const startWeight = Number(pesoIngresoEtapa);
-                    const endWeight = Number(lastP.peso);
-                    const startDate = new Date(fechaIngresoEtapa + 'T12:00:00');
-                    const endDate = new Date(lastP.fecha + 'T12:00:00');
-                    
-                    const totalGain = endWeight - startWeight;
-                    const totalDays = differenceInDays(endDate, startDate);
-
-                    if (totalDays > 0) {
-                        gdp = totalGain / totalDays;
-                        gmp = gdp * 30;
+                if (lastP) {
+                    if (lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined) {
+                        gmp = Number(lastP.gmp_calculada);
+                        gdp = Number(lastP.gdp_calculada || 0);
                         hasCalculatedGmp = true;
+                    } else if (fechaIngresoEtapa && pesoIngresoEtapa) {
+                        const startWeight = Number(pesoIngresoEtapa);
+                        const endWeight = Number(lastP.peso);
+                        const startDate = new Date(fechaIngresoEtapa + 'T12:00:00');
+                        const endDate = new Date(lastP.fecha + 'T12:00:00');
+                        
+                        const totalGain = endWeight - startWeight;
+                        const totalDays = differenceInDays(endDate, startDate);
+
+                        if (totalDays > 0) {
+                            gdp = totalGain / totalDays;
+                            gmp = gdp * 30;
+                            hasCalculatedGmp = true;
+                        }
                     }
                 }
 
