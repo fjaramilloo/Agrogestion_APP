@@ -24,26 +24,18 @@ export default function NotificationCenter() {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
-    const { role, fincaId } = useAuth();
+    const { role, fincaId, userFincas } = useAuth();
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
     const fetchAlerts = async () => {
         setLoading(true);
         try {
-            // 0. Obtener todas las fincas del usuario
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data: userFincas } = await supabase
-                .from('fincas_usuarios')
-                .select('id_finca, fincas(nombre)')
-                .eq('id_usuario', user.id);
-
+            // 0. Utilizar las fincas del contexto del usuario
             if (!userFincas || userFincas.length === 0) return;
 
             const fincaIds = userFincas.map(f => f.id_finca);
-            const fincaNamesMap = new Map(userFincas.map(f => [f.id_finca, (f.fincas as any).nombre]));
+            const fincaNamesMap = new Map(userFincas.map(f => [f.id_finca, f.nombre_finca]));
 
             // 1. Obtener animales de TODAS las fincas
             const { data: animals, error } = await supabase
@@ -260,11 +252,12 @@ export default function NotificationCenter() {
     };
 
     useEffect(() => {
+        if (!userFincas || userFincas.length === 0) return;
         fetchAlerts();
         // Recargar cada 30 minutos
         const interval = setInterval(fetchAlerts, 30 * 60 * 1000);
         return () => clearInterval(interval);
-    }, [fincaId]);
+    }, [userFincas]);
 
     // Filtrar por rol
     const filteredNotifications = useMemo(() => {
