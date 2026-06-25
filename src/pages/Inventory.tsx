@@ -82,7 +82,7 @@ export default function Inventory() {
     const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
     const [potreradasDisponibles, setPotreradasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
     const [propietariosLista, setPropietariosLista] = useState<{ id: string; nombre: string }[]>([]);
-    const [updatingPotrerada, setUpdatingPotrerada] = useState(false);
+
 
     const fincaNombre = userFincas.find(f => f.id_finca === fincaId)?.nombre_finca || 'Finca';
 
@@ -253,41 +253,6 @@ export default function Inventory() {
         }
     };
 
-    const handleUpdatePotrerada = async (animalId: string, nuevaPotreradaId: string | null) => {
-        if (!fincaId) return;
-        setUpdatingPotrerada(true);
-        try {
-            const { error } = await supabase
-                .from('animales')
-                .update({ id_potrerada: nuevaPotreradaId })
-                .eq('id', animalId);
-
-            if (error) throw error;
-
-            setAnimales(prev => prev.map(a => 
-                a.id === animalId 
-                ? { 
-                    ...a, 
-                    id_potrerada: nuevaPotreradaId, 
-                    potreradaNombre: nuevaPotreradaId ? potreradasDisponibles.find(p => p.id === nuevaPotreradaId)?.nombre : 'Sin potrerada' 
-                  } 
-                : a
-            ));
-            
-            if (selectedAnimal && selectedAnimal.id === animalId) {
-                setSelectedAnimal(prev => prev ? {
-                    ...prev,
-                    id_potrerada: nuevaPotreradaId,
-                    potreradaNombre: nuevaPotreradaId ? potreradasDisponibles.find(p => p.id === nuevaPotreradaId)?.nombre : 'Sin potrerada'
-                } : null);
-            }
-
-        } catch (err: any) {
-            alert('Error al actualizar potrerada: ' + err.message);
-        } finally {
-            setUpdatingPotrerada(false);
-        }
-    };
 
     const handleCrearAnimal = async () => {
         if (!fincaId || !nuevoAnimal.numero_chapeta || !nuevoAnimal.peso_ingreso) return;
@@ -838,31 +803,6 @@ export default function Inventory() {
                                     <div style={{ fontWeight: '600', color: selectedAnimal.id_potrerada ? 'var(--primary-light)' : 'var(--text-muted)' }}>
                                         {selectedAnimal.potreradaNombre}
                                     </div>
-                                </div>
-                                <div style={{ flex: '0 1 200px' }}>
-                                    <select 
-                                        value={selectedAnimal.id_potrerada || ''} 
-                                        onChange={(e) => handleUpdatePotrerada(selectedAnimal.id, e.target.value || null)}
-                                        disabled={updatingPotrerada}
-                                        style={{ 
-                                            marginBottom: 0, 
-                                            fontSize: '0.85rem', 
-                                            padding: '8px 12px',
-                                            background: 'rgba(255,255,255,0.05)',
-                                            border: '1px solid rgba(255,255,255,0.1)'
-                                        }}
-                                    >
-                                        <option value="">-- Mover a Lote --</option>
-                                        <option value="">(Sin Lote)</option>
-                                        {potreradasDisponibles.map(p => (
-                                            <option key={p.id} value={p.id}>{p.nombre}</option>
-                                        ))}
-                                    </select>
-                                    {updatingPotrerada && (
-                                        <div style={{ fontSize: '0.65rem', color: 'var(--primary-light)', marginTop: '4px', textAlign: 'right' }}>
-                                            Actualizando...
-                                        </div>
-                                    )}
                                 </div>
                             </div>
 

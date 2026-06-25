@@ -115,6 +115,7 @@ export default function Potreradas() {
     const [targetPotreradaId, setTargetPotreradaId] = useState<string>('');
     const [movingAnimals, setMovingAnimals] = useState(false);
     const [searchMoveAnimals, setSearchMoveAnimals] = useState('');
+    const [moveDate, setMoveDate] = useState(new Date().toISOString().split('T')[0]);
 
     const fetchPotreradasData = async () => {
         if (!fincaId) return;
@@ -988,6 +989,7 @@ export default function Potreradas() {
         setSelectedAnimalsToMove(new Set());
         setTargetPotreradaId('');
         setSearchMoveAnimals('');
+        setMoveDate(new Date().toISOString().split('T')[0]);
         setShowMoveModal(true);
     };
 
@@ -1025,11 +1027,35 @@ export default function Potreradas() {
         setMovingAnimals(true);
         try {
             const ids = Array.from(selectedAnimalsToMove);
-            const { error } = await supabase
-                .from('animales')
-                .update({ id_potrerada: targetPotreradaId })
-                .in('id', ids);
-            if (error) throw error;
+            const targetPot = potreradas.find(p => p.id === targetPotreradaId);
+            
+            if (targetPot) {
+                const updates = ids.map(id => {
+                    const animal = detailData.animales.find(a => a.id === id);
+                    const payload: any = { 
+                        id_potrerada: targetPotreradaId,
+                        etapa: targetPot.etapa 
+                    };
+                    
+                    if (targetPot.etapa === 'ceba' && detailData.potrerada.etapa !== 'ceba') {
+                        payload.fecha_ingreso_ceba = moveDate;
+                        payload.peso_ingreso_ceba = animal?.pesoActual || animal?.peso_compra || animal?.peso_ingreso || null;
+                    }
+                    
+                    return supabase.from('animales').update(payload).eq('id', id);
+                });
+                
+                const results = await Promise.all(updates);
+                const errors = results.filter(r => r.error);
+                if (errors.length > 0) throw errors[0].error;
+            } else {
+                const { error } = await supabase
+                    .from('animales')
+                    .update({ id_potrerada: targetPotreradaId })
+                    .in('id', ids);
+                if (error) throw error;
+            }
+
             setShowMoveModal(false);
             setSelectedAnimalsToMove(new Set());
             setTargetPotreradaId('');
@@ -1808,15 +1834,44 @@ export default function Potreradas() {
                                 }}
                             >
                                 <option value="">— Seleccionar potrerada —</option>
-                                {potreradas
-                                    .filter(p => p.id !== detailData.potrerada.id)
-                                    .map(p => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.nombre} ({p.etapa}) — {p.animalCount} animales
-                                        </option>
-                                    ))
-                                }
+                                {(() => {
+                                    const stageLevels: Record<string, number> = { 'cría': 1, 'cria': 1, 'levante': 2, 'ceba': 3 };
+                                    const currentLevel = stageLevels[detailData.potrerada.etapa.toLowerCase()] || 0;
+                                    
+                                    return potreradas
+                                        .filter(p => {
+                                            if (p.id === detailData.potrerada.id) return false;
+                                            const targetLevel = stageLevels[p.etapa.toLowerCase()] || 0;
+                                            return targetLevel >= currentLevel;
+                                        })
+                                        .map(p => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.nombre} ({p.etapa}) — {p.animalCount} animales
+                                            </option>
+                                        ));
+                                })()}
                             </select>
+                        </div>
+
+                        {/* Fecha de Movimiento */}
+                        <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '600' }}>
+                                Fecha de movimiento
+                            </label>
+                            <input
+                                type="date"
+                                value={moveDate}
+                                onChange={e => setMoveDate(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 14px',
+                                    background: 'rgba(255,255,255,0.06)',
+                                    border: '1px solid rgba(255,255,255,0.12)',
+                                    borderRadius: '8px',
+                                    color: 'var(--text)',
+                                    fontSize: '0.9rem'
+                                }}
+                            />
                         </div>
 
                         {/* Lista de animales con checklist */}
