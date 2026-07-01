@@ -531,7 +531,9 @@ export default function Potreradas() {
 
             const pesajesMap: Record<string, number> = {};
             registrosEtapa.forEach((r: any) => {
-                pesajesMap[r.fecha] = r.peso;
+                // Normalizar siempre a YYYY-MM-DD para evitar problemas con timestamps
+                const fechaNorm = r.fecha ? r.fecha.split('T')[0] : r.fecha;
+                pesajesMap[fechaNorm] = Number(r.peso);
             });
 
             const lastP = registros[0];
@@ -611,12 +613,36 @@ export default function Potreradas() {
                 }
             }
 
-            const registrosEtapa = showFullHistory
+            const registrosEtapaChrono = (showFullHistory
                 ? (a.registros_pesaje || [])
-                : (a.registros_pesaje || []).filter((r: any) => r.etapa?.toLowerCase() === p.etapa.toLowerCase());
+                : (a.registros_pesaje || []).filter((r: any) => r.etapa?.toLowerCase() === p.etapa.toLowerCase())
+            ).slice().sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
 
-            registrosEtapa.forEach((r: any) => {
-                allWeighings.push({ fecha: r.fecha.split('T')[0], peso: Number(r.peso), gdp: Number(r.gdp_calculada || 0) });
+            // Para calcular GDP secuencial cuando se muestra historial completo
+            // (los registros de etapas anteriores tienen gdp_calculada=null)
+            let prevFechaChart: Date | null = null;
+            let prevPesoChart: number | null = null;
+            if (showFullHistory && a.fecha_ingreso && (a.peso_ingreso ?? a.peso_compra)) {
+                prevFechaChart = new Date(a.fecha_ingreso.split('T')[0] + 'T12:00:00');
+                prevPesoChart = Number(a.peso_ingreso ?? a.peso_compra);
+            }
+
+            registrosEtapaChrono.forEach((r: any) => {
+                const fecha = r.fecha.split('T')[0];
+                const peso = Number(r.peso);
+                let gdp = 0;
+                if (showFullHistory && prevFechaChart !== null && prevPesoChart !== null) {
+                    const currDate = new Date(fecha + 'T12:00:00');
+                    const days = differenceInDays(currDate, prevFechaChart);
+                    if (days > 0) {
+                        gdp = (peso - prevPesoChart) / days;
+                    }
+                    prevFechaChart = currDate;
+                    prevPesoChart = peso;
+                } else {
+                    gdp = Number(r.gdp_calculada || 0);
+                }
+                allWeighings.push({ fecha, peso, gdp });
             });
         });
 

@@ -191,12 +191,14 @@ export default function HistorialVentas() {
                     
                     const pesajesMap: Record<string, number> = {};
                     registrosEtapa.forEach((r: any) => {
-                        pesajesMap[r.fecha] = r.peso;
+                        const fechaNorm = r.fecha ? r.fecha.split('T')[0] : r.fecha;
+                        pesajesMap[fechaNorm] = Number(r.peso);
                     });
                     
                     const pesajesTotalesMap: Record<string, number> = {};
                     registrosOrdenados.forEach((r: any) => {
-                        pesajesTotalesMap[r.fecha] = r.peso;
+                        const fechaNorm = r.fecha ? r.fecha.split('T')[0] : r.fecha;
+                        pesajesTotalesMap[fechaNorm] = Number(r.peso);
                     });
 
                     const animalDet: AnimalVentaDetalle = {
@@ -553,10 +555,36 @@ export default function HistorialVentas() {
                         }
                     }
 
-                    const registrosAUsar = showFullHistory ? (a.registros_pesaje || []) : (a.registros_pesaje || []).filter(r => r.etapa === a.etapa);
+                    const registrosAUsar = (showFullHistory
+                        ? (a.registros_pesaje || [])
+                        : (a.registros_pesaje || []).filter(r => r.etapa === a.etapa)
+                    ).slice().sort((x, y) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+
+                    // Calcular GDP secuencial cuando se muestra historial completo
+                    // (los registros de etapas anteriores pueden tener gdp_calculada = null)
+                    let prevFechaChart: Date | null = null;
+                    let prevPesoChart: number | null = null;
+                    if (showFullHistory && a.fecha_ingreso && a.peso_ingreso) {
+                        prevFechaChart = new Date(a.fecha_ingreso.split('T')[0] + 'T12:00:00');
+                        prevPesoChart = Number(a.peso_ingreso);
+                    }
 
                     registrosAUsar.forEach(r => {
-                        allWeighings.push({ fecha: r.fecha.split('T')[0], peso: Number(r.peso), gdp: Number(r.gdp_calculada || 0) });
+                        const fecha = r.fecha.split('T')[0];
+                        const peso = Number(r.peso);
+                        let gdp = 0;
+                        if (showFullHistory && prevFechaChart !== null && prevPesoChart !== null) {
+                            const currDate = new Date(fecha + 'T12:00:00');
+                            const days = Math.floor((currDate.getTime() - prevFechaChart.getTime()) / (1000 * 60 * 60 * 24));
+                            if (days > 0) {
+                                gdp = (peso - prevPesoChart) / days;
+                            }
+                            prevFechaChart = currDate;
+                            prevPesoChart = peso;
+                        } else {
+                            gdp = Number(r.gdp_calculada || 0);
+                        }
+                        allWeighings.push({ fecha, peso, gdp });
                     });
                 });
 
