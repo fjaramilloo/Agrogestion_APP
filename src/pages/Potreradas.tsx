@@ -1582,7 +1582,7 @@ export default function Potreradas() {
                                                             cursor: 'pointer'
                                                         }}
                                                     >
-                                                        <Users size={16} />
+                                                        <Users size={16} color="#fbbf24" />
                                                     </button>
                                                     <button
                                                         onClick={handleOpenWeighingForm}
@@ -1596,7 +1596,7 @@ export default function Potreradas() {
                                                             cursor: 'pointer'
                                                         }}
                                                     >
-                                                        <Scale size={16} />
+                                                        <Scale size={16} color="#2ecc71" />
                                                     </button>
                                                     </>
                                                 )}
@@ -1613,10 +1613,21 @@ export default function Potreradas() {
                                                         cursor: 'pointer'
                                                     }}
                                                 >
-                                                    {exportingPdf ? <Loader2 size={16} className="spin" /> : <Download size={16} />}
+                                                    {exportingPdf ? <Loader2 size={16} className="spin" /> : <Download size={16} color="white" />}
                                                 </button>
-                                                <button onClick={() => setSelectedDetailId(null)} className="btn-icon" style={{ margin: 0, width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <X size={20} />
+                                                <button 
+                                                    onClick={() => setSelectedDetailId(null)} 
+                                                    title="Cerrar detalle"
+                                                    style={{ 
+                                                        margin: 0, width: '36px', height: '36px', 
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        background: 'rgba(255, 255, 255, 0.05)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <X size={18} color="white" />
                                                 </button>
                                             </div>
                                         </div>

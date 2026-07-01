@@ -645,10 +645,21 @@ export default function HistorialVentas() {
                                                     cursor: 'pointer'
                                                 }}
                                             >
-                                                {exportingDetallePdf ? <Loader2 size={16} className="spin" /> : <Download size={16} />}
+                                                {exportingDetallePdf ? <Loader2 size={16} className="spin" /> : <Download size={16} color="white" />}
                                             </button>
-                                            <button onClick={() => setDetalleVenta(null)} className="btn-icon" style={{ margin: 0, width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <X size={20} />
+                                            <button 
+                                                onClick={() => setDetalleVenta(null)} 
+                                                title="Cerrar detalle"
+                                                style={{ 
+                                                    margin: 0, width: '36px', height: '36px', 
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    background: 'rgba(255, 255, 255, 0.05)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <X size={18} color="white" />
                                             </button>
                                         </div>
                                     </div>
