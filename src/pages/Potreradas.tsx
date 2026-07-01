@@ -1545,7 +1545,7 @@ export default function Potreradas() {
                                                 )}
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-light)' }}>
                                                 <div style={{
                                                     width: '32px', height: '18px', borderRadius: '18px',
@@ -1558,7 +1558,7 @@ export default function Potreradas() {
                                                         transition: 'left 0.3s'
                                                     }} />
                                                 </div>
-                                                <span className="mobile-hide">Historial Completo</span>
+                                                <span>Historial</span>
                                                 <input 
                                                     type="checkbox" 
                                                     style={{ display: 'none' }} 
@@ -1566,55 +1566,56 @@ export default function Potreradas() {
                                                     onChange={e => setShowFullHistory(e.target.checked)} 
                                                 />
                                             </label>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                            <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }}></div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 {role !== 'observador' && (
                                                     <>
                                                     <button
                                                         onClick={handleOpenMoveModal}
+                                                        title="Mover Animales"
                                                         style={{
-                                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                             background: 'rgba(251, 191, 36, 0.12)',
                                                             color: '#fbbf24',
                                                             border: '1px solid rgba(251, 191, 36, 0.3)',
-                                                            borderRadius: '8px', padding: '7px 14px',
-                                                            fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer'
+                                                            borderRadius: '8px', width: '36px', height: '36px',
+                                                            cursor: 'pointer'
                                                         }}
                                                     >
-                                                        <Users size={15} />
-                                                        <span className="mobile-hide">Mover Animales</span>
+                                                        <Users size={16} />
                                                     </button>
                                                     <button
                                                         onClick={handleOpenWeighingForm}
+                                                        title="Nuevo Pesaje"
                                                         style={{
-                                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                             background: 'rgba(46, 204, 113, 0.12)',
                                                             color: 'var(--success)',
                                                             border: '1px solid rgba(46, 204, 113, 0.3)',
-                                                            borderRadius: '8px', padding: '7px 14px',
-                                                            fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer'
+                                                            borderRadius: '8px', width: '36px', height: '36px',
+                                                            cursor: 'pointer'
                                                         }}
                                                     >
-                                                        <Scale size={15} />
-                                                        <span className="mobile-hide">Nuevo Pesaje</span>
+                                                        <Scale size={16} />
                                                     </button>
                                                     </>
                                                 )}
                                                 <button 
                                                     onClick={handleExportPDF}
                                                     disabled={exportingPdf}
+                                                    title="Descargar PDF"
                                                     style={{
-                                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                         background: 'rgba(255, 255, 255, 0.05)',
                                                         color: 'white',
                                                         border: '1px solid rgba(255,255,255,0.1)',
-                                                        borderRadius: '8px', padding: '7px 14px',
-                                                        fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer'
+                                                        borderRadius: '8px', width: '36px', height: '36px',
+                                                        cursor: 'pointer'
                                                     }}
                                                 >
-                                                    {exportingPdf ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
-                                                    <span className="mobile-hide">{exportingPdf ? 'Exportando...' : 'Descargar PDF'}</span>
+                                                    {exportingPdf ? <Loader2 size={16} className="spin" /> : <Download size={16} />}
                                                 </button>
-                                                <button onClick={() => setSelectedDetailId(null)} className="btn-icon" style={{ margin: 0 }}>
+                                                <button onClick={() => setSelectedDetailId(null)} className="btn-icon" style={{ margin: 0, width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                     <X size={20} />
                                                 </button>
                                             </div>

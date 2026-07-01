@@ -609,7 +609,7 @@ export default function HistorialVentas() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-light)' }}>
                                             <div style={{
                                                 width: '32px', height: '18px', borderRadius: '18px',
@@ -622,7 +622,7 @@ export default function HistorialVentas() {
                                                     transition: 'left 0.3s'
                                                 }} />
                                             </div>
-                                            <span className="mobile-hide">Historial Completo</span>
+                                            <span>Historial</span>
                                             <input 
                                                 type="checkbox" 
                                                 style={{ display: 'none' }} 
@@ -630,23 +630,24 @@ export default function HistorialVentas() {
                                                 onChange={e => setShowFullHistory(e.target.checked)} 
                                             />
                                         </label>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                        <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }}></div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <button 
                                                 onClick={handleExportPDF}
                                                 disabled={exportingDetallePdf}
+                                                title="Descargar PDF"
                                                 style={{
-                                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     background: 'rgba(255, 255, 255, 0.05)',
                                                     color: 'white',
                                                     border: '1px solid rgba(255,255,255,0.1)',
-                                                    borderRadius: '8px', padding: '7px 14px',
-                                                    fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer'
+                                                    borderRadius: '8px', width: '36px', height: '36px',
+                                                    cursor: 'pointer'
                                                 }}
                                             >
-                                                {exportingDetallePdf ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
-                                                <span className="mobile-hide">{exportingDetallePdf ? 'Exportando...' : 'Descargar PDF'}</span>
+                                                {exportingDetallePdf ? <Loader2 size={16} className="spin" /> : <Download size={16} />}
                                             </button>
-                                            <button onClick={() => setDetalleVenta(null)} className="btn-icon" style={{ margin: 0 }}>
+                                            <button onClick={() => setDetalleVenta(null)} className="btn-icon" style={{ margin: 0, width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <X size={20} />
                                             </button>
                                         </div>
