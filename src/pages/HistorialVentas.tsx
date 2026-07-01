@@ -635,7 +635,8 @@ export default function HistorialVentas() {
                                             <button 
                                                 onClick={handleExportPDF}
                                                 disabled={exportingDetallePdf}
-                                                title="Descargar PDF"
+                                                className="icon-btn-tooltip"
+                                                data-tooltip="Descargar PDF"
                                                 style={{
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     background: 'rgba(255, 255, 255, 0.05)',
@@ -649,7 +650,8 @@ export default function HistorialVentas() {
                                             </button>
                                             <button 
                                                 onClick={() => setDetalleVenta(null)} 
-                                                title="Cerrar detalle"
+                                                className="icon-btn-tooltip"
+                                                data-tooltip="Cerrar detalle"
                                                 style={{ 
                                                     margin: 0, width: '36px', height: '36px', padding: 0,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',

@@ -1572,7 +1572,8 @@ export default function Potreradas() {
                                                     <>
                                                     <button
                                                         onClick={handleOpenMoveModal}
-                                                        title="Mover Animales"
+                                                        className="icon-btn-tooltip"
+                                                        data-tooltip="Mover Animales"
                                                         style={{
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                             background: 'rgba(251, 191, 36, 0.12)',
@@ -1586,7 +1587,8 @@ export default function Potreradas() {
                                                     </button>
                                                     <button
                                                         onClick={handleOpenWeighingForm}
-                                                        title="Nuevo Pesaje"
+                                                        className="icon-btn-tooltip"
+                                                        data-tooltip="Nuevo Pesaje"
                                                         style={{
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                             background: 'rgba(46, 204, 113, 0.12)',
@@ -1603,7 +1605,8 @@ export default function Potreradas() {
                                                 <button 
                                                     onClick={handleExportPDF}
                                                     disabled={exportingPdf}
-                                                    title="Descargar PDF"
+                                                    className="icon-btn-tooltip"
+                                                    data-tooltip="Descargar PDF"
                                                     style={{
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                         background: 'rgba(255, 255, 255, 0.05)',
@@ -1617,7 +1620,8 @@ export default function Potreradas() {
                                                 </button>
                                                 <button 
                                                     onClick={() => setSelectedDetailId(null)} 
-                                                    title="Cerrar detalle"
+                                                    className="icon-btn-tooltip"
+                                                    data-tooltip="Cerrar detalle"
                                                     style={{ 
                                                         margin: 0, width: '36px', height: '36px', padding: 0,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
