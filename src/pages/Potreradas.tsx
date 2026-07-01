@@ -1578,7 +1578,7 @@ export default function Potreradas() {
                                                             background: 'rgba(251, 191, 36, 0.12)',
                                                             color: '#fbbf24',
                                                             border: '1px solid rgba(251, 191, 36, 0.3)',
-                                                            borderRadius: '8px', width: '36px', height: '36px',
+                                                            borderRadius: '8px', width: '36px', height: '36px', padding: 0,
                                                             cursor: 'pointer'
                                                         }}
                                                     >
@@ -1592,7 +1592,7 @@ export default function Potreradas() {
                                                             background: 'rgba(46, 204, 113, 0.12)',
                                                             color: 'var(--success)',
                                                             border: '1px solid rgba(46, 204, 113, 0.3)',
-                                                            borderRadius: '8px', width: '36px', height: '36px',
+                                                            borderRadius: '8px', width: '36px', height: '36px', padding: 0,
                                                             cursor: 'pointer'
                                                         }}
                                                     >
@@ -1609,7 +1609,7 @@ export default function Potreradas() {
                                                         background: 'rgba(255, 255, 255, 0.05)',
                                                         color: 'white',
                                                         border: '1px solid rgba(255,255,255,0.1)',
-                                                        borderRadius: '8px', width: '36px', height: '36px',
+                                                        borderRadius: '8px', width: '36px', height: '36px', padding: 0,
                                                         cursor: 'pointer'
                                                     }}
                                                 >
@@ -1619,7 +1619,7 @@ export default function Potreradas() {
                                                     onClick={() => setSelectedDetailId(null)} 
                                                     title="Cerrar detalle"
                                                     style={{ 
-                                                        margin: 0, width: '36px', height: '36px', 
+                                                        margin: 0, width: '36px', height: '36px', padding: 0,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                         background: 'rgba(255, 255, 255, 0.05)',
                                                         border: '1px solid rgba(255, 255, 255, 0.1)',

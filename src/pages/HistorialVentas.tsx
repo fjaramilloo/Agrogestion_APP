@@ -641,7 +641,7 @@ export default function HistorialVentas() {
                                                     background: 'rgba(255, 255, 255, 0.05)',
                                                     color: 'white',
                                                     border: '1px solid rgba(255,255,255,0.1)',
-                                                    borderRadius: '8px', width: '36px', height: '36px',
+                                                    borderRadius: '8px', width: '36px', height: '36px', padding: 0,
                                                     cursor: 'pointer'
                                                 }}
                                             >
@@ -651,7 +651,7 @@ export default function HistorialVentas() {
                                                 onClick={() => setDetalleVenta(null)} 
                                                 title="Cerrar detalle"
                                                 style={{ 
-                                                    margin: 0, width: '36px', height: '36px', 
+                                                    margin: 0, width: '36px', height: '36px', padding: 0,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     background: 'rgba(255, 255, 255, 0.05)',
                                                     border: '1px solid rgba(255, 255, 255, 0.1)',
