@@ -36,7 +36,8 @@ interface AnimalVentaDetalle {
     peso_venta: number;
     gmp: number;
     pesajesFiltrados: Record<string, number>;
-    registros_pesaje: { peso: number; fecha: string; gdp_calculada: number }[];
+    pesajesTotalesMap: Record<string, number>;
+    registros_pesaje: { peso: number; fecha: string; gdp_calculada: number; etapa: string }[];
 }
 
 interface VentaGrupo {
@@ -57,6 +58,7 @@ export default function HistorialVentas() {
     const [ventas, setVentas] = useState<VentaGrupo[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showFullHistory, setShowFullHistory] = useState(false);
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
     
@@ -184,9 +186,17 @@ export default function HistorialVentas() {
                     const registrosOrdenados = (animal.registros_pesaje || []).sort((x: any, y: any) =>
                         new Date(x.fecha).getTime() - new Date(y.fecha).getTime()
                     );
+                    
+                    const registrosEtapa = registrosOrdenados.filter((r: any) => r.etapa === animal.etapa);
+                    
                     const pesajesMap: Record<string, number> = {};
-                    registrosOrdenados.forEach((r: any) => {
+                    registrosEtapa.forEach((r: any) => {
                         pesajesMap[r.fecha] = r.peso;
+                    });
+                    
+                    const pesajesTotalesMap: Record<string, number> = {};
+                    registrosOrdenados.forEach((r: any) => {
+                        pesajesTotalesMap[r.fecha] = r.peso;
                     });
 
                     const animalDet: AnimalVentaDetalle = {
@@ -199,10 +209,12 @@ export default function HistorialVentas() {
                         peso_venta: animal.peso_venta || ultimoP?.peso || 0,
                         gmp: gmp,
                         pesajesFiltrados: pesajesMap,
+                        pesajesTotalesMap: pesajesTotalesMap,
                         registros_pesaje: registrosOrdenados.map((r: any) => ({
                             peso: r.peso,
                             fecha: r.fecha,
-                            gdp_calculada: r.gdp_calculada || 0
+                            gdp_calculada: r.gdp_calculada || 0,
+                            etapa: r.etapa
                         }))
                     };
 
@@ -295,10 +307,11 @@ export default function HistorialVentas() {
     };
 
     // Calcular columnas de fechas para el modal de detalle
-    const getFechasColumnas = (animales: AnimalVentaDetalle[]) => {
+    const getFechasColumnas = (animales: AnimalVentaDetalle[], showFull: boolean) => {
         const fechasSet = new Set<string>();
         animales.forEach(a => {
-            Object.keys(a.pesajesFiltrados).forEach(f => fechasSet.add(f));
+            const pesajes = showFull ? a.pesajesTotalesMap : a.pesajesFiltrados;
+            Object.keys(pesajes).forEach(f => fechasSet.add(f));
         });
         return Array.from(fechasSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     };
@@ -523,22 +536,26 @@ export default function HistorialVentas() {
                 MODAL DETALLE DE VENTA - Estilo Potreradas
             ================================================================ */}
             {detalleVenta && (() => {
-                const fechasColumnas = getFechasColumnas(detalleVenta.animalesDetalle);
+                const fechasColumnas = getFechasColumnas(detalleVenta.animalesDetalle, showFullHistory);
                 
-                // Construir el history exactamente como en Potreradas:
-                // 1. Inyectar el peso de ingreso de cada animal como punto de partida (gdp=0)
-                // 2. Agregar todos los pesajes reales con su gdp_calculada
-                // 3. Agrupar por fecha y promediar peso y gdp
-                // 4. gmpPromedio = promedio gdp * 30
                 const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
                 detalleVenta.animalesDetalle.forEach(a => {
-                    // Punto de ingreso
-                    const pesoIngreso = a.peso_ingreso || 0;
-                    if (a.fecha_ingreso && pesoIngreso) {
-                        allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: pesoIngreso, gdp: 0 });
+                    if (showFullHistory) {
+                        const pesoIngreso = a.peso_ingreso || 0;
+                        if (a.fecha_ingreso && pesoIngreso) {
+                            allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: pesoIngreso, gdp: 0 });
+                        }
+                    } else {
+                        // Comportamiento anterior (inyección específica para ceba, etc si se requiriera, pero aquí es la etapa en la que se vendió)
+                        const pesoIngreso = a.peso_ingreso || 0;
+                        if (a.fecha_ingreso && pesoIngreso && a.etapa !== 'ceba') {
+                             allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: pesoIngreso, gdp: 0 });
+                        }
                     }
-                    // Pesajes reales
-                    (a.registros_pesaje || []).forEach(r => {
+
+                    const registrosAUsar = showFullHistory ? (a.registros_pesaje || []) : (a.registros_pesaje || []).filter(r => r.etapa === a.etapa);
+
+                    registrosAUsar.forEach(r => {
                         allWeighings.push({ fecha: r.fecha.split('T')[0], peso: Number(r.peso), gdp: Number(r.gdp_calculada || 0) });
                     });
                 });
@@ -592,7 +609,27 @@ export default function HistorialVentas() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-light)', marginRight: '16px' }}>
+                                            <div style={{
+                                                width: '32px', height: '18px', borderRadius: '18px',
+                                                background: showFullHistory ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                                position: 'relative', transition: 'background 0.3s'
+                                            }}>
+                                                <div style={{
+                                                    width: '14px', height: '14px', borderRadius: '50%', background: 'white',
+                                                    position: 'absolute', top: '2px', left: showFullHistory ? '16px' : '2px',
+                                                    transition: 'left 0.3s'
+                                                }} />
+                                            </div>
+                                            <span className="mobile-hide">Historial Completo</span>
+                                            <input 
+                                                type="checkbox" 
+                                                style={{ display: 'none' }} 
+                                                checked={showFullHistory} 
+                                                onChange={e => setShowFullHistory(e.target.checked)} 
+                                            />
+                                        </label>
                                         <button 
                                             onClick={handleExportPDF}
                                             disabled={exportingDetallePdf}
@@ -697,7 +734,11 @@ export default function HistorialVentas() {
                                                     </td>
                                                     {fechasColumnas.map(fecha => (
                                                         <td key={fecha} style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                                            {a.pesajesFiltrados[fecha] ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-'}
+                                                            {showFullHistory ? (
+                                                                a.pesajesTotalesMap[fecha] ? a.pesajesTotalesMap[fecha].toFixed(1) : '-'
+                                                            ) : (
+                                                                a.pesajesFiltrados[fecha] ? a.pesajesFiltrados[fecha].toFixed(1) : '-'
+                                                            )}
                                                         </td>
                                                     ))}
                                                     <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)' }}>

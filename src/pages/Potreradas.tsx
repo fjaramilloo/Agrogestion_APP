@@ -99,6 +99,17 @@ export default function Potreradas() {
     // Estado para ordenamiento en el detalle
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'numero_chapeta', direction: 'asc' });
 
+    // Estado para historial completo
+    const [showFullHistory, setShowFullHistory] = useState(false);
+    const [rawDetailData, setRawDetailData] = useState<{
+        potrerada: Potrerada;
+        animals: any[];
+        fincaNombre: string;
+        diasPotreroActual: number | null;
+        areaTotalSistema: number | null;
+        movsResData: any | null;
+    } | null>(null);
+
     // Estado para el formulario de pesaje grupal
     const [weighingData, setWeighingData] = useState<{ [animalId: string]: string }>({});
     const [savingWeighings, setSavingWeighings] = useState(false);
@@ -452,7 +463,6 @@ export default function Potreradas() {
             const fincaNombre = fincaRes.data?.nombre || 'Finca Sin Nombre';
 
             const firstAnimal = animals.length > 0 ? (animals[0] as any) : null;
-            const potreroName = firstAnimal?.potreros?.nombre || 'Sin potrero asignado';
             const potreroArea = firstAnimal?.potreros?.area_hectareas || null;
             
             const diasPotreroActual = movsRes.data?.fecha_entrada 
@@ -467,145 +477,13 @@ export default function Potreradas() {
                 }
             }
 
-            // 3. Procesar animales y sus métricas
-            const processedAnimals: AnimalPotrero[] = (animals || []).map((a: any) => {
-                const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
-                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                );
-
-                const registrosEtapa = (a.registros_pesaje || [])
-                    .filter((r: any) => r.etapa?.toLowerCase() === p.etapa.toLowerCase())
-                    .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
-
-                let fechaIngresoEtapa = null;
-                let pesoIngresoEtapa = null;
-
-                const pesoBase = a.peso_ingreso ?? a.peso_compra;
-
-                if (p.etapa === 'ceba') {
-                    fechaIngresoEtapa = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
-                    pesoIngresoEtapa = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? pesoBase : null));
-                } else {
-                    // Para levante y cría, el ingreso a la etapa es siempre el ingreso a la finca real (no la compra)
-                    fechaIngresoEtapa = a.fecha_ingreso;
-                    pesoIngresoEtapa = a.peso_ingreso;
-                }
-
-                const pesajesMap: Record<string, number> = {};
-                registrosEtapa.forEach((r: any) => {
-                    pesajesMap[r.fecha] = r.peso;
-                });
-
-                const lastP = registros[0];
-                let gmp = 0;
-                let gdp = 0;
-                let hasCalculatedGmp = false;
-
-                if (lastP) {
-                    if (lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined) {
-                        gmp = Number(lastP.gmp_calculada);
-                        gdp = Number(lastP.gdp_calculada || 0);
-                        hasCalculatedGmp = true;
-                    } else if (fechaIngresoEtapa && pesoIngresoEtapa) {
-                        const startWeight = Number(pesoIngresoEtapa);
-                        const endWeight = Number(lastP.peso);
-                        const startDate = new Date(fechaIngresoEtapa + 'T12:00:00');
-                        const endDate = new Date(lastP.fecha + 'T12:00:00');
-                        
-                        const totalGain = endWeight - startWeight;
-                        const totalDays = differenceInDays(endDate, startDate);
-
-                        if (totalDays > 0) {
-                            gdp = totalGain / totalDays;
-                            gmp = gdp * 30;
-                            hasCalculatedGmp = true;
-                        }
-                    }
-                }
-
-                return {
-                    id: a.id,
-                    numero_chapeta: a.numero_chapeta,
-                    nombre_propietario: a.nombre_propietario,
-                    id_potrerada: p.id,
-                    pesoActual: lastP ? lastP.peso : pesoBase,
-                    gdp: gdp,
-                    gmp: gmp,
-                    fechaIngresoEtapa: fechaIngresoEtapa,
-                    pesoIngresoEtapa: pesoIngresoEtapa,
-                    peso_compra: a.peso_compra,
-                    peso_ingreso: a.peso_ingreso,
-                    pesajesFiltrados: pesajesMap,
-                    hasCalculatedGmp: hasCalculatedGmp
-                };
-            });
-
-            const validGmpAnimals = processedAnimals.filter(a => a.hasCalculatedGmp);
-            const avgGmp = validGmpAnimals.length > 0 
-                ? validGmpAnimals.reduce((acc, curr) => acc + (curr.gmp || 0), 0) / validGmpAnimals.length
-                : 0;
-
-            const fechasRegistradasSet = new Set<string>();
-            processedAnimals.forEach(a => {
-                if (a.pesajesFiltrados) {
-                    Object.keys(a.pesajesFiltrados).forEach(f => fechasRegistradasSet.add(f));
-                }
-            });
-            const fechasColumnas = Array.from(fechasRegistradasSet).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
-
-            // 4. Preparar datos para las gráficas (agrupar pesajes por fecha)
-            const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
-            animals?.forEach(a => {
-                // Inyectar el peso inicial de la etapa para que la gráfica siempre tenga un punto de partida
-                if (p.etapa === 'ceba') {
-                    const cebaDate = a.fecha_ingreso_ceba || (a.etapa === 'ceba' ? a.fecha_ingreso : null);
-                    const cebaWeight = a.peso_ingreso_ceba || (a.etapa === 'ceba' ? (a.peso_compra ?? a.peso_ingreso) : null);
-                    if (cebaDate && cebaWeight) {
-                        allWeighings.push({ fecha: cebaDate.split('T')[0], peso: Number(cebaWeight), gdp: 0 });
-                    }
-                } else {
-                    if (a.fecha_ingreso && a.peso_ingreso) {
-                        allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: Number(a.peso_ingreso), gdp: 0 });
-                    }
-                }
-
-                const registrosEtapa = (a.registros_pesaje || []).filter((r: any) => 
-                    r.etapa?.toLowerCase() === p.etapa.toLowerCase()
-                );
-                registrosEtapa.forEach((r: any) => {
-                    allWeighings.push({ fecha: r.fecha.split('T')[0], peso: Number(r.peso), gdp: Number(r.gdp_calculada || 0) });
-                });
-            });
-
-            const groupedByDate: { [key: string]: { totalPeso: number; totalGdp: number; count: number } } = {};
-            allWeighings.forEach(w => {
-                if (!groupedByDate[w.fecha]) {
-                    groupedByDate[w.fecha] = { totalPeso: 0, totalGdp: 0, count: 0 };
-                }
-                groupedByDate[w.fecha].totalPeso += w.peso;
-                groupedByDate[w.fecha].totalGdp += w.gdp;
-                groupedByDate[w.fecha].count += 1;
-            });
-
-            const history: ChartData[] = Object.keys(groupedByDate)
-                .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-                .map(date => ({
-                    fecha: format(new Date(date), 'dd MMM', { locale: es }),
-                    pesoPromedio: Math.round(groupedByDate[date].totalPeso / groupedByDate[date].count),
-                    gmpPromedio: Number(( (groupedByDate[date].totalGdp / groupedByDate[date].count) * 30).toFixed(2))
-                }));
-
-            setDetailData({
+            setRawDetailData({
                 potrerada: p,
-                potreroActual: potreroName,
-                animales: processedAnimals,
-                fechasColumnas: fechasColumnas,
-                gmpPromedioGrupo: avgGmp,
-                history,
+                animals,
+                fincaNombre,
                 diasPotreroActual,
-                areaPotreroActual: potreroArea,
                 areaTotalSistema,
-                fincaNombre
+                movsResData: movsRes.data
             });
 
         } catch (error: any) {
@@ -614,6 +492,166 @@ export default function Potreradas() {
             setDetailLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!rawDetailData) return;
+        const { potrerada: p, animals, fincaNombre, diasPotreroActual, areaTotalSistema } = rawDetailData;
+        const firstAnimal = animals.length > 0 ? (animals[0] as any) : null;
+        const potreroName = firstAnimal?.potreros?.nombre || 'Sin potrero asignado';
+        const potreroArea = firstAnimal?.potreros?.area_hectareas || null;
+
+        // 3. Procesar animales y sus métricas
+        const processedAnimals: AnimalPotrero[] = (animals || []).map((a: any) => {
+            const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
+                new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+            );
+
+            const registrosEtapa = showFullHistory
+                ? [...registros].sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())
+                : (a.registros_pesaje || [])
+                    .filter((r: any) => r.etapa?.toLowerCase() === p.etapa.toLowerCase())
+                    .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+
+            let fechaIngresoEtapa = null;
+            let pesoIngresoEtapa = null;
+
+            const pesoBase = a.peso_ingreso ?? a.peso_compra;
+
+            if (showFullHistory) {
+                fechaIngresoEtapa = a.fecha_ingreso;
+                pesoIngresoEtapa = pesoBase;
+            } else if (p.etapa === 'ceba') {
+                fechaIngresoEtapa = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
+                pesoIngresoEtapa = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? pesoBase : null));
+            } else {
+                // Para levante y cría, el ingreso a la etapa es siempre el ingreso a la finca real (no la compra)
+                fechaIngresoEtapa = a.fecha_ingreso;
+                pesoIngresoEtapa = a.peso_ingreso;
+            }
+
+            const pesajesMap: Record<string, number> = {};
+            registrosEtapa.forEach((r: any) => {
+                pesajesMap[r.fecha] = r.peso;
+            });
+
+            const lastP = registros[0];
+            let gmp = 0;
+            let gdp = 0;
+            let hasCalculatedGmp = false;
+
+            if (lastP) {
+                if (lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined && !showFullHistory) {
+                    gmp = Number(lastP.gmp_calculada);
+                    gdp = Number(lastP.gdp_calculada || 0);
+                    hasCalculatedGmp = true;
+                } else if (fechaIngresoEtapa && pesoIngresoEtapa) {
+                    const startWeight = Number(pesoIngresoEtapa);
+                    const endWeight = Number(lastP.peso);
+                    const startDate = new Date(fechaIngresoEtapa + 'T12:00:00');
+                    const endDate = new Date(lastP.fecha + 'T12:00:00');
+                    
+                    const totalGain = endWeight - startWeight;
+                    const totalDays = differenceInDays(endDate, startDate);
+
+                    if (totalDays > 0) {
+                        gdp = totalGain / totalDays;
+                        gmp = gdp * 30;
+                        hasCalculatedGmp = true;
+                    }
+                }
+            }
+
+            return {
+                id: a.id,
+                numero_chapeta: a.numero_chapeta,
+                nombre_propietario: a.nombre_propietario,
+                id_potrerada: p.id,
+                pesoActual: lastP ? lastP.peso : pesoBase,
+                gdp: gdp,
+                gmp: gmp,
+                fechaIngresoEtapa: fechaIngresoEtapa,
+                pesoIngresoEtapa: pesoIngresoEtapa,
+                peso_compra: a.peso_compra,
+                peso_ingreso: a.peso_ingreso,
+                pesajesFiltrados: pesajesMap,
+                hasCalculatedGmp: hasCalculatedGmp
+            };
+        });
+
+        const validGmpAnimals = processedAnimals.filter(a => a.hasCalculatedGmp);
+        const avgGmp = validGmpAnimals.length > 0 
+            ? validGmpAnimals.reduce((acc, curr) => acc + (curr.gmp || 0), 0) / validGmpAnimals.length
+            : 0;
+
+        const fechasRegistradasSet = new Set<string>();
+        processedAnimals.forEach(a => {
+            if (a.pesajesFiltrados) {
+                Object.keys(a.pesajesFiltrados).forEach(f => fechasRegistradasSet.add(f));
+            }
+        });
+        const fechasColumnas = Array.from(fechasRegistradasSet).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
+
+        // 4. Preparar datos para las gráficas (agrupar pesajes por fecha)
+        const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
+        animals?.forEach(a => {
+            // Inyectar el peso inicial
+            if (showFullHistory) {
+                if (a.fecha_ingreso && a.peso_ingreso) {
+                    allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: Number(a.peso_ingreso), gdp: 0 });
+                }
+            } else if (p.etapa === 'ceba') {
+                const cebaDate = a.fecha_ingreso_ceba || (a.etapa === 'ceba' ? a.fecha_ingreso : null);
+                const cebaWeight = a.peso_ingreso_ceba || (a.etapa === 'ceba' ? (a.peso_compra ?? a.peso_ingreso) : null);
+                if (cebaDate && cebaWeight) {
+                    allWeighings.push({ fecha: cebaDate.split('T')[0], peso: Number(cebaWeight), gdp: 0 });
+                }
+            } else {
+                if (a.fecha_ingreso && a.peso_ingreso) {
+                    allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: Number(a.peso_ingreso), gdp: 0 });
+                }
+            }
+
+            const registrosEtapa = showFullHistory
+                ? (a.registros_pesaje || [])
+                : (a.registros_pesaje || []).filter((r: any) => r.etapa?.toLowerCase() === p.etapa.toLowerCase());
+
+            registrosEtapa.forEach((r: any) => {
+                allWeighings.push({ fecha: r.fecha.split('T')[0], peso: Number(r.peso), gdp: Number(r.gdp_calculada || 0) });
+            });
+        });
+
+        const groupedByDate: { [key: string]: { totalPeso: number; totalGdp: number; count: number } } = {};
+        allWeighings.forEach(w => {
+            if (!groupedByDate[w.fecha]) {
+                groupedByDate[w.fecha] = { totalPeso: 0, totalGdp: 0, count: 0 };
+            }
+            groupedByDate[w.fecha].totalPeso += w.peso;
+            groupedByDate[w.fecha].totalGdp += w.gdp;
+            groupedByDate[w.fecha].count += 1;
+        });
+
+        const history: ChartData[] = Object.keys(groupedByDate)
+            .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+            .map(date => ({
+                fecha: format(new Date(date + 'T12:00:00'), 'dd MMM', { locale: es }),
+                pesoPromedio: Math.round(groupedByDate[date].totalPeso / groupedByDate[date].count),
+                gmpPromedio: Number(( (groupedByDate[date].totalGdp / groupedByDate[date].count) * 30).toFixed(2))
+            }));
+
+        setDetailData({
+            potrerada: p,
+            potreroActual: potreroName,
+            animales: processedAnimals,
+            fechasColumnas: fechasColumnas,
+            gmpPromedioGrupo: avgGmp,
+            history,
+            diasPotreroActual,
+            areaPotreroActual: potreroArea,
+            areaTotalSistema,
+            fincaNombre
+        });
+
+    }, [rawDetailData, showFullHistory]);
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -1507,7 +1545,27 @@ export default function Potreradas() {
                                                 )}
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-light)', marginRight: '16px' }}>
+                                                <div style={{
+                                                    width: '32px', height: '18px', borderRadius: '18px',
+                                                    background: showFullHistory ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                                    position: 'relative', transition: 'background 0.3s'
+                                                }}>
+                                                    <div style={{
+                                                        width: '14px', height: '14px', borderRadius: '50%', background: 'white',
+                                                        position: 'absolute', top: '2px', left: showFullHistory ? '16px' : '2px',
+                                                        transition: 'left 0.3s'
+                                                    }} />
+                                                </div>
+                                                <span className="mobile-hide">Historial Completo</span>
+                                                <input 
+                                                    type="checkbox" 
+                                                    style={{ display: 'none' }} 
+                                                    checked={showFullHistory} 
+                                                    onChange={e => setShowFullHistory(e.target.checked)} 
+                                                />
+                                            </label>
                                             {role !== 'observador' && (
                                                 <>
                                                 <button
