@@ -540,18 +540,20 @@ export default function HistorialVentas() {
             {detalleVenta && (() => {
                 const fechasColumnas = getFechasColumnas(detalleVenta.animalesDetalle, showFullHistory);
                 
-                const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
+                const allWeighings: { fecha: string; peso: number; gdp: number; isAnchor?: boolean }[] = [];
                 detalleVenta.animalesDetalle.forEach(a => {
+                    // Punto de ingreso: sirve como ancla para calcular GDP del primer pesaje,
+                    // pero NO debe aportar GMP a la gráfica (no hay ganancia todavía)
+                    const anchorFecha = a.fecha_ingreso ? a.fecha_ingreso.split('T')[0] : null;
+                    const anchorPeso = Number(a.peso_ingreso || 0);
+
                     if (showFullHistory) {
-                        const pesoIngreso = a.peso_ingreso || 0;
-                        if (a.fecha_ingreso && pesoIngreso) {
-                            allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: pesoIngreso, gdp: 0 });
+                        if (anchorFecha && anchorPeso) {
+                            allWeighings.push({ fecha: anchorFecha, peso: anchorPeso, gdp: 0, isAnchor: true });
                         }
                     } else {
-                        // Comportamiento anterior (inyección específica para ceba, etc si se requiriera, pero aquí es la etapa en la que se vendió)
-                        const pesoIngreso = a.peso_ingreso || 0;
-                        if (a.fecha_ingreso && pesoIngreso && a.etapa !== 'ceba') {
-                             allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: pesoIngreso, gdp: 0 });
+                        if (anchorFecha && anchorPeso && a.etapa !== 'ceba') {
+                            allWeighings.push({ fecha: anchorFecha, peso: anchorPeso, gdp: 0, isAnchor: true });
                         }
                     }
 
@@ -560,20 +562,16 @@ export default function HistorialVentas() {
                         : (a.registros_pesaje || []).filter(r => r.etapa === a.etapa)
                     ).slice().sort((x, y) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
 
-                    // Calcular GDP secuencial cuando se muestra historial completo
-                    // (los registros de etapas anteriores pueden tener gdp_calculada = null)
-                    let prevFechaChart: Date | null = null;
-                    let prevPesoChart: number | null = null;
-                    if (showFullHistory && a.fecha_ingreso && a.peso_ingreso) {
-                        prevFechaChart = new Date(a.fecha_ingreso.split('T')[0] + 'T12:00:00');
-                        prevPesoChart = Number(a.peso_ingreso);
-                    }
+                    // Siempre calculamos GDP secuencialmente usando el ingreso como punto de arranque.
+                    // Esto cubre casos donde gdp_calculada es null en la BD (ej: primer pesaje de ceba).
+                    let prevFechaChart: Date | null = anchorFecha ? new Date(anchorFecha + 'T12:00:00') : null;
+                    let prevPesoChart: number | null = anchorPeso > 0 ? anchorPeso : null;
 
                     registrosAUsar.forEach(r => {
                         const fecha = r.fecha.split('T')[0];
                         const peso = Number(r.peso);
                         let gdp = 0;
-                        if (showFullHistory && prevFechaChart !== null && prevPesoChart !== null) {
+                        if (prevFechaChart !== null && prevPesoChart !== null) {
                             const currDate = new Date(fecha + 'T12:00:00');
                             const days = Math.floor((currDate.getTime() - prevFechaChart.getTime()) / (1000 * 60 * 60 * 24));
                             if (days > 0) {
@@ -582,6 +580,7 @@ export default function HistorialVentas() {
                             prevFechaChart = currDate;
                             prevPesoChart = peso;
                         } else {
+                            // Fallback: usar gdp_calculada de la BD si no hay contexto previo
                             gdp = Number(r.gdp_calculada || 0);
                         }
                         allWeighings.push({ fecha, peso, gdp });
@@ -595,8 +594,8 @@ export default function HistorialVentas() {
                     }
                     groupedByDate[w.fecha].totalPeso += w.peso;
                     groupedByDate[w.fecha].countPeso += 1;
-                    // Solo acumular GDP cuando hay ganancia real (excluir puntos de ingreso con gdp=0)
-                    if (w.gdp !== 0) {
+                    // Los puntos de ingreso (ancla) no aportan GMP — no hay ganancia todavía
+                    if (!w.isAnchor) {
                         groupedByDate[w.fecha].totalGdp += w.gdp;
                         groupedByDate[w.fecha].countGdp += 1;
                     }
@@ -608,7 +607,7 @@ export default function HistorialVentas() {
                         fechaStr: format(new Date(date + 'T12:00:00'), 'dd MMM', { locale: es }),
                         fecha: date,
                         pesoPromedio: Math.round(groupedByDate[date].totalPeso / groupedByDate[date].countPeso),
-                        // Si no hay pesajes con GDP real en esta fecha, no graficar GMP (undefined lo excluye del trazo)
+                        // Si la fecha es solo un punto de ingreso (ancla), no trazar GMP
                         gmpPromedio: groupedByDate[date].countGdp > 0
                             ? Number(((groupedByDate[date].totalGdp / groupedByDate[date].countGdp) * 30).toFixed(1))
                             : undefined
