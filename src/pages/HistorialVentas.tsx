@@ -588,14 +588,18 @@ export default function HistorialVentas() {
                     });
                 });
 
-                const groupedByDate: { [key: string]: { totalPeso: number; totalGdp: number; count: number } } = {};
+                const groupedByDate: { [key: string]: { totalPeso: number; totalGdp: number; countPeso: number; countGdp: number } } = {};
                 allWeighings.forEach(w => {
                     if (!groupedByDate[w.fecha]) {
-                        groupedByDate[w.fecha] = { totalPeso: 0, totalGdp: 0, count: 0 };
+                        groupedByDate[w.fecha] = { totalPeso: 0, totalGdp: 0, countPeso: 0, countGdp: 0 };
                     }
                     groupedByDate[w.fecha].totalPeso += w.peso;
-                    groupedByDate[w.fecha].totalGdp += w.gdp;
-                    groupedByDate[w.fecha].count += 1;
+                    groupedByDate[w.fecha].countPeso += 1;
+                    // Solo acumular GDP cuando hay ganancia real (excluir puntos de ingreso con gdp=0)
+                    if (w.gdp !== 0) {
+                        groupedByDate[w.fecha].totalGdp += w.gdp;
+                        groupedByDate[w.fecha].countGdp += 1;
+                    }
                 });
 
                 const chartData = Object.keys(groupedByDate)
@@ -603,8 +607,11 @@ export default function HistorialVentas() {
                     .map(date => ({
                         fechaStr: format(new Date(date + 'T12:00:00'), 'dd MMM', { locale: es }),
                         fecha: date,
-                        pesoPromedio: Math.round(groupedByDate[date].totalPeso / groupedByDate[date].count),
-                        gmpPromedio: Number(((groupedByDate[date].totalGdp / groupedByDate[date].count) * 30).toFixed(1))
+                        pesoPromedio: Math.round(groupedByDate[date].totalPeso / groupedByDate[date].countPeso),
+                        // Si no hay pesajes con GDP real en esta fecha, no graficar GMP (undefined lo excluye del trazo)
+                        gmpPromedio: groupedByDate[date].countGdp > 0
+                            ? Number(((groupedByDate[date].totalGdp / groupedByDate[date].countGdp) * 30).toFixed(1))
+                            : undefined
                     }));
 
 
@@ -830,7 +837,10 @@ export default function HistorialVentas() {
                                                             {totalIngreso > 0 ? `${Math.round(totalIngreso).toLocaleString('es-CO')} kg` : '-'}
                                                         </td>
                                                         {fechasColumnas.map(fecha => {
-                                                            const total = detalleVenta.animalesDetalle.reduce((acc, a) => acc + (a.pesajesFiltrados && a.pesajesFiltrados[fecha] ? a.pesajesFiltrados[fecha] : 0), 0);
+                                                            const total = detalleVenta.animalesDetalle.reduce((acc, a) => {
+                                                                const mapa = showFullHistory ? a.pesajesTotalesMap : a.pesajesFiltrados;
+                                                                return acc + (mapa && mapa[fecha] ? mapa[fecha] : 0);
+                                                            }, 0);
                                                             return (
                                                                 <td key={fecha} style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                                                     {total > 0 ? `${Math.round(total).toLocaleString('es-CO')} kg` : '-'}
@@ -851,8 +861,14 @@ export default function HistorialVentas() {
                                                             {promIngreso > 0 ? `${Math.round(promIngreso).toLocaleString('es-CO')} kg` : '-'}
                                                         </td>
                                                         {fechasColumnas.map(fecha => {
-                                                            const validAnimals = detalleVenta.animalesDetalle.filter(a => a.pesajesFiltrados && a.pesajesFiltrados[fecha]);
-                                                            const total = validAnimals.reduce((acc, a) => acc + (a.pesajesFiltrados![fecha] || 0), 0);
+                                                            const validAnimals = detalleVenta.animalesDetalle.filter(a => {
+                                                                const mapa = showFullHistory ? a.pesajesTotalesMap : a.pesajesFiltrados;
+                                                                return mapa && mapa[fecha];
+                                                            });
+                                                            const total = validAnimals.reduce((acc, a) => {
+                                                                const mapa = showFullHistory ? a.pesajesTotalesMap : a.pesajesFiltrados;
+                                                                return acc + (mapa![fecha] || 0);
+                                                            }, 0);
                                                             const avg = validAnimals.length > 0 ? total / validAnimals.length : 0;
                                                             return (
                                                                 <td key={`prom-${fecha}`} style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
