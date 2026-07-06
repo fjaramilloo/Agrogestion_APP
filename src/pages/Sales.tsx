@@ -463,10 +463,6 @@ export default function Sales() {
                     
                     if (errorAnimal) throw errorAnimal;
 
-                    // Datos para el reporte si se desea (opcional)
-                    const registros = (data.registros_pesaje || []).sort((x: any, y: any) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime());
-                    const ultimoPeso = registros.length > 0 ? registros[0].peso : (data.peso_compra ?? data.peso_ingreso);
-                    const ultimaFecha = registros.length > 0 ? registros[0].fecha : data.fecha_ingreso;
                     // Recalcular el GMP offline porque antes pudo usar valores temporales
                     const gmp = a.peso_ingreso && a.fecha_ingreso ? calculateGMP(a.peso_salida, a.peso_ingreso, a.fecha_ingreso, payload.fechaVenta) : 0;
                     
