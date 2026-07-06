@@ -115,15 +115,15 @@ export default function Sales() {
         setMsjError('');
     };
 
-    const calculateGMP = (pesoSalida: string, ultimoPeso: number, ultimaFecha: string, fechaVenta: string) => {
+    const calculateGMP = (pesoSalida: string, pesoInicial: number, fechaInicial: string, fechaVenta: string) => {
         const pSalida = parseFloat(pesoSalida);
-        if (isNaN(pSalida) || pSalida <= 0 || !ultimoPeso || !ultimaFecha) return 0;
+        if (isNaN(pSalida) || pSalida <= 0 || !pesoInicial || !fechaInicial) return 0;
         
-        const f1 = new Date(ultimaFecha + 'T12:00:00');
-        const f2 = new Date(fechaVenta + 'T12:00:00');
+        const f1 = new Date(fechaInicial.split('T')[0] + 'T12:00:00');
+        const f2 = new Date(fechaVenta.split('T')[0] + 'T12:00:00');
         const dias = Math.max(1, Math.floor((f2.getTime() - f1.getTime()) / (1000 * 60 * 60 * 24)));
         
-        const gdp = (pSalida - ultimoPeso) / dias;
+        const gdp = (pSalida - pesoInicial) / dias;
         return gdp * 30;
     };
 
@@ -144,8 +144,8 @@ export default function Sales() {
         }
 
         // Recalcular GMP si cambia el peso
-        if (field === 'peso_salida' && a.ultimo_peso && a.ultima_fecha) {
-            a.gmp = calculateGMP(value, a.ultimo_peso, a.ultima_fecha, fechaVenta);
+        if (field === 'peso_salida' && a.peso_ingreso && a.fecha_ingreso) {
+            a.gmp = calculateGMP(value, a.peso_ingreso, a.fecha_ingreso, fechaVenta);
         }
 
         newAnimales[index] = a;
@@ -225,7 +225,8 @@ export default function Sales() {
                 let fechaInicioCeba = data.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (data.etapa === 'ceba' ? data.fecha_ingreso : null));
                 let pesoInicioCeba = data.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (data.etapa === 'ceba' ? (data.peso_compra ?? data.peso_ingreso) : null));
 
-                const gmp = a.peso_salida ? calculateGMP(a.peso_salida, ultimoPeso, ultimaFecha, fechaVenta) : 0;
+                const pesoBaseIngreso = data.peso_compra ?? data.peso_ingreso;
+                const gmp = a.peso_salida ? calculateGMP(a.peso_salida, pesoBaseIngreso, data.fecha_ingreso, fechaVenta) : 0;
 
                 newAnimales[index] = { 
                     ...a, 
@@ -466,8 +467,8 @@ export default function Sales() {
                     const registros = (data.registros_pesaje || []).sort((x: any, y: any) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime());
                     const ultimoPeso = registros.length > 0 ? registros[0].peso : (data.peso_compra ?? data.peso_ingreso);
                     const ultimaFecha = registros.length > 0 ? registros[0].fecha : data.fecha_ingreso;
-                    
-                    const gmp = calculateGMP(a.peso_salida, ultimoPeso, ultimaFecha, payload.fechaVenta);
+                    // Recalcular el GMP offline porque antes pudo usar valores temporales
+                    const gmp = a.peso_ingreso && a.fecha_ingreso ? calculateGMP(a.peso_salida, a.peso_ingreso, a.fecha_ingreso, payload.fechaVenta) : 0;
                     
                     animalesProcesados.push({...a, id_animal: dbId, propietario: data.nombre_propietario, gmp});
                 }

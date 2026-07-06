@@ -80,7 +80,7 @@ export default function Weighing() {
 
         const { data, error } = await supabase
             .from('animales')
-            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba')
+            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba')
             .eq('id_finca', fincaId)
             .eq('numero_chapeta', chapeta.trim())
             .single();
@@ -97,17 +97,23 @@ export default function Weighing() {
                 .order('fecha', { ascending: false });
 
             let gmp = 0;
-            // Usar peso_compra si existe, sino peso_ingreso
-            const pesoBase = data.peso_compra || data.peso_ingreso;
+            // Usar peso de la etapa actual como base
+            let pesoBase = data.peso_compra || data.peso_ingreso;
+            let fechaBase = data.fecha_ingreso;
+            if (data.etapa === 'ceba') {
+                pesoBase = data.peso_ingreso_ceba || pesoBase;
+                fechaBase = data.fecha_ingreso_ceba || fechaBase;
+            }
+
             let ultimoPeso = pesoBase;
-            let fechaUltimoPeso = data.fecha_ingreso;
+            let fechaUltimoPeso = fechaBase;
 
             if (pesajes && pesajes.length > 0) {
                 const ultimo = pesajes[0];
                 ultimoPeso = ultimo.peso;
                 fechaUltimoPeso = ultimo.fecha;
 
-                const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(data.fecha_ingreso)) || 1;
+                const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(fechaBase)) || 1;
                 const gananciaTotal = ultimo.peso - pesoBase;
                 gmp = (gananciaTotal / diffDias) * 30;
             }

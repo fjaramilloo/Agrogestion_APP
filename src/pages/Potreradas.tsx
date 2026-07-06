@@ -44,6 +44,7 @@ interface AnimalPotrero {
     pesajesFiltrados?: { [fecha: string]: number };
     hasCalculatedGmp?: boolean;
     etapa?: string;
+    fechaUltimoPesaje?: string | null;
 }
 
 interface ChartData {
@@ -573,10 +574,10 @@ export default function Potreradas() {
                 gmp: gmp,
                 fechaIngresoEtapa: fechaIngresoEtapa,
                 pesoIngresoEtapa: pesoIngresoEtapa,
-                peso_compra: a.peso_compra,
                 peso_ingreso: a.peso_ingreso,
                 pesajesFiltrados: pesajesMap,
-                hasCalculatedGmp: hasCalculatedGmp
+                hasCalculatedGmp: hasCalculatedGmp,
+                fechaUltimoPesaje: lastP ? lastP.fecha : (fechaIngresoEtapa || null)
             };
         });
 
@@ -1144,13 +1145,32 @@ export default function Potreradas() {
                 const val = weighingData[a.id];
                 return val && val.trim() !== '' && !isNaN(Number(val)) && Number(val) > 0;
             })
-            .map(a => ({
-                id_animal: a.id,
-                peso: Number(weighingData[a.id]),
-                fecha: weighingDate,
-                etapa: etapa,
-                id_potrero: null
-            }));
+            .map(a => {
+                const newPeso = Number(weighingData[a.id]);
+                let gdp: number | null = null;
+                let gmp: number | null = null;
+
+                if (a.pesoActual && a.fechaUltimoPesaje) {
+                    const prevDate = new Date(a.fechaUltimoPesaje + 'T12:00:00');
+                    const currDate = new Date(weighingDate + 'T12:00:00');
+                    const days = differenceInDays(currDate, prevDate);
+                    
+                    if (days > 0) {
+                        gdp = (newPeso - a.pesoActual) / days;
+                        gmp = gdp * 30;
+                    }
+                }
+
+                return {
+                    id_animal: a.id,
+                    peso: newPeso,
+                    fecha: weighingDate,
+                    etapa: etapa,
+                    id_potrero: null,
+                    gdp_calculada: gdp,
+                    gmp_calculada: gmp
+                };
+            });
 
         if (registros.length === 0) {
             alert('Ingresa al menos un peso para guardar.');

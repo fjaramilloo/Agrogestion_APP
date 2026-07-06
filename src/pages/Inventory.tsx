@@ -431,10 +431,13 @@ export default function Inventory() {
                             const ultimoP = a.registros_pesaje?.[0];
                             if (!ultimoP) return false;
                             
-                            const pesoBase = a.peso_compra ?? a.peso_ingreso;
+                            const isCeba = a.etapa === 'ceba';
+                            const pesoBase = isCeba ? (a.peso_ingreso_ceba || a.peso_compra || a.peso_ingreso || 0) : (a.peso_compra ?? a.peso_ingreso ?? 0);
+                            const fechaInicio = isCeba ? (a.fecha_ingreso_ceba || a.fecha_ingreso) : a.fecha_ingreso;
+                            
                             const fechaRef = new Date(ultimoP.fecha);
-                            const dias = differenceInDays(fechaRef, new Date(a.fecha_ingreso)) || 1;
-                            const gmp = ultimoP.gmp_calculada ? Number(ultimoP.gmp_calculada) : ((ultimoP.peso - pesoBase) / dias) * 30;
+                            const dias = differenceInDays(fechaRef, new Date(fechaInicio)) || 1;
+                            const gmp = ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined ? Number(ultimoP.gmp_calculada) : ((ultimoP.peso - pesoBase) / dias) * 30;
                             
                             return gmp <= umbralMedioGmp;
                         }).length}
@@ -545,17 +548,20 @@ export default function Inventory() {
                             <tr><td colSpan={5} style={{ padding: '44px', textAlign: 'center' }}>No hay animales registrados.</td></tr>
                         ) : (
                             sortedAndFilteredAnimals.map((animal) => {
-                                const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
                                 const ultimoP = animal.registros_pesaje?.[0];
+                                const isCeba = animal.etapa === 'ceba';
+                                const pesoBase = isCeba ? (animal.peso_ingreso_ceba || animal.peso_compra || animal.peso_ingreso || 0) : (animal.peso_compra ?? animal.peso_ingreso ?? 0);
+                                const fechaInicio = isCeba ? (animal.fecha_ingreso_ceba || animal.fecha_ingreso) : animal.fecha_ingreso;
+                                
                                 const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
                                 const pesoU = ultimoP ? `${ultimoP.peso} kg` : `${pesoBase} kg*`;
 
                                 const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date();
                                 const pesoReferencia = ultimoP ? ultimoP.peso : pesoBase;
-                                const dias = differenceInDays(fechaReferencia, new Date(animal.fecha_ingreso)) || 1;
+                                const dias = differenceInDays(fechaReferencia, new Date(fechaInicio)) || 1;
                                 const gananciaTotal = pesoReferencia - pesoBase;
                                 const hasRecords = !!ultimoP;
-                                const gmpPromedio = ultimoP?.gmp_calculada ? Number(ultimoP.gmp_calculada) : (gananciaTotal / dias) * 30;
+                                const gmpPromedio = (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) ? Number(ultimoP.gmp_calculada) : (gananciaTotal / dias) * 30;
                                 const isAlerta = hasRecords && gmpPromedio < 0;
                                 const gmpColor = !hasRecords ? 'var(--text-muted)' : (
                                     gmpPromedio < 0 ? 'var(--error)' : (
@@ -712,12 +718,15 @@ export default function Inventory() {
             )}
 
             {selectedAnimal && (() => {
-                const pesoBaseModal = selectedAnimal.peso_compra ?? selectedAnimal.peso_ingreso;
+                const isCebaModal = selectedAnimal.etapa === 'ceba';
+                const pesoBaseModal = isCebaModal ? (selectedAnimal.peso_ingreso_ceba || selectedAnimal.peso_compra || selectedAnimal.peso_ingreso || 0) : (selectedAnimal.peso_compra ?? selectedAnimal.peso_ingreso ?? 0);
+                const fechaInicioModal = isCebaModal ? (selectedAnimal.fecha_ingreso_ceba || selectedAnimal.fecha_ingreso) : selectedAnimal.fecha_ingreso;
+                
                 const ultimoP = selectedAnimal.registros_pesaje?.[0];
-                const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : format(new Date(selectedAnimal.fecha_ingreso), 'dd/MM/yyyy');
+                const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : format(new Date(fechaInicioModal), 'dd/MM/yyyy');
                 const pesoU = ultimoP ? ultimoP.peso : pesoBaseModal;
 
-                const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(selectedAnimal.fecha_ingreso);
+                const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(fechaInicioModal);
                 const diasHoy = differenceInDays(new Date(), refDate) || 0;
                 
                 // USAR GMP INDIVIDUAL PARA COHERENCIA
@@ -726,7 +735,7 @@ export default function Inventory() {
                     gmpIndiv = Number(ultimoP.gmp_calculada);
                 } else if (ultimoP) {
                     const gainTotal = ultimoP.peso - pesoBaseModal;
-                    const daysTotal = differenceInDays(new Date(ultimoP.fecha), new Date(selectedAnimal.fecha_ingreso)) || 1;
+                    const daysTotal = differenceInDays(new Date(ultimoP.fecha), new Date(fechaInicioModal)) || 1;
                     gmpIndiv = (gainTotal / daysTotal) * 30;
                 }
                 if (gmpIndiv === 0) gmpIndiv = 10.3;
@@ -735,7 +744,7 @@ export default function Inventory() {
 
                 const timeline = [
                     ...(selectedAnimal.registros_pesaje || []).map((p, i, arr) => {
-                        const ant = arr[i + 1] || { peso: pesoBaseModal, fecha: selectedAnimal.fecha_ingreso };
+                        const ant = arr[i + 1] || { peso: pesoBaseModal, fecha: fechaInicioModal };
                         const d = differenceInDays(new Date(p.fecha), new Date(ant.fecha)) || 1;
                         const ganancia = p.peso - ant.peso;
                         const gmp = (ganancia / d) * 30;
