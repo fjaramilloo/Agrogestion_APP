@@ -457,7 +457,7 @@ export default function Weighing() {
                             <button
                                 type="button"
                                 onClick={guardarPesaje}
-                                disabled={loading || !nuevoPeso || (animal.fecha_ultimo_peso && animal.fecha_ultimo_peso.split('T')[0] === fechaPesaje)}
+                                disabled={loading || !nuevoPeso || (animal.fecha_ultimo_peso?.split('T')[0] === fechaPesaje)}
                                 style={{ width: 'auto', padding: '0 40px', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 120px' }}
                             >
                                 <Save size={28} />
