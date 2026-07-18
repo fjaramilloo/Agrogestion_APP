@@ -72,6 +72,7 @@ export default function Potreradas() {
     // Umbrales GMP
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
+    const [pesoEntradaCeba, setPesoEntradaCeba] = useState(380);
     
     // Estados para búsqueda y gestión
     const [potreradaSearch, setPotreradaSearch] = useState('');
@@ -136,7 +137,7 @@ export default function Potreradas() {
         try {
             // MEJORA 1: Todas las consultas iniciales en paralelo
             const [configRes, potsRes, rotsRes, movsRes, potsDataRes, animRes] = await Promise.all([
-                supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp').eq('id_finca', fincaId).single(),
+                supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp, peso_entrada_ceba').eq('id_finca', fincaId).single(),
                 supabase.from('potreradas').select('*').eq('id_finca', fincaId).order('nombre', { ascending: true }),
                 supabase.from('rotaciones').select('id, nombre').eq('id_finca', fincaId).order('nombre', { ascending: true }),
                 supabase.from('movimientos_potreros').select('id_potrerada, id_potrero, fecha_entrada, fecha_salida, potreros(nombre)').eq('id_finca', fincaId).is('fecha_salida', null).order('fecha_entrada', { ascending: false }),
@@ -153,6 +154,9 @@ export default function Potreradas() {
             if (configRes.data) {
                 setUmbralAlto(configRes.data.umbral_alto_gmp ?? 20);
                 setUmbralMedio(configRes.data.umbral_medio_gmp ?? 10);
+                if (configRes.data.peso_entrada_ceba) {
+                    setPesoEntradaCeba(configRes.data.peso_entrada_ceba);
+                }
             }
 
             const pots = potsRes.data || [];
@@ -1138,6 +1142,7 @@ export default function Potreradas() {
     const handleSaveWeighings = async () => {
         if (!detailData) return;
         const etapa = detailData.potrerada.etapa;
+        const idsOkCeba: string[] = [];
 
         // Filtrar solo los que tienen peso ingresado
         const registros = detailData.animales
@@ -1159,6 +1164,11 @@ export default function Potreradas() {
                         gdp = (newPeso - a.pesoActual) / days;
                         gmp = gdp * 30;
                     }
+                }
+
+                // Si están en levante y superan el umbral, se marcan para mercado
+                if (etapa === 'levante' && newPeso >= pesoEntradaCeba) {
+                    idsOkCeba.push(a.id);
                 }
 
                 return {
@@ -1185,7 +1195,15 @@ export default function Potreradas() {
 
             if (error) throw error;
 
-            alert(`✅ ${registros.length} pesaje(s) guardado(s) correctamente.`);
+            // Actualizar animales que alcanzaron el umbral
+            if (idsOkCeba.length > 0) {
+                await supabase
+                    .from('animales')
+                    .update({ ok_ceba: true })
+                    .in('id', idsOkCeba);
+            }
+
+            alert(`✅ ${registros.length} pesaje(s) guardado(s) correctamente.${idsOkCeba.length > 0 ? ` \n\n${idsOkCeba.length} animal(es) superaron el umbral y pasaron al Mercado de Ceba.` : ''}`);
             setShowWeighingForm(false);
             setWeighingData({});
             // Refrescar la tarjeta de detalle
