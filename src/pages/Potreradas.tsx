@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale, Activity } from 'lucide-react';
+import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale, Activity, AlertTriangle } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -60,6 +60,7 @@ export default function Potreradas() {
     const [loading, setLoading] = useState(true);
     const [editingPotrerada, setEditingPotrerada] = useState<Potrerada | null>(null);
     const [newName, setNewName] = useState('');
+    const [newEtapa, setNewEtapa] = useState('');
     
     // Estado para nueva potrerada
     const [showAddModal, setShowAddModal] = useState(false);
@@ -360,27 +361,51 @@ export default function Potreradas() {
     const handleEditClick = (p: Potrerada) => {
         setEditingPotrerada(p);
         setNewName(p.nombre);
+        setNewEtapa(p.etapa);
         setEditRotacion(p.id_rotacion);
     };
 
     const handleUpdateName = async () => {
-        if (!editingPotrerada || !newName.trim()) return;
+        if (!editingPotrerada || !newName.trim() || !newEtapa) return;
 
         try {
+            setLoading(true);
             const { error } = await supabase
                 .from('potreradas')
                 .update({ 
                     nombre: newName.trim(),
-                    id_rotacion: editRotacion
+                    etapa: newEtapa,
+                    id_rotacion: editRotacion || null
                 })
                 .eq('id', editingPotrerada.id);
 
             if (error) throw error;
 
+            if (newEtapa !== editingPotrerada.etapa) {
+                const animalsInPotrerada = animalesFinca.filter(a => a.id_potrerada === editingPotrerada.id);
+                if (animalsInPotrerada.length > 0) {
+                    const updatePromises = animalsInPotrerada.map(a => {
+                        const animalData: any = { etapa: newEtapa, ok_ceba: false };
+                        if (newEtapa === 'ceba') {
+                            animalData.fecha_ingreso_ceba = new Date().toISOString().split('T')[0];
+                            animalData.peso_ingreso_ceba = a.pesoActual;
+                        } else if (editingPotrerada.etapa === 'ceba') {
+                            animalData.fecha_ingreso_ceba = null;
+                            animalData.peso_ingreso_ceba = null;
+                        }
+                        return supabase.from('animales').update(animalData).eq('id', a.id);
+                    });
+                    
+                    await Promise.all(updatePromises);
+                }
+            }
+
             setEditingPotrerada(null);
             fetchPotreradasData();
         } catch (error: any) {
             alert('Error al actualizar: ' + error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -1427,6 +1452,25 @@ export default function Potreradas() {
                                 placeholder="Ej: Lote 1 - Engorde"
                                 autoFocus
                             />
+                        </div>
+                        <div style={{ marginBottom: '24px' }}>
+                            <label>Etapa de la Potrerada</label>
+                            <select
+                                value={newEtapa}
+                                onChange={e => setNewEtapa(e.target.value)}
+                            >
+                                <option value="cría">Cría</option>
+                                <option value="levante">Levante</option>
+                                <option value="ceba">Ceba</option>
+                            </select>
+                            {newEtapa !== editingPotrerada.etapa && (
+                                <div style={{ marginTop: '8px', padding: '12px', background: 'rgba(255,152,0,0.1)', color: 'var(--warning)', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                                    <span>
+                                        <strong>Atención:</strong> Se cambiará la etapa a todos los animales del lote. Esto afectará el cálculo de sus ganancias de peso y reiniciará su etapa si pasan a Ceba.
+                                    </span>
+                                </div>
+                            )}
                         </div>
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <button onClick={() => setEditingPotrerada(null)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: 'none' }}>
