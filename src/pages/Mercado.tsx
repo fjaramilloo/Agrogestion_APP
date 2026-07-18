@@ -40,6 +40,9 @@ export default function Mercado() {
     const [creando, setCreando] = useState(false);
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
+    const [modoDestino, setModoDestino] = useState<'nuevo' | 'existente'>('nuevo');
+    const [potreradaExistenteId, setPotreradaExistenteId] = useState('');
+    const [potreradasCeba, setPotreradasCeba] = useState<{id: string, nombre: string, id_potrero: string | null}[]>([]);
 
     // Ordenamiento
     const [sortBy, setSortBy] = useState('ultimo_peso');
@@ -97,6 +100,30 @@ export default function Mercado() {
 
         if (potData) setPotreros(potData);
 
+        const { data: potreradasData } = await supabase
+            .from('potreradas')
+            .select('id, nombre')
+            .eq('id_finca', fincaId)
+            .eq('etapa', 'ceba')
+            .order('nombre');
+
+        const { data: movsData } = await supabase
+            .from('movimientos_potreros')
+            .select('id_potrerada, id_potrero')
+            .eq('id_finca', fincaId)
+            .is('fecha_salida', null);
+
+        if (potreradasData) {
+            const potCebaConPotrero = potreradasData.map(p => {
+                const mov = movsData?.find(m => m.id_potrerada === p.id);
+                return {
+                    ...p,
+                    id_potrero: mov ? mov.id_potrero : null
+                };
+            });
+            setPotreradasCeba(potCebaConPotrero);
+        }
+
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
 
@@ -148,54 +175,84 @@ export default function Mercado() {
         setAnimalesSeleccionados(new Set());
         setNombrePotrerada('');
         setPotreroSeleccionado('');
+        setModoDestino('nuevo');
+        setPotreradaExistenteId('');
         setMsjError('');
         setShowModal(true);
     };
 
     const handlePasarACeba = async () => {
-        if (!fincaId || !nombrePotrerada.trim() || !potreroSeleccionado || animalesSeleccionados.size === 0) {
-            setMsjError('Complete todos los campos y seleccione al menos un animal.');
+        if (!fincaId || animalesSeleccionados.size === 0) {
+            setMsjError('Seleccione al menos un animal.');
             return;
         }
+
+        if (modoDestino === 'nuevo') {
+            if (!nombrePotrerada.trim() || !potreroSeleccionado) {
+                setMsjError('Complete todos los campos para la nueva potrerada.');
+                return;
+            }
+        } else {
+            if (!potreradaExistenteId) {
+                setMsjError('Seleccione una potrerada existente.');
+                return;
+            }
+        }
+
         setCreando(true);
         setMsjError('');
 
         try {
-            // 1. Crear la nueva potrerada en etapa ceba
-            const { data: nuevaPotrerada, error: errPot } = await supabase
-                .from('potreradas')
-                .insert({ id_finca: fincaId, nombre: nombrePotrerada.trim(), etapa: 'ceba' })
-                .select()
-                .single();
+            let targetPotreradaId = '';
+            let targetPotreroId = '';
+            let nombreResult = '';
 
-            if (errPot) throw new Error('Error al crear potrerada: ' + errPot.message);
+            if (modoDestino === 'nuevo') {
+                // 1. Crear la nueva potrerada en etapa ceba
+                const { data: nuevaPotrerada, error: errPot } = await supabase
+                    .from('potreradas')
+                    .insert({ id_finca: fincaId, nombre: nombrePotrerada.trim(), etapa: 'ceba' })
+                    .select()
+                    .single();
+
+                if (errPot) throw new Error('Error al crear potrerada: ' + errPot.message);
+                
+                targetPotreradaId = nuevaPotrerada.id;
+                targetPotreroId = potreroSeleccionado;
+                nombreResult = nombrePotrerada.trim();
+
+                // 3. Registrar un único movimiento de potrero para la nueva potrerada
+                const hoy = new Date().toISOString().split('T')[0];
+                await supabase.from('movimientos_potreros').insert({
+                    id_finca: fincaId,
+                    id_potrerada: targetPotreradaId,
+                    id_potrero: targetPotreroId,
+                    fecha_entrada: hoy
+                });
+            } else {
+                targetPotreradaId = potreradaExistenteId;
+                const pceba = potreradasCeba.find(p => p.id === targetPotreradaId);
+                targetPotreroId = pceba?.id_potrero || ''; 
+                nombreResult = pceba?.nombre || 'Potrerada Existente';
+            }
 
             const ids = Array.from(animalesSeleccionados);
 
-            // 2. Actualizar los animales: cambiar etapa a ceba, asignar nueva potrerada y potrero, limpiar ok_ceba
+            // 2. Actualizar los animales: cambiar etapa a ceba, asignar potrerada y potrero, limpiar ok_ceba
             const { error: errUpdate } = await supabase
                 .from('animales')
                 .update({
                     etapa: 'ceba',
-                    id_potrerada: nuevaPotrerada.id,
-                    id_potrero_actual: potreroSeleccionado,
+                    id_potrerada: targetPotreradaId,
+                    id_potrero_actual: targetPotreroId || null,
                     ok_ceba: false
                 })
                 .in('id', ids);
 
             if (errUpdate) throw new Error('Error al actualizar animales: ' + errUpdate.message);
 
-            // 3. Registrar un único movimiento de potrero para la nueva potrerada
-            const hoy = new Date().toISOString().split('T')[0];
-            await supabase.from('movimientos_potreros').insert({
-                id_finca: fincaId,
-                id_potrerada: nuevaPotrerada.id,
-                id_potrero: potreroSeleccionado,
-                fecha_entrada: hoy
-            });
-
             setShowModal(false);
-            setMsjExito(`¡Potrerada "${nombrePotrerada}" creada con ${ids.length} animales en etapa Ceba!`);
+            setMsjExito(`¡${ids.length} animales asignados exitosamente a "${nombreResult}" en etapa Ceba!`);
             await fetchData();
         } catch (err: any) {
             setMsjError(err.message);
@@ -357,29 +414,72 @@ export default function Mercado() {
                             </div>
                         )}
 
-                        <div style={{ marginBottom: '20px' }}>
-                            <label>Nombre de la nueva Potrerada</label>
-                            <input
-                                type="text"
-                                value={nombrePotrerada}
-                                onChange={e => setNombrePotrerada(e.target.value)}
-                                placeholder="Ej: Lote Ceba - Marzo 2025"
-                                autoFocus
-                            />
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setModoDestino('nuevo')}
+                                style={{ flex: 1, padding: '10px', background: modoDestino === 'nuevo' ? 'rgba(76,175,80,0.1)' : 'transparent', border: modoDestino === 'nuevo' ? '1px solid var(--success)' : '1px solid rgba(255,255,255,0.1)', color: modoDestino === 'nuevo' ? 'var(--success)' : 'var(--text-muted)' }}
+                            >
+                                Crear Nueva Potrerada
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setModoDestino('existente')}
+                                style={{ flex: 1, padding: '10px', background: modoDestino === 'existente' ? 'rgba(76,175,80,0.1)' : 'transparent', border: modoDestino === 'existente' ? '1px solid var(--success)' : '1px solid rgba(255,255,255,0.1)', color: modoDestino === 'existente' ? 'var(--success)' : 'var(--text-muted)' }}
+                            >
+                                Añadir a Existente
+                            </button>
                         </div>
 
-                        <div style={{ marginBottom: '20px' }}>
-                            <label>Potrero de destino</label>
-                            <select
-                                value={potreroSeleccionado}
-                                onChange={e => setPotreroSeleccionado(e.target.value)}
-                            >
-                                <option value="">-- Seleccionar potrero --</option>
-                                {potreros.map(p => (
-                                    <option key={p.id} value={p.id}>{p.nombre}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {modoDestino === 'nuevo' ? (
+                            <>
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label>Nombre de la nueva Potrerada</label>
+                                    <input
+                                        type="text"
+                                        value={nombrePotrerada}
+                                        onChange={e => setNombrePotrerada(e.target.value)}
+                                        placeholder="Ej: Lote Ceba - Marzo 2025"
+                                        autoFocus
+                                    />
+                                </div>
+
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label>Potrero de destino</label>
+                                    <select
+                                        value={potreroSeleccionado}
+                                        onChange={e => setPotreroSeleccionado(e.target.value)}
+                                    >
+                                        <option value="">-- Seleccionar potrero --</option>
+                                        {potreros.map(p => (
+                                            <option key={p.id} value={p.id}>{p.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ marginBottom: '20px' }}>
+                                <label>Seleccionar Potrerada de Ceba</label>
+                                {potreradasCeba.length === 0 ? (
+                                    <div style={{ color: 'var(--warning)', fontSize: '0.9rem', padding: '12px', background: 'rgba(255,152,0,0.1)', borderRadius: '6px' }}>
+                                        No hay potreradas de Ceba creadas actualmente. Crea una nueva potrerada.
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={potreradaExistenteId}
+                                        onChange={e => setPotreradaExistenteId(e.target.value)}
+                                    >
+                                        <option value="">-- Seleccionar potrerada --</option>
+                                        {potreradasCeba.map(p => {
+                                            const potreroActual = potreros.find(pot => pot.id === p.id_potrero)?.nombre || 'Sin potrero asignado';
+                                            return (
+                                                <option key={p.id} value={p.id}>{p.nombre} (En: {potreroActual})</option>
+                                            )
+                                        })}
+                                    </select>
+                                )}
+                            </div>
+                        )}
 
                         <div style={{ marginBottom: '24px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -431,7 +531,7 @@ export default function Mercado() {
                             </button>
                             <button
                                 onClick={handlePasarACeba}
-                                disabled={creando || animalesSeleccionados.size === 0 || !nombrePotrerada.trim() || !potreroSeleccionado}
+                                disabled={creando || animalesSeleccionados.size === 0 || (modoDestino === 'nuevo' ? (!nombrePotrerada.trim() || !potreroSeleccionado) : !potreradaExistenteId)}
                                 style={{ flex: 1, backgroundColor: '#2e7d32', border: '1px solid #4caf50', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                             >
                                 {creando ? 'Creando...' : <><ArrowRight size={18} /> Confirmar Pase a Ceba</>}
