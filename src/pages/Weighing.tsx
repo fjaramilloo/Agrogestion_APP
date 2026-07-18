@@ -94,7 +94,7 @@ export default function Weighing() {
             // Buscar el último pesaje
             const { data: pesajes } = await supabase
                 .from('registros_pesaje')
-                .select('peso, fecha')
+                .select('peso, fecha, gmp_calculada, gdp_calculada')
                 .eq('id_animal', data.id)
                 .order('fecha', { ascending: false });
 
@@ -115,9 +115,18 @@ export default function Weighing() {
                 ultimoPeso = ultimo.peso;
                 fechaUltimoPeso = ultimo.fecha;
 
-                const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(fechaBase)) || 1;
-                const gananciaTotal = ultimo.peso - pesoBase;
-                gmp = (gananciaTotal / diffDias) * 30;
+                if (ultimo.gmp_calculada !== null && ultimo.gmp_calculada !== undefined) {
+                    gmp = ultimo.gmp_calculada;
+                } else if (ultimo.gdp_calculada !== null && ultimo.gdp_calculada !== undefined) {
+                    gmp = ultimo.gdp_calculada * 30;
+                } else if (pesajes.length > 1) {
+                    const penultimo = pesajes[1];
+                    const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(penultimo.fecha)) || 1;
+                    gmp = ((ultimo.peso - penultimo.peso) / diffDias) * 30;
+                } else {
+                    const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(fechaBase)) || 1;
+                    gmp = ((ultimo.peso - pesoBase) / diffDias) * 30;
+                }
             }
 
             setAnimal({
@@ -374,7 +383,7 @@ export default function Weighing() {
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>#{animal.numero_chapeta}</div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
-                                <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>GMP Actual</div>
+                                <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Última GMP</div>
                                 <div style={{ 
                                     fontSize: '1.5rem', 
                                     fontWeight: 'bold', 
