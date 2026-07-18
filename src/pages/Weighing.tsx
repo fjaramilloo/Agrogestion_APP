@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Save, PlusCircle, CheckCircle2 } from 'lucide-react';
+import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 interface AnimalPreview {
@@ -207,6 +207,10 @@ export default function Weighing() {
             if (animal.ultimo_peso && animal.fecha_ultimo_peso) {
                 const fechaUltimo = animal.fecha_ultimo_peso.split('T')[0];
                 
+                if (fechaPesaje === fechaUltimo) {
+                    throw new Error(`Este animal ya tiene un pesaje registrado para la fecha ${fechaPesaje}.`);
+                }
+
                 // Si es el mismo día, no calculamos ganancia para evitar errores de 0 GDP
                 if (fechaPesaje !== fechaUltimo) {
                     const diffDias = differenceInDays(new Date(fechaPesaje + 'T12:00:00'), new Date(fechaUltimo + 'T12:00:00'));
@@ -421,6 +425,13 @@ export default function Weighing() {
                             </div>
                         )}
 
+                        {/* Indicador de peso repetido el mismo día */}
+                        {animal.fecha_ultimo_peso && animal.fecha_ultimo_peso.split('T')[0] === fechaPesaje && (
+                            <div style={{ padding: '12px 16px', background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', marginBottom: '16px', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+                                <AlertTriangle size={18} style={{ flexShrink: 0 }} /> Este animal ya tiene un pesaje registrado en esta fecha.
+                            </div>
+                        )}
+
                         <label style={{ fontSize: '1.2rem', color: 'white', marginBottom: '12px' }}>Nuevo Peso (kg)</label>
                         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                             <div style={{ flex: '1 1 140px' }}>
@@ -446,7 +457,7 @@ export default function Weighing() {
                             <button
                                 type="button"
                                 onClick={guardarPesaje}
-                                disabled={loading || !nuevoPeso}
+                                disabled={loading || !nuevoPeso || (animal.fecha_ultimo_peso && animal.fecha_ultimo_peso.split('T')[0] === fechaPesaje)}
                                 style={{ width: 'auto', padding: '0 40px', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 120px' }}
                             >
                                 <Save size={28} />
