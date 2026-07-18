@@ -22,6 +22,7 @@ export default function Weighing() {
     const [chapeta, setChapeta] = useState('');
     const [animal, setAnimal] = useState<AnimalPreview | null>(null);
     const [nuevoPeso, setNuevoPeso] = useState('');
+    const [fechaPesaje, setFechaPesaje] = useState(new Date().toISOString().split('T')[0]);
 
     // Estados para la creación
     const [animalNoEncontrado, setAnimalNoEncontrado] = useState(false);
@@ -77,6 +78,7 @@ export default function Weighing() {
         setAnimalNoEncontrado(false);
         setShowCrearAnimal(false);
         setMarcadoCeba(false);
+        setFechaPesaje(new Date().toISOString().split('T')[0]);
 
         const { data, error } = await supabase
             .from('animales')
@@ -194,12 +196,11 @@ export default function Weighing() {
 
             let gdpCalculada = 0;
             if (animal.ultimo_peso && animal.fecha_ultimo_peso) {
-                const fechaHoy = new Date().toISOString().split('T')[0];
-                const fechaUltimo = animal.fecha_ultimo_peso;
+                const fechaUltimo = animal.fecha_ultimo_peso.split('T')[0];
                 
                 // Si es el mismo día, no calculamos ganancia para evitar errores de 0 GDP
-                if (fechaHoy !== fechaUltimo) {
-                    const diffDias = differenceInDays(new Date(fechaHoy), new Date(fechaUltimo));
+                if (fechaPesaje !== fechaUltimo) {
+                    const diffDias = differenceInDays(new Date(fechaPesaje + 'T12:00:00'), new Date(fechaUltimo + 'T12:00:00'));
                     if (diffDias > 0) {
                         gdpCalculada = (pesoFloat - animal.ultimo_peso) / diffDias;
                     }
@@ -209,7 +210,7 @@ export default function Weighing() {
             const { error } = await supabase.from('registros_pesaje').insert({
                 id_animal: animal.id,
                 peso: pesoFloat,
-                fecha: new Date().toISOString().split('T')[0],
+                fecha: fechaPesaje,
                 etapa: animal.etapa,
                 gdp_calculada: gdpCalculada
             });
@@ -235,6 +236,7 @@ export default function Weighing() {
             setAnimal(null);
             setChapeta('');
             setNuevoPeso('');
+            setFechaPesaje(new Date().toISOString().split('T')[0]);
         } catch (err: any) {
             setMsjError(err.message || 'Error al guardar el pesaje');
         } finally {
@@ -411,7 +413,17 @@ export default function Weighing() {
                         )}
 
                         <label style={{ fontSize: '1.2rem', color: 'white', marginBottom: '12px' }}>Nuevo Peso (kg)</label>
-                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                            <div style={{ flex: '1 1 140px' }}>
+                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>Fecha del pesaje</label>
+                                <input
+                                    type="date"
+                                    value={fechaPesaje}
+                                    onChange={(e) => setFechaPesaje(e.target.value)}
+                                    style={{ marginBottom: 0 }}
+                                    disabled={loading}
+                                />
+                            </div>
                             <input
                                 type="number"
                                 inputMode="decimal"

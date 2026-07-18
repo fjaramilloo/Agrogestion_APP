@@ -20,6 +20,7 @@ import Potreradas from './pages/Potreradas';
 import Mercado from './pages/Mercado';
 import Aforos from './pages/Aforos';
 import VersionNotifier from './components/VersionNotifier';
+import UpdatePassword from './pages/UpdatePassword';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, role, loading } = useAuth();
@@ -70,6 +71,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/update-password" element={<UpdatePassword />} />
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route
         path="/inventario"
