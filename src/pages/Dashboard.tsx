@@ -207,7 +207,7 @@ export default function Dashboard() {
                 // Query separado y liviano solo para el modal de muertes
                 supabase.from('animales').select(
                     'id, numero_chapeta, nombre_propietario, estado, fecha_muerte, fecha_venta, comprador_venta, observaciones_venta, etapa'
-                ).eq('id_finca', fincaId).or('estado.eq.muerto,and(estado.eq.vendido,comprador_venta.ilike.%carnicero%)')
+                ).eq('id_finca', fincaId).in('estado', ['muerto', 'vendido'])
             ]);
 
             // todosAnimales ahora es solo los activos (para gráficas)
