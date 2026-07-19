@@ -298,6 +298,13 @@ export default function Sales() {
         try {
             if (!selectedComprador) throw new Error("Debe seleccionar un Comprador para la venta.");
             if (isCarnicero && !observaciones.trim()) throw new Error("Para ventas al Carnicero es obligatorio detallar el motivo en observaciones.");
+            
+            const chapetas = animales.map(a => a.numero_chapeta.trim().toUpperCase());
+            if (new Set(chapetas).size !== chapetas.length) {
+                const duplicados = chapetas.filter((item, index) => chapetas.indexOf(item) !== index);
+                throw new Error(`Hay chapetas repetidas en la lista actual: ${Array.from(new Set(duplicados)).join(', ')}`);
+            }
+
             if (animales.some(a => !a.validado)) throw new Error("Debe validar todas las chapetas antes de continuar.");
             if (animales.some(a => !a.peso_salida || parseFloat(a.peso_salida) <= 0)) throw new Error("Todos los animales deben tener un peso de salida válido.");
             if (isCarnicero && animales.some(a => !a.precio_venta || parseFloat(a.precio_venta) <= 0)) throw new Error("Para ventas al Carnicero es obligatorio ingresar el valor de venta.");
@@ -663,7 +670,12 @@ export default function Sales() {
                             </tr>
                         </thead>
                         <tbody>
-                            {animales.map((a, index) => (
+                            {animales.map((a, index) => {
+                                const tagTrimmed = a.numero_chapeta.trim().toUpperCase();
+                                const isDuplicateInList = tagTrimmed !== '' && animales.filter(item => item.numero_chapeta.trim().toUpperCase() === tagTrimmed).length > 1;
+                                const finalError = isDuplicateInList ? 'Repetido en la lista' : a.error;
+
+                                return (
                                 <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                     <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{index + 1}</td>
                                     <td style={{ padding: '8px 16px' }}>
@@ -674,11 +686,18 @@ export default function Sales() {
                                                 value={a.numero_chapeta}
                                                 onChange={e => updateAnimalField(index, 'numero_chapeta', e.target.value)}
                                                 onBlur={() => validarAnimal(index)}
-                                                style={{ marginBottom: 0, padding: '10px', width: '120px', borderColor: a.error ? 'var(--error)' : (a.validado ? 'var(--success)' : '') }}
+                                                style={{ 
+                                                    marginBottom: 0, 
+                                                    padding: '10px', 
+                                                    width: '120px', 
+                                                    borderColor: finalError ? 'var(--error)' : (a.validado ? 'var(--success)' : ''),
+                                                    backgroundColor: isDuplicateInList ? 'rgba(244, 67, 54, 0.05)' : 'transparent'
+                                                }}
                                             />
-                                            {a.validado && <CheckCircle2 size={18} color="var(--success)" />}
-                                            {a.error && <div style={{ color: 'var(--error)', fontSize: '0.7rem' }} title={a.error}><AlertCircle size={18} /></div>}
-                                            {!a.validado && !a.error && a.numero_chapeta && <button onClick={() => validarAnimal(index)} className="btn-icon" style={{ width: 'auto' }}><Search size={14} /></button>}
+                                            {a.validado && !isDuplicateInList && <CheckCircle2 size={18} color="var(--success)" />}
+                                            {finalError && <div style={{ color: 'var(--error)', fontSize: '0.7rem' }} title={finalError}><AlertCircle size={18} /></div>}
+                                            {isDuplicateInList && <div style={{ color: 'var(--error)', fontSize: '0.7rem', marginTop: '4px' }}>Repetido en la lista</div>}
+                                            {!a.validado && !finalError && a.numero_chapeta && <button onClick={() => validarAnimal(index)} className="btn-icon" style={{ width: 'auto' }}><Search size={14} /></button>}
                                         </div>
                                     </td>
                                     <td style={{ padding: '8px 16px' }}>
@@ -732,7 +751,7 @@ export default function Sales() {
                                         </button>
                                     </td>
                                 </tr>
-                            ))}
+                            )})}
                         </tbody>
                     </table>
 
