@@ -124,7 +124,7 @@ export default function Inventory() {
                     id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
                     peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
                     peso_ingreso_ceba, estado, id_potrerada, creado_en,
-                    potreradas ( nombre ),
+                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
                     potreros ( nombre ),
                     registros_pesaje (
                         peso, fecha, gdp_calculada, gmp_calculada,

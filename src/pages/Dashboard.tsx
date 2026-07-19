@@ -199,7 +199,7 @@ export default function Dashboard() {
                 supabase.from('animales').select(`
                     id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado, fecha_muerte, id_potrerada, comprador_venta, fecha_venta, observaciones_venta,
                     potreros ( nombre ),
-                    potreradas ( nombre ),
+                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
                     registros_pesaje (
                         id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
                     )
