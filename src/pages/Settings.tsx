@@ -583,12 +583,18 @@ export default function Settings() {
                         const fechaFinal = parseFechaCol(rawFecha) || new Date().toISOString().split('T')[0];
                         const pesoIngreso = cleanNumber(row.peso_ingreso);
 
+                        const sexoFinal = row.sexo?.toUpperCase() || 'M';
+                        const tipoMachoCSV = row.tipo_macho?.toString().toLowerCase().trim();
+                        const tipoMachoFinal = sexoFinal === 'M'
+                            ? (tipoMachoCSV === 'novillo' ? 'novillo' : 'toro')
+                            : null;
+
                         return {
                             id_finca: fincaId,
                             numero_chapeta: row.numero_chapeta?.toString().trim(),
                             nombre_propietario: row.propietario || 'Sin Datos',
                             especie: row.especie?.toLowerCase() || 'bovino',
-                            sexo: row.sexo?.toUpperCase() || 'M',
+                            sexo: sexoFinal,
                             etapa: etapa,
                             fecha_ingreso: fechaFinal,
                             peso_ingreso: pesoIngreso,
@@ -599,6 +605,8 @@ export default function Settings() {
                             fecha_ingreso_ceba: etapa === 'ceba' ? fechaFinal : null,
                             peso_ingreso_ceba: etapa === 'ceba' ? pesoIngreso : null,
                             ok_ceba: false,
+                            // Tipo de macho (toro o novillo)
+                            tipo_macho: tipoMachoFinal,
                             // Campos opcionales de compra
                             proveedor_compra: row.proveedor || row.proveedor_compra || null,
                             observaciones_compra: row.observaciones || row.observaciones_compra || null
