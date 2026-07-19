@@ -15,6 +15,9 @@ interface AnimalPreview {
     fecha_ultimo_peso?: string;
     gmp?: number;
     ok_ceba?: boolean;
+    sexo?: string;
+    tipo_macho?: string;
+    fecha_castracion?: string;
 }
 
 export default function Weighing() {
@@ -23,6 +26,7 @@ export default function Weighing() {
     const [animal, setAnimal] = useState<AnimalPreview | null>(null);
     const [nuevoPeso, setNuevoPeso] = useState('');
     const [fechaPesaje, setFechaPesaje] = useState(new Date().toISOString().split('T')[0]);
+    const [castrarHoy, setCastrarHoy] = useState(false);
 
     // Estados para la creación
     const [animalNoEncontrado, setAnimalNoEncontrado] = useState(false);
@@ -78,11 +82,12 @@ export default function Weighing() {
         setAnimalNoEncontrado(false);
         setShowCrearAnimal(false);
         setMarcadoCeba(false);
+        setCastrarHoy(false);
         setFechaPesaje(new Date().toISOString().split('T')[0]);
 
         const { data, error } = await supabase
             .from('animales')
-            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba')
+            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion')
             .eq('id_finca', fincaId)
             .eq('numero_chapeta', chapeta.trim())
             .single();
@@ -156,6 +161,7 @@ export default function Weighing() {
                 nombre_propietario: propietarioNuevo,
                 especie: 'bovino',
                 sexo: 'M',
+                tipo_macho: 'toro',
                 etapa: 'levante',
                 fecha_ingreso: fechaIngresoNueva,
                 peso_ingreso: pesoFloat,
@@ -232,20 +238,32 @@ export default function Weighing() {
 
             // Verificar si el peso supera el umbral de entrada a ceba
             let marcaOkCeba = false;
+            let updateAnimalData: any = {};
+            
             if (animal.etapa === 'levante' && pesoFloat >= pesoEntradaCeba) {
                 marcaOkCeba = true;
-                await supabase
-                    .from('animales')
-                    .update({ ok_ceba: true })
-                    .eq('id', animal.id);
+                updateAnimalData.ok_ceba = true;
                 setMarcadoCeba(true);
             }
 
-            const msgCeba = marcaOkCeba
-                ? ` 🟢 Animal marcado para pasar a Ceba (${pesoFloat}kg ≥ ${pesoEntradaCeba}kg).`
-                : '';
+            if (castrarHoy) {
+                updateAnimalData.tipo_macho = 'novillo';
+                updateAnimalData.fecha_castracion = fechaPesaje;
+            }
 
-            setMsjExito(`¡Pesaje de ${pesoFloat}kg guardado para la chapeta #${animal.numero_chapeta}!${msgCeba}`);
+            if (Object.keys(updateAnimalData).length > 0) {
+                await supabase
+                    .from('animales')
+                    .update(updateAnimalData)
+                    .eq('id', animal.id);
+            }
+
+            const msgCeba = marcaOkCeba
+                ? ` 🟢 Marcado para pasar a Ceba (${pesoFloat}kg ≥ ${pesoEntradaCeba}kg).`
+                : '';
+            const msgCastrado = castrarHoy ? ` ✂️ Registrado como Novillo.` : '';
+
+            setMsjExito(`¡Pesaje de ${pesoFloat}kg guardado para la chapeta #${animal.numero_chapeta}!${msgCeba}${msgCastrado}`);
             setAnimal(null);
             setChapeta('');
             setNuevoPeso('');
@@ -399,7 +417,7 @@ export default function Weighing() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                             <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Último Pesaje</div>
                                 <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{animal.ultimo_peso} kg</div>
@@ -410,6 +428,65 @@ export default function Weighing() {
                                 <div style={{ fontSize: '1.3rem', fontWeight: 'bold', textTransform: 'capitalize' }}>{animal.etapa}</div>
                             </div>
                         </div>
+
+                        {/* Tarjeta de tipo de animal (solo machos) */}
+                        {animal.sexo === 'M' && (
+                            <div style={{ marginBottom: '16px' }}>
+                                {animal.tipo_macho === 'novillo' ? (
+                                    <div style={{ padding: '12px 16px', background: 'rgba(33,150,243,0.08)', border: '1px solid rgba(33,150,243,0.25)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: '#42a5f5', fontSize: '0.9rem' }}>
+                                        <span style={{ fontSize: '1.2rem' }}>✂️</span>
+                                        <div>
+                                            <strong>Novillo</strong> (castrado)
+                                            {animal.fecha_castracion && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Castrado el {format(new Date(animal.fecha_castracion + 'T12:00:00'), 'dd/MM/yyyy')}</div>}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '14px 16px', background: 'rgba(255,152,0,0.06)', border: `1px solid ${castrarHoy ? 'rgba(33,150,243,0.4)' : 'rgba(255,152,0,0.2)'}`, borderRadius: '10px', transition: 'border-color 0.2s' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontSize: '1.1rem' }}>🐂</span>
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', color: 'var(--text-light)', fontSize: '0.95rem' }}>Toro (sin castrar)</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>¿Se castró hoy? Marcar como Novillo</div>
+                                                </div>
+                                            </div>
+                                            <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '28px', cursor: 'pointer', flexShrink: 0 }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={castrarHoy}
+                                                    onChange={e => setCastrarHoy(e.target.checked)}
+                                                    style={{ opacity: 0, width: 0, height: 0 }}
+                                                />
+                                                <span style={{
+                                                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                                    background: castrarHoy ? '#2196F3' : 'rgba(255,255,255,0.1)',
+                                                    borderRadius: '28px',
+                                                    transition: 'background 0.2s',
+                                                    boxShadow: castrarHoy ? '0 0 8px rgba(33,150,243,0.5)' : 'none'
+                                                }}>
+                                                    <span style={{
+                                                        position: 'absolute',
+                                                        top: '3px',
+                                                        left: castrarHoy ? '27px' : '3px',
+                                                        width: '22px', height: '22px',
+                                                        background: 'white',
+                                                        borderRadius: '50%',
+                                                        transition: 'left 0.2s',
+                                                        boxShadow: '0 1px 4px rgba(0,0,0,0.3)'
+                                                    }} />
+                                                </span>
+                                            </label>
+                                        </div>
+                                        {castrarHoy && (
+                                            <div style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(33,150,243,0.1)', borderRadius: '6px', color: '#42a5f5', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                                                Al guardar el pesaje, este animal quedará registrado como <strong>Novillo</strong> para siempre.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Indicador si ya tiene marca ok_ceba - Solo mostrar si está en levante */}
                         {animal.ok_ceba && animal.etapa === 'levante' && (
