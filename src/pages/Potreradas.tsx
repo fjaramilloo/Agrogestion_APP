@@ -16,6 +16,8 @@ interface Potrerada {
     nombre: string;
     etapa: string;
     animalCount: number;
+    vendidoCount: number;
+    loteListoParaLimpiar: boolean;
     pesoPromedio: number;
     pesoEstimadoPromedio: number;
     gmpPromedio: number;
@@ -35,6 +37,7 @@ interface AnimalPotrero {
     id_potrerada: string | null;
     potreradaNombre?: string;
     pesoActual: number;
+    estado?: string;
     gdp?: number;
     gmp?: number;
     fechaIngresoEtapa?: string | null;
@@ -145,11 +148,11 @@ export default function Potreradas() {
                 supabase.from('potreros').select('id_rotacion, area_hectareas').eq('id_finca', fincaId),
                 supabase.from('animales').select(`
                     id, numero_chapeta, nombre_propietario, id_potrerada,
-                    peso_ingreso, peso_compra, fecha_ingreso, etapa,
+                    peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
                     fecha_ingreso_ceba, peso_ingreso_ceba,
                     potreradas ( nombre ),
                     registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
-                `).eq('id_finca', fincaId).eq('estado', 'activo')
+                `).eq('id_finca', fincaId).in('estado', ['activo', 'vendido'])
             ]);
 
             if (configRes.data) {
@@ -195,7 +198,8 @@ export default function Potreradas() {
                     nombre_propietario: a.nombre_propietario,
                     id_potrerada: a.id_potrerada,
                     potreradaNombre: a.potreradas?.nombre,
-                    pesoActual: registros[0] ? registros[0].peso : (a.peso_compra ?? a.peso_ingreso)
+                    pesoActual: registros[0] ? registros[0].peso : (a.peso_compra ?? a.peso_ingreso),
+                    estado: a.estado
                 };
             });
 
@@ -206,6 +210,9 @@ export default function Potreradas() {
 
             const processedPots = pots.map((p: any) => {
                 const groupAnimals = animals?.filter((a: any) => a.id_potrerada === p.id) || [];
+                const animalesActivos = groupAnimals.filter((a: any) => a.estado === 'activo');
+                const animalesVendidos = groupAnimals.filter((a: any) => a.estado === 'vendido');
+                const loteListoParaLimpiar = animalesActivos.length === 0 && animalesVendidos.length > 0;
                 
                 let totalPeso = 0;
                 let totalPesoEstimado = 0;
@@ -290,7 +297,9 @@ export default function Potreradas() {
                     id: p.id,
                     nombre: p.nombre,
                     etapa: p.etapa,
-                    animalCount: groupAnimals.length,
+                    animalCount: animalesActivos.length,
+                    vendidoCount: animalesVendidos.length,
+                    loteListoParaLimpiar,
                     pesoPromedio: validWeightCount > 0 ? totalPeso / validWeightCount : 0,
                     pesoEstimadoPromedio: validWeightCount > 0 ? totalPesoEstimado / validWeightCount : 0,
                     gmpPromedio: validGmpLastCount > 0 ? totalGmpLast / validGmpLastCount : 0,
@@ -301,7 +310,7 @@ export default function Potreradas() {
                     rotacionNombre: p.id_rotacion ? (rotacionNombreMap.get(p.id_rotacion) || null) : null,
                     potreroActualNombre: potreroActualMap.get(p.id) || null,
                     cargaGlobal: (p.id_rotacion && areaRotacionMap.get(p.id_rotacion)) 
-                        ? (groupAnimals.length / (areaRotacionMap.get(p.id_rotacion) || 1)) 
+                        ? (animalesActivos.length / (areaRotacionMap.get(p.id_rotacion) || 1)) 
                         : 0
                 };
             });
@@ -458,6 +467,32 @@ export default function Potreradas() {
         }
     };
 
+    const handleLimpiarPotrerada = async (potreradaId: string) => {
+        const confirmed = window.confirm('¿Estás seguro de que deseas limpiar esta potrerada? Los animales vendidos quedarán sin asignación de lote pero el historial se conserva.');
+        if (!confirmed) return;
+        try {
+            // 1. Guardar sello histórico en ultima_potrerada_id
+            const { error: stampError } = await supabase
+                .from('animales')
+                .update({ ultima_potrerada_id: potreradaId })
+                .eq('id_potrerada', potreradaId)
+                .eq('estado', 'vendido');
+            if (stampError) throw stampError;
+
+            // 2. Desasociar de la potrerada
+            const { error: clearError } = await supabase
+                .from('animales')
+                .update({ id_potrerada: null })
+                .eq('id_potrerada', potreradaId)
+                .eq('estado', 'vendido');
+            if (clearError) throw clearError;
+
+            await fetchPotreradasData();
+        } catch (error: any) {
+            alert('Error al limpiar potrerada: ' + error.message);
+        }
+    };
+
     const resetManagementSearch = () => {
         setSearchTerm('');
         setSearchTermEnLote('');
@@ -480,10 +515,10 @@ export default function Potreradas() {
             const [animRes, fincaRes, movsRes] = await Promise.all([
                 supabase.from('animales').select(`
                     id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra,
-                    fecha_ingreso, etapa, fecha_ingreso_ceba, peso_ingreso_ceba,
+                    fecha_ingreso, etapa, estado, fecha_ingreso_ceba, peso_ingreso_ceba,
                     id_potrero_actual, potreros (nombre, area_hectareas),
                     registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada)
-                `).eq('id_potrerada', p.id).eq('estado', 'activo'),
+                `).eq('id_potrerada', p.id).in('estado', ['activo', 'vendido']),
                 supabase.from('fincas').select('nombre').eq('id', fincaId).single(),
                 supabase.from('movimientos_potreros').select('fecha_entrada').eq('id_potrerada', p.id).is('fecha_salida', null).maybeSingle()
             ]);
@@ -1342,6 +1377,11 @@ export default function Potreradas() {
                                                 <Users size={14} className="mobile-hide" />
                                                 <span style={{ fontWeight: '600' }}>{p.animalCount}</span>
                                             </div>
+                                            {p.vendidoCount > 0 && (
+                                                <div style={{ fontSize: '0.68rem', color: '#e67e22', fontWeight: 'bold', marginTop: '2px', background: 'rgba(230,126,34,0.1)', padding: '1px 6px', borderRadius: '8px' }}>
+                                                    {p.vendidoCount} vendido{p.vendidoCount > 1 ? 's' : ''}
+                                                </div>
+                                            )}
                                             {p.cargaGlobal > 0 && (
                                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                                                     {p.cargaGlobal.toFixed(2)} C/Ha
@@ -1394,32 +1434,45 @@ export default function Potreradas() {
                                     </td>
                                     {(role === 'administrador' || role === 'vaquero') && (
                                         <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                                <button 
-                                                    onClick={() => setManagingPotrerada(p)}
-                                                    className="btn-icon"
-                                                    title="Gestionar Animales"
-                                                    style={{ background: 'rgba(52, 152, 219, 0.1)', color: '#3498db', border: 'none', padding: '8px', borderRadius: '8px' }}
-                                                >
-                                                    <Users size={16} />
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleEditClick(p)}
-                                                    className="btn-icon"
-                                                    title="Editar Nombre"
-                                                    style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: 'none', padding: '8px', borderRadius: '8px' }}
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                {role === 'administrador' && (
-                                                    <button 
-                                                        onClick={() => removePotrerada(p.id)}
+                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                                {p.loteListoParaLimpiar ? (
+                                                    <button
+                                                        onClick={() => handleLimpiarPotrerada(p.id)}
                                                         className="btn-icon"
-                                                        title="Eliminar Potrerada"
-                                                        style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                        title="Limpiar Potrerada (todos los animales fueron vendidos)"
+                                                        style={{ background: 'rgba(230,126,34,0.15)', color: '#e67e22', border: '1px solid rgba(230,126,34,0.4)', padding: '8px 12px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                                                     >
-                                                        <Trash2 size={16} />
+                                                        🧹 Limpiar Lote
                                                     </button>
+                                                ) : (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => setManagingPotrerada(p)}
+                                                            className="btn-icon"
+                                                            title="Gestionar Animales"
+                                                            style={{ background: 'rgba(52, 152, 219, 0.1)', color: '#3498db', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                        >
+                                                            <Users size={16} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleEditClick(p)}
+                                                            className="btn-icon"
+                                                            title="Editar Nombre"
+                                                            style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        {role === 'administrador' && (
+                                                            <button 
+                                                                onClick={() => removePotrerada(p.id)}
+                                                                className="btn-icon"
+                                                                title="Eliminar Potrerada"
+                                                                style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         </td>
@@ -1540,22 +1593,30 @@ export default function Potreradas() {
                                             );
                                         }
 
-                                        return filtrados.map(a => (
-                                            <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
-                                                <div>
-                                                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#{a.numero_chapeta}</div>
-                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{a.nombre_propietario}</div>
+                                        return filtrados.map(a => {
+                                            const esVendido = a.estado === 'vendido';
+                                            return (
+                                                <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: esVendido ? 'rgba(230,126,34,0.04)' : 'rgba(255,255,255,0.02)', opacity: esVendido ? 0.7 : 1 }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem', textDecoration: esVendido ? 'line-through' : 'none', color: esVendido ? 'var(--text-muted)' : 'inherit' }}>#{a.numero_chapeta}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{a.nombre_propietario}</div>
+                                                        {esVendido && (
+                                                            <div style={{ fontSize: '0.6rem', fontWeight: 'bold', color: '#e67e22', background: 'rgba(230,126,34,0.15)', padding: '1px 5px', borderRadius: '6px', display: 'inline-block', marginTop: '2px' }}>VENDIDO</div>
+                                                        )}
+                                                    </div>
+                                                    {!esVendido && (
+                                                        <button 
+                                                            disabled={updatingAnimal === a.id}
+                                                            onClick={() => handleRemoveAnimal(a.id)}
+                                                            className="btn-icon"
+                                                            style={{ color: '#e74c3c', padding: '6px' }}
+                                                        >
+                                                            {updatingAnimal === a.id ? '...' : <Trash2 size={16} />}
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <button 
-                                                    disabled={updatingAnimal === a.id}
-                                                    onClick={() => handleRemoveAnimal(a.id)}
-                                                    className="btn-icon"
-                                                    style={{ color: '#e74c3c', padding: '6px' }}
-                                                >
-                                                    {updatingAnimal === a.id ? '...' : <Trash2 size={16} />}
-                                                </button>
-                                            </div>
-                                        ));
+                                            );
+                                        });
                                     })()}
                                 </div>
                             </div>
