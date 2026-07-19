@@ -36,7 +36,7 @@ export default function Rotations() {
     const [nuevoPotForm, setNuevoPotForm] = useState({ nombre: '', area: '' });
     const [searchTerm, setSearchTerm] = useState('');
 
-    const isAdmin = role === 'administrador';
+    const isAdmin = role === 'administrador' || role === 'vaquero';
 
     const fetchData = async () => {
         if (!fincaId) return;
@@ -302,9 +302,11 @@ export default function Rotations() {
                                     >
                                         <Plus size={14} /> Potrero
                                     </button>
-                                    <button onClick={() => deleteRotacion(rot.id)} style={{ width: 'auto', padding: '6px', background: 'none', color: 'rgba(244, 67, 54, 0.4)' }} title="Eliminar Rotación">
-                                        <Trash2 size={16} />
-                                    </button>
+                                            {role === 'administrador' && (
+                                                <button onClick={() => deleteRotacion(rot.id)} style={{ width: 'auto', padding: '6px', background: 'none', color: 'rgba(244, 67, 54, 0.4)' }} title="Eliminar Rotación">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                 </div>
                             )}
                         </div>
@@ -360,7 +362,7 @@ export default function Rotations() {
                                                             ) : (
                                                                 <>
                                                                     <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: p.id_rotacion || '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.2)' }}><Edit2 size={16} /></button>
-                                                                    <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.1)' }}><Trash2 size={16} /></button>
+                                                                    {role === 'administrador' && <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.1)' }}><Trash2 size={16} /></button>}
                                                                 </>
                                                             )}
                                                         </div>
@@ -448,7 +450,7 @@ export default function Rotations() {
                                                         ) : (
                                                             <>
                                                                 <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.2)' }}><Edit2 size={16} /></button>
-                                                                <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.1)' }}><Trash2 size={16} /></button>
+                                                                {role === 'administrador' && <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.1)' }}><Trash2 size={16} /></button>}
                                                             </>
                                                         )}
                                                     </div>

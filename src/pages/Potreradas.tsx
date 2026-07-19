@@ -1282,7 +1282,7 @@ export default function Potreradas() {
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ganancias (GMP)</th>
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Días Pesaje</th>
-                                {role === 'administrador' && <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>}
+                                {(role === 'administrador' || role === 'vaquero') && <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -1392,7 +1392,7 @@ export default function Potreradas() {
                                             {Math.round(p.diasPesajePromedio)} d
                                         </div>
                                     </td>
-                                    {role === 'administrador' && (
+                                    {(role === 'administrador' || role === 'vaquero') && (
                                         <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                                 <button 
@@ -1411,14 +1411,16 @@ export default function Potreradas() {
                                                 >
                                                     <Edit2 size={16} />
                                                 </button>
-                                                <button 
-                                                    onClick={() => removePotrerada(p.id)}
-                                                    className="btn-icon"
-                                                    title="Eliminar Potrerada"
-                                                    style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', border: 'none', padding: '8px', borderRadius: '8px' }}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                {role === 'administrador' && (
+                                                    <button 
+                                                        onClick={() => removePotrerada(p.id)}
+                                                        className="btn-icon"
+                                                        title="Eliminar Potrerada"
+                                                        style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     )}

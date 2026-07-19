@@ -192,7 +192,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                 <nav className="sidebar-nav" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {/* DASHBOARD - Para Admin y Visualización */}
-                    {(role === 'administrador' || role === 'observador') && (
+                    {(role === 'administrador' || role === 'observador' || role === 'vaquero') && (
                         <div style={{ marginBottom: '8px' }}>
                             <NavLink to="/" end onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                 <span className="sidebar-icon"><LayoutDashboard size={20} /></span>

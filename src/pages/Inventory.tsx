@@ -393,7 +393,7 @@ export default function Inventory() {
 
                 {role !== 'observador' && (
                     <div style={{ display: 'flex', gap: '12px' }}>
-                        {role === 'administrador' && (
+                        {(role === 'administrador' || role === 'vaquero') && (
                             <button
                                 onClick={() => setShowCrearModal(true)}
                                 style={{ width: 'auto', backgroundColor: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
