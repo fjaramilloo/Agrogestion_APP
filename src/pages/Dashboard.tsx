@@ -194,21 +194,26 @@ export default function Dashboard() {
                 }));
             }
 
-            // 3. Traer datos históricos para gráficas (lo más pesado)
-            const { data: todosAnimales } = await supabase
-                .from('animales')
-                .select(`
+            // 3. Traer datos históricos para gráficas (solo activos - más liviano)
+            const [animalesActivosRes, muertesRes] = await Promise.all([
+                supabase.from('animales').select(`
                     id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado, fecha_muerte, id_potrerada, comprador_venta, fecha_venta, observaciones_venta,
                     potreros ( nombre ),
                     potreradas ( nombre ),
                     registros_pesaje (
                         id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
                     )
-                `)
-                .eq('id_finca', fincaId);
+                `).eq('id_finca', fincaId).eq('estado', 'activo'),
+                // Query separado y liviano solo para el modal de muertes
+                supabase.from('animales').select(
+                    'id, numero_chapeta, nombre_propietario, estado, fecha_muerte, fecha_venta, comprador_venta, observaciones_venta, etapa'
+                ).eq('id_finca', fincaId).or('estado.eq.muerto,and(estado.eq.vendido,comprador_venta.ilike.%carnicero%)')
+            ]);
 
+            // todosAnimales ahora es solo los activos (para gráficas)
+            const todosAnimales = animalesActivosRes.data || [];
             // Filtrar los grupos principales en memoria
-            const animales = todosAnimales?.filter(a => a.estado === 'activo') || [];
+            const animales = todosAnimales;
 
 
             const pesajesMap: Record<string, any[]> = {};
@@ -274,7 +279,7 @@ export default function Dashboard() {
 
                 // --- CALCULAR MUERTES Y VENDIDOS A CARNICERO (solo para modal de detalle) ---
                 const muertesCompletas: any[] = [];
-                (todosAnimales || []).forEach(a => {
+                (muertesRes.data || []).forEach((a: any) => {
                     const isMuerto = a.estado === 'muerto';
                     const isCarnicero = a.estado === 'vendido' && a.comprador_venta && a.comprador_venta.toLowerCase().includes('carnicero');
                     if (isMuerto || isCarnicero) {
