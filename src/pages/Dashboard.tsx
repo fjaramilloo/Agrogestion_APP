@@ -272,9 +272,7 @@ export default function Dashboard() {
                     pesajes: pesajesFlat
                 });
 
-                // --- CALCULAR MUERTES Y VENDIDOS A CARNICERO ---
-                const currentYear = new Date().getFullYear().toString();
-                let muertesCount = 0;
+                // --- CALCULAR MUERTES Y VENDIDOS A CARNICERO (solo para modal de detalle) ---
                 const muertesCompletas: any[] = [];
                 (todosAnimales || []).forEach(a => {
                     const isMuerto = a.estado === 'muerto';
@@ -288,17 +286,14 @@ export default function Dashboard() {
                             fecha_baja: fechaRef,
                             observacion: esMuertoReal ? 'Animal registrado como muerto' : a.observaciones_venta
                         });
-                        if (fechaRef && fechaRef.startsWith(currentYear)) {
-                            muertesCount++;
-                        }
                     }
                 });
                 
                 // Ordenar muertesData descendente por fecha_baja
                 muertesCompletas.sort((a, b) => new Date(b.fecha_baja || 0).getTime() - new Date(a.fecha_baja || 0).getTime());
                 setMuertesData(muertesCompletas);
-
-                setStats(prev => ({ ...prev, totalMuertosAno: muertesCount }));
+                // Nota: totalMuertosAno viene del resumen_finca (línea 188), que ahora incluye
+                // correctamente tanto muertes como ventas a carnicero del año actual.
 
                 // Agrupar lluvias por mes
                 const gruposLluvia: Record<string, number> = {};
