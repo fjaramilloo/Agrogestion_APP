@@ -62,14 +62,17 @@ export default function HistorialCompras() {
     // Estado para abrir modal de detalle de compra
     const [detalleCompra, setDetalleCompra] = useState<CompraGrupo | null>(null);
 
+    // Estado para editar el peso de compra
+    const [isEditingPesoCompra, setIsEditingPesoCompra] = useState(false);
+    const [pesoTotalCompraInput, setPesoTotalCompraInput] = useState('');
+    const [savingPesoCompra, setSavingPesoCompra] = useState(false);
+
     // Estado para tarjeta individual de un animal comprado
     const [selectedAnimalDetalle, setSelectedAnimalDetalle] = useState<AnimalCompraDetalle | null>(null);
 
-    useEffect(() => {
+    const fetchCompras = async () => {
         if (!fincaId) return;
-        
-        const fetchCompras = async () => {
-            setLoading(true);
+        setLoading(true);
             const { data: config } = await supabase
                 .from('configuracion_kpi')
                 .select('umbral_alto_gmp, umbral_medio_gmp')
@@ -202,11 +205,53 @@ export default function HistorialCompras() {
                 // Ordenar por fecha descendente
                 comprasList.sort((a, b) => new Date(b.fechaCompra).getTime() - new Date(a.fechaCompra).getTime());
                 setCompras(comprasList);
+                
+                // Actualizar detalleCompra si estaba abierto
+                setDetalleCompra(prev => {
+                    if (!prev) return null;
+                    const updated = comprasList.find(c => c.id === prev.id);
+                    return updated || prev;
+                });
             }
             setLoading(false);
-        };
+    };
+
+    useEffect(() => {
         fetchCompras();
     }, [fincaId]);
+
+    const handleSavePesoCompra = async () => {
+        if (!detalleCompra) return;
+        const pesoTotalNuevo = parseFloat(pesoTotalCompraInput);
+        if (isNaN(pesoTotalNuevo) || pesoTotalNuevo <= 0) return;
+
+        setSavingPesoCompra(true);
+        const factor = pesoTotalNuevo / (detalleCompra.pesoTotalIngreso || 1);
+
+        try {
+            const updates = detalleCompra.animalesDetalle.map(a => ({
+                id: a.id,
+                peso_compra: a.peso_ingreso * factor
+            }));
+
+            // Actualizar en lotes de 50 para no sobrecargar
+            for (let i = 0; i < updates.length; i += 50) {
+                const chunk = updates.slice(i, i + 50);
+                await Promise.all(chunk.map(u => 
+                    supabase.from('animales').update({ peso_compra: u.peso_compra }).eq('id', u.id)
+                ));
+            }
+
+            setIsEditingPesoCompra(false);
+            setPesoTotalCompraInput('');
+            await fetchCompras();
+        } catch (error) {
+            console.error("Error asignando peso de compra:", error);
+            alert("Error al asignar el peso de compra.");
+        } finally {
+            setSavingPesoCompra(false);
+        }
+    };
 
     const filteredCompras = compras.filter(c => 
         c.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -480,6 +525,11 @@ export default function HistorialCompras() {
             {/* MODAL DETALLE DE COMPRA */}
             {detalleCompra && (() => {
                 const fechasColumnas = getFechasColumnas(detalleCompra.animalesDetalle).filter(f => f !== detalleCompra.fechaCompra);
+                const inputPeso = parseFloat(pesoTotalCompraInput);
+                const showCalculos = !isNaN(inputPeso) && inputPeso > 0;
+                const mermaKg = showCalculos ? inputPeso - detalleCompra.pesoTotalIngreso : 0;
+                const mermaPorcentaje = showCalculos ? (mermaKg / inputPeso) * 100 : 0;
+
                 return (
                     <div className="modal-overlay">
                         <div className="card modal-content" style={{ maxWidth: '960px' }}>
@@ -509,9 +559,92 @@ export default function HistorialCompras() {
                                             </div>
                                         </div>
                                     </div>
-                                    <button onClick={() => setDetalleCompra(null)} className="btn-icon">
+                                    <button onClick={() => { setDetalleCompra(null); setIsEditingPesoCompra(false); }} className="btn-icon">
                                         <X size={20} />
                                     </button>
+                                </div>
+
+                                {/* EDITAR PESO DE COMPRA */}
+                                <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    {!isEditingPesoCompra ? (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso Total de Compra:</div>
+                                                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                                    {detalleCompra.pesoTotalCompra > 0 ? `${Math.round(detalleCompra.pesoTotalCompra).toLocaleString()} kg` : 'No asignado'}
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={() => {
+                                                    setIsEditingPesoCompra(true);
+                                                    setPesoTotalCompraInput(detalleCompra.pesoTotalCompra > 0 ? Math.round(detalleCompra.pesoTotalCompra).toString() : '');
+                                                }}
+                                                className="btn-primary" 
+                                                style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                                            >
+                                                {detalleCompra.pesoTotalCompra > 0 ? 'Modificar Peso' : 'Asignar Peso Total'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <div style={{ marginBottom: '16px', color: 'white', fontWeight: 'bold' }}>Asignar Peso Total de Compra</div>
+                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                                <div style={{ flex: 1, minWidth: '200px' }}>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Kilos totales comprados..."
+                                                        value={pesoTotalCompraInput}
+                                                        onChange={e => setPesoTotalCompraInput(e.target.value)}
+                                                        style={{ marginBottom: '8px', width: '100%' }}
+                                                        disabled={savingPesoCompra}
+                                                    />
+                                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                                                        Este peso se repartirá proporcionalmente a los {detalleCompra.animalesCount} animales según su peso de ingreso ({Math.round(detalleCompra.pesoTotalIngreso).toLocaleString()} kg).
+                                                    </div>
+                                                </div>
+                                                
+                                                {showCalculos && (
+                                                    <div style={{ flex: 1, minWidth: '200px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '6px' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Compra:</span>
+                                                            <span style={{ color: 'white', fontWeight: 'bold' }}>{inputPeso.toLocaleString()} kg</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Ingreso a finca:</span>
+                                                            <span style={{ color: 'white', fontWeight: 'bold' }}>{Math.round(detalleCompra.pesoTotalIngreso).toLocaleString()} kg</span>
+                                                        </div>
+                                                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                                                            <span style={{ color: mermaKg > 0 ? 'var(--error)' : 'var(--success)', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                                                                {mermaKg > 0 ? 'Pérdida/Merma:' : 'Ganancia/Exceso:'}
+                                                            </span>
+                                                            <span style={{ color: mermaKg > 0 ? 'var(--error)' : 'var(--success)', fontWeight: 'bold' }}>
+                                                                {mermaKg > 0 ? '-' : '+'}{Math.abs(Math.round(mermaKg))} kg ({Math.abs(mermaPorcentaje).toFixed(1)}%)
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <button 
+                                                        onClick={() => setIsEditingPesoCompra(false)}
+                                                        className="btn-secondary" 
+                                                        disabled={savingPesoCompra}
+                                                        style={{ padding: '8px 16px' }}
+                                                    >
+                                                        Cancelar
+                                                    </button>
+                                                    <button 
+                                                        onClick={handleSavePesoCompra}
+                                                        className="btn-primary" 
+                                                        disabled={savingPesoCompra || !showCalculos}
+                                                        style={{ padding: '8px 16px' }}
+                                                    >
+                                                        {savingPesoCompra ? 'Guardando...' : 'Guardar y Repartir'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
