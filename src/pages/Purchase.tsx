@@ -13,6 +13,7 @@ interface OfflinePurchasePayload {
     observaciones: string;
     incluirPesoCompra: boolean;
     pesoCompraTotal: string;
+    selectedPotrerada?: string;
 }
 
 interface AnimalCompra {
@@ -33,6 +34,8 @@ export default function Purchase() {
     const [observaciones, setObservaciones] = useState('');
     const [incluirPesoCompra, setIncluirPesoCompra] = useState(false);
     const [pesoCompraTotal, setPesoCompraTotal] = useState('');
+    const [potreradas, setPotreradas] = useState<{ id: string, nombre: string }[]>([]);
+    const [selectedPotrerada, setSelectedPotrerada] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [msjExito, setMsjExito] = useState('');
@@ -80,6 +83,13 @@ export default function Purchase() {
                 .eq('id_finca', fincaId)
                 .order('nombre');
             if (provData) setProveedores(provData);
+
+            const { data: potData } = await supabase
+                .from('potreradas')
+                .select('id, nombre')
+                .eq('id_finca', fincaId)
+                .order('nombre');
+            if (potData) setPotreradas(potData);
 
             // Fetch last tags logic
             await fetchLastTags();
@@ -246,7 +256,8 @@ export default function Purchase() {
                     selectedProveedor,
                     observaciones,
                     incluirPesoCompra,
-                    pesoCompraTotal
+                    pesoCompraTotal,
+                    selectedPotrerada
                 };
                 const newQueue = [...offlineQueue, newPayload];
                 setOfflineQueue(newQueue);
@@ -298,7 +309,7 @@ export default function Purchase() {
                     id_finca: fincaId,
                     numero_chapeta: a.numero_chapeta.trim().toUpperCase(),
                     nombre_propietario: propTrim,
-                    id_potrerada: potreradaIdPorPropietario.get(propTrim) || null,
+                    id_potrerada: selectedPotrerada ? selectedPotrerada : (potreradaIdPorPropietario.get(propTrim) || null),
                     peso_ingreso: parseFloat(a.peso_ingreso),
                     peso_compra: incluirPesoCompra ? Math.round(parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
                     fecha_ingreso: fechaIngreso,
@@ -421,7 +432,7 @@ export default function Purchase() {
                     id_finca: fincaId,
                     numero_chapeta: a.numero_chapeta.trim().toUpperCase(),
                     nombre_propietario: a.propietario,
-                    id_potrerada: potreradaIdPorPropietario.get(a.propietario) || null,
+                    id_potrerada: payload.selectedPotrerada ? payload.selectedPotrerada : (potreradaIdPorPropietario.get(a.propietario) || null),
                     peso_ingreso: parseFloat(a.peso_ingreso),
                     peso_compra: payload.incluirPesoCompra ? Math.round(parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
                     fecha_ingreso: payload.fechaIngreso,
@@ -765,6 +776,20 @@ export default function Purchase() {
                                 <option value="">Dueños compartidos / Varios...</option>
                                 {propietarios.map(p => (
                                     <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ flex: '1 1 250px' }}>
+                            <label>Potrerada Destino</label>
+                            <select
+                                value={selectedPotrerada}
+                                onChange={e => setSelectedPotrerada(e.target.value)}
+                                disabled={loading || animales.length > 0}
+                            >
+                                <option value="">Auto: "Levante [Propietario]"</option>
+                                {potreradas.map(p => (
+                                    <option key={p.id} value={p.id}>{p.nombre}</option>
                                 ))}
                             </select>
                         </div>
