@@ -565,13 +565,36 @@ export default function HistorialCompras() {
                                 </div>
 
                                 {/* EDITAR PESO DE COMPRA */}
-                                <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ 
+                                    marginTop: '20px', 
+                                    padding: '16px 20px', 
+                                    background: 'linear-gradient(to right, rgba(76, 175, 80, 0.05), rgba(76, 175, 80, 0.02))', 
+                                    borderRadius: '12px', 
+                                    border: '1px solid rgba(76, 175, 80, 0.2)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px'
+                                }}>
                                     {!isEditingPesoCompra ? (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso Total de Compra:</div>
-                                                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                                                    {detalleCompra.pesoTotalCompra > 0 ? `${Math.round(detalleCompra.pesoTotalCompra).toLocaleString()} kg` : 'No asignado'}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                <div style={{ 
+                                                    width: '40px', 
+                                                    height: '40px', 
+                                                    borderRadius: '8px', 
+                                                    background: 'rgba(76, 175, 80, 0.1)', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    color: 'var(--success)'
+                                                }}>
+                                                    <TrendingUp size={20} />
+                                                </div>
+                                                <div>
+                                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Peso Total de Compra</div>
+                                                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.4rem', lineHeight: '1' }}>
+                                                        {detalleCompra.pesoTotalCompra > 0 ? `${Math.round(detalleCompra.pesoTotalCompra).toLocaleString()} kg` : <span style={{ color: 'var(--text-muted)', fontSize: '1.1rem', fontWeight: 'normal' }}>No asignado</span>}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <button 
@@ -580,68 +603,78 @@ export default function HistorialCompras() {
                                                     setPesoTotalCompraInput(detalleCompra.pesoTotalCompra > 0 ? Math.round(detalleCompra.pesoTotalCompra).toString() : '');
                                                 }}
                                                 className="btn-primary" 
-                                                style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                                                style={{ padding: '8px 16px', fontSize: '0.85rem', width: 'auto', borderRadius: '8px', boxShadow: 'none' }}
                                             >
                                                 {detalleCompra.pesoTotalCompra > 0 ? 'Modificar Peso' : 'Asignar Peso Total'}
                                             </button>
                                         </div>
                                     ) : (
-                                        <div>
-                                            <div style={{ marginBottom: '16px', color: 'white', fontWeight: 'bold' }}>Asignar Peso Total de Compra</div>
-                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                                                <div style={{ flex: 1, minWidth: '200px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                                <TrendingUp size={18} color="var(--success)" /> Asignar Peso Total de Compra
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                                <div style={{ flex: '1 1 300px' }}>
+                                                    <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '8px' }}>Kilos totales comprados:</label>
                                                     <input
                                                         type="number"
-                                                        placeholder="Kilos totales comprados..."
+                                                        placeholder="Ej. 2500"
                                                         value={pesoTotalCompraInput}
                                                         onChange={e => setPesoTotalCompraInput(e.target.value)}
-                                                        style={{ marginBottom: '8px', width: '100%' }}
+                                                        style={{ marginBottom: '12px', width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: 'white', fontSize: '1.1rem' }}
                                                         disabled={savingPesoCompra}
                                                     />
-                                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                        Este peso se repartirá proporcionalmente a los {detalleCompra.animalesCount} animales según su peso de ingreso ({Math.round(detalleCompra.pesoTotalIngreso).toLocaleString()} kg).
+                                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                                                        Este peso se repartirá proporcionalmente a los <strong style={{ color: 'white' }}>{detalleCompra.animalesCount} animales</strong> según su peso de ingreso en báscula ({Math.round(detalleCompra.pesoTotalIngreso).toLocaleString()} kg).
                                                     </div>
                                                 </div>
                                                 
                                                 {showCalculos && (
-                                                    <div style={{ flex: 1, minWidth: '200px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '6px' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Compra:</span>
+                                                    <div style={{ flex: '1 1 300px', background: 'rgba(0,0,0,0.25)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Resumen de Merma</h4>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                            <span style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>Peso Compra:</span>
                                                             <span style={{ color: 'white', fontWeight: 'bold' }}>{inputPeso.toLocaleString()} kg</span>
                                                         </div>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Ingreso a finca:</span>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                                            <span style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>Peso Ingreso (Finca):</span>
                                                             <span style={{ color: 'white', fontWeight: 'bold' }}>{Math.round(detalleCompra.pesoTotalIngreso).toLocaleString()} kg</span>
                                                         </div>
-                                                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                                                            <span style={{ color: mermaKg > 0 ? 'var(--error)' : 'var(--success)', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                                                        <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '12px 0' }}></div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <span style={{ color: mermaKg > 0 ? 'var(--error)' : 'var(--success)', fontSize: '0.9rem', fontWeight: 'bold' }}>
                                                                 {mermaKg > 0 ? 'Pérdida/Merma:' : 'Ganancia/Exceso:'}
                                                             </span>
-                                                            <span style={{ color: mermaKg > 0 ? 'var(--error)' : 'var(--success)', fontWeight: 'bold' }}>
-                                                                {mermaKg > 0 ? '-' : '+'}{Math.abs(Math.round(mermaKg))} kg ({Math.abs(mermaPorcentaje).toFixed(1)}%)
-                                                            </span>
+                                                            <div style={{ textAlign: 'right' }}>
+                                                                <div style={{ color: mermaKg > 0 ? 'var(--error)' : 'var(--success)', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                                                    {mermaKg > 0 ? '-' : '+'}{Math.abs(Math.round(mermaKg))} kg
+                                                                </div>
+                                                                <div style={{ color: mermaKg > 0 ? 'var(--error)' : 'var(--success)', fontSize: '0.85rem', opacity: 0.8 }}>
+                                                                    {Math.abs(mermaPorcentaje).toFixed(1)}%
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
-                                                
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                    <button 
-                                                        onClick={() => setIsEditingPesoCompra(false)}
-                                                        className="btn-secondary" 
-                                                        disabled={savingPesoCompra}
-                                                        style={{ padding: '8px 16px' }}
-                                                    >
-                                                        Cancelar
-                                                    </button>
-                                                    <button 
-                                                        onClick={handleSavePesoCompra}
-                                                        className="btn-primary" 
-                                                        disabled={savingPesoCompra || !showCalculos}
-                                                        style={{ padding: '8px 16px' }}
-                                                    >
-                                                        {savingPesoCompra ? 'Guardando...' : 'Guardar y Repartir'}
-                                                    </button>
-                                                </div>
+                                            </div>
+                                            
+                                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                                                <button 
+                                                    onClick={() => setIsEditingPesoCompra(false)}
+                                                    className="btn-secondary" 
+                                                    disabled={savingPesoCompra}
+                                                    style={{ padding: '10px 20px', width: 'auto' }}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                                <button 
+                                                    onClick={handleSavePesoCompra}
+                                                    className="btn-primary" 
+                                                    disabled={savingPesoCompra || !showCalculos}
+                                                    style={{ padding: '10px 20px', width: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                                >
+                                                    {savingPesoCompra ? 'Guardando...' : 'Guardar y Repartir'}
+                                                </button>
                                             </div>
                                         </div>
                                     )}
