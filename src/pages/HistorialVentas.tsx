@@ -322,42 +322,59 @@ export default function HistorialVentas() {
         const element = printRef.current;
         if (!element || !detalleVenta) return;
         setExportingDetallePdf(true);
+
+        const originalScrollY = window.scrollY;
+        const originalScrollX = window.scrollX;
+
         try {
-            // Guardar estilos originales de los contenedores con scroll para expandirlos temporalmente
-            const scrollables = Array.from(element.querySelectorAll<HTMLElement>('*')).filter(
-                el => getComputedStyle(el).overflowY === 'auto' || getComputedStyle(el).overflowY === 'scroll'
-            );
-            
+            window.scrollTo(0, 0);
+
+            // Buscar TODOS los contenedores de tabla (incluyendo .table-container) y elementos con restricción de scroll/altura
+            const scrollables = Array.from(element.querySelectorAll<HTMLElement>('.table-container, div')).filter(el => {
+                const style = getComputedStyle(el);
+                return style.overflow !== 'visible' || style.overflowX !== 'visible' || style.overflowY !== 'visible' || (style.maxHeight !== 'none' && style.maxHeight !== '');
+            });
+
             const originalStyles = scrollables.map(el => ({
                 el,
+                overflow: el.style.overflow,
+                overflowX: el.style.overflowX,
                 overflowY: el.style.overflowY,
                 maxHeight: el.style.maxHeight,
                 height: el.style.height
             }));
 
-            // Desactivar temporalmente el scroll para que html2canvas capture absolutamente todas las filas y gráficas
+            // Desactivar totalmente cualquier restricción de scroll o altura para que html2canvas capture el 100% de la tabla y gráficas
             scrollables.forEach(el => {
-                el.style.overflowY = 'visible';
-                el.style.maxHeight = 'none';
-                el.style.height = 'auto';
+                el.style.setProperty('overflow', 'visible', 'important');
+                el.style.setProperty('overflow-x', 'visible', 'important');
+                el.style.setProperty('overflow-y', 'visible', 'important');
+                el.style.setProperty('max-height', 'none', 'important');
+                el.style.setProperty('height', 'auto', 'important');
             });
 
-            await new Promise(resolve => setTimeout(resolve, 200)); // dar tiempo al navegador para reflow
+            await new Promise(resolve => setTimeout(resolve, 300)); // tiempo para reflow
 
             const canvas = await html2canvas(element, {
                 scale: 2,
                 useCORS: true,
                 backgroundColor: '#121212',
                 logging: false,
-                windowWidth: 1200
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: 1280
             });
 
-            // Restaurar los estilos de pantalla originales
-            originalStyles.forEach(({ el, overflowY, maxHeight, height }) => {
+            // Restaurar estilos de pantalla inmediatamente
+            originalStyles.forEach(({ el, overflow, overflowX, overflowY, maxHeight, height }) => {
+                el.style.overflow = overflow;
+                el.style.overflowX = overflowX;
                 el.style.overflowY = overflowY;
                 el.style.maxHeight = maxHeight;
                 el.style.height = height;
             });
+
+            window.scrollTo(originalScrollX, originalScrollY);
 
             const pdf = new jsPDF({
                 orientation: 'portrait',
@@ -370,10 +387,18 @@ export default function HistorialVentas() {
             const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
             if (imgHeight <= pdfHeight) {
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                const pageCanvas = document.createElement('canvas');
+                pageCanvas.width = canvas.width;
+                pageCanvas.height = canvas.height;
+                const ctx = pageCanvas.getContext('2d')!;
+                ctx.fillStyle = '#121212';
+                ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+                ctx.drawImage(canvas, 0, 0);
+
+                const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
                 pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
             } else {
-                // Generar múltiples páginas A4 si el reporte excede la altura de 1 página
+                // Generación de múltiples páginas A4 con fondo #121212 garantizado
                 const pageHeightPx = (canvas.width * pdfHeight) / pdfWidth;
                 let yOffset = 0;
                 let isFirstPage = true;
@@ -402,6 +427,7 @@ export default function HistorialVentas() {
             pdf.save(`Venta_${detalleVenta.titulo.replace(/\s+/g, '_')}_${formatFecha(detalleVenta.fechaVenta).replace(/\s+/g, '_')}.pdf`);
         } catch (error) {
             console.error('Error al exportar PDF:', error);
+            window.scrollTo(originalScrollX, originalScrollY);
             alert('Error al generar el PDF de la venta.');
         } finally {
             setExportingDetallePdf(false);
@@ -732,10 +758,25 @@ export default function HistorialVentas() {
                                         <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }}></div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <button 
+                                                onClick={() => setSelectedVenta(detalleVenta)}
+                                                className="icon-btn-tooltip"
+                                                data-tooltip="Ver Reporte PDF Imprimible"
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    background: 'rgba(244, 67, 54, 0.15)',
+                                                    color: 'var(--error)',
+                                                    border: '1px solid rgba(244, 67, 54, 0.3)',
+                                                    borderRadius: '8px', padding: '0 10px', height: '36px',
+                                                    cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold', gap: '6px'
+                                                }}
+                                            >
+                                                <FileText size={14} /> Reporte PDF
+                                            </button>
+                                            <button 
                                                 onClick={handleExportPDF}
                                                 disabled={exportingDetallePdf}
                                                 className="icon-btn-tooltip"
-                                                data-tooltip="Descargar PDF"
+                                                data-tooltip="Descargar Dashboard PDF"
                                                 style={{
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     background: 'rgba(255, 255, 255, 0.05)',
