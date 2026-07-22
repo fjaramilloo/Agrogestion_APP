@@ -319,25 +319,90 @@ export default function HistorialVentas() {
     };
 
     const handleExportPDF = async () => {
-        if (!printRef.current || !detalleVenta) return;
+        const element = printRef.current;
+        if (!element || !detalleVenta) return;
         setExportingDetallePdf(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 100)); // reflow
-            const canvas = await html2canvas(printRef.current, {
+            // Guardar estilos originales de los contenedores con scroll para expandirlos temporalmente
+            const scrollables = Array.from(element.querySelectorAll<HTMLElement>('*')).filter(
+                el => getComputedStyle(el).overflowY === 'auto' || getComputedStyle(el).overflowY === 'scroll'
+            );
+            
+            const originalStyles = scrollables.map(el => ({
+                el,
+                overflowY: el.style.overflowY,
+                maxHeight: el.style.maxHeight,
+                height: el.style.height
+            }));
+
+            // Desactivar temporalmente el scroll para que html2canvas capture absolutamente todas las filas y gráficas
+            scrollables.forEach(el => {
+                el.style.overflowY = 'visible';
+                el.style.maxHeight = 'none';
+                el.style.height = 'auto';
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 200)); // dar tiempo al navegador para reflow
+
+            const canvas = await html2canvas(element, {
                 scale: 2,
                 useCORS: true,
                 backgroundColor: '#121212',
                 logging: false,
                 windowWidth: 1200
             });
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            // Restaurar los estilos de pantalla originales
+            originalStyles.forEach(({ el, overflowY, maxHeight, height }) => {
+                el.style.overflowY = overflowY;
+                el.style.maxHeight = maxHeight;
+                el.style.height = height;
+            });
+
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
             const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            if (imgHeight <= pdfHeight) {
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
+            } else {
+                // Generar múltiples páginas A4 si el reporte excede la altura de 1 página
+                const pageHeightPx = (canvas.width * pdfHeight) / pdfWidth;
+                let yOffset = 0;
+                let isFirstPage = true;
+
+                while (yOffset < canvas.height) {
+                    const pageCanvas = document.createElement('canvas');
+                    pageCanvas.width = canvas.width;
+                    pageCanvas.height = Math.min(pageHeightPx, canvas.height - yOffset);
+                    const ctx = pageCanvas.getContext('2d')!;
+                    ctx.fillStyle = '#121212';
+                    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+                    ctx.drawImage(canvas, 0, yOffset, canvas.width, pageCanvas.height, 0, 0, canvas.width, pageCanvas.height);
+                    
+                    const pageImg = pageCanvas.toDataURL('image/jpeg', 0.95);
+                    const pageImgHeight = (pageCanvas.height * pdfWidth) / canvas.width;
+
+                    if (!isFirstPage) {
+                        pdf.addPage();
+                    }
+                    pdf.addImage(pageImg, 'JPEG', 0, 0, pdfWidth, pageImgHeight);
+                    yOffset += pageHeightPx;
+                    isFirstPage = false;
+                }
+            }
+
             pdf.save(`Venta_${detalleVenta.titulo.replace(/\s+/g, '_')}_${formatFecha(detalleVenta.fechaVenta).replace(/\s+/g, '_')}.pdf`);
         } catch (error) {
             console.error('Error al exportar PDF:', error);
+            alert('Error al generar el PDF de la venta.');
         } finally {
             setExportingDetallePdf(false);
         }
