@@ -502,7 +502,8 @@ export default function Potreradas() {
         const matchesSearch = a.numero_chapeta.toLowerCase().includes(searchTerm.toLowerCase()) || 
                              a.nombre_propietario.toLowerCase().includes(searchTerm.toLowerCase());
         const isNotAlreadyInThisPot = a.id_potrerada !== managingPotrerada?.id;
-        return matchesSearch && isNotAlreadyInThisPot;
+        const isActivo = a.estado === 'activo';
+        return matchesSearch && isNotAlreadyInThisPot && isActivo;
     });
 
 
