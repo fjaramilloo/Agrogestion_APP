@@ -103,7 +103,7 @@ export default function Inventory() {
         peso_ingreso: '',
         fecha_ingreso: new Date().toISOString().split('T')[0],
         id_potrerada: '',
-        tipo_macho: 'Novillo'
+        tipo_macho: 'Toro'
     });
     const [nuevosPesajes, setNuevosPesajes] = useState<{ fecha: string; peso: string; etapa: string }[]>([]);
     const [msjErrorCrear, setMsjErrorCrear] = useState('');
@@ -320,7 +320,7 @@ export default function Inventory() {
                 peso_ingreso: '',
                 fecha_ingreso: new Date().toISOString().split('T')[0],
                 id_potrerada: '',
-                tipo_macho: 'Novillo'
+                tipo_macho: 'Toro'
             });
             setNuevosPesajes([]);
             fetchAnimales();
@@ -943,8 +943,7 @@ export default function Inventory() {
                                 <label>Especie</label>
                                 <select value={nuevoAnimal.especie} onChange={e => setNuevoAnimal({...nuevoAnimal, especie: e.target.value})}>
                                     <option value="bovino">Bovino</option>
-                                    <option value="equino">Equino</option>
-                                    <option value="ovino">Ovino</option>
+                                    <option value="bufalino">Bufalino</option>
                                 </select>
                             </div>
                             <div>
@@ -958,9 +957,8 @@ export default function Inventory() {
                                 <div>
                                     <label>Tipo Macho</label>
                                     <select value={nuevoAnimal.tipo_macho} onChange={e => setNuevoAnimal({...nuevoAnimal, tipo_macho: e.target.value})}>
-                                        <option value="Novillo">Novillo</option>
                                         <option value="Toro">Toro</option>
-                                        <option value="Torete">Torete</option>
+                                        <option value="Novillo">Novillo</option>
                                     </select>
                                 </div>
                             )}
