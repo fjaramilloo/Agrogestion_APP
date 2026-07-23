@@ -107,6 +107,31 @@ export default function Inventory() {
     });
     const [nuevosPesajes, setNuevosPesajes] = useState<{ fecha: string; peso: string; etapa: string }[]>([]);
     const [msjErrorCrear, setMsjErrorCrear] = useState('');
+    const [isChapetaTaken, setIsChapetaTaken] = useState(false);
+    const [validatingChapeta, setValidatingChapeta] = useState(false);
+
+    useEffect(() => {
+        const checkChapeta = async () => {
+            if (!nuevoAnimal.numero_chapeta || !fincaId) {
+                setIsChapetaTaken(false);
+                return;
+            }
+            setValidatingChapeta(true);
+            const { data } = await supabase
+                .from('animales')
+                .select('id')
+                .eq('id_finca', fincaId)
+                .eq('numero_chapeta', nuevoAnimal.numero_chapeta)
+                .eq('estado', 'activo')
+                .maybeSingle();
+            
+            setIsChapetaTaken(!!data);
+            setValidatingChapeta(false);
+        };
+        
+        const timeoutId = setTimeout(checkChapeta, 500);
+        return () => clearTimeout(timeoutId);
+    }, [nuevoAnimal.numero_chapeta, fincaId]);
 
     const fetchAnimales = async () => {
         if (!fincaId) return;
@@ -256,7 +281,8 @@ export default function Inventory() {
 
 
     const handleCrearAnimal = async () => {
-        if (!fincaId || !nuevoAnimal.numero_chapeta || !nuevoAnimal.peso_ingreso) return;
+        const isFormValid = nuevoAnimal.numero_chapeta && nuevoAnimal.peso_ingreso && nuevoAnimal.nombre_propietario && nuevoAnimal.especie && nuevoAnimal.sexo && nuevoAnimal.etapa && nuevoAnimal.fecha_ingreso && !isChapetaTaken;
+        if (!fincaId || !isFormValid) return;
         setLoading(true);
         setMsjErrorCrear('');
 
@@ -922,10 +948,12 @@ export default function Inventory() {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                             <div>
                                 <label>Número de Chapeta*</label>
-                                <input type="text" value={nuevoAnimal.numero_chapeta} onChange={e => setNuevoAnimal({...nuevoAnimal, numero_chapeta: e.target.value})} placeholder="Ej: 450" />
+                                <input type="text" value={nuevoAnimal.numero_chapeta} onChange={e => setNuevoAnimal({...nuevoAnimal, numero_chapeta: e.target.value})} placeholder="Ej: 1234" />
+                                {validatingChapeta && <span style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>Validando...</span>}
+                                {isChapetaTaken && <span style={{fontSize: '0.75rem', color: 'var(--danger)', display: 'block', marginTop: '4px'}}>Esta chapeta ya está en uso por un animal activo.</span>}
                             </div>
                             <div>
-                                <label>Propietario</label>
+                                <label>Propietario*</label>
                                 <select 
                                     value={nuevoAnimal.nombre_propietario} 
                                     onChange={e => setNuevoAnimal({...nuevoAnimal, nombre_propietario: e.target.value})}
@@ -940,14 +968,14 @@ export default function Inventory() {
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                             <div>
-                                <label>Especie</label>
+                                <label>Especie*</label>
                                 <select value={nuevoAnimal.especie} onChange={e => setNuevoAnimal({...nuevoAnimal, especie: e.target.value})}>
                                     <option value="bovino">Bovino</option>
                                     <option value="bufalino">Bufalino</option>
                                 </select>
                             </div>
                             <div>
-                                <label>Sexo</label>
+                                <label>Sexo*</label>
                                 <select value={nuevoAnimal.sexo} onChange={e => setNuevoAnimal({...nuevoAnimal, sexo: e.target.value})}>
                                     <option value="M">Macho</option>
                                     <option value="H">Hembra</option>
@@ -955,7 +983,7 @@ export default function Inventory() {
                             </div>
                             {nuevoAnimal.sexo === 'M' && (
                                 <div>
-                                    <label>Tipo Macho</label>
+                                    <label>Tipo Macho*</label>
                                     <select value={nuevoAnimal.tipo_macho} onChange={e => setNuevoAnimal({...nuevoAnimal, tipo_macho: e.target.value})}>
                                         <option value="Toro">Toro</option>
                                         <option value="Novillo">Novillo</option>
@@ -963,7 +991,7 @@ export default function Inventory() {
                                 </div>
                             )}
                             <div>
-                                <label>Etapa</label>
+                                <label>Etapa*</label>
                                 <select value={nuevoAnimal.etapa} onChange={e => setNuevoAnimal({...nuevoAnimal, etapa: e.target.value})}>
                                     <option value="cria">Cría</option>
                                     <option value="levante">Levante</option>
@@ -978,7 +1006,7 @@ export default function Inventory() {
                                 <input type="number" value={nuevoAnimal.peso_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, peso_ingreso: e.target.value})} placeholder="0" />
                             </div>
                             <div>
-                                <label>Fecha Ingreso</label>
+                                <label>Fecha Ingreso*</label>
                                 <input type="date" value={nuevoAnimal.fecha_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, fecha_ingreso: e.target.value})} />
                             </div>
                         </div>
@@ -1043,9 +1071,14 @@ export default function Inventory() {
                         </div>
 
                         <div style={{ display: 'flex', gap: '16px' }}>
-                            <button onClick={() => setShowCrearModal(false)} style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)' }} disabled={loading}>Cancelar</button>
-                            <button onClick={handleCrearAnimal} style={{ backgroundColor: 'var(--primary)' }} disabled={loading || !nuevoAnimal.numero_chapeta || !nuevoAnimal.peso_ingreso}>
-                                {loading ? 'Creando...' : 'Guardar Animal'}
+                            <button onClick={() => setShowCrearModal(false)} style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }}>
+                                CANCELAR
+                            </button>
+                            <button 
+                                onClick={handleCrearAnimal} 
+                                disabled={loading || !nuevoAnimal.numero_chapeta || !nuevoAnimal.peso_ingreso || !nuevoAnimal.nombre_propietario || !nuevoAnimal.especie || !nuevoAnimal.sexo || !nuevoAnimal.etapa || !nuevoAnimal.fecha_ingreso || isChapetaTaken}
+                            >
+                                {loading ? 'GUARDANDO...' : 'GUARDAR ANIMAL'}
                             </button>
                         </div>
                     </div>
