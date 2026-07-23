@@ -141,6 +141,9 @@ export default function HistorialVentas() {
                 const grouped = data.reduce((acc: any, animal: any) => {
                     const fecha = animal.fecha_venta || 'Sin fecha';
                     const comprador = animal.comprador_venta || 'Desconocido';
+                    
+                    if (comprador.toLowerCase() === 'desconocido') return acc;
+                    
                     const key = `${fecha}-${comprador}`;
                     
                     const registros = (animal.registros_pesaje || []).sort((x: any, y: any) => 
