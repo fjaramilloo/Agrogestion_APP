@@ -1,0 +1,25 @@
+INSTRUCTIVO PARA CREACIÓN INDIVIDUAL DE ANIMALES
+
+¿Para qué sirve?
+Para ingresar al sistema animales uno por uno. Es ideal cuando traes pocos animales nuevos o registras nacimientos en la finca y no quieres llenar la plantilla de Excel masiva.
+
+PASO A PASO:
+1. Abre el módulo de "Inventario" en el menú principal (a la izquierda).
+2. En la parte de arriba a la derecha, dale clic al botón verde que dice "+ Crear Animal".
+3. Se abrirá una ventana donde debes ingresar la información en este orden exacto:
+
+   A) Número de Chapeta: (Obligatorio) Escribe el número del arete o marca del animal. Asegúrate de no repetir un número que ya esté activo.
+   B) Propietario: Selecciona a quién le pertenece el animal en la lista desplegable. Si la dejas en "Seleccionar propietario...", el sistema asumirá que es de la Finca.
+   C) Especie: Selecciona si es Bovino, Equino u Ovino.
+   D) Sexo: Elige Macho o Hembra.
+   E) Tipo Macho: ¡Atención aquí! Si elegiste "Macho" en el paso anterior, te aparecerá esta nueva opción. Debes elegir si es Novillo, Toro o Torete. (Si es Hembra, esto no aparecerá).
+   F) Etapa: Selecciona la etapa productiva (Cría, Levante o Ceba).
+   G) Peso Ingreso (kg): (Obligatorio) Escribe únicamente el número de los kilos que pesó el animal al ingresar a la finca.
+   H) Fecha Ingreso: Por defecto te pondrá la fecha de hoy, pero puedes darle clic al calendario para poner una fecha pasada si el animal entró antes.
+   I) Asignar a Lote (Opcional): Si ya sabes en qué potrerada o lote lo vas a soltar, selecciónalo en la lista. Así quedará ubicado de inmediato sin tener que ir a otro módulo.
+
+4. Historial de Pesajes (Opcional): 
+   Si le habías tomado varios pesos en el pasado y los tienes anotados, puedes darle a "+ Agregar Pesaje" para ingresar esas fechas y pesos antiguos. Así el animal ya entra con un historial de crecimiento en la gráfica.
+
+5. Guardar:
+   Para terminar, dale clic al botón azul grande "Guardar Animal" que está abajo a la derecha. ¡Listo! El animal aparecerá en tu inventario.

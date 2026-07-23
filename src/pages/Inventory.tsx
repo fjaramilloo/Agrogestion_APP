@@ -102,7 +102,8 @@ export default function Inventory() {
         etapa: 'levante',
         peso_ingreso: '',
         fecha_ingreso: new Date().toISOString().split('T')[0],
-        id_potrerada: ''
+        id_potrerada: '',
+        tipo_macho: 'Novillo'
     });
     const [nuevosPesajes, setNuevosPesajes] = useState<{ fecha: string; peso: string; etapa: string }[]>([]);
     const [msjErrorCrear, setMsjErrorCrear] = useState('');
@@ -282,6 +283,7 @@ export default function Inventory() {
                     peso_ingreso: parseFloat(nuevoAnimal.peso_ingreso),
                     fecha_ingreso: nuevoAnimal.fecha_ingreso,
                     id_potrerada: nuevoAnimal.id_potrerada || null,
+                    tipo_macho: nuevoAnimal.sexo === 'M' ? nuevoAnimal.tipo_macho : null,
                     estado: 'activo'
                 }])
                 .select()
@@ -317,7 +319,8 @@ export default function Inventory() {
                 etapa: 'levante',
                 peso_ingreso: '',
                 fecha_ingreso: new Date().toISOString().split('T')[0],
-                id_potrerada: ''
+                id_potrerada: '',
+                tipo_macho: 'Novillo'
             });
             setNuevosPesajes([]);
             fetchAnimales();
@@ -951,6 +954,16 @@ export default function Inventory() {
                                     <option value="H">Hembra</option>
                                 </select>
                             </div>
+                            {nuevoAnimal.sexo === 'M' && (
+                                <div>
+                                    <label>Tipo Macho</label>
+                                    <select value={nuevoAnimal.tipo_macho} onChange={e => setNuevoAnimal({...nuevoAnimal, tipo_macho: e.target.value})}>
+                                        <option value="Novillo">Novillo</option>
+                                        <option value="Toro">Toro</option>
+                                        <option value="Torete">Torete</option>
+                                    </select>
+                                </div>
+                            )}
                             <div>
                                 <label>Etapa</label>
                                 <select value={nuevoAnimal.etapa} onChange={e => setNuevoAnimal({...nuevoAnimal, etapa: e.target.value})}>
