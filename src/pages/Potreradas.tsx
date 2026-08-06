@@ -1362,18 +1362,35 @@ export default function Potreradas() {
                                     <td style={{ padding: '16px 24px' }}>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                             {p.marcas.length > 0 ? (
-                                                p.marcas.map((m, i) => (
-                                                    <span key={i} style={{ 
-                                                        fontSize: '0.7rem', 
-                                                        background: 'rgba(255,255,255,0.05)', 
-                                                        padding: '2px 8px', 
-                                                        borderRadius: '4px',
-                                                        color: 'var(--text-muted)',
-                                                        border: '1px solid rgba(255,255,255,0.1)'
-                                                    }}>
-                                                        {m.nombre} <span style={{ opacity: 0.6 }}>({m.count})</span>
-                                                    </span>
-                                                ))
+                                                <>
+                                                    {p.marcas.slice(0, 3).map((m, i) => (
+                                                        <span key={i} title={`${m.nombre} (${m.count})`} style={{ 
+                                                            fontSize: '0.7rem', 
+                                                            background: 'rgba(255,255,255,0.05)', 
+                                                            padding: '2px 8px', 
+                                                            borderRadius: '4px',
+                                                            color: 'var(--text-muted)',
+                                                            border: '1px solid rgba(255,255,255,0.1)',
+                                                            whiteSpace: 'nowrap'
+                                                        }}>
+                                                            {m.nombre} <span style={{ opacity: 0.6 }}>({m.count})</span>
+                                                        </span>
+                                                    ))}
+                                                    {p.marcas.length > 3 && (
+                                                        <span title={p.marcas.slice(3).map(m => `${m.nombre} (${m.count})`).join(', ')} style={{
+                                                            fontSize: '0.7rem', 
+                                                            background: 'rgba(255,255,255,0.02)', 
+                                                            padding: '2px 8px', 
+                                                            borderRadius: '4px',
+                                                            color: 'var(--text-muted)',
+                                                            border: '1px dashed rgba(255,255,255,0.2)',
+                                                            cursor: 'help',
+                                                            whiteSpace: 'nowrap'
+                                                        }}>
+                                                            +{p.marcas.length - 3} más
+                                                        </span>
+                                                    )}
+                                                </>
                                             ) : (
                                                 <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)' }}>-</span>
                                             )}
