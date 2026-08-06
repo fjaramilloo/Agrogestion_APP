@@ -122,7 +122,7 @@ export default function Weighing() {
 
         const { data, error } = await supabase
             .from('animales')
-            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, potreradas(etapa)')
+            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada')
             .eq('id_finca', fincaId)
             .eq('numero_chapeta', chapeta.trim())
             .single();
