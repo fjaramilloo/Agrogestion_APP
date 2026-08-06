@@ -51,9 +51,11 @@ export default function Weighing() {
     const [umbralMedio, setUmbralMedio] = useState(10);
 
     // --- Pesajes de Hoy (Corrección) ---
-    const [pesajesHoy, setPesajesHoy] = useState<{ id: string; peso: number; fecha: string; numero_chapeta: string; nombre_propietario: string }[]>([]);
+    const [pesajesHoy, setPesajesHoy] = useState<{ id: string; peso: number; fecha: string; numero_chapeta: string; nombre_propietario: string; potrerada_nombre: string }[]>([]);
     const [editingPesajeId, setEditingPesajeId] = useState<string | null>(null);
     const [editPeso, setEditPeso] = useState('');
+    const [sortColHoy, setSortColHoy] = useState<'chapeta' | 'marca' | 'potrerada' | 'peso'>('chapeta');
+    const [sortDirHoy, setSortDirHoy] = useState<'asc' | 'desc'>('asc');
 
     useEffect(() => {
         if (!fincaId) return;
@@ -82,11 +84,11 @@ export default function Weighing() {
         const hoy = new Date().toISOString().split('T')[0];
         const { data } = await supabase
             .from('registros_pesaje')
-            .select('id, peso, fecha, animales!inner(numero_chapeta, nombre_propietario, id_finca)')
+            .select('id, peso, fecha, animales!inner(numero_chapeta, nombre_propietario, id_finca, potreradas(nombre))')
             .eq('animales.id_finca', fincaId)
             .eq('fecha', hoy)
             .order('id', { ascending: false })
-            .limit(15);
+            .limit(50);
 
         if (data) {
             setPesajesHoy(data.map((p: any) => ({
@@ -94,7 +96,8 @@ export default function Weighing() {
                 peso: p.peso,
                 fecha: p.fecha,
                 numero_chapeta: p.animales?.numero_chapeta || '-',
-                nombre_propietario: p.animales?.nombre_propietario || '-'
+                nombre_propietario: p.animales?.nombre_propietario || '-',
+                potrerada_nombre: p.animales?.potreradas?.nombre || 'Sin lote'
             })));
         }
     }, [fincaId]);
@@ -619,68 +622,96 @@ export default function Weighing() {
             </div>
 
             {/* Panel: Pesajes de Hoy */}
-            {pesajesHoy.length > 0 && (
-                <div className="card" style={{ padding: '24px', marginTop: '24px' }}>
-                    <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        ✏️ Pesajes ingresados hoy
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>(solo puedes corregir los de hoy)</span>
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {pesajesHoy.map(p => (
-                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1rem' }}>#{p.numero_chapeta}</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.nombre_propietario}</div>
-                                </div>
-                                {editingPesajeId === p.id ? (
-                                    <>
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            value={editPeso}
-                                            onChange={e => setEditPeso(e.target.value)}
-                                            style={{ width: '90px', padding: '8px', margin: 0, textAlign: 'center', fontSize: '1rem' }}
-                                            autoFocus
-                                        />
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>kg</span>
-                                        <button
-                                            onClick={() => handleGuardarEdicion(p)}
-                                            disabled={loading}
-                                            style={{ width: 'auto', padding: '6px 12px', backgroundColor: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
-                                        >
-                                            <Check size={14} /> Guardar
-                                        </button>
-                                        <button
-                                            onClick={() => { setEditingPesajeId(null); setEditPeso(''); }}
-                                            style={{ width: 'auto', padding: '6px 10px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }}
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', minWidth: '70px', textAlign: 'right' }}>{p.peso} kg</div>
-                                        <button
-                                            onClick={() => { setEditingPesajeId(p.id); setEditPeso(String(p.peso)); }}
-                                            title="Editar"
-                                            style={{ width: 'auto', padding: '7px', backgroundColor: 'rgba(33,150,243,0.1)', border: '1px solid rgba(33,150,243,0.3)', borderRadius: '8px', color: '#42a5f5' }}
-                                        >
-                                            <Pencil size={15} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleEliminarPesaje(p)}
-                                            title="Eliminar"
-                                            style={{ width: 'auto', padding: '7px', backgroundColor: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', color: 'var(--error)' }}
-                                        >
-                                            <Trash2 size={15} />
-                                        </button>
-                                    </>
-                                )}
+            {pesajesHoy.length > 0 && (() => {
+                const toggleSort = (col: typeof sortColHoy) => {
+                    if (sortColHoy === col) setSortDirHoy(d => d === 'asc' ? 'desc' : 'asc');
+                    else { setSortColHoy(col); setSortDirHoy('asc'); }
+                };
+                const sorted = [...pesajesHoy].sort((a, b) => {
+                    let res = 0;
+                    if (sortColHoy === 'chapeta') res = a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true });
+                    else if (sortColHoy === 'marca') res = a.nombre_propietario.localeCompare(b.nombre_propietario);
+                    else if (sortColHoy === 'potrerada') res = a.potrerada_nombre.localeCompare(b.potrerada_nombre);
+                    else if (sortColHoy === 'peso') res = a.peso - b.peso;
+                    return sortDirHoy === 'asc' ? res : -res;
+                });
+                const arrow = (col: typeof sortColHoy) => sortColHoy === col ? (sortDirHoy === 'asc' ? ' ↑' : ' ↓') : ' ↕';
+                const thStyle: React.CSSProperties = { padding: '10px 12px', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(255,255,255,0.08)' };
+                const tdStyle: React.CSSProperties = { padding: '12px', fontSize: '0.9rem', verticalAlign: 'middle' };
+                return (
+                    <div style={{ marginTop: '24px', maxWidth: '100%', width: '800px', marginLeft: 'auto', marginRight: 'auto' }}>
+                        <div className="card" style={{ padding: '20px 24px' }}>
+                            <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                ✏️ Pesajes ingresados hoy ({pesajesHoy.length})
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>(solo puedes corregir los de hoy)</span>
+                            </h3>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr>
+                                            <th style={thStyle} onClick={() => toggleSort('chapeta')}>Chapeta{arrow('chapeta')}</th>
+                                            <th style={thStyle} onClick={() => toggleSort('marca')}>Marca{arrow('marca')}</th>
+                                            <th style={thStyle} onClick={() => toggleSort('potrerada')}>Potrerada{arrow('potrerada')}</th>
+                                            <th style={{ ...thStyle, textAlign: 'right' }} onClick={() => toggleSort('peso')}>Peso{arrow('peso')}</th>
+                                            <th style={{ ...thStyle, textAlign: 'center', cursor: 'default' }}>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sorted.map(p => (
+                                            <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <td style={tdStyle}>
+                                                    <span style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{p.numero_chapeta}</span>
+                                                </td>
+                                                <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{p.nombre_propietario}</td>
+                                                <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{p.potrerada_nombre}</td>
+                                                <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold' }}>
+                                                    {editingPesajeId === p.id ? (
+                                                        <input
+                                                            type="number" step="0.1" value={editPeso}
+                                                            onChange={e => setEditPeso(e.target.value)}
+                                                            style={{ width: '80px', padding: '6px', margin: 0, textAlign: 'center', fontSize: '0.9rem' }}
+                                                            autoFocus
+                                                        />
+                                                    ) : (
+                                                        <>{p.peso} kg</>
+                                                    )}
+                                                </td>
+                                                <td style={{ ...tdStyle, textAlign: 'center' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                        {editingPesajeId === p.id ? (
+                                                            <>
+                                                                <button onClick={() => handleGuardarEdicion(p)} disabled={loading}
+                                                                    style={{ width: 'auto', padding: '5px 10px', backgroundColor: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
+                                                                    <Check size={13} /> OK
+                                                                </button>
+                                                                <button onClick={() => { setEditingPesajeId(null); setEditPeso(''); }}
+                                                                    style={{ width: 'auto', padding: '5px 8px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }}>
+                                                                    <X size={13} />
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button onClick={() => { setEditingPesajeId(p.id); setEditPeso(String(p.peso)); }} title="Editar"
+                                                                    style={{ width: 'auto', padding: '6px', backgroundColor: 'rgba(33,150,243,0.1)', border: '1px solid rgba(33,150,243,0.3)', borderRadius: '7px', color: '#42a5f5' }}>
+                                                                    <Pencil size={14} />
+                                                                </button>
+                                                                <button onClick={() => handleEliminarPesaje(p)} title="Eliminar"
+                                                                    style={{ width: 'auto', padding: '6px', backgroundColor: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '7px', color: 'var(--error)' }}>
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                        ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 }
