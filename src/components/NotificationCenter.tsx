@@ -48,7 +48,7 @@ export default function NotificationCenter() {
                     peso_compra,
                     id_potrerada,
                     id_finca,
-                    potreradas (nombre),
+                    id_finca,
                     registros_pesaje (
                         peso,
                         fecha,
@@ -59,7 +59,21 @@ export default function NotificationCenter() {
                 .eq('estado', 'activo')
                 .order('fecha', { foreignTable: 'registros_pesaje', ascending: false });
 
-            if (error) throw error;
+            if (error) {
+                console.error("Error fetching animals for notifications:", error);
+                throw error;
+            }
+
+            let potreradasMap: Record<string, string> = {};
+            if (animals && animals.length > 0) {
+                const potIds = [...new Set(animals.map(a => a.id_potrerada).filter(Boolean))];
+                if (potIds.length > 0) {
+                    const { data: pots } = await supabase.from('potreradas').select('id, nombre').in('id', potIds);
+                    if (pots) {
+                        pots.forEach((p: any) => potreradasMap[p.id] = p.nombre);
+                    }
+                }
+            }
 
             const newNotifications: Notification[] = [];
             const hoy = new Date();
@@ -124,7 +138,7 @@ export default function NotificationCenter() {
                 const potsMap: Record<string, { nombre: string, pesos: number[] }> = {};
                 fincaAnimals.forEach((a: any) => {
                     if (!a.id_potrerada) return;
-                    const potName = a.potreradas?.nombre || 'Sin nombre';
+                    const potName = potreradasMap[a.id_potrerada] || 'Sin nombre';
                     if (!potsMap[a.id_potrerada]) potsMap[a.id_potrerada] = { nombre: potName, pesos: [] };
                     
                     const registros = a.registros_pesaje || [];
