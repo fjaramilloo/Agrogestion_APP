@@ -19,6 +19,7 @@ interface AnimalPreview {
     tipo_macho?: 'novillo' | 'toro' | 'torete';
     fecha_castracion?: string | null;
     nombre_propietario?: string;
+    potrerada_nombre?: string;
 }
 
 export default function Weighing() {
@@ -141,13 +142,15 @@ export default function Weighing() {
             let gmp = 0;
             // Buscar la etapa de la potrerada por separado (evita que un join falle y oculte el animal)
             let potreradaEtapa: string | null = null;
+            let potreradaNombre: string | null = null;
             if ((data as any).id_potrerada) {
                 const { data: pot } = await supabase
                     .from('potreradas')
-                    .select('etapa')
+                    .select('etapa, nombre')
                     .eq('id', (data as any).id_potrerada)
                     .single();
                 potreradaEtapa = pot?.etapa || null;
+                potreradaNombre = pot?.nombre || null;
             }
             const etapaEfectiva: string = potreradaEtapa || data.etapa;
 
@@ -184,6 +187,7 @@ export default function Weighing() {
             setAnimal({
                 ...data,
                 etapa: etapaEfectiva,
+                potrerada_nombre: potreradaNombre || undefined,
                 ultimo_peso: ultimoPeso,
                 fecha_ultimo_peso: fechaUltimoPeso,
                 gmp: gmp
@@ -515,6 +519,9 @@ export default function Weighing() {
                             <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Etapa</div>
                                 <div style={{ fontSize: '1.3rem', fontWeight: 'bold', textTransform: 'capitalize' }}>{animal.etapa}</div>
+                                {animal.potrerada_nombre && (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>{animal.potrerada_nombre}</div>
+                                )}
                             </div>
                         </div>
 
