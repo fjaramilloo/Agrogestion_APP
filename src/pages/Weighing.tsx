@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 interface AnimalPreview {
@@ -50,6 +50,11 @@ export default function Weighing() {
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
 
+    // --- Pesajes de Hoy (Corrección) ---
+    const [pesajesHoy, setPesajesHoy] = useState<{ id: string; peso: number; fecha: string; numero_chapeta: string; nombre_propietario: string }[]>([]);
+    const [editingPesajeId, setEditingPesajeId] = useState<string | null>(null);
+    const [editPeso, setEditPeso] = useState('');
+
     useEffect(() => {
         if (!fincaId) return;
         const fetchConfig = async () => {
@@ -71,6 +76,32 @@ export default function Weighing() {
         };
         fetchConfig();
     }, [fincaId]);
+
+    const fetchPesajesHoy = useCallback(async () => {
+        if (!fincaId) return;
+        const hoy = new Date().toISOString().split('T')[0];
+        const { data } = await supabase
+            .from('registros_pesaje')
+            .select('id, peso, fecha, animales!inner(numero_chapeta, nombre_propietario, id_finca)')
+            .eq('animales.id_finca', fincaId)
+            .eq('fecha', hoy)
+            .order('id', { ascending: false })
+            .limit(15);
+
+        if (data) {
+            setPesajesHoy(data.map((p: any) => ({
+                id: p.id,
+                peso: p.peso,
+                fecha: p.fecha,
+                numero_chapeta: p.animales?.numero_chapeta || '-',
+                nombre_propietario: p.animales?.nombre_propietario || '-'
+            })));
+        }
+    }, [fincaId]);
+
+    useEffect(() => {
+        fetchPesajesHoy();
+    }, [fetchPesajesHoy]);
 
     const buscarAnimal = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -269,8 +300,44 @@ export default function Weighing() {
             setChapeta('');
             setNuevoPeso('');
             setFechaPesaje(new Date().toISOString().split('T')[0]);
+            fetchPesajesHoy();
         } catch (err: any) {
             setMsjError(err.message || 'Error al guardar el pesaje');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEliminarPesaje = async (pesaje: typeof pesajesHoy[0]) => {
+        if (!confirm(`¿Eliminar el pesaje de ${pesaje.peso}kg del animal #${pesaje.numero_chapeta}?`)) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('registros_pesaje').delete().eq('id', pesaje.id);
+            if (error) throw error;
+            fetchPesajesHoy();
+        } catch (err: any) {
+            alert('Error al eliminar: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGuardarEdicion = async (pesaje: typeof pesajesHoy[0]) => {
+        const nuevoPesoFloat = parseFloat(editPeso);
+        if (isNaN(nuevoPesoFloat) || nuevoPesoFloat <= 0) { alert('Ingresa un peso válido.'); return; }
+        if (nuevoPesoFloat === pesaje.peso) { setEditingPesajeId(null); return; }
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('registros_pesaje')
+                .update({ peso: nuevoPesoFloat, peso_anterior: pesaje.peso, fecha_modificacion: new Date().toISOString() })
+                .eq('id', pesaje.id);
+            if (error) throw error;
+            setEditingPesajeId(null);
+            setEditPeso('');
+            fetchPesajesHoy();
+        } catch (err: any) {
+            alert('Error al editar: ' + err.message);
         } finally {
             setLoading(false);
         }
@@ -550,6 +617,70 @@ export default function Weighing() {
                     </div>
                 )}
             </div>
+
+            {/* Panel: Pesajes de Hoy */}
+            {pesajesHoy.length > 0 && (
+                <div className="card" style={{ padding: '24px', marginTop: '24px' }}>
+                    <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        ✏️ Pesajes ingresados hoy
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>(solo puedes corregir los de hoy)</span>
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {pesajesHoy.map(p => (
+                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1rem' }}>#{p.numero_chapeta}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.nombre_propietario}</div>
+                                </div>
+                                {editingPesajeId === p.id ? (
+                                    <>
+                                        <input
+                                            type="number"
+                                            step="0.1"
+                                            value={editPeso}
+                                            onChange={e => setEditPeso(e.target.value)}
+                                            style={{ width: '90px', padding: '8px', margin: 0, textAlign: 'center', fontSize: '1rem' }}
+                                            autoFocus
+                                        />
+                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>kg</span>
+                                        <button
+                                            onClick={() => handleGuardarEdicion(p)}
+                                            disabled={loading}
+                                            style={{ width: 'auto', padding: '6px 12px', backgroundColor: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+                                        >
+                                            <Check size={14} /> Guardar
+                                        </button>
+                                        <button
+                                            onClick={() => { setEditingPesajeId(null); setEditPeso(''); }}
+                                            style={{ width: 'auto', padding: '6px 10px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', minWidth: '70px', textAlign: 'right' }}>{p.peso} kg</div>
+                                        <button
+                                            onClick={() => { setEditingPesajeId(p.id); setEditPeso(String(p.peso)); }}
+                                            title="Editar"
+                                            style={{ width: 'auto', padding: '7px', backgroundColor: 'rgba(33,150,243,0.1)', border: '1px solid rgba(33,150,243,0.3)', borderRadius: '8px', color: '#42a5f5' }}
+                                        >
+                                            <Pencil size={15} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleEliminarPesaje(p)}
+                                            title="Eliminar"
+                                            style={{ width: 'auto', padding: '7px', backgroundColor: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', color: 'var(--error)' }}
+                                        >
+                                            <Trash2 size={15} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
