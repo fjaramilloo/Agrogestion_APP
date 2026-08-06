@@ -413,6 +413,36 @@ export default function Inventory() {
         };
     }, [animales]);
 
+    const statsFiltrados = useMemo(() => {
+        const potreros = new Set<string>();
+        const potreradas = new Set<string>();
+        let alertas = 0;
+
+        sortedAndFilteredAnimals.forEach(a => {
+            if (a.potreroNombre && a.potreroNombre !== 'Sin potrero') potreros.add(a.potreroNombre);
+            if (a.potreradaNombre && a.potreradaNombre !== 'Sin potrerada') potreradas.add(a.potreradaNombre);
+            
+            const ultimoP = a.registros_pesaje?.[0];
+            if (ultimoP) {
+                const isCeba = a.etapa === 'ceba';
+                const pesoBase = isCeba ? (a.peso_ingreso_ceba || a.peso_compra || a.peso_ingreso || 0) : (a.peso_compra ?? a.peso_ingreso ?? 0);
+                const fechaInicio = isCeba ? (a.fecha_ingreso_ceba || a.fecha_ingreso) : a.fecha_ingreso;
+                const fechaRef = new Date(ultimoP.fecha);
+                const dias = differenceInDays(fechaRef, new Date(fechaInicio)) || 1;
+                const gmp = ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined ? Number(ultimoP.gmp_calculada) : ((ultimoP.peso - pesoBase) / dias) * 30;
+                
+                if (gmp <= umbralMedioGmp) alertas++;
+            }
+        });
+
+        return {
+            total: sortedAndFilteredAnimals.length,
+            potreros: potreros.size,
+            potreradas: potreradas.size,
+            alertas
+        };
+    }, [sortedAndFilteredAnimals, umbralMedioGmp]);
+
 
 
     return (
@@ -443,33 +473,20 @@ export default function Inventory() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                 <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(46, 125, 50, 0.1)', border: '1px solid rgba(46, 125, 50, 0.2)' }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Total Animales</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{animales.length}</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{statsFiltrados.total}</div>
                 </div>
                 <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(255, 179, 0, 0.05)', border: '1px solid rgba(255, 179, 0, 0.1)' }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Potreradas</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{uniquePotreradas.length}</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{statsFiltrados.potreradas}</div>
                 </div>
                 <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Potreros en Uso</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{uniquePotreros.length}</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{statsFiltrados.potreros}</div>
                 </div>
                 <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(244, 67, 54, 0.05)', border: '1px solid rgba(244, 67, 54, 0.1)' }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Alertas (GDP Bajo)</div>
                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--error)' }}>
-                        {animales.filter(a => {
-                            const ultimoP = a.registros_pesaje?.[0];
-                            if (!ultimoP) return false;
-                            
-                            const isCeba = a.etapa === 'ceba';
-                            const pesoBase = isCeba ? (a.peso_ingreso_ceba || a.peso_compra || a.peso_ingreso || 0) : (a.peso_compra ?? a.peso_ingreso ?? 0);
-                            const fechaInicio = isCeba ? (a.fecha_ingreso_ceba || a.fecha_ingreso) : a.fecha_ingreso;
-                            
-                            const fechaRef = new Date(ultimoP.fecha);
-                            const dias = differenceInDays(fechaRef, new Date(fechaInicio)) || 1;
-                            const gmp = ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined ? Number(ultimoP.gmp_calculada) : ((ultimoP.peso - pesoBase) / dias) * 30;
-                            
-                            return gmp <= umbralMedioGmp;
-                        }).length}
+                        {statsFiltrados.alertas}
                     </div>
                 </div>
             </div>
