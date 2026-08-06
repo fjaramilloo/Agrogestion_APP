@@ -23,7 +23,7 @@ interface Potrerada {
     gmpPromedio: number;
     gmpAcumulado: number;
     diasPesajePromedio: number;
-    marcas: string[];
+    marcas: { nombre: string; count: number }[];
     id_rotacion: string | null;
     rotacionNombre: string | null;
     potreroActualNombre: string | null;
@@ -305,7 +305,10 @@ export default function Potreradas() {
                     gmpPromedio: validGmpLastCount > 0 ? totalGmpLast / validGmpLastCount : 0,
                     gmpAcumulado: validGmpAccCount > 0 ? totalGmpAcc / validGmpAccCount : 0,
                     diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0,
-                    marcas: Array.from(new Set(groupAnimals.map((a: any) => a.nombre_propietario).filter(Boolean))).sort() as string[],
+                    marcas: Object.entries(groupAnimals.reduce((acc: Record<string, number>, a: any) => {
+                        if (a.nombre_propietario) acc[a.nombre_propietario] = (acc[a.nombre_propietario] || 0) + 1;
+                        return acc;
+                    }, {})).map(([nombre, count]) => ({ nombre, count })).sort((a, b) => a.nombre.localeCompare(b.nombre)),
                     id_rotacion: p.id_rotacion,
                     rotacionNombre: p.id_rotacion ? (rotacionNombreMap.get(p.id_rotacion) || null) : null,
                     potreroActualNombre: potreroActualMap.get(p.id) || null,
@@ -1329,7 +1332,7 @@ export default function Potreradas() {
                             {potreradas
                                 .filter(p => 
                                     p.nombre.toLowerCase().includes(potreradaSearch.toLowerCase()) || 
-                                    p.marcas.some(m => m.toLowerCase().includes(potreradaSearch.toLowerCase()))
+                                    p.marcas.some(m => m.nombre.toLowerCase().includes(potreradaSearch.toLowerCase()))
                                 )
                                 .map((p, idx) => (
                                 <tr key={p.id} className="table-row-hover" style={{ borderBottom: idx < potreradas.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
@@ -1368,7 +1371,7 @@ export default function Potreradas() {
                                                         color: 'var(--text-muted)',
                                                         border: '1px solid rgba(255,255,255,0.1)'
                                                     }}>
-                                                        {m}
+                                                        {m.nombre} <span style={{ opacity: 0.6 }}>({m.count})</span>
                                                     </span>
                                                 ))
                                             ) : (
