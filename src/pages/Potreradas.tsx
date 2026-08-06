@@ -422,6 +422,10 @@ export default function Potreradas() {
         if (!confirm('¿Está seguro de eliminar esta potrerada? Tenga en cuenta que los animales perderán su referencia a la misma.')) return;
         setLoading(true);
         try {
+            // Liberar a los animales de la potrerada actual y del historial de última potrerada
+            await supabase.from('animales').update({ id_potrerada: null }).eq('id_potrerada', id);
+            await supabase.from('animales').update({ ultima_potrerada_id: null }).eq('ultima_potrerada_id', id);
+
             const { error } = await supabase.from('potreradas').delete().eq('id', id);
             if (error) throw error;
             fetchPotreradasData();
