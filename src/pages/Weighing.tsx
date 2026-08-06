@@ -122,7 +122,7 @@ export default function Weighing() {
 
         const { data, error } = await supabase
             .from('animales')
-            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario')
+            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, potreradas(etapa)')
             .eq('id_finca', fincaId)
             .eq('numero_chapeta', chapeta.trim())
             .single();
@@ -139,10 +139,14 @@ export default function Weighing() {
                 .order('fecha', { ascending: false });
 
             let gmp = 0;
+            // Usar la etapa de la potrerada asignada como fuente de verdad (si existe)
+            const potreradaEtapa = (data as any).potreradas?.etapa;
+            const etapaEfectiva: string = potreradaEtapa || data.etapa;
+
             // Usar peso de la etapa actual como base
             let pesoBase = data.peso_compra || data.peso_ingreso;
             let fechaBase = data.fecha_ingreso;
-            if (data.etapa === 'ceba') {
+            if (etapaEfectiva === 'ceba') {
                 pesoBase = data.peso_ingreso_ceba || pesoBase;
                 fechaBase = data.fecha_ingreso_ceba || fechaBase;
             }
@@ -171,6 +175,7 @@ export default function Weighing() {
 
             setAnimal({
                 ...data,
+                etapa: etapaEfectiva,
                 ultimo_peso: ultimoPeso,
                 fecha_ultimo_peso: fechaUltimoPeso,
                 gmp: gmp
