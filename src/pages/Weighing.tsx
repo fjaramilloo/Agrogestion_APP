@@ -15,9 +15,10 @@ interface AnimalPreview {
     fecha_ultimo_peso?: string;
     gmp?: number;
     ok_ceba?: boolean;
-    sexo?: string;
-    tipo_macho?: string;
-    fecha_castracion?: string;
+    sexo?: 'M' | 'H';
+    tipo_macho?: 'novillo' | 'toro' | 'torete';
+    fecha_castracion?: string | null;
+    nombre_propietario?: string;
 }
 
 export default function Weighing() {
@@ -87,7 +88,7 @@ export default function Weighing() {
 
         const { data, error } = await supabase
             .from('animales')
-            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion')
+            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario')
             .eq('id_finca', fincaId)
             .eq('numero_chapeta', chapeta.trim())
             .single();
@@ -403,6 +404,11 @@ export default function Weighing() {
                             <div>
                                 <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Animal Encontrado</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>#{animal.numero_chapeta}</div>
+                                {animal.nombre_propietario && (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+                                        Marca/Propietario: <span style={{ color: 'var(--text-light)' }}>{animal.nombre_propietario}</span>
+                                    </div>
+                                )}
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Última GMP</div>
