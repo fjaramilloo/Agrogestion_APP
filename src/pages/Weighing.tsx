@@ -139,8 +139,16 @@ export default function Weighing() {
                 .order('fecha', { ascending: false });
 
             let gmp = 0;
-            // Usar la etapa de la potrerada asignada como fuente de verdad (si existe)
-            const potreradaEtapa = (data as any).potreradas?.etapa;
+            // Buscar la etapa de la potrerada por separado (evita que un join falle y oculte el animal)
+            let potreradaEtapa: string | null = null;
+            if ((data as any).id_potrerada) {
+                const { data: pot } = await supabase
+                    .from('potreradas')
+                    .select('etapa')
+                    .eq('id', (data as any).id_potrerada)
+                    .single();
+                potreradaEtapa = pot?.etapa || null;
+            }
             const etapaEfectiva: string = potreradaEtapa || data.etapa;
 
             // Usar peso de la etapa actual como base
