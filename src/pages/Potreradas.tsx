@@ -84,6 +84,8 @@ export default function Potreradas() {
     const [animalesFinca, setAnimalesFinca] = useState<AnimalPotrero[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchTermEnLote, setSearchTermEnLote] = useState('');
+    const [filterPropietario, setFilterPropietario] = useState('');
+    const [filterPotreradaActual, setFilterPotreradaActual] = useState('');
     const [updatingAnimal, setUpdatingAnimal] = useState<string | null>(null);
 
     // Estados para el detalle de la potrerada
@@ -503,6 +505,8 @@ export default function Potreradas() {
     const resetManagementSearch = () => {
         setSearchTerm('');
         setSearchTermEnLote('');
+        setFilterPropietario('');
+        setFilterPotreradaActual('');
     };
 
     const filteredAnimalesFinca = animalesFinca.filter(a => {
@@ -510,8 +514,21 @@ export default function Potreradas() {
                              a.nombre_propietario.toLowerCase().includes(searchTerm.toLowerCase());
         const isNotAlreadyInThisPot = a.id_potrerada !== managingPotrerada?.id;
         const isActivo = a.estado === 'activo';
-        return matchesSearch && isNotAlreadyInThisPot && isActivo;
+        const matchesPropietario = !filterPropietario || a.nombre_propietario === filterPropietario;
+        const matchesPotrerada = !filterPotreradaActual || 
+            (filterPotreradaActual === '__sin_lote__' ? !a.id_potrerada : a.potreradaNombre === filterPotreradaActual);
+        return matchesSearch && isNotAlreadyInThisPot && isActivo && matchesPropietario && matchesPotrerada;
     });
+
+    const propietariosOptions = [...new Set(
+        animalesFinca.filter(a => a.estado === 'activo' && a.id_potrerada !== managingPotrerada?.id)
+            .map(a => a.nombre_propietario).filter(Boolean)
+    )].sort();
+
+    const potreradasOptions = [...new Set(
+        animalesFinca.filter(a => a.estado === 'activo' && a.id_potrerada !== managingPotrerada?.id)
+            .map(a => a.potreradaNombre || '')
+    )].sort();
 
 
 
@@ -1652,7 +1669,7 @@ export default function Potreradas() {
                                     <Plus size={16} color="var(--success)" /> Agregar Otros
                                 </h3>
 
-                                <div style={{ position: 'relative', marginBottom: '12px' }}>
+                                <div style={{ position: 'relative', marginBottom: '8px' }}>
                                     <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                                     <input 
                                         type="text"
@@ -1661,6 +1678,30 @@ export default function Potreradas() {
                                         onChange={e => setSearchTerm(e.target.value)}
                                         style={{ padding: '8px 8px 8px 32px', fontSize: '0.85rem', marginBottom: 0 }}
                                     />
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                                    <select
+                                        value={filterPropietario}
+                                        onChange={e => setFilterPropietario(e.target.value)}
+                                        style={{ flex: 1, padding: '6px 8px', fontSize: '0.78rem', background: 'var(--bg-dark)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: filterPropietario ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer' }}
+                                    >
+                                        <option value="">Todos propietarios</option>
+                                        {propietariosOptions.map(p => (
+                                            <option key={p} value={p}>{p}</option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        value={filterPotreradaActual}
+                                        onChange={e => setFilterPotreradaActual(e.target.value)}
+                                        style={{ flex: 1, padding: '6px 8px', fontSize: '0.78rem', background: 'var(--bg-dark)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: filterPotreradaActual ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer' }}
+                                    >
+                                        <option value="">Todas potreradas</option>
+                                        <option value="__sin_lote__">Sin lote</option>
+                                        {potreradasOptions.filter(Boolean).map(p => (
+                                            <option key={p} value={p}>{p}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 
                                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
