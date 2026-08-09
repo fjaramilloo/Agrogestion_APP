@@ -37,6 +37,7 @@ interface GmpDetailItem {
     id_animal: string;
     chapeta: string;
     propietario: string;
+    potrerada: string;
     fechaAnterior: string;
     pesoAnterior: number;
     fechaActual: string;
@@ -93,7 +94,7 @@ export default function Dashboard() {
         levante: Record<number, GmpDetailItem[]>,
         ceba: Record<number, GmpDetailItem[]>
     }>({ levante: {}, ceba: {} });
-    const [sortCol, setSortCol] = useState<'propietario' | 'gmp'>('gmp');
+    const [sortCol, setSortCol] = useState<'chapeta' | 'propietario' | 'potrerada' | 'gmp'>('gmp');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [filterTipo, setFilterTipo] = useState<'historico' | 'actual'>('actual');
     const [rawData, setRawData] = useState<{ animales: any[], pesajes: any[] } | null>(null);
@@ -548,6 +549,7 @@ export default function Dashboard() {
                         id_animal: animal.id,
                         chapeta: animal.numero_chapeta || 'N/A',
                         propietario: animal.nombre_propietario || 'Sin Propietario',
+                        potrerada: animal.potreradas?.nombre || 'Sin lote',
                         fechaAnterior: format(prevDate, 'dd/MM/yyyy'),
                         pesoAnterior: prevWeight,
                         fechaActual: format(currentDate, 'dd/MM/yyyy'),
@@ -1330,7 +1332,15 @@ export default function Dashboard() {
                                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                             <thead>
                                                 <tr>
-                                                    <th>Chapeta</th>
+                                                    <th
+                                                        onClick={() => {
+                                                            if (sortCol === 'chapeta') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                                                            else { setSortCol('chapeta'); setSortOrder('asc'); }
+                                                        }}
+                                                        style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                                    >
+                                                        Chapeta {sortCol === 'chapeta' && (sortOrder === 'asc' ? '↑' : '↓')}
+                                                    </th>
                                                     <th 
                                                         onClick={() => {
                                                             if (sortCol === 'propietario') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -1339,6 +1349,15 @@ export default function Dashboard() {
                                                         style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
                                                     >
                                                         Propietario {sortCol === 'propietario' && (sortOrder === 'asc' ? '↑' : '↓')}
+                                                    </th>
+                                                    <th 
+                                                        onClick={() => {
+                                                            if (sortCol === 'potrerada') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                                                            else { setSortCol('potrerada'); setSortOrder('asc'); }
+                                                        }}
+                                                        style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                                    >
+                                                        Potrerada {sortCol === 'potrerada' && (sortOrder === 'asc' ? '↑' : '↓')}
                                                     </th>
                                                     <th>Fecha Ant.</th>
                                                     <th>Peso Ant.</th>
@@ -1362,6 +1381,14 @@ export default function Dashboard() {
                                                             const valA = a.propietario.toLowerCase();
                                                             const valB = b.propietario.toLowerCase();
                                                             return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                                                        } else if (sortCol === 'potrerada') {
+                                                            const valA = a.potrerada.toLowerCase();
+                                                            const valB = b.potrerada.toLowerCase();
+                                                            return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                                                        } else if (sortCol === 'chapeta') {
+                                                            const valA = a.chapeta.toLowerCase();
+                                                            const valB = b.chapeta.toLowerCase();
+                                                            return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
                                                         } else {
                                                             return sortOrder === 'asc' ? a.gmp - b.gmp : b.gmp - a.gmp;
                                                         }
@@ -1370,6 +1397,7 @@ export default function Dashboard() {
                                                     <tr key={idx} className="table-row-hover">
                                                         <td style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{item.chapeta}</td>
                                                         <td style={{ fontSize: '0.85rem' }}>{item.propietario}</td>
+                                                        <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{item.potrerada}</td>
                                                         <td>{item.fechaAnterior}</td>
                                                         <td>{item.pesoAnterior} kg</td>
                                                         <td>{item.fechaActual}</td>
