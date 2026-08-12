@@ -190,12 +190,15 @@ const AppRoutes = () => {
   );
 };
 
+import AgroBot from './components/AgroBot';
+
 function App() {
   return (
     <AuthProvider>
       <Router>
         <AppRoutes />
         <VersionNotifier />
+        <AgroBot />
       </Router>
     </AuthProvider>
   );
