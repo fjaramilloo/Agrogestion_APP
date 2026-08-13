@@ -140,7 +140,15 @@ export default function AgroBot() {
 
         } catch (error: any) {
             console.error("Error con AgroBot:", error);
-            setMessages(prev => [...prev, { role: 'model', text: `Lo siento, tuve un problema técnico: ${error.message}` }]);
+            let errorMsg = `Lo siento, tuve un problema técnico: ${error.message}`;
+            
+            if (error.message.includes('429') || error.message.includes('Quota exceeded')) {
+                errorMsg = '🐄 ¡Ups! He alcanzado mi límite de consultas rápidas por ahora (límite de uso gratuito). Por favor, dame un minuto de descanso e inténtalo de nuevo.';
+            } else if (error.message.includes('503')) {
+                errorMsg = '🐄 Mis servidores están un poco saturados en este momento. Dame unos segunditos e intenta de nuevo.';
+            }
+            
+            setMessages(prev => [...prev, { role: 'model', text: errorMsg }]);
         } finally {
             setIsLoading(false);
         }
