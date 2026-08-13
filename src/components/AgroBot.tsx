@@ -35,8 +35,14 @@ Tablas disponibles:
 Joins: animales.id_potrerada = potreradas.id | registros_pesaje.id_animal = animales.id | usa LEFT JOIN para relaciones opcionales.`;
 
 function extractSql(text: string): string | null {
-    const match = text.match(/```sql\s*([\s\S]*?)```/i);
-    return match ? match[1].trim() : null;
+    const startMarker = '```sql';
+    const endMarker = '```';
+    const start = text.indexOf(startMarker);
+    if (start === -1) return null;
+    const sqlStart = start + startMarker.length;
+    const end = text.indexOf(endMarker, sqlStart);
+    if (end === -1) return null;
+    return text.slice(sqlStart, end).trim();
 }
 
 export default function AgroBot() {
