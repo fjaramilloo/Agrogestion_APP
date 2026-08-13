@@ -70,12 +70,16 @@ export default function AgroBot() {
         }
     }, [messages, isOpen]);
 
-    if (!apiKey || !fincaId) {
+    if (!apiKey) {
         return null;
     }
 
     const handleSend = async () => {
-        if (!input.trim() || !fincaId) return;
+        if (!input.trim()) return;
+        if (!fincaId) {
+            setMessages(prev => [...prev, { role: 'model', text: 'Para hacer consultas primero debes seleccionar una finca en la aplicación.' }]);
+            return;
+        }
 
         const userMsg = input.trim();
         setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
