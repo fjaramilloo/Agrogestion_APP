@@ -2,19 +2,27 @@ import { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Database } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import type { FunctionDeclaration } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Prompt del sistema
-const SYSTEM_PROMPT = `Eres AgroBot, un asistente y mentor ganadero inteligente integrado en una plataforma de gestión ganadera colombiana. Tu propósito principal es ayudar al usuario a consultar, analizar e interpretar los datos de sus animales y fincas. Además, actúas como un consultor zootécnico: puedes responder preguntas generales sobre manejo de ganaderías, mejores prácticas (ej: ¿cómo se hace un aforo?), y conceptos veterinarios o agronómicos.
+const SYSTEM_PROMPT = `Eres AgroBot, un asistente y mentor ganadero inteligente integrado en una plataforma de gestión ganadera colombiana. Tu propósito principal es ayudar al usuario a consultar, analizar e interpretar los datos de sus animales y fincas. Además, actúas como un consultor zootécnico: puedes responder preguntas generales sobre manejo de ganaderías, mejores prácticas, y conceptos veterinarios o agronómicos.
 
-Tienes acceso a una base de datos estructurada de Supabase con información real de la finca. Cada consulta de datos que generes se ejecutará en tiempo real y se te devolverán los resultados para que los interpretes.
+Reglas importantes:
+1. AISLAMIENTO: Solo puedes consultar datos de la finca activa del usuario (el fincaId se te inyecta automáticamente en cada mensaje de sistema).
+2. SOLO LECTURA: Solo puedes generar sentencias SQL de tipo SELECT. NUNCA generes INSERT, UPDATE, DELETE, DROP, TRUNCATE.
+3. VOCABULARIO: Usa chapeta, potrerada, lote, potrero, rotación, GMP, GDP, Levante, Ceba, Compra, Venta.
+4. TONO: Mentor ganadero experimentado. Corrige errores técnicos o zootécnicos con criterio.
 
-1. Aislamiento de finca: Solo puedes consultar datos de la finca activa del usuario. Nunca accedas ni menciones datos de otras fincas. Siempre usa la herramienta "consultar_datos" si necesitas datos.
-2. Solo lectura: Exclusivamente puedes generar sentencias SQL de tipo SELECT.
-3. Vocabulario: Usa chapeta, potrerada, lote, potrero, rotación, GMP, GDP, Levante, Ceba, Compra, Venta.
-4. Tono: Mentor ganadero experimentado. Corrige errores técnicos o zootécnicos del usuario.
-5. Tablas disponibles:
+Cuando el usuario haga una pregunta que requiera datos de la finca, DEBES responder ÚNICAMENTE con un bloque SQL así (sin ningún texto antes ni después):
+\`\`\`sql
+SELECT ... FROM ... WHERE id_finca = '[fincaId]' ...
+\`\`\`
+
+Cuando ya tengas los datos del resultado de la consulta, entonces interprétalos y responde al usuario en español de manera natural y útil, como un buen asesor ganadero. No menciones el SQL ni detalles técnicos.
+
+Si la pregunta NO requiere datos (ej: preguntas sobre zootecnia general, definiciones, etc.), responde directamente en español.
+
+Tablas disponibles:
 - fincas (id, nombre, area_aprovechable, proposito)
 - animales (id, id_finca, numero_chapeta, nombre_propietario, etapa, peso_ingreso, peso_compra, fecha_ingreso, estado, id_potrerada, id_potrero_actual)
 - registros_pesaje (id, id_animal, peso, fecha, gdp_calculada, gmp_calculada)
@@ -24,55 +32,34 @@ Tienes acceso a una base de datos estructurada de Supabase con información real
 - propietarios (id, id_finca, nombre)
 - configuracion_kpi (id_finca, umbral_alto_gmp, umbral_medio_gmp)
 
-Importante: Para obtener datos, SIEMPRE DEBES USAR LA HERRAMIENTA "consultar_datos". Pasa el SQL como argumento. El SQL debe usar WHERE id_finca = '[fincaId]'. Nunca devuelvas un JSON directamente al usuario, espera la respuesta de la herramienta para dar la respuesta final al usuario.`;
+Joins: animales.id_potrerada = potreradas.id | registros_pesaje.id_animal = animales.id | usa LEFT JOIN para relaciones opcionales.`;
 
-const consultarDatosDeclaration: FunctionDeclaration = {
-    name: 'consultar_datos',
-    description: 'Ejecuta una consulta SQL SELECT en la base de datos de la finca para obtener información real y actualizada. Debes usar esto SIEMPRE que el usuario haga una pregunta sobre sus animales o fincas.',
-    parameters: {
-        type: SchemaType.OBJECT,
-        properties: {
-            query: {
-                type: SchemaType.STRING,
-                description: 'La consulta SQL (solo SELECT) a ejecutar. Debe incluir el filtro por id_finca correspondiente y usar JOINs si es necesario.'
-            }
-        },
-        required: ['query'],
-    },
-};
+function extractSql(text: string): string | null {
+    const match = text.match(/```sql\s*([\s\S]*?)```/i);
+    return match ? match[1].trim() : null;
+}
 
 export default function AgroBot() {
     const { fincaId } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
-        { role: 'model', text: '¡Hola! Soy AgroBot, tu mentor ganadero. Puedo ayudarte a analizar los datos de tu finca o responder preguntas sobre zootecnia.' }
+        { role: 'model', text: '¡Hola! Soy AgroBot, tu mentor ganadero. ¿En qué te puedo ayudar hoy?' }
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Configurar Gemini
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const genAI = new GoogleGenerativeAI(apiKey || '');
-    const model = genAI.getGenerativeModel({
-        model: "gemini-3.6-flash",
-        systemInstruction: SYSTEM_PROMPT,
-        tools: [{ functionDeclarations: [consultarDatosDeclaration] }]
-    });
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     useEffect(() => {
-        if (isOpen) {
-            scrollToBottom();
-        }
+        if (isOpen) scrollToBottom();
     }, [messages, isOpen]);
 
-    if (!apiKey) {
-        return null;
-    }
+    if (!apiKey) return null;
 
     const handleSend = async () => {
         if (!input.trim()) return;
@@ -87,7 +74,13 @@ export default function AgroBot() {
         setIsLoading(true);
 
         try {
-            // Historial para mantener contexto
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({
+                model: "gemini-3.6-flash",
+                systemInstruction: SYSTEM_PROMPT,
+            });
+
+            // Historial de la conversación
             const history = messages.slice(1).map(m => ({
                 role: m.role,
                 parts: [{ text: m.text }]
@@ -95,39 +88,38 @@ export default function AgroBot() {
 
             const chat = model.startChat({ history });
 
-            // Enviar mensaje con el fincaId inyectado
-            const contextMsg = `[Contexto Oculto: El ID de la finca actual es '${fincaId}'. Filtra siempre por este ID]. Pregunta del usuario: ${userMsg}`;
-            let result = await chat.sendMessage(contextMsg);
-            
-            // Procesar llamadas a herramientas (function calling)
-            const functionCalls = result.response.functionCalls();
-            if (functionCalls && functionCalls.length > 0) {
-                const call = functionCalls[0];
-                if (call.name === 'consultar_datos') {
-                    const sqlQuery = (call.args as any).query;
-                    
-                    // Ejecutar en Supabase
-                    const { data, error } = await supabase.rpc('execute_ai_query', { query_text: sqlQuery });
-                    
-                    let dbResultStr = '';
-                    if (error) {
-                        dbResultStr = `Error en DB: ${error.message}`;
-                    } else {
-                        dbResultStr = JSON.stringify(data);
-                    }
+            // Paso 1: Enviar el mensaje con el fincaId inyectado
+            const contextMsg = `[Sistema: fincaId activo = '${fincaId}'. Usa este ID en todos los filtros SQL.]\n\nPregunta: ${userMsg}`;
+            const step1 = await chat.sendMessage(contextMsg);
+            const step1Text = step1.response.text();
 
-                    // Enviar resultado de vuelta a la IA
-                    result = await chat.sendMessage([{
-                        functionResponse: {
-                            name: 'consultar_datos',
-                            response: { result: dbResultStr }
-                        }
-                    }]);
+            // Paso 2: Si la respuesta contiene SQL, ejecutarlo
+            const sql = extractSql(step1Text);
+
+            if (sql) {
+                // Ejecutar SQL en Supabase
+                const { data, error } = await supabase.rpc('execute_ai_query', { query_text: sql });
+
+                let dbResult = '';
+                if (error) {
+                    dbResult = `Error al consultar: ${error.message}`;
+                } else if (!data || (Array.isArray(data) && data.length === 0)) {
+                    dbResult = 'La consulta no devolvió resultados.';
+                } else {
+                    dbResult = JSON.stringify(data);
                 }
+
+                // Paso 3: Enviar los resultados de vuelta para que la IA los interprete
+                const step2 = await chat.sendMessage(
+                    `Resultado de la consulta SQL: ${dbResult}\n\nAhora interpreta estos resultados y responde al usuario de manera clara y útil en español. No menciones el SQL ni el formato técnico.`
+                );
+                const botMsg = step2.response.text();
+                setMessages(prev => [...prev, { role: 'model', text: botMsg }]);
+            } else {
+                // No necesitaba SQL: respuesta directa
+                setMessages(prev => [...prev, { role: 'model', text: step1Text }]);
             }
 
-            const botMsg = result.response.text();
-            setMessages(prev => [...prev, { role: 'model', text: botMsg }]);
         } catch (error: any) {
             console.error("Error con AgroBot:", error);
             setMessages(prev => [...prev, { role: 'model', text: `Lo siento, tuve un problema técnico: ${error.message}` }]);
