@@ -186,13 +186,13 @@ export default function AgroBot() {
                                         <ReactMarkdown
                                             remarkPlugins={[remarkGfm]}
                                             components={{
-                                                table: ({node, ...props}) => <div style={{ overflowX: 'auto', margin: '8px 0' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }} {...props} /></div>,
-                                                th: ({node, ...props}) => <th style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '6px', textAlign: 'left', background: 'rgba(255,255,255,0.1)' }} {...props} />,
-                                                td: ({node, ...props}) => <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '6px' }} {...props} />,
-                                                p: ({node, ...props}) => <p style={{ margin: '0 0 8px 0' }} {...props} />,
-                                                ul: ({node, ...props}) => <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
-                                                ol: ({node, ...props}) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
-                                                strong: ({node, ...props}) => <strong style={{ color: 'var(--primary-light)' }} {...props} />
+                                                table: ({node, ...props}: any) => <div style={{ overflowX: 'auto', margin: '8px 0' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }} {...props} /></div>,
+                                                th: ({node, ...props}: any) => <th style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '6px', textAlign: 'left', background: 'rgba(255,255,255,0.1)' }} {...props} />,
+                                                td: ({node, ...props}: any) => <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '6px' }} {...props} />,
+                                                p: ({node, ...props}: any) => <p style={{ margin: '0 0 8px 0' }} {...props} />,
+                                                ul: ({node, ...props}: any) => <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
+                                                ol: ({node, ...props}: any) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
+                                                strong: ({node, ...props}: any) => <strong style={{ color: 'var(--primary-light)' }} {...props} />
                                             }}
                                         >
                                             {m.text}
