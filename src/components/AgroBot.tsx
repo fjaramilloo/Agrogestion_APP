@@ -108,16 +108,21 @@ export default function AgroBot() {
             const sql = extractSql(step1Text);
 
             if (sql) {
+                // Agregar mensaje de debug temporal para el usuario
+                setMessages(prev => [...prev, { role: 'model', text: `[DEBUG] SQL detectado: ${sql}` }]);
+
                 // Ejecutar SQL en Supabase
                 const { data, error } = await supabase.rpc('execute_ai_query', { query_text: sql });
 
                 let dbResult = '';
                 if (error) {
                     dbResult = `Error al consultar: ${error.message}`;
+                    setMessages(prev => [...prev, { role: 'model', text: `[DEBUG] Error DB: ${error.message}` }]);
                 } else if (!data || (Array.isArray(data) && data.length === 0)) {
                     dbResult = 'La consulta no devolvió resultados.';
                 } else {
                     dbResult = JSON.stringify(data);
+                    setMessages(prev => [...prev, { role: 'model', text: `[DEBUG] Datos DB: ${dbResult}` }]);
                 }
 
                 // Paso 3: Enviar los resultados de vuelta para que la IA los interprete
@@ -128,7 +133,7 @@ export default function AgroBot() {
                 setMessages(prev => [...prev, { role: 'model', text: botMsg }]);
             } else {
                 // No necesitaba SQL: respuesta directa
-                setMessages(prev => [...prev, { role: 'model', text: step1Text }]);
+                setMessages(prev => [...prev, { role: 'model', text: `[DEBUG] No se detectó SQL. Respuesta original:\n${step1Text}` }]);
             }
 
         } catch (error: any) {
