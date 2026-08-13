@@ -55,7 +55,7 @@ export default function AgroBot() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     const genAI = new GoogleGenerativeAI(apiKey || '');
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: "gemini-flash-latest",
         systemInstruction: SYSTEM_PROMPT,
         tools: [{ functionDeclarations: [consultarDatosDeclaration] }]
     });
