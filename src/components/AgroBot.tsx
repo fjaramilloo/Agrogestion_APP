@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Database } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../supabaseClient';
-import { GoogleGenerativeAI, FunctionDeclaration, SchemaType } from '@google/generative-ai';
+import { supabase } from '../lib/supabase';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import type { FunctionDeclaration } from '@google/generative-ai';
 
 // Prompt del sistema
 const SYSTEM_PROMPT = `Eres AgroBot, un asistente y mentor ganadero inteligente integrado en una plataforma de gestión ganadera colombiana. Tu propósito principal es ayudar al usuario a consultar, analizar e interpretar los datos de sus animales y fincas. Además, actúas como un consultor zootécnico: puedes responder preguntas generales sobre manejo de ganaderías, mejores prácticas (ej: ¿cómo se hace un aforo?), y conceptos veterinarios o agronómicos.
@@ -95,8 +96,9 @@ export default function AgroBot() {
             let result = await chat.sendMessage(contextMsg);
             
             // Procesar llamadas a herramientas (function calling)
-            if (result.response.functionCalls && result.response.functionCalls.length > 0) {
-                const call = result.response.functionCalls[0];
+            const functionCalls = result.response.functionCalls();
+            if (functionCalls && functionCalls.length > 0) {
+                const call = functionCalls[0];
                 if (call.name === 'consultar_datos') {
                     const sqlQuery = (call.args as any).query;
                     
