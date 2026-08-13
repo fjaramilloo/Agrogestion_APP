@@ -3,6 +3,8 @@ import { Bot, X, Send, Database } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // Prompt del sistema
 const SYSTEM_PROMPT = `Eres AgroBot, un asistente y mentor ganadero inteligente integrado en una plataforma de gestión ganadera colombiana. Tu propósito principal es ayudar al usuario a consultar, analizar e interpretar los datos de sus animales y fincas. Además, actúas como un consultor zootécnico: puedes responder preguntas generales sobre manejo de ganaderías, mejores prácticas, y conceptos veterinarios o agronómicos.
@@ -180,7 +182,24 @@ export default function AgroBot() {
                                     fontSize: '0.9rem',
                                     lineHeight: '1.4'
                                 }}>
-                                    {m.text}
+                                    {m.role === 'model' ? (
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                            components={{
+                                                table: ({node, ...props}) => <div style={{ overflowX: 'auto', margin: '8px 0' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }} {...props} /></div>,
+                                                th: ({node, ...props}) => <th style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '6px', textAlign: 'left', background: 'rgba(255,255,255,0.1)' }} {...props} />,
+                                                td: ({node, ...props}) => <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '6px' }} {...props} />,
+                                                p: ({node, ...props}) => <p style={{ margin: '0 0 8px 0' }} {...props} />,
+                                                ul: ({node, ...props}) => <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
+                                                ol: ({node, ...props}) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
+                                                strong: ({node, ...props}) => <strong style={{ color: 'var(--primary-light)' }} {...props} />
+                                            }}
+                                        >
+                                            {m.text}
+                                        </ReactMarkdown>
+                                    ) : (
+                                        m.text
+                                    )}
                                 </div>
                             </div>
                         ))}
