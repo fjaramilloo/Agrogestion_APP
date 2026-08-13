@@ -35,14 +35,19 @@ Tablas disponibles:
 Joins: animales.id_potrerada = potreradas.id | registros_pesaje.id_animal = animales.id | usa LEFT JOIN para relaciones opcionales.`;
 
 function extractSql(text: string): string | null {
-    const startMarker = '```sql';
-    const endMarker = '```';
-    const start = text.indexOf(startMarker);
-    if (start === -1) return null;
-    const sqlStart = start + startMarker.length;
-    const end = text.indexOf(endMarker, sqlStart);
-    if (end === -1) return null;
-    return text.slice(sqlStart, end).trim();
+    // 1. Intentar sacar lo que esté entre ```sql (o ```SQL) y ```
+    const match = text.match(/```(?:sql)?\s*([\s\S]*?)```/i);
+    if (match) {
+        return match[1].trim();
+    }
+    
+    // 2. Si no hay comillas, pero el texto empieza con SELECT
+    const trimmed = text.trim();
+    if (trimmed.toUpperCase().startsWith('SELECT')) {
+        return trimmed;
+    }
+    
+    return null;
 }
 
 export default function AgroBot() {
