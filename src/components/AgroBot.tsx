@@ -35,16 +35,22 @@ Tablas disponibles:
 Joins: animales.id_potrerada = potreradas.id | registros_pesaje.id_animal = animales.id | usa LEFT JOIN para relaciones opcionales.`;
 
 function extractSql(text: string): string | null {
+    let result: string | null = null;
     // 1. Intentar sacar lo que esté entre ```sql (o ```SQL) y ```
     const match = text.match(/```(?:sql)?\s*([\s\S]*?)```/i);
     if (match) {
-        return match[1].trim();
+        result = match[1].trim();
+    } else {
+        // 2. Si no hay comillas, pero el texto empieza con SELECT
+        const trimmed = text.trim();
+        if (trimmed.toUpperCase().startsWith('SELECT')) {
+            result = trimmed;
+        }
     }
     
-    // 2. Si no hay comillas, pero el texto empieza con SELECT
-    const trimmed = text.trim();
-    if (trimmed.toUpperCase().startsWith('SELECT')) {
-        return trimmed;
+    if (result) {
+        // Eliminar el punto y coma final, que rompe el EXECUTE dinámico de PostgreSQL
+        return result.replace(/;+$/, '').trim();
     }
     
     return null;
@@ -108,21 +114,16 @@ export default function AgroBot() {
             const sql = extractSql(step1Text);
 
             if (sql) {
-                // Agregar mensaje de debug temporal para el usuario
-                setMessages(prev => [...prev, { role: 'model', text: `[DEBUG] SQL detectado: ${sql}` }]);
-
                 // Ejecutar SQL en Supabase
                 const { data, error } = await supabase.rpc('execute_ai_query', { query_text: sql });
 
                 let dbResult = '';
                 if (error) {
                     dbResult = `Error al consultar: ${error.message}`;
-                    setMessages(prev => [...prev, { role: 'model', text: `[DEBUG] Error DB: ${error.message}` }]);
                 } else if (!data || (Array.isArray(data) && data.length === 0)) {
                     dbResult = 'La consulta no devolvió resultados.';
                 } else {
                     dbResult = JSON.stringify(data);
-                    setMessages(prev => [...prev, { role: 'model', text: `[DEBUG] Datos DB: ${dbResult}` }]);
                 }
 
                 // Paso 3: Enviar los resultados de vuelta para que la IA los interprete
@@ -133,7 +134,7 @@ export default function AgroBot() {
                 setMessages(prev => [...prev, { role: 'model', text: botMsg }]);
             } else {
                 // No necesitaba SQL: respuesta directa
-                setMessages(prev => [...prev, { role: 'model', text: `[DEBUG] No se detectó SQL. Respuesta original:\n${step1Text}` }]);
+                setMessages(prev => [...prev, { role: 'model', text: step1Text }]);
             }
 
         } catch (error: any) {
