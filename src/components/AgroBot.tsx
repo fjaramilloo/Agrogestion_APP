@@ -25,6 +25,7 @@ Si la pregunta NO requiere datos (ej: preguntas sobre zootecnia general, definic
 Tablas disponibles:
 - fincas (id, nombre, area_aprovechable, proposito)
 - animales (id, id_finca, numero_chapeta, nombre_propietario, etapa, peso_ingreso, peso_compra, fecha_ingreso, estado, id_potrerada, id_potrero_actual)
+  -> IMPORTANTE: el campo 'estado' es un ENUM en minúsculas (ej: 'activo', 'vendido', 'descarte', 'muerto'). Usa SIEMPRE minúsculas.
 - registros_pesaje (id, id_animal, peso, fecha, gdp_calculada, gmp_calculada)
 - potreradas (id, id_finca, nombre, etapa, id_rotacion)
 - rotaciones (id, id_finca, nombre)
