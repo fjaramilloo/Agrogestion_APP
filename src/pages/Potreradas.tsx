@@ -210,8 +210,21 @@ export default function Potreradas() {
             const hoy = new Date();
             hoy.setHours(0, 0, 0, 0);
 
+            // [NUEVO] Agregar potrerada virtual para animales sin asignar
+            const animalesSinPotrerada = animals?.filter((a: any) => !a.id_potrerada && (a.estado === 'activo' || a.estado === 'vendido')) || [];
+            if (animalesSinPotrerada.length > 0) {
+                pots.push({
+                    id: 'sin-potrerada',
+                    nombre: 'Sin Potrerada Asignada',
+                    etapa: 'Sin asignar',
+                    id_rotacion: null
+                });
+            }
+
             const processedPots = pots.map((p: any) => {
-                const groupAnimals = animals?.filter((a: any) => a.id_potrerada === p.id) || [];
+                const groupAnimals = p.id === 'sin-potrerada' 
+                    ? animalesSinPotrerada 
+                    : animals?.filter((a: any) => a.id_potrerada === p.id) || [];
                 const animalesActivos = groupAnimals.filter((a: any) => a.estado === 'activo');
                 const animalesVendidos = groupAnimals.filter((a: any) => a.estado === 'vendido');
                 const loteListoParaLimpiar = animalesActivos.length === 0 && animalesVendidos.length > 0;
@@ -536,16 +549,25 @@ export default function Potreradas() {
         setSelectedDetailId(p.id);
         setDetailLoading(true);
         try {
+            const isSinPotrerada = p.id === 'sin-potrerada';
+            const queryAnimales = supabase.from('animales').select(`
+                id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra,
+                fecha_ingreso, etapa, estado, fecha_ingreso_ceba, peso_ingreso_ceba,
+                id_potrero_actual, potreros (nombre, area_hectareas),
+                registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada)
+            `).in('estado', ['activo', 'vendido']);
+            
+            if (isSinPotrerada) {
+                queryAnimales.is('id_potrerada', null);
+            } else {
+                queryAnimales.eq('id_potrerada', p.id);
+            }
+
             // MEJORA 3: Consultas de detalle en paralelo
             const [animRes, fincaRes, movsRes] = await Promise.all([
-                supabase.from('animales').select(`
-                    id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra,
-                    fecha_ingreso, etapa, estado, fecha_ingreso_ceba, peso_ingreso_ceba,
-                    id_potrero_actual, potreros (nombre, area_hectareas),
-                    registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada)
-                `).eq('id_potrerada', p.id).in('estado', ['activo', 'vendido']),
+                queryAnimales,
                 supabase.from('fincas').select('nombre').eq('id', fincaId).single(),
-                supabase.from('movimientos_potreros').select('fecha_entrada').eq('id_potrerada', p.id).is('fecha_salida', null).maybeSingle()
+                isSinPotrerada ? Promise.resolve({ data: null }) : supabase.from('movimientos_potreros').select('fecha_entrada').eq('id_potrerada', p.id).is('fecha_salida', null).maybeSingle()
             ]);
 
             if (animRes.error) throw animRes.error;
@@ -1486,7 +1508,7 @@ export default function Potreradas() {
                                                     >
                                                         🧹 Limpiar Lote
                                                     </button>
-                                                ) : (
+                                                ) : p.id !== 'sin-potrerada' ? (
                                                     <>
                                                         <button 
                                                             onClick={() => setManagingPotrerada(p)}
@@ -1515,7 +1537,7 @@ export default function Potreradas() {
                                                             </button>
                                                         )}
                                                     </>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </td>
                                     )}
