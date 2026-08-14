@@ -211,7 +211,7 @@ export default function Potreradas() {
             hoy.setHours(0, 0, 0, 0);
 
             // [NUEVO] Agregar potrerada virtual para animales sin asignar
-            const animalesSinPotrerada = animals?.filter((a: any) => !a.id_potrerada && (a.estado === 'activo' || a.estado === 'vendido')) || [];
+            const animalesSinPotrerada = animals?.filter((a: any) => !a.id_potrerada && a.estado === 'activo') || [];
             if (animalesSinPotrerada.length > 0) {
                 pots.push({
                     id: 'sin-potrerada',
