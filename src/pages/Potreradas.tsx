@@ -141,20 +141,35 @@ export default function Potreradas() {
         setLoading(true);
 
         try {
-            // MEJORA 1: Todas las consultas iniciales en paralelo
+            const fetchAllAnimals = async () => {
+                let allAnimals: any[] = [];
+                let from = 0;
+                const step = 1000;
+                while (true) {
+                    const { data, error } = await supabase.from('animales').select(`
+                        id, numero_chapeta, nombre_propietario, id_potrerada,
+                        peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
+                        fecha_ingreso_ceba, peso_ingreso_ceba,
+                        potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+                        registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
+                    `).eq('id_finca', fincaId).in('estado', ['activo', 'vendido']).range(from, from + step - 1);
+                    
+                    if (error) throw error;
+                    if (!data || data.length === 0) break;
+                    allAnimals = [...allAnimals, ...data];
+                    if (data.length < step) break;
+                    from += step;
+                }
+                return { data: allAnimals };
+            };
+
             const [configRes, potsRes, rotsRes, movsRes, potsDataRes, animRes] = await Promise.all([
                 supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp, peso_entrada_ceba').eq('id_finca', fincaId).single(),
                 supabase.from('potreradas').select('*').eq('id_finca', fincaId).order('nombre', { ascending: true }),
                 supabase.from('rotaciones').select('id, nombre').eq('id_finca', fincaId).order('nombre', { ascending: true }),
                 supabase.from('movimientos_potreros').select('id_potrerada, id_potrero, fecha_entrada, fecha_salida, potreros(nombre)').eq('id_finca', fincaId).is('fecha_salida', null).order('fecha_entrada', { ascending: false }),
                 supabase.from('potreros').select('id_rotacion, area_hectareas').eq('id_finca', fincaId),
-                supabase.from('animales').select(`
-                    id, numero_chapeta, nombre_propietario, id_potrerada,
-                    peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
-                    fecha_ingreso_ceba, peso_ingreso_ceba,
-                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                    registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
-                `).eq('id_finca', fincaId).in('estado', ['activo', 'vendido']).limit(10000)
+                fetchAllAnimals()
             ]);
 
             if (configRes.data) {
