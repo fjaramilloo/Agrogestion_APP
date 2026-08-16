@@ -685,6 +685,7 @@ export default function Potreradas() {
                 numero_chapeta: a.numero_chapeta,
                 nombre_propietario: a.nombre_propietario,
                 id_potrerada: p.id,
+                estado: a.estado,
                 pesoActual: lastP ? lastP.peso : pesoBase,
                 gdp: gdp,
                 gmp: gmp,
@@ -1041,7 +1042,7 @@ export default function Potreradas() {
             const tableBody = sortedAnimals.map((a, idx) => {
                 const row: any[] = [
                     idx + 1,
-                    `${a.numero_chapeta}`,
+                    `${a.numero_chapeta}${a.estado === 'vendido' ? ' (Vendido)' : ''}`,
                     a.nombre_propietario || '-',
                 ];
 
@@ -2006,7 +2007,14 @@ export default function Potreradas() {
                                             <tbody>
                                                 {sortedAnimals.map((a, idx) => (
                                                     <tr key={a.id} style={{ borderBottom: idx < sortedAnimals.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>#{a.numero_chapeta}</td>
+                                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <span>#{a.numero_chapeta}</span>
+                                                                {a.estado === 'vendido' && (
+                                                                    <span style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', border: '1px solid rgba(231, 76, 60, 0.2)', fontWeight: 'bold' }}>Vendido</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                         <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
                                                         {detailData.potrerada.etapa === 'levante' && (
                                                             <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
