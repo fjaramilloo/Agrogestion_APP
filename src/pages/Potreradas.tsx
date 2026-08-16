@@ -154,7 +154,7 @@ export default function Potreradas() {
                     fecha_ingreso_ceba, peso_ingreso_ceba,
                     potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
                     registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
-                `).eq('id_finca', fincaId).in('estado', ['activo', 'vendido'])
+                `).eq('id_finca', fincaId).in('estado', ['activo', 'vendido']).limit(10000)
             ]);
 
             if (configRes.data) {
