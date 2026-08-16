@@ -203,8 +203,6 @@ export default function Potreradas() {
 
             const rotacionNombreMap = new Map((rotsRes.data || []).map((r: any) => [r.id, r.nombre]));
 
-            if (animRes.error) throw animRes.error;
-
             const animalesProcesados: AnimalPotrero[] = (animals || []).map((a: any) => {
                 const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
