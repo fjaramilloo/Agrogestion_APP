@@ -21,7 +21,7 @@ interface Potrerada {
     pesoPromedio: number;
     pesoEstimadoPromedio: number;
     gmpPromedio: number;
-    gmpAcumulado: number;
+    gmpAcumulado: number | null;
     diasPesajePromedio: number;
     marcas: { nombre: string; count: number }[];
     id_rotacion: string | null;
@@ -273,6 +273,7 @@ export default function Potreradas() {
                         // 2. GMP Acumulado Histórica: desde ingreso hasta último pesaje
                         // Siempre se calcula como promedio histórico (NO usa gmp_calculada del último período)
                         let gmpIndiv = 0;
+                        let isValidGmp = false;
                         {
                             const startW = Number(a.peso_ingreso || pesoBase);
                             const startD = new Date((a.fecha_ingreso || '') + 'T12:00:00');
@@ -281,18 +282,22 @@ export default function Potreradas() {
                             const tDays = differenceInDays(endD, startD);
                             if (tDays > 0) {
                                 gmpIndiv = (tGain / tDays) * 30;
+                                isValidGmp = true;
                             }
                         }
 
-                        if (gmpIndiv === 0) gmpIndiv = 10.3;
+                        let gmpForEstimation = gmpIndiv;
+                        if (!isValidGmp || gmpForEstimation === 0) gmpForEstimation = 10.3;
 
-                        totalGmpAcc += gmpIndiv;
-                        validGmpAccCount++;
+                        if (isValidGmp) {
+                            totalGmpAcc += gmpIndiv;
+                            validGmpAccCount++;
+                        }
 
                         const fechaRef = new Date(lastP.fecha);
                         fechaRef.setHours(0,0,0,0);
                         const diff = differenceInDays(hoy, fechaRef) || 0;
-                        totalPesoEstimado += Number(lastP.peso) + (diff * (gmpIndiv / 30));
+                        totalPesoEstimado += Number(lastP.peso) + (diff * (gmpForEstimation / 30));
                     } else {
                         // Sin pesajes
                         const fechaRef = new Date(a.fecha_ingreso);
@@ -318,7 +323,7 @@ export default function Potreradas() {
                     pesoPromedio: validWeightCount > 0 ? totalPeso / validWeightCount : 0,
                     pesoEstimadoPromedio: validWeightCount > 0 ? totalPesoEstimado / validWeightCount : 0,
                     gmpPromedio: validGmpLastCount > 0 ? totalGmpLast / validGmpLastCount : 0,
-                    gmpAcumulado: validGmpAccCount > 0 ? totalGmpAcc / validGmpAccCount : 0,
+                    gmpAcumulado: validGmpAccCount > 0 ? totalGmpAcc / validGmpAccCount : null,
                     diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0,
                     marcas: Object.entries(groupAnimals.reduce((acc: Record<string, number>, a: any) => {
                         if (a.nombre_propietario) acc[a.nombre_propietario] = (acc[a.nombre_propietario] || 0) + 1;
@@ -1472,11 +1477,11 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Acum:</span>
                                                 <span style={{ 
-                                                    color: p.gmpAcumulado < 0 ? 'var(--error)' : (p.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (p.gmpAcumulado <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
+                                                    color: p.gmpAcumulado === null ? 'var(--text-muted)' : (p.gmpAcumulado < 0 ? 'var(--error)' : (p.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (p.gmpAcumulado <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))),
                                                     fontWeight: '500',
-                                                    textShadow: (p.gmpAcumulado > umbralMedio && p.gmpAcumulado <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                                    textShadow: (p.gmpAcumulado !== null && p.gmpAcumulado > umbralMedio && p.gmpAcumulado <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                 }}>
-                                                    {p.gmpAcumulado.toFixed(1)}
+                                                    {p.gmpAcumulado === null ? 'N/A' : p.gmpAcumulado.toFixed(1)}
                                                 </span>
                                             </div>
                                         </div>
