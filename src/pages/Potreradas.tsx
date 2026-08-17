@@ -573,12 +573,12 @@ export default function Potreradas() {
                 fecha_ingreso, etapa, estado, fecha_ingreso_ceba, peso_ingreso_ceba,
                 id_potrero_actual, potreros (nombre, area_hectareas),
                 registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada)
-            `).in('estado', ['activo', 'vendido']);
+            `);
             
             if (isSinPotrerada) {
-                queryAnimales.is('id_potrerada', null);
+                queryAnimales.is('id_potrerada', null).eq('estado', 'activo');
             } else {
-                queryAnimales.eq('id_potrerada', p.id);
+                queryAnimales.eq('id_potrerada', p.id).in('estado', ['activo', 'vendido']);
             }
 
             // MEJORA 3: Consultas de detalle en paralelo
