@@ -600,7 +600,7 @@ export default function Inventory() {
                                 const fechaInicio = isCeba ? (animal.fecha_ingreso_ceba || animal.fecha_ingreso) : animal.fecha_ingreso;
                                 
                                 const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
-                                const pesoU = ultimoP ? `${ultimoP.peso} kg` : `${pesoBase} kg*`;
+                                const pesoU = ultimoP ? `${Math.round(ultimoP.peso)} kg` : `${Math.round(pesoBase)} kg*`;
 
                                 const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date();
                                 const pesoReferencia = ultimoP ? ultimoP.peso : pesoBase;
