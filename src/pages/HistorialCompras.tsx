@@ -62,6 +62,17 @@ export default function HistorialCompras() {
     // Estado para abrir modal de detalle de compra
     const [detalleCompra, setDetalleCompra] = useState<CompraGrupo | null>(null);
 
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'numero_chapeta', direction: 'asc' });
+
+    const handleSort = (key: string) => {
+        setSortConfig(prev => {
+            if (prev.key === key) {
+                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { key, direction: 'asc' };
+        });
+    };
+
     // Estado para editar el peso de compra
     const [isEditingPesoCompra, setIsEditingPesoCompra] = useState(false);
     const [pesoTotalCompraInput, setPesoTotalCompraInput] = useState('');
@@ -689,26 +700,95 @@ export default function HistorialCompras() {
                                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                         <thead>
                                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                                <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>CHAPETA</th>
-                                                <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>PROPIETARIO</th>
-                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                                    <div style={{ fontWeight: 'bold' }}>PESO COMPRA</div>
-                                                    <div style={{ fontSize: '0.65rem', marginTop: '2px', opacity: 0.8 }}>{detalleCompra.fechaCompra && detalleCompra.fechaCompra !== 'Sin fecha' ? format(new Date(detalleCompra.fechaCompra + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
+                                                <th 
+                                                    onClick={() => handleSort('numero_chapeta')}
+                                                    style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        CHAPETA
+                                                        {sortConfig.key === 'numero_chapeta' && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                                    </div>
                                                 </th>
-                                                <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                                    <div style={{ fontWeight: 'bold' }}>PESO INGRESO</div>
-                                                    <div style={{ fontSize: '0.65rem', marginTop: '2px', opacity: 0.8 }}>{detalleCompra.fechaCompra && detalleCompra.fechaCompra !== 'Sin fecha' ? format(new Date(detalleCompra.fechaCompra + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
+                                                <th 
+                                                    onClick={() => handleSort('nombre_propietario')}
+                                                    style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        PROPIETARIO
+                                                        {sortConfig.key === 'nombre_propietario' && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                                    </div>
+                                                </th>
+                                                <th 
+                                                    onClick={() => handleSort('peso_compra')}
+                                                    style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                                >
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                        <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            PESO COMPRA
+                                                            {sortConfig.key === 'peso_compra' && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.65rem', marginTop: '2px', opacity: 0.8 }}>{detalleCompra.fechaCompra && detalleCompra.fechaCompra !== 'Sin fecha' ? format(new Date(detalleCompra.fechaCompra + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
+                                                    </div>
+                                                </th>
+                                                <th 
+                                                    onClick={() => handleSort('peso_ingreso')}
+                                                    style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                                >
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                        <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            PESO INGRESO
+                                                            {sortConfig.key === 'peso_ingreso' && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.65rem', marginTop: '2px', opacity: 0.8 }}>{detalleCompra.fechaCompra && detalleCompra.fechaCompra !== 'Sin fecha' ? format(new Date(detalleCompra.fechaCompra + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
+                                                    </div>
                                                 </th>
                                                 {fechasColumnas.map(fecha => (
-                                                    <th key={fecha} style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                                        PESAJE {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}
+                                                    <th 
+                                                        key={fecha} 
+                                                        onClick={() => handleSort(fecha)}
+                                                        style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                            PESAJE {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}
+                                                            {sortConfig.key === fecha && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                                        </div>
                                                     </th>
                                                 ))}
-                                                <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>GMP</th>
+                                                <th 
+                                                    onClick={() => handleSort('gmp')}
+                                                    style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                                                        GMP
+                                                        {sortConfig.key === 'gmp' && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                                    </div>
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {detalleCompra.animalesDetalle.map((a, idx) => (
+                                            {[...detalleCompra.animalesDetalle].sort((a, b) => {
+                                                let valA: any = a[sortConfig.key as keyof typeof a];
+                                                let valB: any = b[sortConfig.key as keyof typeof b];
+
+                                                if (sortConfig.key.includes('-')) {
+                                                    valA = a.pesajesFiltrados[sortConfig.key] || 0;
+                                                    valB = b.pesajesFiltrados[sortConfig.key] || 0;
+                                                }
+                                                
+                                                // Handle alphanumeric sort for chapeta
+                                                if (sortConfig.key === 'numero_chapeta') {
+                                                    valA = valA ? valA.toString() : '';
+                                                    valB = valB ? valB.toString() : '';
+                                                    return sortConfig.direction === 'asc' ? valA.localeCompare(valB, undefined, { numeric: true }) : valB.localeCompare(valA, undefined, { numeric: true });
+                                                }
+
+                                                if (valA === null || valA === undefined) valA = '';
+                                                if (valB === null || valB === undefined) valB = '';
+
+                                                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                                                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                                                return 0;
+                                            }).map((a, idx) => (
                                                 <tr
                                                     key={a.id}
                                                     className="table-row-hover"
