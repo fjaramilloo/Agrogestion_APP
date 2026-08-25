@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
-    Building2, UserPlus, ShieldCheck, Users, MapPin,
+    Building2, UserPlus, ShieldCheck, MapPin,
     ChevronDown, ChevronUp, BarChart3, Tractor,
-    Eye, Wrench, Globe
+    Eye, Wrench, Globe, Trash2, AlertTriangle
 } from 'lucide-react';
 
 interface FincaInfo {
@@ -43,6 +43,8 @@ export default function SuperAdmin() {
     const [globalStats, setGlobalStats] = useState<GlobalStats>({
         totalOrgs: 0, totalFincas: 0, totalAnimales: 0, totalUsuarios: 0
     });
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<{ type: 'org' | 'finca'; id: string; nombre: string } | null>(null);
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -60,22 +62,38 @@ export default function SuperAdmin() {
     const fetchDashboardData = async () => {
         setLoading(true);
         try {
-            const [{ data: orgsData }, { data: perfilesData }, { data: fincasData }, { data: permisosData }, { data: animalesData }] = await Promise.all([
+            // Fetch orgs, profiles, fincas, permisos in parallel
+            const [{ data: orgsData }, { data: perfilesData }, { data: fincasData }, { data: permisosData }] = await Promise.all([
                 supabase.from('organizaciones').select('id, nombre, id_dueño'),
                 supabase.from('perfiles').select('id, nombre, apellido'),
                 supabase.from('fincas').select('id, nombre, id_organizacion'),
-                supabase.from('permisos_finca').select('id_finca, id_usuario, rol'),
-                supabase.from('animales').select('id, id_finca').eq('estado', 'activo')
+                supabase.from('permisos_finca').select('id_finca, id_usuario, rol')
             ]);
+
+            // Get accurate animal counts per finca using pagination to avoid 1000-row limit
+            const animalMap: Record<string, number> = {};
+            const PAGE_SIZE = 1000;
+            let page = 0;
+            let keepFetching = true;
+            while (keepFetching) {
+                const from = page * PAGE_SIZE;
+                const to = from + PAGE_SIZE - 1;
+                const { data: animPage } = await supabase
+                    .from('animales')
+                    .select('id_finca')
+                    .eq('estado', 'activo')
+                    .range(from, to);
+                if (!animPage || animPage.length === 0) { keepFetching = false; break; }
+                animPage.forEach((a: any) => {
+                    animalMap[a.id_finca] = (animalMap[a.id_finca] || 0) + 1;
+                });
+                if (animPage.length < PAGE_SIZE) keepFetching = false;
+                page++;
+            }
 
             const profileMap: Record<string, string> = {};
             (perfilesData || []).forEach((p: any) => {
                 profileMap[p.id] = [p.nombre, p.apellido].filter(Boolean).join(' ');
-            });
-
-            const animalMap: Record<string, number> = {};
-            (animalesData || []).forEach((a: any) => {
-                animalMap[a.id_finca] = (animalMap[a.id_finca] || 0) + 1;
             });
 
             type PermEntry = { vaqueros: { id: string; nombre: string }[]; observadores: { id: string; nombre: string }[] };
@@ -132,6 +150,64 @@ export default function SuperAdmin() {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDeleteFinca = async (fincaId: string) => {
+        setDeletingId(fincaId);
+        try {
+            // Delete in order: pesajes → animales → potreradas → potreros → permisos → finca
+            await supabase.from('registros_pesaje').delete().in('id_animal',
+                (await supabase.from('animales').select('id').eq('id_finca', fincaId)).data?.map((a: any) => a.id) || []
+            );
+            await supabase.from('animales').delete().eq('id_finca', fincaId);
+            await supabase.from('potreradas').delete().eq('id_finca', fincaId);
+            await supabase.from('potreros').delete().eq('id_finca', fincaId);
+            await supabase.from('permisos_finca').delete().eq('id_finca', fincaId);
+            await supabase.from('configuracion_kpi').delete().eq('id_finca', fincaId);
+            const { error } = await supabase.from('fincas').delete().eq('id', fincaId);
+            if (error) throw error;
+            setConfirmDelete(null);
+            await fetchDashboardData();
+        } catch (err: any) {
+            alert('Error eliminando finca: ' + err.message);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const handleDeleteOrg = async (orgId: string) => {
+        setDeletingId(orgId);
+        try {
+            // Get all fincas of this org
+            const { data: fincas } = await supabase.from('fincas').select('id').eq('id_organizacion', orgId);
+            const fincaIds = (fincas || []).map((f: any) => f.id);
+
+            for (const fId of fincaIds) {
+                const { data: animales } = await supabase.from('animales').select('id').eq('id_finca', fId);
+                const animalIds = (animales || []).map((a: any) => a.id);
+                if (animalIds.length > 0) {
+                    await supabase.from('registros_pesaje').delete().in('id_animal', animalIds);
+                }
+                await supabase.from('animales').delete().eq('id_finca', fId);
+                await supabase.from('potreradas').delete().eq('id_finca', fId);
+                await supabase.from('potreros').delete().eq('id_finca', fId);
+                await supabase.from('permisos_finca').delete().eq('id_finca', fId);
+                await supabase.from('configuracion_kpi').delete().eq('id_finca', fId);
+            }
+
+            if (fincaIds.length > 0) {
+                await supabase.from('fincas').delete().in('id', fincaIds);
+            }
+            const { error } = await supabase.from('organizaciones').delete().eq('id', orgId);
+            if (error) throw error;
+            setConfirmDelete(null);
+            setExpandedOrg(null);
+            await fetchDashboardData();
+        } catch (err: any) {
+            alert('Error eliminando organización: ' + err.message);
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -299,7 +375,14 @@ export default function SuperAdmin() {
                                                 <span style={{ fontWeight: 600 }}>{cuenta.totalAnimales.toLocaleString('es-CO')}</span>
                                             </div>
 
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+                                                <button
+                                                    onClick={e => { e.stopPropagation(); setConfirmDelete({ type: 'org', id: cuenta.orgId, nombre: cuenta.orgNombre }); }}
+                                                    style={{ background: 'rgba(244, 67, 54, 0.1)', border: '1px solid rgba(244, 67, 54, 0.25)', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--error)', fontSize: '0.7rem', fontWeight: 600 }}
+                                                    title="Eliminar organización"
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
                                                 {expandedOrg === cuenta.orgId
                                                     ? <ChevronUp size={18} color="#a78bfa" />
                                                     : <ChevronDown size={18} color="var(--text-muted)" />
@@ -362,6 +445,16 @@ export default function SuperAdmin() {
                                                             {f.vaqueros.length === 0 && f.observadores.length === 0 && (
                                                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', alignSelf: 'center' }}>Sin usuarios adicionales asignados</span>
                                                             )}
+
+                                                            {/* Delete finca button */}
+                                                            <div style={{ marginLeft: 'auto', alignSelf: 'center' }}>
+                                                                <button
+                                                                    onClick={() => setConfirmDelete({ type: 'finca', id: f.id, nombre: f.nombre })}
+                                                                    style={{ background: 'rgba(244, 67, 54, 0.1)', border: '1px solid rgba(244, 67, 54, 0.25)', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--error)', fontSize: '0.72rem', fontWeight: 600 }}
+                                                                >
+                                                                    <Trash2 size={13} /> Eliminar finca
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -379,6 +472,41 @@ export default function SuperAdmin() {
                         )}
                     </div>
                 </>
+            )}
+
+            {/* === CONFIRM DELETE MODAL === */}
+            {confirmDelete && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ background: '#1a1a2e', border: '1px solid rgba(244, 67, 54, 0.4)', borderRadius: '16px', padding: '32px', maxWidth: '420px', width: '100%', textAlign: 'center' }}>
+                        <div style={{ background: 'rgba(244, 67, 54, 0.15)', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                            <AlertTriangle size={28} color="var(--error)" />
+                        </div>
+                        <h3 style={{ margin: '0 0 8px', color: 'white' }}>¿Eliminar {confirmDelete.type === 'org' ? 'organización' : 'finca'}?</h3>
+                        <p style={{ color: 'var(--text-muted)', margin: '0 0 8px', fontSize: '1rem' }}>
+                            <strong style={{ color: 'white' }}>{confirmDelete.nombre}</strong>
+                        </p>
+                        <p style={{ color: 'var(--error)', margin: '0 0 28px', fontSize: '0.85rem', background: 'rgba(244,67,54,0.08)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(244,67,54,0.2)' }}>
+                            ⚠️ Esta acción eliminará {confirmDelete.type === 'org' ? 'todas las fincas, animales, pesajes y datos asociados' : 'todos los animales, pesajes y datos de esta finca'}. Esta operación <strong>no se puede deshacer</strong>.
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => setConfirmDelete(null)}
+                                disabled={!!deletingId}
+                                style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'white', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => confirmDelete.type === 'org' ? handleDeleteOrg(confirmDelete.id) : handleDeleteFinca(confirmDelete.id)}
+                                disabled={!!deletingId}
+                                style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: 'var(--error)', color: 'white', cursor: deletingId ? 'not-allowed' : 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', opacity: deletingId ? 0.6 : 1 }}
+                            >
+                                <Trash2 size={16} />
+                                {deletingId ? 'Eliminando...' : 'Sí, eliminar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* === TAB: CREAR CUENTA === */}
