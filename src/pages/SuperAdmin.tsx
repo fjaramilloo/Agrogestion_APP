@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
-    Building2, UserPlus, ShieldCheck, MapPin,
+    Building2, UserPlus, ShieldCheck, MapPin, Users,
     ChevronDown, ChevronUp, BarChart3, Tractor,
     Eye, Wrench, Globe, Trash2, AlertTriangle
 } from 'lucide-react';
