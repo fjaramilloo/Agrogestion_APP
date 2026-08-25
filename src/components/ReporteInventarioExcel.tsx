@@ -7,13 +7,14 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 // @ts-ignore
 import autoTable from 'jspdf-autotable';
+import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 
 interface Props {
   onClose: () => void;
 }
 
 export default function ReporteInventarioExcel({ onClose }: Props) {
-  const { fincaId } = useAuth();
+  const { fincaId, modoGanancia } = useAuth();
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState<any[]>([]);
   const [marcas, setMarcas] = useState<string[]>([]);
@@ -299,7 +300,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
     doc.text(`Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 31);
 
     // Columnas
-    const columns = ['Rotación', 'Potrero', ...marcas, 'Total', 'GMP Total', 'Últ. Pesaje', 'Peso Prom.', 'Estimado Hoy'];
+    const columns = ['Rotación', 'Potrero', ...marcas, 'Total', `${getModoLabel(modoGanancia)} Total`, 'Últ. Pesaje', 'Peso Prom.', 'Estimado Hoy'];
 
     // Filas
     const rows = reportData.map(row => {
@@ -308,7 +309,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
         row['Potrero'],
         ...marcas.map(m => row[m] || '-'),
         row['Total Ganado'],
-        row['GMP Total'] !== null && row['GMP Total'] !== undefined ? `${row['GMP Total'] > 0 ? '+' : ''}${row['GMP Total']} kg/mes` : '-',
+        row['GMP Total'] !== null && row['GMP Total'] !== undefined ? `${row['GMP Total'] > 0 ? '+' : ''}${toDisplayValue(row['GMP Total'], modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : '-',
         row['Último Pesaje'],
         `${row['Peso Promedio']} kg`,
         `${row['Peso Estimado Hoy']} kg`
@@ -411,7 +412,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                                 <th key={m} style={{ textAlign: 'center', padding: '12px 8px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{m}</th>
                             ))}
                             <th style={{ textAlign: 'center', padding: '12px 10px', color: 'var(--secondary)', fontWeight: 700 }}>Total</th>
-                            <th style={{ textAlign: 'center', padding: '12px 10px', fontWeight: 700 }}>GMP Total</th>
+                            <th style={{ textAlign: 'center', padding: '12px 10px', fontWeight: 700 }}>{getModoLabel(modoGanancia)} Total</th>
                             <th style={{ textAlign: 'center', padding: '12px 10px' }}>Últ. Pesaje</th>
                             <th style={{ textAlign: 'right', padding: '12px 10px' }}>Peso Prom.</th>
                             <th style={{ textAlign: 'right', padding: '12px 10px', color: 'var(--warning)' }}>Estimado Hoy</th>
@@ -440,7 +441,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                                 }}>
                                     {row['GMP Total'] !== null && row['GMP Total'] !== undefined ? (
                                         <>
-                                            {row['GMP Total'] > 0 ? '+' : ''}{row['GMP Total']} <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>kg/mes</span>
+                                            {row['GMP Total'] > 0 ? '+' : ''}{toDisplayValue(row['GMP Total'], modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>{getUnidadLabel(modoGanancia)}</span>
                                         </>
                                     ) : (
                                         '-'

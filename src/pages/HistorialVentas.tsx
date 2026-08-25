@@ -54,7 +54,7 @@ interface VentaGrupo {
 }
 
 export default function HistorialVentas() {
-    const { fincaId, userFincas } = useAuth();
+    const { fincaId, userFincas, modoGanancia } = useAuth();
     const [ventas, setVentas] = useState<VentaGrupo[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -522,6 +522,7 @@ export default function HistorialVentas() {
                     observaciones={selectedVenta.observaciones}
                     umbralAlto={umbralAlto}
                     umbralMedio={umbralMedio}
+                    modoGanancia={modoGanancia}
                     onClose={() => setSelectedVenta(null)}
                 />
             )}

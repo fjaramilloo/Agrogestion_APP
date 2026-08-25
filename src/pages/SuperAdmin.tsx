@@ -82,6 +82,7 @@ export default function SuperAdmin() {
                     .from('animales')
                     .select('id_finca')
                     .eq('estado', 'activo')
+                    .order('id')
                     .range(from, to);
                 if (!animPage || animPage.length === 0) { keepFetching = false; break; }
                 animPage.forEach((a: any) => {

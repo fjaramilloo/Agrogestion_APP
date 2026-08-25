@@ -34,7 +34,7 @@ interface AnimalVenta {
 }
 
 export default function Sales() {
-    const { fincaId, role, userFincas } = useAuth();
+    const { fincaId, role, userFincas, modoGanancia } = useAuth();
     const [cantidad, setCantidad] = useState('1');
     const [fechaVenta, setFechaVenta] = useState(new Date().toISOString().split('T')[0]);
     const [animales, setAnimales] = useState<AnimalVenta[]>([]);
@@ -780,6 +780,7 @@ export default function Sales() {
                     observaciones={reportData.observaciones}
                     umbralAlto={umbralAlto}
                     umbralMedio={umbralMedio}
+                    modoGanancia={modoGanancia}
                     onClose={() => setShowReport(false)}
                 />
             )}

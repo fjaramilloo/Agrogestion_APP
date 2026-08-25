@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf } from 'lucide-react';
+import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
 // @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
 
@@ -55,10 +56,12 @@ const cleanNumber = (val: any): number => {
 };
 
 export default function Settings() {
-    const { fincaId, role, userFincas, isSuperAdmin } = useAuth();
+    const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, setModoGanancia } = useAuth();
     const [umbral, setUmbral] = useState('0.434');
-    const [umbralMedioGMP, setUmbralMedioGMP] = useState('10');
-    const [umbralAltoGMP, setUmbralAltoGMP] = useState('20');
+    // Umbrales: siempre en la unidad seleccionada para display; se convierten a kg/mes al guardar
+    const [umbralMedioDisplay, setUmbralMedioDisplay] = useState('10');
+    const [umbralAltoDisplay, setUmbralAltoDisplay] = useState('20');
+    const [modoLocal, setModoLocal] = useState<ModoGanancia>(modoGanancia);
     const [loading, setLoading] = useState(false);
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
@@ -154,14 +157,19 @@ export default function Settings() {
         if (!fincaId) return;
         const { data } = await supabase
             .from('configuracion_kpi')
-            .select('umbral_bajo_gdp, umbral_medio_gmp, umbral_alto_gmp')
+            .select('umbral_bajo_gdp, umbral_medio_gmp, umbral_alto_gmp, modo_ganancia')
             .eq('id_finca', fincaId)
             .single();
 
         if (data) {
-            setUmbral(data.umbral_bajo_gdp?.toString() || '0.434');
-            if (data.umbral_medio_gmp !== undefined && data.umbral_medio_gmp !== null) setUmbralMedioGMP(data.umbral_medio_gmp.toString());
-            if (data.umbral_alto_gmp !== undefined && data.umbral_alto_gmp !== null) setUmbralAltoGMP(data.umbral_alto_gmp.toString());
+            const modo: ModoGanancia = (data.modo_ganancia as ModoGanancia) || 'GMP';
+            setModoLocal(modo);
+            const bajoKgMes = data.umbral_bajo_gdp ?? 0.434;
+            setUmbral(toDisplayValue(bajoKgMes, modo).toFixed(modo === 'GDP' ? 0 : 3));
+            const medioKgMes = data.umbral_medio_gmp ?? 10;
+            const altoKgMes = data.umbral_alto_gmp ?? 20;
+            setUmbralMedioDisplay(toDisplayValue(medioKgMes, modo).toFixed(modo === 'GDP' ? 0 : 1));
+            setUmbralAltoDisplay(toDisplayValue(altoKgMes, modo).toFixed(modo === 'GDP' ? 0 : 1));
         }
     };
 
@@ -288,9 +296,10 @@ export default function Settings() {
 
         try {
             // 1. Guardar configuracion_kpi (umbrales y precios)
-            const valorNum = parseFloat(umbral);
-            const valorMedioGMP = parseFloat(umbralMedioGMP);
-            const valorAltoGMP = parseFloat(umbralAltoGMP);
+            // Convert display values back to kg/mes for storage
+            const valorBajoGMP = toStorageValue(parseFloat(umbral) || 0.434, modoLocal);
+            const valorMedioGMP = toStorageValue(parseFloat(umbralMedioDisplay) || 10, modoLocal);
+            const valorAltoGMP = toStorageValue(parseFloat(umbralAltoDisplay) || 20, modoLocal);
             const precioVenta = parseFloat(farmInfo.precio_venta_promedio) || 0;
             const precioCompra = parseFloat(farmInfo.precio_compra_promedio) || 0;
             const costoMensual = parseFloat(farmInfo.costo_mensual_animal) || 0;
@@ -301,17 +310,21 @@ export default function Settings() {
                 .from('configuracion_kpi')
                 .upsert({ 
                     id_finca: fincaId, 
-                    umbral_bajo_gdp: valorNum,
+                    umbral_bajo_gdp: valorBajoGMP,
                     umbral_medio_gmp: valorMedioGMP,
                     umbral_alto_gmp: valorAltoGMP,
                     precio_venta_promedio: precioVenta,
                     precio_compra_promedio: precioCompra,
                     costo_mensual_animal: costoMensual,
                     peso_entrada_ceba: pesoCeba,
-                    consumo_dia_potrero: consumoDia
+                    consumo_dia_potrero: consumoDia,
+                    modo_ganancia: modoLocal
                 }, { onConflict: 'id_finca' });
 
             if (kpiError) throw kpiError;
+
+            // Sync modoGanancia globally
+            setModoGanancia(modoLocal);
 
             // 2. Guardar información de la finca
             const { error: fincaError } = await supabase
@@ -1405,21 +1418,45 @@ export default function Settings() {
                                             </p>
                                         </div>
 
-                                        <h4 style={{ color: 'white', marginBottom: '16px', fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>Umbrales (Semáforo GMP)</h4>
+                                        <h4 style={{ color: 'white', marginBottom: '16px', fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>Umbrales (Semáforo {getModoLabel(modoLocal)})</h4>
+
+                                        {/* Toggle GDP / GMP */}
+                                        <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Unidad de ganancia:</span>
+                                            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                {(['GMP', 'GDP'] as ModoGanancia[]).map(m => (
+                                                    <button
+                                                        key={m}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            // Convert current display values to the other unit
+                                                            const medioKgMes = toStorageValue(parseFloat(umbralMedioDisplay) || 10, modoLocal);
+                                                            const altoKgMes = toStorageValue(parseFloat(umbralAltoDisplay) || 20, modoLocal);
+                                                            setUmbralMedioDisplay(toDisplayValue(medioKgMes, m).toFixed(m === 'GDP' ? 0 : 1));
+                                                            setUmbralAltoDisplay(toDisplayValue(altoKgMes, m).toFixed(m === 'GDP' ? 0 : 1));
+                                                            setModoLocal(m);
+                                                        }}
+                                                        style={{
+                                                            padding: '6px 18px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', transition: 'all 0.2s',
+                                                            background: modoLocal === m ? 'var(--primary)' : 'transparent',
+                                                            color: modoLocal === m ? 'white' : 'var(--text-muted)'
+                                                        }}
+                                                    >
+                                                        {m} <span style={{ fontWeight: 400, fontSize: '0.75rem' }}>({m === 'GMP' ? 'kg/mes' : 'gr/día'})</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                                             <div>
-                                                <label>Umbral Bajo GDP (kg/día)</label>
-                                                <input type="number" step="0.001" value={umbral} onChange={(e) => setUmbral(e.target.value)} />
+                                                <label>Límite Superior Rojo ({getUnidadLabel(modoLocal)})</label>
+                                                <input type="number" step={modoLocal === 'GDP' ? '1' : '0.1'} value={umbralMedioDisplay} onChange={(e) => setUmbralMedioDisplay(e.target.value)} />
                                             </div>
                                             <div>
-                                                <label>Límite Superior Rojo (kg/mes)</label>
-                                                <input type="number" step="0.1" value={umbralMedioGMP} onChange={(e) => setUmbralMedioGMP(e.target.value)} />
+                                                <label>Límite Superior Amarillo ({getUnidadLabel(modoLocal)})</label>
+                                                <input type="number" step={modoLocal === 'GDP' ? '1' : '0.1'} value={umbralAltoDisplay} onChange={(e) => setUmbralAltoDisplay(e.target.value)} />
                                             </div>
-                                            <div>
-                                                <label>Límite Superior Amarillo (kg/mes)</label>
-                                                <input type="number" step="0.1" value={umbralAltoGMP} onChange={(e) => setUmbralAltoGMP(e.target.value)} />
-                                            </div>
-
                                         </div>
 
                                         <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary-dark)', border: '1px solid var(--primary)' }}>

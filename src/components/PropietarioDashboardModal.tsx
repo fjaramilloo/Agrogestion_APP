@@ -8,6 +8,7 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 
 interface Pesaje {
     peso: number;
@@ -37,6 +38,7 @@ interface PropietarioDashboardProps {
     umbralMedio?: number;
     capitalInvertido?: number;
     precioVentaPromedio?: number;
+    modoGanancia?: 'GMP' | 'GDP';
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28DFF', '#FF6384'];
@@ -52,7 +54,8 @@ export default function PropietarioDashboardModal({
     umbralAlto = 20,
     umbralMedio = 10,
     capitalInvertido = 0,
-    precioVentaPromedio = 0
+    precioVentaPromedio = 0,
+    modoGanancia = 'GMP'
 }: PropietarioDashboardProps) {
     const printRef = useRef<HTMLDivElement>(null);
     const [isExporting, setIsExporting] = useState(false);
@@ -363,8 +366,8 @@ export default function PropietarioDashboardModal({
                             <div style={{ fontSize: '1.7rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{pesoTotalEstimado.toLocaleString(undefined, {maximumFractionDigits:0})} kg</div>
                         </div>
                         <div style={{ padding: '16px', borderRadius: '10px', background: theme.kpiBlueBg, border: `1px solid ${theme.kpiBlueBorder}` }}>
-                            <div style={{ color: theme.textMuted, fontSize: '0.85rem', marginBottom: '4px' }}>GMP Promedio Global</div>
-                            <div style={{ fontSize: '1.7rem', fontWeight: 'bold', color: getGmpColor(gmpPromedioGlobal) }}>{gmpPromedioGlobal.toFixed(2)} kg/mes</div>
+                            <div style={{ color: theme.textMuted, fontSize: '0.85rem', marginBottom: '4px' }}>{getModoLabel(modoGanancia)} Promedio Global</div>
+                            <div style={{ fontSize: '1.7rem', fontWeight: 'bold', color: getGmpColor(gmpPromedioGlobal) }}>{toDisplayValue(gmpPromedioGlobal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2)} {getUnidadLabel(modoGanancia)}</div>
                         </div>
                     </div>
 
@@ -416,7 +419,7 @@ export default function PropietarioDashboardModal({
                         {/* Tendencia GMP */}
                         <div style={{ padding: '16px', border: `1px solid ${theme.borderColor}`, borderRadius: '10px', background: theme.cardBg }}>
                             <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: theme.textLight, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <TrendingUp size={16} /> Evolución GMP (Últimos Pesajes)
+                                <TrendingUp size={16} /> Evolución {getModoLabel(modoGanancia)} (Últimos Pesajes)
                             </h3>
                             <div style={{ height: '180px' }}>
                                 {datosTendenciaGmp.length > 0 ? (
@@ -426,10 +429,10 @@ export default function PropietarioDashboardModal({
                                             <XAxis dataKey="mes" stroke={theme.textMuted} tick={{fill: theme.textMuted, fontSize: 12}} />
                                             <YAxis stroke={theme.textMuted} tick={{fill: theme.textMuted, fontSize: 12}} />
                                             {!isExporting && (
-                                                <RechartsTooltip 
-                                                    contentStyle={{ backgroundColor: 'rgba(30, 30, 45, 0.9)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                                                    formatter={(value: any) => [`${Number(value).toFixed(2)} kg/m`, 'GMP']}
-                                                />
+                                            <RechartsTooltip 
+                                                contentStyle={{ backgroundColor: 'rgba(30, 30, 45, 0.9)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                                formatter={(value: any) => [`${toDisplayValue(Number(value), modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2)} ${getUnidadLabel(modoGanancia)}`, getModoLabel(modoGanancia)]}
+                                            />
                                             )}
                                             <Line type="monotone" dataKey="gmp" stroke="var(--primary)" strokeWidth={3} dot={{r: 4, fill: 'var(--primary)'}} />
                                         </LineChart>
@@ -456,11 +459,11 @@ export default function PropietarioDashboardModal({
                                         <th style={{ padding: '12px', color: theme.textMuted, textAlign: 'right' }}>Cant.</th>
                                         <th style={{ padding: '12px', color: theme.textMuted, textAlign: 'right' }}>Peso Prom.</th>
                                         <th style={{ padding: '12px', color: theme.textMuted, textAlign: 'right' }}>
-                                            GMP Última
+                                            {getModoLabel(modoGanancia)} Última
                                             <div style={{ fontSize: '0.7rem', fontWeight: 'normal', color: theme.textMuted, opacity: 0.7 }}>último período</div>
                                         </th>
                                         <th style={{ padding: '12px', color: theme.textMuted, textAlign: 'right' }}>
-                                            GMP Histórica
+                                            {getModoLabel(modoGanancia)} Histórica
                                             <div style={{ fontSize: '0.7rem', fontWeight: 'normal', color: theme.textMuted, opacity: 0.7 }}>desde ingreso</div>
                                         </th>
                                     </tr>
@@ -472,10 +475,10 @@ export default function PropietarioDashboardModal({
                                             <td style={{ padding: '12px', textAlign: 'right', color: 'var(--primary)' }}>{ubi.cantidad}</td>
                                             <td style={{ padding: '12px', textAlign: 'right', color: theme.textMain }}>{ubi.pesoPromedio.toFixed(1)} kg</td>
                                             <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: ubi.gmpUltimo !== 0 ? getGmpColor(ubi.gmpUltimo) : theme.textMuted }}>
-                                                {ubi.gmpUltimo !== 0 ? `${ubi.gmpUltimo.toFixed(2)} kg/m` : 'N/A'}
+                                                {ubi.gmpUltimo !== 0 ? `${toDisplayValue(ubi.gmpUltimo, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2)} ${getUnidadLabel(modoGanancia)}` : 'N/A'}
                                             </td>
                                             <td style={{ padding: '12px', textAlign: 'right', color: ubi.gmpHistorico !== 0 ? getGmpColor(ubi.gmpHistorico) : theme.textMuted }}>
-                                                {ubi.gmpHistorico !== 0 ? `${ubi.gmpHistorico.toFixed(2)} kg/m` : 'N/A'}
+                                                {ubi.gmpHistorico !== 0 ? `${toDisplayValue(ubi.gmpHistorico, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2)} ${getUnidadLabel(modoGanancia)}` : 'N/A'}
                                             </td>
                                         </tr>
                                     ))}

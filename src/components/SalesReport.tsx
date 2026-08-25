@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { Printer, X } from 'lucide-react';
 import { es } from 'date-fns/locale';
+import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 
 interface AnimalReport {
     numero_chapeta: string;
@@ -24,10 +25,11 @@ interface SalesReportProps {
     observaciones?: string;
     umbralAlto?: number;
     umbralMedio?: number;
+    modoGanancia?: 'GMP' | 'GDP';
     onClose: () => void;
 }
 
-export default function SalesReport({ fincaNombre, fechaVenta, animales, comprador, observaciones, umbralAlto = 20, umbralMedio = 10, onClose }: SalesReportProps) {
+export default function SalesReport({ fincaNombre, fechaVenta, animales, comprador, observaciones, umbralAlto = 20, umbralMedio = 10, modoGanancia = 'GMP', onClose }: SalesReportProps) {
     // Cálculos
     const totalKilos = animales.reduce((sum, a) => sum + parseFloat(a.peso_salida.toString()), 0);
     const totalAnimales = animales.length;
@@ -401,21 +403,21 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
 
                     <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '30px' }}>
                         <div className="stat-card">
-                            <span className="stat-label">GMP en Levante</span>
+                            <span className="stat-label">{getModoLabel(modoGanancia)} en Levante</span>
                             <div className="stat-value" style={{ color: gmpLevanteFinal < 0 ? '#d32f2f' : (gmpLevanteFinal <= umbralMedio ? '#f57c00' : (gmpLevanteFinal <= umbralAlto ? '#000000' : '#2e7d32')) }}>
-                                {gmpLevanteFinal !== 0 ? gmpLevanteFinal.toFixed(2) : '-'} kg
+                                {gmpLevanteFinal !== 0 ? toDisplayValue(gmpLevanteFinal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2) : '-'} {gmpLevanteFinal !== 0 ? getUnidadLabel(modoGanancia) : ''}
                             </div>
                         </div>
                         <div className="stat-card">
-                            <span className="stat-label">GMP en Ceba</span>
+                            <span className="stat-label">{getModoLabel(modoGanancia)} en Ceba</span>
                             <div className="stat-value" style={{ color: gmpCebaFinal < 0 ? '#d32f2f' : (gmpCebaFinal <= umbralMedio ? '#f57c00' : (gmpCebaFinal <= umbralAlto ? '#000000' : '#2e7d32')) }}>
-                                {gmpCebaFinal !== 0 ? gmpCebaFinal.toFixed(2) : '-'} kg
+                                {gmpCebaFinal !== 0 ? toDisplayValue(gmpCebaFinal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2) : '-'} {gmpCebaFinal !== 0 ? getUnidadLabel(modoGanancia) : ''}
                             </div>
                         </div>
                         <div className="stat-card">
-                            <span className="stat-label">GMP Total (Vida)</span>
+                            <span className="stat-label">{getModoLabel(modoGanancia)} Total (Vida)</span>
                             <div className="stat-value" style={{ color: gmpTotalFinal < 0 ? '#d32f2f' : (gmpTotalFinal <= umbralMedio ? '#f57c00' : (gmpTotalFinal <= umbralAlto ? '#000000' : '#2e7d32')) }}>
-                                {gmpTotalFinal !== 0 ? gmpTotalFinal.toFixed(2) : '-'} kg
+                                {gmpTotalFinal !== 0 ? toDisplayValue(gmpTotalFinal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2) : '-'} {gmpTotalFinal !== 0 ? getUnidadLabel(modoGanancia) : ''}
                             </div>
                         </div>
                     </div>
@@ -451,7 +453,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                             <th>Chapeta</th>
                                             <th>Peso</th>
                                             {totalValor > 0 && <th style={{ textAlign: 'right' }}>Valor Venta</th>}
-                                            <th>GMP</th>
+                                            <th>{getModoLabel(modoGanancia)}</th>
                                             <th>Marca</th>
                                         </tr>
                                     </thead>
@@ -475,7 +477,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                                     color: (a.gmp || 0) < 0 ? '#d32f2f' : ((a.gmp || 0) <= umbralMedio ? '#f57c00' : ((a.gmp || 0) <= umbralAlto ? '#000000' : '#2e7d32')),
                                                     fontWeight: '600'
                                                 }}>
-                                                    {a.gmp ? a.gmp.toFixed(1) : '-'}
+                                                    {a.gmp ? toDisplayValue(a.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1) : '-'}
                                                 </td>
                                                 <td style={{ fontSize: '8px', color: '#666' }}>{a.propietario}</td>
                                             </tr>
@@ -502,7 +504,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                 <th style={{ textAlign: 'center' }}>Cant.</th>
                                 <th style={{ textAlign: 'center' }}>Kilos Totales</th>
                                 <th style={{ textAlign: 'center' }}>Peso Prom.</th>
-                                <th style={{ textAlign: 'right' }}>GMP Prom.</th>
+                                <th style={{ textAlign: 'right' }}>{getModoLabel(modoGanancia)} Prom.</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -517,7 +519,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                         fontWeight: 'bold',
                                         color: r.promedioGMP < 0 ? '#d32f2f' : (r.promedioGMP <= umbralMedio ? '#000000' : (r.promedioGMP <= umbralAlto ? '#f57c00' : '#2e7d32'))
                                     }}>
-                                        {r.promedioGMP !== 0 ? r.promedioGMP.toFixed(2) : '-'}
+                                        {r.promedioGMP !== 0 ? toDisplayValue(r.promedioGMP, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2) : '-'}
                                     </td>
                                 </tr>
                             ))}

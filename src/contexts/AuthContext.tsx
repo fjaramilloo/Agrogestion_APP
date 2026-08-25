@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session, User } from '@supabase/supabase-js';
+import type { ModoGanancia } from '../utils/ganancia';
 
 export type UserRole = 'administrador' | 'vaquero' | 'observador' | null;
 
@@ -24,6 +25,8 @@ interface AuthState {
     profile: UserProfile | null;
     isSuperAdmin: boolean;
     loading: boolean;
+    modoGanancia: ModoGanancia;
+    setModoGanancia: (modo: ModoGanancia) => void;
     signOut: () => Promise<void>;
     setFincaId: (id: string) => void;
     refreshFincas: () => Promise<void>;
@@ -38,6 +41,8 @@ const AuthContext = createContext<AuthState>({
     profile: null,
     isSuperAdmin: false,
     loading: true,
+    modoGanancia: 'GMP',
+    setModoGanancia: () => {},
     signOut: async () => { },
     setFincaId: () => { },
     refreshFincas: async () => { },
@@ -51,6 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [userFincas, setUserFincas] = useState<UserFinca[]>([]);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    const [modoGanancia, setModoGanancia] = useState<ModoGanancia>('GMP');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -114,6 +120,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 setFincaId(validFinca.id_finca);
                 setRole(validFinca.rol);
+
+                // Leer modo_ganancia de configuracion_kpi de la finca seleccionada
+                const { data: kpiData } = await supabase
+                    .from('configuracion_kpi')
+                    .select('modo_ganancia')
+                    .eq('id_finca', validFinca.id_finca)
+                    .single();
+                if (kpiData?.modo_ganancia) {
+                    setModoGanancia(kpiData.modo_ganancia as ModoGanancia);
+                }
             }
 
             // 2. Verificamos Perfil
@@ -174,6 +190,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profile,
             isSuperAdmin,
             loading,
+            modoGanancia,
+            setModoGanancia,
             signOut,
             setFincaId: handleSetFincaId,
             refreshFincas

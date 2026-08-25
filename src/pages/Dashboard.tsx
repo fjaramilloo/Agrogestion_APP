@@ -8,6 +8,7 @@ import {
 import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 import { useNavigate } from 'react-router-dom';
 import ReporteInventarioExcel from '../components/ReporteInventarioExcel';
 
@@ -51,7 +52,7 @@ interface LluviaItem {
 }
 
 export default function Dashboard() {
-    const { fincaId } = useAuth();
+    const { fincaId, modoGanancia } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [muertesModalVisible, setMuertesModalVisible] = useState(false);
@@ -794,18 +795,18 @@ export default function Dashboard() {
                                     <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioLevanteMeses.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>meses</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{getModoLabel(modoGanancia)} Lote</span>
                                     <span style={{ 
                                         fontWeight: 'bold', 
-                                        fontSize: '1.2rem', 
+                                        fontSize: '1.4rem', 
                                         color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? 'var(--warning)' : (stats.gmpLevante <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                         textShadow: (stats.gmpLevante > umbralMedio && stats.gmpLevante <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
-                                    }}>{stats.gmpLevante.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    }}>{toDisplayValue(stats.gmpLevante, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>{getUnidadLabel(modoGanancia)}</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
                                         <span style={{ fontSize: '0.75rem', fontStyle: 'italic' }}>Meta Mínima</span>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.metaMinima.toFixed(1)} kg</span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{toDisplayValue(stats.metaMinima, modoGanancia).toFixed(1)} {getUnidadLabel(modoGanancia)}</span>
                                     </div>
                                 )}
                             </div>
@@ -822,18 +823,18 @@ export default function Dashboard() {
                                     <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioCebaMeses.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>meses</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{getModoLabel(modoGanancia)} Lote</span>
                                     <span style={{ 
                                         fontWeight: 'bold', 
-                                        fontSize: '1.2rem', 
+                                        fontSize: '1.4rem', 
                                         color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? 'var(--warning)' : (stats.gmpCeba <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                         textShadow: (stats.gmpCeba > umbralMedio && stats.gmpCeba <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
-                                    }}>{stats.gmpCeba.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    }}>{toDisplayValue(stats.gmpCeba, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>{getUnidadLabel(modoGanancia)}</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
                                         <span style={{ fontSize: '0.75rem', fontStyle: 'italic' }}>Meta Mínima</span>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.metaMinima.toFixed(1)} kg</span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{toDisplayValue(stats.metaMinima, modoGanancia).toFixed(1)} {getUnidadLabel(modoGanancia)}</span>
                                     </div>
                                 )}
                             </div>
@@ -989,7 +990,7 @@ export default function Dashboard() {
                                                     <span style={{ display: 'block', marginTop: '12px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
                                                         {proximosDespachos.diasFaltantes === 0 
                                                             ? `¡Lote de ${proximosDespachos.cantidad} animales LISTO para despacho!` 
-                                                            : `Próximo lote (${proximosDespachos.cantidad} animales): Listos en ${proximosDespachos.diasFaltantes} días (Basado en la GMP actual de ${proximosDespachos.gmpLote.toFixed(1)} kg/mes)`
+                                                            : `Próximo lote (${proximosDespachos.cantidad} animales): Listos en ${proximosDespachos.diasFaltantes} días (Basado en la ${getModoLabel(modoGanancia)} actual de ${toDisplayValue(proximosDespachos.gmpLote, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)})`
                                                         }
                                                     </span>
                                                 </div>
@@ -1101,7 +1102,7 @@ export default function Dashboard() {
                                             <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                                             <Line 
                                                 type="monotone" 
-                                                name="GMP Levante" 
+                                                name={`${getModoLabel(modoGanancia)} Levante`} 
                                                 dataKey="gmpLevante" 
                                                 stroke="var(--warning)" 
                                                 strokeWidth={4} 
@@ -1124,7 +1125,7 @@ export default function Dashboard() {
                                             />
                                             <Line 
                                                 type="monotone" 
-                                                name="GMP Ceba" 
+                                                name={`${getModoLabel(modoGanancia)} Ceba`} 
                                                 dataKey="gmpCeba" 
                                                 stroke="var(--success)" 
                                                 strokeWidth={4} 
@@ -1155,7 +1156,7 @@ export default function Dashboard() {
                                             <Tooltip
                                                 cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                                                 contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
-                                                formatter={(value: any, name: any) => [`${value} kg/mes`, name]}
+                                                formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]}
                                                 labelFormatter={(label) => {
                                                     const point = evolucionPorPesaje.find(d => d.name === label);
                                                     return (
@@ -1182,7 +1183,7 @@ export default function Dashboard() {
                                             <Tooltip
                                                 cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                                                 contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
-                                                formatter={(value: any) => [`${value} kg/mes`, 'GMP']}
+                                                formatter={(value: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, getModoLabel(modoGanancia)]}
                                                 labelFormatter={(label) => {
                                                     const point = evolucionPorRango.find(d => d.name === label);
                                                     return (
@@ -1195,7 +1196,7 @@ export default function Dashboard() {
                                                     );
                                                 }}
                                             />
-                                            <Bar name="GMP" dataKey="gmp" fill="var(--primary)" radius={[4, 4, 0, 0]} barSize={45} label={{ position: 'top', fill: 'white', fontSize: 12 }} />
+                                            <Bar name={getModoLabel(modoGanancia)} dataKey="gmp" fill="var(--primary)" radius={[4, 4, 0, 0]} barSize={45} label={{ position: 'top', fill: 'white', fontSize: 12, formatter: (v: any) => toDisplayValue(v, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1) }} />
                                         </BarChart>
                                     )}
                                 </ResponsiveContainer>
@@ -1370,7 +1371,7 @@ export default function Dashboard() {
                                                         }}
                                                         style={{ textAlign: 'right', cursor: 'pointer', whiteSpace: 'nowrap' }}
                                                     >
-                                                        GMP (kg/mes) {sortCol === 'gmp' && (sortOrder === 'asc' ? '↑' : '↓')}
+                                                        {getModoLabel(modoGanancia)} ({getUnidadLabel(modoGanancia)}) {sortCol === 'gmp' && (sortOrder === 'asc' ? '↑' : '↓')}
                                                     </th>
                                                 </tr>
                                             </thead>

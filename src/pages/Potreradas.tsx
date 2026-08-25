@@ -10,6 +10,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Download, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 
 interface Potrerada {
     id: string;
@@ -57,7 +58,7 @@ interface ChartData {
 }
 
 export default function Potreradas() {
-    const { fincaId, role } = useAuth();
+    const { fincaId, role, modoGanancia } = useAuth();
     const location = useLocation();
     const [potreradas, setPotreradas] = useState<Potrerada[]>([]);
     const [loading, setLoading] = useState(true);
@@ -992,11 +993,11 @@ export default function Potreradas() {
             // FILA 2
             xPos = marginX;
             // Caja 4: GMP Histórico
-            drawBox(xPos, currentY, 'GMP HISTÓRICO LOTE', `${detailData.gmpPromedioGrupo.toFixed(1)} kg`, 'MES ACUMULADO', acumGmpColor);
+            drawBox(xPos, currentY, `${getModoLabel(modoGanancia)} HISTÓRICO LOTE`, `${toDisplayValue(detailData.gmpPromedioGrupo, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, 'ACUMULADO', acumGmpColor);
             xPos += boxWidth + colGap;
 
             // Caja 5: Último GMP
-            drawBox(xPos, currentY, 'ÚLTIMO GMP (MES)', `${p.gmpPromedio.toFixed(1)} kg`, 'Muestra más reciente', lastGmpColor);
+            drawBox(xPos, currentY, `ÚLTIMO ${getModoLabel(modoGanancia)}`, `${toDisplayValue(p.gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, 'Muestra más reciente', lastGmpColor);
             xPos += boxWidth + colGap;
 
             // Caja 6: Punto de Equilibrio
@@ -1485,7 +1486,7 @@ export default function Potreradas() {
                                                     fontWeight: 'bold',
                                                     textShadow: (p.gmpPromedio > umbralMedio && p.gmpPromedio <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                 }}>
-                                                    {p.gmpPromedio.toFixed(1)}
+                                                    {toDisplayValue(p.gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1806,7 +1807,7 @@ export default function Potreradas() {
                                                     <MapPin size={14} color="var(--primary)" /> <span className="mobile-hide">Potrero:</span> <strong style={{color: 'var(--text)'}}>{detailData.potreroActual}</strong>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                    <TrendingUp size={14} color={detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))} /> <span className="mobile-hide">GMP:</span> <strong style={{color: detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))}}>{detailData.gmpPromedioGrupo.toFixed(1)}</strong>
+                                                    <TrendingUp size={14} color={detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))} /> <span className="mobile-hide">{getModoLabel(modoGanancia)}:</span> <strong style={{color: detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))}}>{toDisplayValue(detailData.gmpPromedioGrupo, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}</strong>
                                                 </div>
                                                 {(() => {
                                                     const productivity = (detailData.animales.length * detailData.potrerada.gmpPromedio) / (detailData.areaTotalSistema || 1);
@@ -1939,15 +1940,15 @@ export default function Potreradas() {
                                         </div>
 
                                         <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
-                                            <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</h4>
+                                            <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{getModoLabel(modoGanancia)} Promedio</h4>
                                             {detailData.history.length > 1 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
                                                     <LineChart data={detailData.history.filter((_, idx) => idx > 0)}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                                                         <XAxis dataKey="fecha" stroke="var(--text-muted)" fontSize={12} />
                                                         <YAxis stroke="var(--text-muted)" fontSize={12} />
-                                                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
-                                                        <Line type="monotone" dataKey="gmpPromedio" name="GMP (kg/m)" stroke="var(--success)" strokeWidth={3} dot={{ fill: 'var(--success)', r: 4 }} activeDot={{ r: 6 }} />
+                                                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
+                                                        <Line type="monotone" dataKey="gmpPromedio" name={`${getModoLabel(modoGanancia)}`} stroke="var(--success)" strokeWidth={3} dot={{ fill: 'var(--success)', r: 4 }} activeDot={{ r: 6 }} />
                                                     </LineChart>
                                                 </ResponsiveContainer>
                                             ) : (

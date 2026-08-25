@@ -7,6 +7,7 @@ import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 
 interface Pesaje {
     peso: number;
@@ -39,7 +40,7 @@ interface Animal {
 }
 
 export default function Inventory() {
-    const { fincaId, role, userFincas } = useAuth();
+    const { fincaId, role, userFincas, modoGanancia } = useAuth();
     const location = useLocation();
     const [animales, setAnimales] = useState<Animal[]>([]);
     const [loading, setLoading] = useState(true);
@@ -584,7 +585,7 @@ export default function Inventory() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Último Pesaje <ArrowUpDown size={14} opacity={sortBy === 'dias_pesaje' ? 1 : 0.3} /></div>
                             </th>
                             <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Último Peso</th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>GMP Promedio</th>
+                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>{getModoLabel(modoGanancia)} Promedio</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -690,7 +691,7 @@ export default function Inventory() {
                                                         backgroundColor: gmpColor,
                                                         border: gmpColor === 'var(--text-light)' ? '1px solid rgba(255,255,255,0.4)' : 'none'
                                                     }}></div>
-                                                    {gmpPromedio.toFixed(1)} kg/mes
+                                                    {toDisplayValue(gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
                                                 </div>
                                             ) : (
                                                 <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>NA</div>
@@ -932,7 +933,7 @@ export default function Inventory() {
                                                                 fontWeight: 'bold',
                                                                 textShadow: (item.gmp > umbralMedioGmp && item.gmp <= umbralAltoGmp) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
                                                             }}>
-                                                                {item.gmp > 0 ? '+' : ''}{item.gmp.toFixed(1)} kg/mes
+                                                                {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
                                                             </div>
                                                             <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>GDP: {item.gdp > 0 ? '+' : ''}{item.gdp.toFixed(3)} kg/día</div>
                                                         </>
@@ -1164,6 +1165,7 @@ export default function Inventory() {
                     umbralMedio={umbralMedioGmp}
                     capitalInvertido={parseFloat(capitalInvertido) || 0}
                     precioVentaPromedio={precioVentaPromedio}
+                    modoGanancia={modoGanancia}
                 />
             )}
         </div>

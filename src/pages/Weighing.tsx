@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
+import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 
 interface AnimalPreview {
     id: string;
@@ -23,7 +24,7 @@ interface AnimalPreview {
 }
 
 export default function Weighing() {
-    const { fincaId } = useAuth();
+    const { fincaId, modoGanancia } = useAuth();
     const [chapeta, setChapeta] = useState('');
     const [animal, setAnimal] = useState<AnimalPreview | null>(null);
     const [nuevoPeso, setNuevoPeso] = useState('');
@@ -515,14 +516,14 @@ export default function Weighing() {
                                 )}
                             </div>
                             <div style={{ textAlign: 'right' }}>
-                                <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Última GMP</div>
+                                <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Última {getModoLabel(modoGanancia)}</div>
                                 <div style={{ 
                                     fontSize: '1.5rem', 
                                     fontWeight: 'bold', 
                                     color: (animal.gmp || 0) < 0 ? 'var(--error)' : ((animal.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((animal.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                     textShadow: (animal.gmp !== undefined && animal.gmp > umbralMedio && animal.gmp <= umbralAlto) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
                                 }}>
-                                    {animal.gmp ? animal.gmp.toFixed(1) : '0.0'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>kg/mes</span>
+                                    {animal.gmp ? toDisplayValue(animal.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1) : '0'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{getUnidadLabel(modoGanancia)}</span>
                                 </div>
                             </div>
                         </div>
