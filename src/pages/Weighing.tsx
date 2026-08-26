@@ -25,7 +25,8 @@ interface AnimalPreview {
 }
 
 export default function Weighing() {
-    const { fincaId, modoGanancia } = useAuth();
+    const { fincaId, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
+    const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [chapeta, setChapeta] = useState('');
     const [animal, setAnimal] = useState<AnimalPreview | null>(null);
     const [nuevoPeso, setNuevoPeso] = useState('');

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
     Award, CheckCircle2, ShieldCheck,
@@ -11,12 +10,6 @@ export default function Suscripcion() {
     const { licencia, limiteAnimales, totalAnimalesOrganizacion, fechaInicioLicencia, fechaVencimientoLicencia, organizacionNombre } = licenciaInfo;
 
     const porcentajeUso = Math.min(100, Math.round((totalAnimalesOrganizacion / (limiteAnimales || 1)) * 100));
-
-    const handleCopy = (text: string, id: string) => {
-        navigator.clipboard.writeText(text);
-        setCopiedAccount(id);
-        setTimeout(() => setCopiedAccount(null), 2000);
-    };
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return 'Sin fecha';
