@@ -1,7 +1,6 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, Sparkles, ArrowRight, X, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { LicenciaInfo } from '../contexts/AuthContext';
+import { Award, Sparkles, ArrowRight, X } from 'lucide-react';
+import type { LicenciaInfo } from '../contexts/AuthContext';
 
 interface ModalUpsellProps {
     isOpen: boolean;

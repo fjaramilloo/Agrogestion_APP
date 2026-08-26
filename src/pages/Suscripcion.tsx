@@ -1,16 +1,14 @@
-import React from 'react';
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
-    Award, CheckCircle2, ShieldCheck, Zap,
+    Award, CheckCircle2, ShieldCheck,
     Building2, Tractor, Calendar, MessageCircle,
-    Copy, Check, Clock, Sparkles
+    Clock
 } from 'lucide-react';
 
 export default function Suscripcion() {
-    const { licenciaInfo, isSuperAdmin } = useAuth();
+    const { licenciaInfo } = useAuth();
     const { licencia, limiteAnimales, totalAnimalesOrganizacion, fechaInicioLicencia, fechaVencimientoLicencia, organizacionNombre } = licenciaInfo;
-
-    const [copiedAccount, setCopiedAccount] = React.useState<string | null>(null);
 
     const porcentajeUso = Math.min(100, Math.round((totalAnimalesOrganizacion / (limiteAnimales || 1)) * 100));
 

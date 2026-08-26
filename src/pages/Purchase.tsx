@@ -24,7 +24,8 @@ interface AnimalCompra {
 }
 
 export default function Purchase() {
-    const { fincaId, role, userFincas } = useAuth();
+    const { fincaId, role, userFincas, licenciaInfo, refreshLicencia } = useAuth();
+    const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [cantidad, setCantidad] = useState('1');
     const [fechaIngreso, setFechaIngreso] = useState(new Date().toISOString().split('T')[0]);
     const [animales, setAnimales] = useState<AnimalCompra[]>([]);
