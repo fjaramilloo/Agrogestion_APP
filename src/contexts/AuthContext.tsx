@@ -4,6 +4,17 @@ import type { Session, User } from '@supabase/supabase-js';
 import type { ModoGanancia } from '../utils/ganancia';
 
 export type UserRole = 'administrador' | 'vaquero' | 'observador' | null;
+export type TipoLicencia = 'demo' | 'finca' | 'premium';
+
+export interface LicenciaInfo {
+    licencia: TipoLicencia;
+    limiteAnimales: number;
+    totalAnimalesOrganizacion: number;
+    fechaInicioLicencia: string | null;
+    fechaVencimientoLicencia: string | null;
+    organizacionNombre: string | null;
+    organizacionId: string | null;
+}
 
 interface UserFinca {
     id_finca: string;
@@ -24,13 +35,25 @@ interface AuthState {
     userFincas: UserFinca[];
     profile: UserProfile | null;
     isSuperAdmin: boolean;
+    licenciaInfo: LicenciaInfo;
     loading: boolean;
     modoGanancia: ModoGanancia;
     setModoGanancia: (modo: ModoGanancia) => void;
     signOut: () => Promise<void>;
     setFincaId: (id: string) => void;
     refreshFincas: () => Promise<void>;
+    refreshLicencia: () => Promise<void>;
 }
+
+const defaultLicenciaInfo: LicenciaInfo = {
+    licencia: 'demo',
+    limiteAnimales: 40,
+    totalAnimalesOrganizacion: 0,
+    fechaInicioLicencia: null,
+    fechaVencimientoLicencia: null,
+    organizacionNombre: null,
+    organizacionId: null
+};
 
 const AuthContext = createContext<AuthState>({
     user: null,
@@ -40,12 +63,14 @@ const AuthContext = createContext<AuthState>({
     userFincas: [],
     profile: null,
     isSuperAdmin: false,
+    licenciaInfo: defaultLicenciaInfo,
     loading: true,
     modoGanancia: 'GMP',
     setModoGanancia: () => {},
     signOut: async () => { },
     setFincaId: () => { },
     refreshFincas: async () => { },
+    refreshLicencia: async () => { },
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -56,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [userFincas, setUserFincas] = useState<UserFinca[]>([]);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    const [licenciaInfo, setLicenciaInfo] = useState<LicenciaInfo>(defaultLicenciaInfo);
     const [modoGanancia, setModoGanancia] = useState<ModoGanancia>('GMP');
     const [loading, setLoading] = useState(true);
 
@@ -82,6 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setUserFincas([]);
                     setProfile(null);
                     setIsSuperAdmin(false);
+                    setLicenciaInfo(defaultLicenciaInfo);
                     setLoading(false);
                 }
             }
@@ -89,6 +116,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         return () => subscription.unsubscribe();
     }, []);
+
+    const fetchLicenciaData = async (targetFincaId: string) => {
+        try {
+            const { data: fincaData } = await supabase
+                .from('fincas')
+                .select('id_organizacion, organizaciones ( id, nombre, licencia, limite_animales, fecha_inicio_licencia, fecha_vencimiento_licencia )')
+                .eq('id', targetFincaId)
+                .single();
+
+            if (fincaData?.organizaciones) {
+                const org: any = fincaData.organizaciones;
+                const orgId = org.id;
+
+                // Contar animales activos de la organización
+                const { data: orgFincas } = await supabase
+                    .from('fincas')
+                    .select('id')
+                    .eq('id_organizacion', orgId);
+
+                const orgFincaIds = (orgFincas || []).map((f: any) => f.id);
+                let animalCount = 0;
+
+                if (orgFincaIds.length > 0) {
+                    const { count } = await supabase
+                        .from('animales')
+                        .select('id', { count: 'exact', head: true })
+                        .in('id_finca', orgFincaIds)
+                        .eq('estado', 'activo');
+                    animalCount = count || 0;
+                }
+
+                setLicenciaInfo({
+                    licencia: (org.licencia as TipoLicencia) || 'demo',
+                    limiteAnimales: org.limite_animales ?? 40,
+                    totalAnimalesOrganizacion: animalCount,
+                    fechaInicioLicencia: org.fecha_inicio_licencia || null,
+                    fechaVencimientoLicencia: org.fecha_vencimiento_licencia || null,
+                    organizacionNombre: org.nombre || null,
+                    organizacionId: orgId || null
+                });
+            }
+        } catch (err) {
+            console.error("Error cargando licencia:", err);
+        }
+    };
 
     const fetchUserData = async (userId: string) => {
         try {
@@ -113,13 +185,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 setUserFincas(mappedFincas);
 
-                // Si ya teníamos una seleccionada y sigue siendo válida, la mantenemos
-                // Si no, seleccionamos la primera
                 const savedFincaId = localStorage.getItem('lastFincaId');
                 const validFinca = mappedFincas.find(f => f.id_finca === savedFincaId) || mappedFincas[0];
 
                 setFincaId(validFinca.id_finca);
                 setRole(validFinca.rol);
+
+                // Cargar datos de Licencia de la Finca Seleccionada
+                await fetchLicenciaData(validFinca.id_finca);
 
                 // Leer modo_ganancia de configuracion_kpi de la finca seleccionada
                 const { data: kpiData } = await supabase
@@ -168,11 +241,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setFincaId(id);
             setRole(finca.rol);
             localStorage.setItem('lastFincaId', id);
+            fetchLicenciaData(id);
         }
     };
 
     const refreshFincas = async () => {
         if (user) await fetchUserData(user.id);
+    };
+
+    const refreshLicencia = async () => {
+        if (fincaId) await fetchLicenciaData(fincaId);
     };
 
     const signOut = async () => {
@@ -189,12 +267,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             userFincas,
             profile,
             isSuperAdmin,
+            licenciaInfo,
             loading,
             modoGanancia,
             setModoGanancia,
             signOut,
             setFincaId: handleSetFincaId,
-            refreshFincas
+            refreshFincas,
+            refreshLicencia
         }}>
             {children}
         </AuthContext.Provider>
@@ -202,3 +282,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useAuth = () => useContext(AuthContext);
+
