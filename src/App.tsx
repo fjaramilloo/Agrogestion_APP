@@ -21,6 +21,7 @@ import Mercado from './pages/Mercado';
 import Aforos from './pages/Aforos';
 import VersionNotifier from './components/VersionNotifier';
 import UpdatePassword from './pages/UpdatePassword';
+import Suscripcion from './pages/Suscripcion';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, role, loading } = useAuth();
@@ -174,6 +175,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['administrador', 'vaquero', 'observador']}>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/suscripcion"
+        element={
+          <ProtectedRoute allowedRoles={['administrador', 'vaquero', 'observador']}>
+            <Suscripcion />
           </ProtectedRoute>
         }
       />

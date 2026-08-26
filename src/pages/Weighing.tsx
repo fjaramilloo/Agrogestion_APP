@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import ModalUpsell from '../components/ModalUpsell';
 import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
@@ -258,6 +259,7 @@ export default function Weighing() {
             });
             setAnimalNoEncontrado(false);
             setShowCrearAnimal(false);
+            if (refreshLicencia) await refreshLicencia();
             setNuevoPeso(pesoIngresoNuevo);
 
         } catch (err: any) {
@@ -434,7 +436,14 @@ export default function Weighing() {
                         <p style={{ color: 'white', marginBottom: '16px' }}>El animal no está en la base de datos.</p>
                         <button
                             type="button"
-                            onClick={() => { setShowCrearAnimal(true); setMsjError(''); }}
+                            onClick={() => {
+                                if (licenciaInfo && licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales) {
+                                    setShowUpsellModal(true);
+                                } else {
+                                    setShowCrearAnimal(true);
+                                    setMsjError('');
+                                }
+                            }}
                             style={{ width: 'auto', backgroundColor: 'var(--warning)', color: '#000', margin: '0 auto' }}
                         >
                             <PlusCircle size={20} /> Crear Animal Ahora
@@ -750,6 +759,12 @@ export default function Weighing() {
                     </div>
                 );
             })()}
+
+            <ModalUpsell
+                isOpen={showUpsellModal}
+                onClose={() => setShowUpsellModal(false)}
+                licenciaInfo={licenciaInfo}
+            />
         </div>
     );
 }

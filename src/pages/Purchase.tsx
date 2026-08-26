@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import ModalUpsell from '../components/ModalUpsell';
 import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
@@ -182,6 +183,11 @@ export default function Purchase() {
     const handleIngresarCompra = async () => {
         if (!fincaId || animales.length === 0) return;
 
+        if (licenciaInfo && (licenciaInfo.totalAnimalesOrganizacion + animales.length) > licenciaInfo.limiteAnimales) {
+            setShowUpsellModal(true);
+            return;
+        }
+
         setLoading(true);
         setMsjError('');
 
@@ -338,6 +344,7 @@ export default function Purchase() {
                 pesoCompraTotal: incluirPesoCompra ? parseFloat(pesoCompraTotal) : undefined
             });
             setShowReport(true);
+            if (refreshLicencia) await refreshLicencia();
 
             setAnimales([]);
             setCantidad('1');
@@ -982,6 +989,12 @@ export default function Purchase() {
                     />
                 </div>
             )}
+
+            <ModalUpsell
+                isOpen={showUpsellModal}
+                onClose={() => setShowUpsellModal(false)}
+                licenciaInfo={licenciaInfo}
+            />
         </div>
     );
 }

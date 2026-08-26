@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2 } from 'lucide-react';
 import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
+import ModalUpsell from '../components/ModalUpsell';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
@@ -40,8 +41,9 @@ interface Animal {
 }
 
 export default function Inventory() {
-    const { fincaId, role, userFincas, modoGanancia } = useAuth();
+    const { fincaId, role, userFincas, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
     const location = useLocation();
+    const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [animales, setAnimales] = useState<Animal[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -338,6 +340,7 @@ export default function Inventory() {
             }
 
             setShowCrearModal(false);
+            if (refreshLicencia) await refreshLicencia();
             setNuevoAnimal({
                 numero_chapeta: '',
                 nombre_propietario: '',
@@ -455,7 +458,13 @@ export default function Inventory() {
                     <div style={{ display: 'flex', gap: '12px' }}>
                         {(role === 'administrador' || role === 'vaquero') && (
                             <button
-                                onClick={() => setShowCrearModal(true)}
+                                onClick={() => {
+                                    if (licenciaInfo && licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales) {
+                                        setShowUpsellModal(true);
+                                    } else {
+                                        setShowCrearModal(true);
+                                    }
+                                }}
                                 style={{ width: 'auto', backgroundColor: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Plus size={18} /> Crear Animal
@@ -1168,6 +1177,12 @@ export default function Inventory() {
                     modoGanancia={modoGanancia}
                 />
             )}
+
+            <ModalUpsell
+                isOpen={showUpsellModal}
+                onClose={() => setShowUpsellModal(false)}
+                licenciaInfo={licenciaInfo}
+            />
         </div>
     );
 }
