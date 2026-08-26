@@ -5,7 +5,7 @@ import {
     Building2, UserPlus, ShieldCheck, MapPin, Users,
     ChevronDown, ChevronUp, BarChart3, Tractor,
     Eye, Wrench, Globe, Trash2, AlertTriangle,
-    Award, Calendar, Edit3, Clock, Sparkles
+    Award, Calendar, Edit3, Clock
 } from 'lucide-react';
 
 type TipoLicencia = 'demo' | 'finca' | 'premium';
@@ -278,7 +278,7 @@ export default function SuperAdmin() {
         setMsjError('');
         try {
             if (password.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres');
-            const { data: resRpc, error } = await supabase.rpc('crear_dueno_finca', {
+            const { error } = await supabase.rpc('crear_dueno_finca', {
                 p_email: email, p_password: password,
                 p_nombre_organizacion: org, p_nombre_finca: finca, p_ubicacion_finca: ubicacion
             });
