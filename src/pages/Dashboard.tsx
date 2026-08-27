@@ -274,10 +274,7 @@ export default function Dashboard() {
                 }));
 
                 setRawData({
-                    animales: (todosAnimales || []).map((a: any) => ({
-                        ...a,
-                        estado: (animales?.find(active => active.id === a.id)) ? 'activo' : 'no-activo'
-                    })),
+                    animales: todosAnimales,
                     pesajes: pesajesFlat
                 });
 
