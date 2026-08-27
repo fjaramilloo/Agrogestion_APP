@@ -22,7 +22,8 @@ import {
     ShoppingBag,
     FileText,
     Leaf,
-    Award
+    Award,
+    TrendingUp
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -202,6 +203,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         </div>
                     )}
 
+                    {/* MERCADO (Precios y Tendencias) - Solo Administrador */}
+                    {(role === 'administrador') && (
+                        <div style={{ marginBottom: '8px' }}>
+                            <NavLink to="/mercado" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                <span className="sidebar-icon"><TrendingUp size={20} /></span>
+                                <span className="sidebar-label">Mercado</span>
+                            </NavLink>
+                        </div>
+                    )}
+
+
                     {/* TRABAJO DE CAMPO - Para Admin y Vaquero */}
                     {(role === 'administrador' || role === 'vaquero') && (
                         <div style={{ marginBottom: '8px' }}>
@@ -249,9 +261,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                         <span className="sidebar-label">Venta</span>
                                     </NavLink>
                                     {hayMercado && (
-                                        <NavLink to="/mercado" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`} style={{ position: 'relative' }}>
+                                        <NavLink to="/animales-ceba" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`} style={{ position: 'relative' }}>
                                             <span className="sidebar-icon"><ShoppingBag size={20} /></span>
-                                            <span className="sidebar-label">Mercado</span>
+                                            <span className="sidebar-label">Animales para Ceba</span>
                                             <span style={{ marginLeft: 'auto', background: '#2e7d32', color: 'white', borderRadius: '10px', fontSize: '0.65rem', padding: '2px 7px', fontWeight: 'bold' }}>●</span>
                                         </NavLink>
                                     )}

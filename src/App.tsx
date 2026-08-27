@@ -18,6 +18,7 @@ import Rotations from './pages/Rotations';
 import Movements from './pages/Movements';
 import Potreradas from './pages/Potreradas';
 import Mercado from './pages/Mercado';
+import MercadoGanado from './pages/MercadoGanado';
 import Aforos from './pages/Aforos';
 import VersionNotifier from './components/VersionNotifier';
 import UpdatePassword from './pages/UpdatePassword';
@@ -107,10 +108,18 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/mercado"
+        path="/animales-ceba"
         element={
           <ProtectedRoute allowedRoles={['administrador', 'vaquero']}>
             <Mercado />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/mercado"
+        element={
+          <ProtectedRoute allowedRoles={['administrador']}>
+            <MercadoGanado />
           </ProtectedRoute>
         }
       />
