@@ -46,7 +46,7 @@ export default function Suscripcion() {
             caracteristicas: [
                 'Hasta 40 animales activos',
                 '1 finca autorizada',
-                '1 usuario vaquero adicional',
+                'Precios de mercado (Nivel Nacional)',
                 'Pesaje y control de pastoreo',
                 'Reportes zootécnicos básicos'
             ]
@@ -65,10 +65,10 @@ export default function Suscripcion() {
             caracteristicas: [
                 'Acceso a AgroBot (IA Mentora)',
                 'Hasta 500 animales activos',
-                '1 finca autorizada',
+                'Precios de mercado regionales (Subastas en tiempo real)',
+                'Historial y tendencias de precios ganaderos',
                 '1 vaquero + 1 observador/visualizador',
                 'Cálculo de GDP e indicadores KPI',
-                'Historial de compras y ventas',
                 'Exportación de datos a Excel/CSV'
             ]
         },
@@ -84,12 +84,13 @@ export default function Suscripcion() {
             bg: 'rgba(192, 132, 252, 0.08)',
             caracteristicas: [
                 'Animales activos ilimitados',
+                'Valoración Patrimonial del Inventario Vivo en tiempo real',
+                'Precios de mercado regionales e históricos',
                 'Múltiples fincas y rotaciones',
                 'Dashboard Consolidado Multi-Finca',
                 'Traslados Inter-Fincas con 1 clic',
                 'Roles y usuarios ilimitados',
-                'AgroBot Empresarial',
-                'Atención y soporte personalizado'
+                'AgroBot Empresarial con soporte prioritario'
             ]
         }
     ];
