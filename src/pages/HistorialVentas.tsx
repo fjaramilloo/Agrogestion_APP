@@ -9,6 +9,7 @@ import SalesReportSimple from '../components/SalesReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 
 interface AnimalVentaParaReporte {
     numero_chapeta: string;
@@ -365,15 +366,15 @@ export default function HistorialVentas() {
                     <div style={{ fontSize: '2rem', fontWeight: '900', color: 'white' }}>{metrics.avgWeight.toFixed(0)} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>kg</span></div>
                 </div>
                 <div className="glass-panel" style={{ textAlign: 'center', padding: '20px' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>GMP Promedio Historial</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>{getModoLabel(modoGanancia)} Promedio Historial</div>
                     <div style={{ fontSize: '2rem', fontWeight: '900', color: (metrics.avgGmp < 0 ? 'var(--error)' : (metrics.avgGmp <= umbralMedio ? 'var(--warning)' : (metrics.avgGmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))) }}>
-                        {metrics.avgGmp.toFixed(2)} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span>
+                        {toDisplayValue(metrics.avgGmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2)} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>{getUnidadLabel(modoGanancia)}</span>
                     </div>
                 </div>
                 <div className="glass-panel" style={{ textAlign: 'center', padding: '20px' }}>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold', letterSpacing: '0.5px' }}>Meta Mínima (Eq.)</div>
                     <div style={{ fontSize: '2rem', fontWeight: '900', color: 'white' }}>
-                        {metrics.metaMinima.toFixed(2)} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>kg</span>
+                        {toDisplayValue(metrics.metaMinima, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2)} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{getUnidadLabel(modoGanancia)}</span>
                     </div>
                 </div>
             </div>

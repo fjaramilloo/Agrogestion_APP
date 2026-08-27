@@ -1409,12 +1409,16 @@ export default function Settings() {
                                                     const costo = parseFloat(farmInfo.costo_mensual_animal) || 0;
                                                     const precio = parseFloat(farmInfo.precio_venta_promedio) || 0;
                                                     if (precio === 0) return '0.0';
-                                                    return ((costo / 0.6) / precio).toFixed(1);
+                                                    const peKgMes = (costo / 0.6) / precio;
+                                                    const val = toDisplayValue(peKgMes, modoLocal);
+                                                    return val.toFixed(modoLocal === 'GDP' ? 0 : 1);
                                                 })()}
-                                                <span style={{ fontSize: '1rem', color: 'var(--text-muted)', marginLeft: '8px' }}>Kg/Mes</span>
+                                                <span style={{ fontSize: '1rem', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                                                    {modoLocal === 'GDP' ? 'Gr/Día' : 'Kg/Mes'}
+                                                </span>
                                             </div>
                                             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '400px' }}>
-                                                Este es el adelanto mensual mínimo que requiere cada animal para cubrir sus costos directos e indirectos.
+                                                Este es el adelanto {modoLocal === 'GDP' ? 'diario' : 'mensual'} mínimo que requiere cada animal para cubrir sus costos directos e indirectos.
                                             </p>
                                         </div>
 

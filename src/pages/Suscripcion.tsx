@@ -24,7 +24,7 @@ export default function Suscripcion() {
     const whatsappMessage = encodeURIComponent(
         `Hola, deseo solicitar la activación/renovación de mi licencia en AgroGestión.\nOrganización: ${organizacionNombre || 'Mi Empresa'}\nPlan deseado: Plan Finca / Premium`
     );
-    const whatsappLink = `https://wa.me/573000000000?text=${whatsappMessage}`;
+    const whatsappLink = `https://wa.me/573117424489?text=${whatsappMessage}`;
 
     const getProgressColor = () => {
         if (porcentajeUso >= 90) return 'linear-gradient(90deg, #f59e0b, #ef4444)';
@@ -37,6 +37,8 @@ export default function Suscripcion() {
             id: 'demo',
             nombre: 'Plan Demo',
             badge: 'Gratuito',
+            precio: 'Gratis',
+            subprecio: 'Prueba sin límite de tiempo',
             limite: 'Hasta 40 animales',
             color: '#ffb74d',
             border: 'rgba(255, 183, 77, 0.3)',
@@ -53,14 +55,17 @@ export default function Suscripcion() {
             id: 'finca',
             nombre: 'Plan Finca',
             badge: 'Más Popular',
+            precio: '$60.000 / mes',
+            subprecio: '$720.000 COP cobro anual',
             limite: 'Hasta 500 animales',
             color: '#38bdf8',
             border: 'rgba(56, 189, 248, 0.4)',
             bg: 'rgba(56, 189, 248, 0.08)',
             popular: true,
             caracteristicas: [
+                'Acceso a AgroBot (IA Mentora)',
                 'Hasta 500 animales activos',
-                '1 finca (posibilidad de agregar más)',
+                '1 finca autorizada',
                 '1 vaquero + 1 observador/visualizador',
                 'Cálculo de GDP e indicadores KPI',
                 'Historial de compras y ventas',
@@ -71,6 +76,8 @@ export default function Suscripcion() {
             id: 'premium',
             nombre: 'Plan Premium',
             badge: 'Empresarial',
+            precio: '$150.000 / mes',
+            subprecio: '$1.800.000 COP cobro anual',
             limite: 'Animales Ilimitados',
             color: '#c084fc',
             border: 'rgba(192, 132, 252, 0.4)',
@@ -78,8 +85,10 @@ export default function Suscripcion() {
             caracteristicas: [
                 'Animales activos ilimitados',
                 'Múltiples fincas y rotaciones',
+                'Dashboard Consolidado Multi-Finca',
+                'Traslados Inter-Fincas con 1 clic',
                 'Roles y usuarios ilimitados',
-                'Reportes avanzados de rentabilidad',
+                'AgroBot Empresarial',
                 'Atención y soporte personalizado'
             ]
         }
@@ -198,8 +207,18 @@ export default function Suscripcion() {
                                 </span>
                             </div>
 
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white', marginBottom: '20px' }}>
-                                {plan.limite}
+                            <div style={{ marginBottom: '16px' }}>
+                                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'white' }}>
+                                    {plan.precio}
+                                </div>
+                                {plan.subprecio && (
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        {plan.subprecio}
+                                    </div>
+                                )}
+                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: plan.color, marginTop: '6px' }}>
+                                    {plan.limite}
+                                </div>
                             </div>
 
                             <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
