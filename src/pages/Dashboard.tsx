@@ -196,36 +196,29 @@ export default function Dashboard() {
                 }));
             }
 
-            // 3. FASE 2 OPTIMIZACIÓN: 4 queries en paralelo en lugar de 1 masiva con pesajes embebidos
-            // Antes: 2,052 animales + 5,754 pesajes en un solo JSON → lento y pesado
-            // Ahora: animales sin pesajes + RPCs especializados que usan los índices creados en Fase 1
-            const [lluviasRes, animalesActivosRes, animalesBajaRes, pesajesRpcRes, ultPesajesRes] = await Promise.all([
-                // Lluvia (movida aquí para no bloquear)
+            // 3. FASE 2 OPTIMIZACIÓN: Consultas en paralelo livianas
+            // Todos los animales (con metadata completa para calculos exactos) + RPC de pesajes planos
+            const [lluviasRes, todosAnimalesRes, pesajesRpcRes, ultPesajesRes] = await Promise.all([
                 supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }),
 
-                // Activos sin pesajes embebidos (para permanencia, distribución, despachos)
                 supabase.from('animales').select(`
                     id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
-                    fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, id_potrerada, estado,
+                    fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
+                    id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
                     potreros ( nombre ),
                     potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
-                `).eq('id_finca', fincaId).eq('estado', 'activo'),
+                `).eq('id_finca', fincaId),
 
-                // Muertos/vendidos: solo metadata, sin pesajes (para modal de muertes)
-                supabase.from('animales').select(
-                    'id, numero_chapeta, etapa, nombre_propietario, estado, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta'
-                ).eq('id_finca', fincaId).in('estado', ['muerto', 'vendido']),
-
-                // RPC: todos los pesajes de activos en formato plano (para gráfica GMP evolution)
-                // Aprovecha idx_registros_pesaje_animal_fecha. Sin metadata del animal duplicada por pesaje.
+                // RPC: pesajes planos de todos los animales (aprovecha idx_registros_pesaje_animal_fecha)
                 supabase.rpc('get_pesajes_activos_finca', { p_finca_id: fincaId }),
 
-                // RPC: solo el ÚLTIMO pesaje por animal activo (para distribución de pesos y despachos)
+                // RPC: ultimo pesaje por animal activo (para distribucion y despachos)
                 supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId })
             ]);
 
             const lluvias = lluviasRes.data;
-            const animales: any[] = animalesActivosRes.data || [];
+            const todosAnimales: any[] = todosAnimalesRes.data || [];
+            const animales: any[] = todosAnimales.filter((a: any) => a.estado === 'activo');
 
             // Mapa de último pesaje por animal activo (para distribución de pesos y despachos)
             const ultPesajesMap = new Map<string, any>();
@@ -236,18 +229,35 @@ export default function Dashboard() {
                 });
             });
 
-            // Pesajes planos de activos para la gráfica GMP (campo renombrado desde el RPC)
-            const pesajesFlat = (pesajesRpcRes.data || []).map((row: any) => ({
-                id_animal: row.id_animal,
-                peso: row.pesaje_peso,
-                fecha: row.pesaje_fecha,
-                etapa: row.pesaje_etapa,
-                gdp_calculada: row.pesaje_gdp,
-                gmp_calculada: row.pesaje_gmp
-            }));
+            // Agrupar y deduplicar pesajes por fecha por animal (identico al calculo original)
+            const pesajesMapTemp: Record<string, any[]> = {};
+            (pesajesRpcRes.data || []).forEach((row: any) => {
+                const item = {
+                    id_animal: row.id_animal,
+                    peso: row.pesaje_peso,
+                    fecha: row.pesaje_fecha,
+                    etapa: row.pesaje_etapa,
+                    gdp_calculada: row.pesaje_gdp,
+                    gmp_calculada: row.pesaje_gmp
+                };
+                if (!pesajesMapTemp[row.id_animal]) {
+                    pesajesMapTemp[row.id_animal] = [];
+                }
+                pesajesMapTemp[row.id_animal].push(item);
+            });
 
-            // todosAnimales: activos + bajas combinados (para rawData y muertes)
-            const todosAnimales = [...animales, ...(animalesBajaRes.data || [])];
+            const pesajesFlat: any[] = [];
+            Object.values(pesajesMapTemp).forEach(list => {
+                const sorted = list.sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+                const uniqueFechas = new Set();
+                const deduplicated = sorted.filter((p: any) => {
+                    const dateOnly = p.fecha.split('T')[0];
+                    if (uniqueFechas.has(dateOnly)) return false;
+                    uniqueFechas.add(dateOnly);
+                    return true;
+                });
+                pesajesFlat.push(...deduplicated);
+            });
 
                 // Cálculos de permanencia (Siguen siendo necesarios para el Dashboard ya que no están en el resumen)
                 let totalDiasLevante = 0;
