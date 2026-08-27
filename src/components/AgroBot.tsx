@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, X, Send, Database, Lock, Award, ArrowRight } from 'lucide-react';
+import { Bot, X, Send, Database, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
