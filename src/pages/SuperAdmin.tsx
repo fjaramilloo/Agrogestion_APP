@@ -985,9 +985,10 @@ export default function SuperAdmin() {
                                     </button>
                                 </div>
                             </form>
-                        </div>
                     </div>
                 </div>
+            )}
+
             {/* === TAB: PRECIOS DE MERCADO === */}
             {activeTab === 'precios' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
