@@ -140,9 +140,8 @@ export default function Inventory() {
         if (!fincaId) return;
         setLoading(true);
 
-        // FASE 2 - OPTIMIZACIÓN: 4 consultas en paralelo
-        // La clave: animales SIN embed masivo de pesajes + RPC que solo trae el último pesaje
-        // Antes: ~5,754 filas de pesajes. Ahora: ~1,581 filas (1 por animal activo). -73% datos.
+        // FASE 2 - OPTIMIZACIÓN: 4 consultas en paralelo con .limit(50000)
+        // IMPORTANTE: Sin .limit(), Supabase/PostgREST limita los resultados a 1,000 filas por defecto
         const [configRes, animalesRes, ultimosPesajesRes, potsRes, propRes] = await Promise.all([
             supabase
                 .from('configuracion_kpi')
@@ -160,20 +159,22 @@ export default function Inventory() {
                 `)
                 .eq('id_finca', fincaId)
                 .eq('estado', 'activo')
-                .order('creado_en', { ascending: false }),
+                .order('creado_en', { ascending: false })
+                .limit(50000),
             // RPC que usa DISTINCT ON en el índice (idx_registros_pesaje_animal_fecha)
-            // Retorna exactamente 1 fila por animal activo con su último pesaje
-            supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }),
+            supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000),
             supabase
                 .from('potreradas')
                 .select('id, nombre')
                 .eq('id_finca', fincaId)
-                .order('nombre', { ascending: true }),
+                .order('nombre', { ascending: true })
+                .limit(10000),
             supabase
                 .from('propietarios')
                 .select('id, nombre')
                 .eq('id_finca', fincaId)
                 .order('nombre', { ascending: true })
+                .limit(10000)
         ]);
 
         // Aplicar config

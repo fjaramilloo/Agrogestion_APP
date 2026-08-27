@@ -196,10 +196,10 @@ export default function Dashboard() {
                 }));
             }
 
-            // 3. FASE 2 OPTIMIZACIÓN: Consultas en paralelo livianas
-            // Todos los animales (con metadata completa para calculos exactos) + RPC de pesajes planos
+            // 3. FASE 2 OPTIMIZACIÓN: Consultas en paralelo livianas con .limit(100000)
+            // IMPORTANTE: Sin .limit(), Supabase/PostgREST limita los resultados a 1,000 filas por defecto
             const [lluviasRes, todosAnimalesRes, pesajesRpcRes, ultPesajesRes] = await Promise.all([
-                supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }),
+                supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }).limit(50000),
 
                 supabase.from('animales').select(`
                     id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
@@ -207,13 +207,13 @@ export default function Dashboard() {
                     id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
                     potreros ( nombre ),
                     potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
-                `).eq('id_finca', fincaId),
+                `).eq('id_finca', fincaId).limit(50000),
 
-                // RPC: pesajes planos de todos los animales (aprovecha idx_registros_pesaje_animal_fecha)
-                supabase.rpc('get_pesajes_activos_finca', { p_finca_id: fincaId }),
+                // RPC: pesajes planos de todos los animales (se especifica .limit(100000) para no truncar a 1,000)
+                supabase.rpc('get_pesajes_activos_finca', { p_finca_id: fincaId }).limit(100000),
 
                 // RPC: ultimo pesaje por animal activo (para distribucion y despachos)
-                supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId })
+                supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000)
             ]);
 
             const lluvias = lluviasRes.data;
