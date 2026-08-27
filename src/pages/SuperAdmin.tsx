@@ -914,6 +914,8 @@ export default function SuperAdmin() {
                     </div>
                 </div>
             )}
+            </>
+            )}
 
             {/* === TAB: CREAR CUENTA === */}
             {activeTab === 'crear' && (
