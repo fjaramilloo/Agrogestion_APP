@@ -173,6 +173,15 @@ export default function SuperAdmin() {
         document.body.removeChild(link);
     };
 
+    // Calcula número de semana ISO 8601 de forma robusta
+    const getISOWeek = (date: Date): number => {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    };
+
     const handleCSVFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -182,42 +191,59 @@ export default function SuperAdmin() {
         reader.onload = (evt) => {
             const text = evt.target?.result as string;
             if (!text) return;
+
+            // Detectar separador automáticamente: coma o punto y coma (Excel español)
+            const firstLine = text.split(/\r?\n/)[0] || '';
+            const separator = firstLine.includes(';') ? ';' : ',';
+
             const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
             if (lines.length <= 1) return;
 
+            // Normalizar headers: quitar BOM, tildes, espacios y pasar a minúsculas
+            const headers = lines[0].split(separator).map(h =>
+                h.trim().toLowerCase()
+                    .replace(/^\uFEFF/, '')       // BOM de Excel
+                    .replace(/[áàä]/g, 'a')
+                    .replace(/[éèë]/g, 'e')
+                    .replace(/[íìï]/g, 'i')
+                    .replace(/[óòö]/g, 'o')
+                    .replace(/[úùü]/g, 'u')
+            );
+
+            // Mapear índices de columnas por nombre normalizado
+            const idx: Record<string, number> = {};
+            headers.forEach((h, i) => { idx[h] = i; });
+
+            const colFecha    = idx['fecha_boletin'] ?? 0;
+            const colRegion   = idx['region'] ?? 1;
+            const colFuente   = idx['fuente_informacion'] ?? 2;
+            const colCateg    = idx['categoria_animal'] ?? 3;
+            const colPrecio   = idx['precio_promedio_kg'] ?? 4;
+
             const rows: any[] = [];
             for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.trim());
-                if (cols.length >= 5) {
-                    const fecha_boletin = cols[0];
-                    const region = cols[1].toLowerCase();
-                    const fuente_informacion = cols[2];
-                    const categoria_animal = cols[3].toUpperCase();
-                    const precio_promedio_kg = parseFloat(cols[4]);
+                const cols = lines[i].split(separator).map(c => c.trim().replace(/^"|"$/g, ''));
+                if (cols.length < 5) continue;
 
-                    if (fecha_boletin && region && categoria_animal && !isNaN(precio_promedio_kg)) {
-                        const fechaParts = fecha_boletin.split('-');
-                        const d = new Date(parseInt(fechaParts[0]), parseInt(fechaParts[1]) - 1, parseInt(fechaParts[2]));
-                        const year = d.getFullYear() || 2026;
-                        const startOfYear = new Date(year, 0, 1);
-                        const pastDays = (d.getTime() - startOfYear.getTime()) / 86400000;
-                        const semana_ano = Math.max(1, Math.ceil((pastDays + startOfYear.getDay() + 1) / 7));
+                const fecha_boletin    = cols[colFecha];
+                const region           = (cols[colRegion] || '').toLowerCase().trim();
+                const fuente_informacion = cols[colFuente] || '';
+                const categoria_animal = (cols[colCateg] || '').toUpperCase().trim();
+                const precio_promedio_kg = parseFloat((cols[colPrecio] || '').replace(',', '.'));
 
-                        rows.push({
-                            fecha_boletin,
-                            semana_ano,
-                            year,
-                            region,
-                            fuente_informacion,
-                            categoria_animal,
-                            precio_promedio_kg
-                        });
-                    }
-                }
+                if (!fecha_boletin || !region || !categoria_animal || isNaN(precio_promedio_kg)) continue;
+
+                // Parsear fecha YYYY-MM-DD
+                const [y, m, d2] = fecha_boletin.split('-').map(Number);
+                const dateObj = new Date(y, (m || 1) - 1, d2 || 1);
+                const year = dateObj.getFullYear() || 2026;
+                const semana_ano = getISOWeek(dateObj);
+
+                rows.push({ fecha_boletin, semana_ano, year, region, fuente_informacion, categoria_animal, precio_promedio_kg });
             }
             setCsvPreviewRows(rows);
         };
-        reader.readAsText(file);
+        reader.readAsText(file, 'UTF-8');
     };
 
     const handleUploadCSV = async () => {
@@ -1033,6 +1059,7 @@ export default function SuperAdmin() {
                                                 if (r === 'puerto_berrio' || r === 'aguachica') setFormFuente('Sugaberrío');
                                                 else if (r === 'monteria') setFormFuente('Subastar');
                                                 else if (r === 'chigorodo') setFormFuente('Suganar');
+                                                else if (r === 'medellin') setFormFuente('Central Ganadera');
                                             }}
                                             style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
                                         >
@@ -1040,6 +1067,7 @@ export default function SuperAdmin() {
                                             <option value="monteria">Montería</option>
                                             <option value="aguachica">Aguachica</option>
                                             <option value="chigorodo">Chigorodó</option>
+                                            <option value="medellin">Medellín</option>
                                         </select>
                                     </div>
                                     <div>
