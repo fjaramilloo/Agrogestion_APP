@@ -56,6 +56,16 @@ const CATEGORY_NAMES: Record<string, string> = {
     VH: 'Vaca Horra (VH)'
 };
 
+const CATEGORY_COLORS: Record<string, string> = {
+    ML: '#38bdf8', // Macho Levante: Celeste
+    MC: '#c084fc', // Macho Ceba: Morado claro
+    MG: '#f43f5e', // Macho Gordo: Rosa/Rojo
+    HL: '#34d399', // Hembra Levante: Verde
+    HV: '#fbbf24', // Hembra Vientre: Amarillo/Naranja
+    VP: '#808080', // Vaca Parida: Gris
+    VH: '#ec4899'  // Vaca Horra: Rosa fuerte
+};
+
 const REGIONS = [
     { id: 'nacional', label: 'Promedio Nacional', source: 'Promedio de Plazas' },
     { id: 'puerto_berrio', label: 'Puerto Berrío', source: 'Sugaberrío' },
@@ -74,7 +84,7 @@ export default function MercadoGanado() {
     const [loading, setLoading] = useState(true);
     const [selectedRegion, setSelectedRegion] = useState('nacional');
     const [activeTabChart, setActiveTabChart] = useState<'semanal' | 'mensual'>('semanal');
-    const [selectedCategoriesChart, setSelectedCategoriesChart] = useState<string[]>(['ML', 'MC', 'MG']);
+    const [selectedCategoryChart, setSelectedCategoryChart] = useState<string>('ML');
     
     // Modal de bloqueo
     const [showUpsell, setShowUpsell] = useState(false);
@@ -283,19 +293,7 @@ export default function MercadoGanado() {
             return;
         }
         setSelectedRegion(regId);
-    };
-
-    const toggleCategoryChart = (cat: string) => {
-        setSelectedCategoriesChart(prev => {
-            if (prev.includes(cat)) {
-                if (prev.length === 1) return prev; // Mantener al menos una
-                return prev.filter(c => c !== cat);
-            }
-            return [...prev, cat];
-        });
-    };
-
-    const whatsappMessage = encodeURIComponent(
+    };    const whatsappMessage = encodeURIComponent(
         `Hola, deseo actualizar mi plan en AgroGestión para desbloquear el monitor completo de mercado regional y la valoración de inventario.`
     );
     const whatsappLink = `https://wa.me/573117424489?text=${whatsappMessage}`;
@@ -337,45 +335,42 @@ export default function MercadoGanado() {
             </div>
 
             {/* Selector de Plazas / Regiones */}
-            <div style={{ marginBottom: '28px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <div style={{ marginBottom: '28px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <MapPin size={16} color="var(--text-muted)" />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Seleccionar Plaza de Referencia:</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Plaza de Referencia:</span>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <select
+                    value={activeRegion}
+                    onChange={(e) => handleSelectRegion(e.target.value)}
+                    style={{
+                        width: 'auto',
+                        minWidth: '220px',
+                        padding: '8px 32px 8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'rgba(30, 30, 30, 0.8) url("data:image/svg+xml;utf8,<svg fill=\'%23c084fc\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>") no-repeat right 8px center',
+                        backgroundSize: '20px',
+                        color: 'white',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        margin: 0,
+                        outline: 'none',
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none'
+                    }}
+                >
                     {REGIONS.map(r => {
-                        const isActive = activeRegion === r.id;
                         const isLocked = plan === 'demo' && r.id !== 'nacional';
                         return (
-                            <button
-                                key={r.id}
-                                onClick={() => handleSelectRegion(r.id)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    padding: '10px 18px',
-                                    borderRadius: '10px',
-                                    border: isActive 
-                                        ? '1px solid rgba(168, 85, 247, 0.5)' 
-                                        : '1px solid rgba(255,255,255,0.06)',
-                                    background: isActive 
-                                        ? 'rgba(168, 85, 247, 0.12)' 
-                                        : 'rgba(255,255,255,0.02)',
-                                    color: isActive ? '#c084fc' : 'white',
-                                    cursor: 'pointer',
-                                    fontWeight: isActive ? 700 : 500,
-                                    fontSize: '0.85rem',
-                                    transition: 'all 0.2s',
-                                    position: 'relative'
-                                }}
-                            >
-                                <span>{r.label}</span>
-                                {isLocked && <Lock size={12} style={{ color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }} />}
-                            </button>
+                            <option key={r.id} value={r.id}>
+                                {r.label} {isLocked ? ' 🔒' : ''}
+                            </option>
                         );
                     })}
-                </div>
+                </select>
             </div>
 
             {/* Banner Informativo Demo */}
@@ -566,36 +561,40 @@ export default function MercadoGanado() {
                         </div>
                     </div>
 
-                    {/* Selector de categorías para graficar */}
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                        {Object.keys(CATEGORY_NAMES).map(cat => {
-                            const isSelected = selectedCategoriesChart.includes(cat);
-                            return (
-                                <button
-                                    key={cat}
-                                    onClick={() => toggleCategoryChart(cat)}
-                                    style={{
-                                        border: 'none',
-                                        background: isSelected ? 'rgba(255,255,255,0.08)' : 'transparent',
-                                        color: isSelected ? 'white' : 'var(--text-muted)',
-                                        padding: '4px 10px',
-                                        borderRadius: '6px',
-                                        fontSize: '0.72rem',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        borderBottom: isSelected ? '2px solid var(--primary-light)' : '2px solid transparent'
-                                    }}
-                                >
-                                    <span>{cat}</span>
-                                </button>
-                            );
-                        })}
+                    {/* Selector de categoría para graficar */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filtrar Categoría:</span>
+                        <select
+                            value={selectedCategoryChart}
+                            onChange={(e) => setSelectedCategoryChart(e.target.value)}
+                            style={{
+                                width: 'auto',
+                                minWidth: '180px',
+                                padding: '6px 28px 6px 10px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                background: 'rgba(30, 30, 30, 0.8) url("data:image/svg+xml;utf8,<svg fill=\'%23a78bfa\' height=\'20\' viewBox=\'0 0 24 24\' width=\'20\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>") no-repeat right 6px center',
+                                backgroundSize: '18px',
+                                color: 'white',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                margin: 0,
+                                outline: 'none',
+                                appearance: 'none',
+                                WebkitAppearance: 'none',
+                                MozAppearance: 'none'
+                            }}
+                        >
+                            {Object.entries(CATEGORY_NAMES).map(([catKey, catName]) => (
+                                <option key={catKey} value={catKey}>
+                                    {catName}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
-                    <div style={{ flex: 1, minHeight: '260px', width: '100%', position: 'relative' }}>
+                    <div style={{ height: '320px', width: '100%', position: 'relative' }}>
                         {/* Gráfico Real */}
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
@@ -607,13 +606,15 @@ export default function MercadoGanado() {
                                     labelStyle={{ color: 'var(--text-muted)' }}
                                 />
                                 <Legend wrapperStyle={{ fontSize: '0.72rem', paddingTop: '10px' }} />
-                                {selectedCategoriesChart.includes('ML') && <Line type="monotone" dataKey="ML" name="Macho Levante" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />}
-                                {selectedCategoriesChart.includes('MC') && <Line type="monotone" dataKey="MC" name="Macho Ceba" stroke="#c084fc" strokeWidth={2} dot={{ r: 3 }} />}
-                                {selectedCategoriesChart.includes('MG') && <Line type="monotone" dataKey="MG" name="Macho Gordo" stroke="#f43f5e" strokeWidth={2} dot={{ r: 3 }} />}
-                                {selectedCategoriesChart.includes('HL') && <Line type="monotone" dataKey="HL" name="Hembra Levante" stroke="#34d399" strokeWidth={2} dot={{ r: 3 }} />}
-                                {selectedCategoriesChart.includes('HV') && <Line type="monotone" dataKey="HV" name="Hembra Vientre" stroke="#fbbf24" strokeWidth={2} dot={{ r: 3 }} />}
-                                {selectedCategoriesChart.includes('VP') && <Line type="monotone" dataKey="VP" name="Vaca Parida" stroke="#607d8b" strokeWidth={2} dot={{ r: 3 }} />}
-                                {selectedCategoriesChart.includes('VH') && <Line type="monotone" dataKey="VH" name="Vaca Horra" stroke="#e91e63" strokeWidth={2} dot={{ r: 3 }} />}
+                                <Line 
+                                    type="monotone" 
+                                    dataKey={selectedCategoryChart} 
+                                    name={CATEGORY_NAMES[selectedCategoryChart]} 
+                                    stroke={CATEGORY_COLORS[selectedCategoryChart] || '#a78bfa'} 
+                                    strokeWidth={2} 
+                                    dot={{ r: 4 }} 
+                                    activeDot={{ r: 6 }} 
+                                />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
@@ -674,17 +675,27 @@ export default function MercadoGanado() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {valoracionPatrimonial.items.map(item => (
-                                        <tr key={item.category} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', background: item.cant > 0 ? 'rgba(255,255,255,0.01)' : 'transparent' }}>
-                                            <td style={{ padding: '12px', fontWeight: 600, color: 'var(--primary-light)' }}>{CATEGORY_NAMES[item.category]}</td>
-                                            <td style={{ padding: '12px', textAlign: 'center' }}>{item.cant} cabezas</td>
-                                            <td style={{ padding: '12px', textAlign: 'right' }}>{item.totalPeso.toLocaleString('es-CO')} kg</td>
-                                            <td style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)' }}>${item.precioKg.toLocaleString('es-CO')}</td>
-                                            <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: item.subtotal > 0 ? 'white' : 'var(--text-muted)' }}>
-                                                ${item.subtotal.toLocaleString('es-CO')}
+                                    {valoracionPatrimonial.totalCabezas === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                                No hay animales registrados en tu finca para valorar.
                                             </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        valoracionPatrimonial.items
+                                            .filter(item => item.cant > 0)
+                                            .map(item => (
+                                                <tr key={item.category} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', background: 'rgba(255,255,255,0.01)' }}>
+                                                    <td style={{ padding: '12px', fontWeight: 600, color: 'var(--primary-light)' }}>{CATEGORY_NAMES[item.category]}</td>
+                                                    <td style={{ padding: '12px', textAlign: 'center' }}>{item.cant} cabezas</td>
+                                                    <td style={{ padding: '12px', textAlign: 'right' }}>{item.totalPeso.toLocaleString('es-CO')} kg</td>
+                                                    <td style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)' }}>${item.precioKg.toLocaleString('es-CO')}</td>
+                                                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'white' }}>
+                                                        ${item.subtotal.toLocaleString('es-CO')}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                    )}
                                     <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(168, 85, 247, 0.05)', fontWeight: 800 }}>
                                         <td style={{ padding: '16px 12px' }}>Total Consolidado</td>
                                         <td style={{ padding: '16px 12px', textAlign: 'center' }}>{valoracionPatrimonial.totalCabezas} cabezas</td>
