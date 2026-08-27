@@ -21,10 +21,16 @@ export default function Suscripcion() {
         }
     };
 
-    const whatsappMessage = encodeURIComponent(
-        `Hola, deseo solicitar la activación/renovación de mi licencia en AgroGestión.\nOrganización: ${organizacionNombre || 'Mi Empresa'}\nPlan deseado: Plan Finca / Premium`
-    );
-    const whatsappLink = `https://wa.me/573117424489?text=${whatsappMessage}`;
+    const getWhatsappLink = (planNombre: string, actionType: 'renovar' | 'mejora' | 'disminucion') => {
+        let textAction = 'activación/renovación';
+        if (actionType === 'mejora') textAction = 'mejora (upgrade)';
+        if (actionType === 'disminucion') textAction = 'disminución (downgrade)';
+
+        const msg = `Hola, deseo solicitar la ${textAction} de mi licencia en AgroGestión.\nOrganización: ${organizacionNombre || 'Mi Empresa'}\nPlan solicitado: ${planNombre}`;
+        return `https://wa.me/573117424489?text=${encodeURIComponent(msg)}`;
+    };
+
+    const generalWhatsappLink = getWhatsappLink('Plan Finca / Premium', 'renovar');
 
     const getProgressColor = () => {
         if (porcentajeUso >= 90) return 'linear-gradient(90deg, #f59e0b, #ef4444)';
@@ -182,6 +188,23 @@ export default function Suscripcion() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '40px' }}>
                 {planes.map(plan => {
                     const esPlanActual = licencia === plan.id;
+                    
+                    const planRanks: Record<string, number> = { demo: 0, finca: 1, premium: 2 };
+                    const currentRank = planRanks[licencia] ?? 0;
+                    const cardRank = planRanks[plan.id] ?? 0;
+
+                    let buttonText = 'Renovar Plan';
+                    let actionType: 'renovar' | 'mejora' | 'disminucion' = 'renovar';
+                    if (!esPlanActual) {
+                        if (cardRank > currentRank) {
+                            buttonText = 'Solicitar Mejora';
+                            actionType = 'mejora';
+                        } else {
+                            buttonText = 'Solicitar Disminución';
+                            actionType = 'disminucion';
+                        }
+                    }
+                    const planWhatsappLink = getWhatsappLink(plan.nombre, actionType);
 
                     return (
                         <div
@@ -232,20 +255,28 @@ export default function Suscripcion() {
                             </ul>
 
                             <a
-                                href={whatsappLink}
+                                href={planWhatsappLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                                     padding: '12px', borderRadius: '10px', textDecoration: 'none', fontWeight: 700,
                                     fontSize: '0.9rem', transition: 'all 0.2s',
-                                    background: esPlanActual ? 'rgba(255,255,255,0.08)' : `linear-gradient(135deg, ${plan.color}, #7c3aed)`,
-                                    color: esPlanActual ? 'white' : 'white',
-                                    border: esPlanActual ? '1px solid rgba(255,255,255,0.2)' : 'none'
+                                    background: esPlanActual 
+                                        ? 'rgba(255,255,255,0.08)' 
+                                        : actionType === 'mejora' 
+                                            ? `linear-gradient(135deg, ${plan.color}, #7c3aed)` 
+                                            : 'rgba(255,255,255,0.04)',
+                                    color: actionType === 'disminucion' ? 'var(--text-muted)' : 'white',
+                                    border: esPlanActual 
+                                        ? '1px solid rgba(255,255,255,0.2)' 
+                                        : actionType === 'disminucion' 
+                                            ? '1px solid rgba(255,255,255,0.1)' 
+                                            : 'none'
                                 }}
                             >
                                 <MessageCircle size={18} />
-                                {esPlanActual ? 'Renovar Plan' : 'Solicitar Upgrade'}
+                                {buttonText}
                             </a>
                         </div>
                     );
@@ -287,7 +318,7 @@ export default function Suscripcion() {
 
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <a
-                        href={whatsappLink}
+                        href={generalWhatsappLink}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
