@@ -914,8 +914,6 @@ export default function SuperAdmin() {
                     </div>
                 </div>
             )}
-            </>
-            )}
 
             {/* === TAB: CREAR CUENTA === */}
             {activeTab === 'crear' && (
@@ -987,6 +985,7 @@ export default function SuperAdmin() {
                                     </button>
                                 </div>
                             </form>
+                        </div>
                     </div>
                 </div>
             )}
