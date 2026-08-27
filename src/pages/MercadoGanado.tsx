@@ -182,7 +182,9 @@ export default function MercadoGanado() {
         if (preciosUltimoBoletin.length === 0) return '';
         const f = preciosUltimoBoletin[0].fecha_boletin;
         try {
-            return new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
+            const parts = f.split('-');
+            const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
         } catch {
             return f;
         }
