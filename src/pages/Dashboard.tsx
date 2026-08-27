@@ -196,9 +196,8 @@ export default function Dashboard() {
                 }));
             }
 
-            // 3. FASE 2 OPTIMIZACIÓN: Consultas en paralelo livianas con .limit(100000)
-            // IMPORTANTE: Sin .limit(), Supabase/PostgREST limita los resultados a 1,000 filas por defecto
-            const [lluviasRes, todosAnimalesRes, pesajesRpcRes, ultPesajesRes] = await Promise.all([
+            // 3. Carga completa y acelerada mediante los índices de Fase 1 (sin truncamientos de API REST)
+            const [lluviasRes, todosAnimalesRes] = await Promise.all([
                 supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }).limit(50000),
 
                 supabase.from('animales').select(`
@@ -206,57 +205,45 @@ export default function Dashboard() {
                     fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
                     id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
                     potreros ( nombre ),
-                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
-                `).eq('id_finca', fincaId).limit(50000),
-
-                // RPC: pesajes planos de todos los animales (se especifica .limit(100000) para no truncar a 1,000)
-                supabase.rpc('get_pesajes_activos_finca', { p_finca_id: fincaId }).limit(100000),
-
-                // RPC: ultimo pesaje por animal activo (para distribucion y despachos)
-                supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000)
+                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+                    registros_pesaje (
+                        id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
+                    )
+                `).eq('id_finca', fincaId).limit(10000)
             ]);
 
             const lluvias = lluviasRes.data;
             const todosAnimales: any[] = todosAnimalesRes.data || [];
             const animales: any[] = todosAnimales.filter((a: any) => a.estado === 'activo');
 
+            // Construir pesajesMap y pesajesFlat idénticos al comportamiento original
+            const pesajesMap: Record<string, any[]> = {};
+            const pesajesFlat: any[] = [];
+            todosAnimales.forEach((a: any) => {
+                if (a.registros_pesaje && Array.isArray(a.registros_pesaje)) {
+                    const sorted = a.registros_pesaje.sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+                    const uniqueFechas = new Set();
+                    const deduplicated = sorted.filter((p: any) => {
+                        const dateOnly = p.fecha.split('T')[0];
+                        if (uniqueFechas.has(dateOnly)) return false;
+                        uniqueFechas.add(dateOnly);
+                        return true;
+                    });
+                    pesajesMap[a.id] = deduplicated;
+                    pesajesFlat.push(...deduplicated);
+                } else {
+                    pesajesMap[a.id] = [];
+                }
+            });
+
             // Mapa de último pesaje por animal activo (para distribución de pesos y despachos)
             const ultPesajesMap = new Map<string, any>();
-            (ultPesajesRes.data || []).forEach((p: any) => {
-                ultPesajesMap.set(p.id_animal, {
-                    peso: p.peso, fecha: p.fecha,
-                    gdp_calculada: p.gdp_calculada, gmp_calculada: p.gmp_calculada
-                });
-            });
-
-            // Agrupar y deduplicar pesajes por fecha por animal (identico al calculo original)
-            const pesajesMapTemp: Record<string, any[]> = {};
-            (pesajesRpcRes.data || []).forEach((row: any) => {
-                const item = {
-                    id_animal: row.id_animal,
-                    peso: row.pesaje_peso,
-                    fecha: row.pesaje_fecha,
-                    etapa: row.pesaje_etapa,
-                    gdp_calculada: row.pesaje_gdp,
-                    gmp_calculada: row.pesaje_gmp
-                };
-                if (!pesajesMapTemp[row.id_animal]) {
-                    pesajesMapTemp[row.id_animal] = [];
+            animales.forEach((a: any) => {
+                const misPsjs = pesajesMap[a.id] || [];
+                const ult = misPsjs[misPsjs.length - 1];
+                if (ult) {
+                    ultPesajesMap.set(a.id, ult);
                 }
-                pesajesMapTemp[row.id_animal].push(item);
-            });
-
-            const pesajesFlat: any[] = [];
-            Object.values(pesajesMapTemp).forEach(list => {
-                const sorted = list.sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
-                const uniqueFechas = new Set();
-                const deduplicated = sorted.filter((p: any) => {
-                    const dateOnly = p.fecha.split('T')[0];
-                    if (uniqueFechas.has(dateOnly)) return false;
-                    uniqueFechas.add(dateOnly);
-                    return true;
-                });
-                pesajesFlat.push(...deduplicated);
             });
 
                 // Cálculos de permanencia (Siguen siendo necesarios para el Dashboard ya que no están en el resumen)
