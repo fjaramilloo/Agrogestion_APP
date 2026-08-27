@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, UploadCloud } from 'lucide-react';
 import { guardarAforoOffline } from '../lib/offlineService';
+import { localDB } from '../lib/db';
 
 interface Potrero {
     id: string;
@@ -174,18 +175,30 @@ export default function Aforos() {
 
     const fetchPotreros = async () => {
         if (isOnline) {
-            const { data } = await supabase
-                .from('potreros')
-                .select('id, nombre, area_hectareas')
-                .eq('id_finca', fincaId)
-                .order('nombre');
-            if (data) {
-                setPotreros(data);
-                localStorage.setItem(`agrogestion_potreros_aforo_${fincaId}`, JSON.stringify(data));
-            }
+            try {
+                const { data } = await supabase
+                    .from('potreros')
+                    .select('id, nombre, area_hectareas')
+                    .eq('id_finca', fincaId)
+                    .order('nombre');
+                if (data) {
+                    setPotreros(data);
+                    localStorage.setItem(`agrogestion_potreros_aforo_${fincaId}`, JSON.stringify(data));
+                    return;
+                }
+            } catch (e) {}
+        }
+
+        const cached = await localDB.potrerosCache.where('id_finca').equals(fincaId || '').toArray();
+        if (cached && cached.length > 0) {
+            setPotreros(cached.map(p => ({
+                id: p.id,
+                nombre: p.nombre,
+                area_hectareas: p.area_ha || 0
+            })));
         } else {
-            const cached = localStorage.getItem(`agrogestion_potreros_aforo_${fincaId}`);
-            if (cached) setPotreros(JSON.parse(cached));
+            const legacy = localStorage.getItem(`agrogestion_potreros_aforo_${fincaId}`);
+            if (legacy) setPotreros(JSON.parse(legacy));
         }
     };
 

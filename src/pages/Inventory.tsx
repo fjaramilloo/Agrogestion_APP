@@ -9,6 +9,8 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { localDB } from '../lib/db';
+import { sincronizarCacheFinca } from '../lib/offlineService';
 
 interface Pesaje {
     peso: number;
@@ -140,86 +142,140 @@ export default function Inventory() {
         if (!fincaId) return;
         setLoading(true);
 
-        // FASE 2 - OPTIMIZACIÓN: 4 consultas en paralelo con .limit(50000)
-        // IMPORTANTE: Sin .limit(), Supabase/PostgREST limita los resultados a 1,000 filas por defecto
-        const [configRes, animalesRes, ultimosPesajesRes, potsRes, propRes] = await Promise.all([
-            supabase
-                .from('configuracion_kpi')
-                .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio')
-                .eq('id_finca', fincaId)
-                .single(),
-            supabase
-                .from('animales')
-                .select(`
-                    id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
-                    peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
-                    peso_ingreso_ceba, estado, id_potrerada, creado_en,
-                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                    potreros ( nombre )
-                `)
-                .eq('id_finca', fincaId)
-                .eq('estado', 'activo')
-                .order('creado_en', { ascending: false })
-                .limit(50000),
-            // RPC que usa DISTINCT ON en el índice (idx_registros_pesaje_animal_fecha)
-            supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000),
-            supabase
-                .from('potreradas')
-                .select('id, nombre')
-                .eq('id_finca', fincaId)
-                .order('nombre', { ascending: true })
-                .limit(10000),
-            supabase
-                .from('propietarios')
-                .select('id, nombre')
-                .eq('id_finca', fincaId)
-                .order('nombre', { ascending: true })
-                .limit(10000)
-        ]);
+        if (navigator.onLine) {
+            try {
+                // FASE 2 - OPTIMIZACIÓN: 4 consultas en paralelo con .limit(50000)
+                const [configRes, animalesRes, ultimosPesajesRes, potsRes, propRes] = await Promise.all([
+                    supabase
+                        .from('configuracion_kpi')
+                        .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio')
+                        .eq('id_finca', fincaId)
+                        .single(),
+                    supabase
+                        .from('animales')
+                        .select(`
+                            id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
+                            peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
+                            peso_ingreso_ceba, estado, id_potrerada, creado_en,
+                            potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+                            potreros ( nombre )
+                        `)
+                        .eq('id_finca', fincaId)
+                        .eq('estado', 'activo')
+                        .order('creado_en', { ascending: false })
+                        .limit(50000),
+                    supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000),
+                    supabase
+                        .from('potreradas')
+                        .select('id, nombre')
+                        .eq('id_finca', fincaId)
+                        .order('nombre', { ascending: true })
+                        .limit(10000),
+                    supabase
+                        .from('propietarios')
+                        .select('id, nombre')
+                        .eq('id_finca', fincaId)
+                        .order('nombre', { ascending: true })
+                        .limit(10000)
+                ]);
 
-        // Aplicar config
-        if (configRes.data) {
-            setUmbralAltoGmp(configRes.data.umbral_alto_gmp ?? 20);
-            setUmbralMedioGmp(configRes.data.umbral_medio_gmp ?? 10);
-            setPrecioVentaPromedio(parseFloat(configRes.data.precio_venta_promedio || 0));
-        }
+                if (configRes.data) {
+                    setUmbralAltoGmp(configRes.data.umbral_alto_gmp ?? 20);
+                    setUmbralMedioGmp(configRes.data.umbral_medio_gmp ?? 10);
+                    setPrecioVentaPromedio(parseFloat(configRes.data.precio_venta_promedio || 0));
+                }
 
-        // Construir mapa de último pesaje por animal (viene del RPC, ya ordenado por fecha DESC)
-        const ultimosPesajesMap = new Map<string, any>();
-        if (ultimosPesajesRes.data) {
-            for (const p of ultimosPesajesRes.data) {
-                ultimosPesajesMap.set(p.id_animal, {
-                    peso: p.peso,
-                    fecha: p.fecha,
-                    gdp_calculada: p.gdp_calculada,
-                    gmp_calculada: p.gmp_calculada,
-                    potreros: p.potrero_nombre ? { nombre: p.potrero_nombre } : null
-                });
+                const ultimosPesajesMap = new Map<string, any>();
+                if (ultimosPesajesRes.data) {
+                    for (const p of ultimosPesajesRes.data) {
+                        ultimosPesajesMap.set(p.id_animal, {
+                            peso: p.peso,
+                            fecha: p.fecha,
+                            gdp_calculada: p.gdp_calculada,
+                            gmp_calculada: p.gmp_calculada,
+                            potreros: p.potrero_nombre ? { nombre: p.potrero_nombre } : null
+                        });
+                    }
+                }
+
+                if (!animalesRes.error && animalesRes.data) {
+                    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+
+                    const dataProcesada = animalesRes.data.map((a: any) => {
+                        const ultimoP = ultimosPesajesMap.get(a.id) || null;
+                        const fechaRef = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
+                        fechaRef.setHours(0, 0, 0, 0);
+                        const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
+
+                        return {
+                            ...a,
+                            registros_pesaje: ultimoP ? [ultimoP] : [],
+                            potreroNombre: a.potreros?.nombre || 'Sin potrero',
+                            potreradaNombre: a.potreradas?.nombre || 'Sin potrerada',
+                            diasDesdeUltimoPesaje
+                        };
+                    });
+                    setAnimales(dataProcesada);
+                }
+
+                if (potsRes.data) setPotreradasDisponibles(potsRes.data);
+                if (propRes.data) setPropietariosLista(propRes.data);
+
+                // Actualizar la memoria IndexedDB en segundo plano
+                sincronizarCacheFinca(fincaId);
+                setLoading(false);
+                return;
+            } catch (err) {
+                console.warn('Fallo red Supabase, buscando en caché local...', err);
             }
         }
 
-        if (!animalesRes.error && animalesRes.data) {
+        // FALLBACK OFFLINE (IndexedDB)
+        const cachedAnimales = await localDB.animalesCache
+            .where('id_finca')
+            .equals(fincaId)
+            .toArray();
+
+        const cachedPotreradas = await localDB.potreradasCache
+            .where('id_finca')
+            .equals(fincaId)
+            .toArray();
+
+        if (cachedAnimales && cachedAnimales.length > 0) {
             const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
 
-            const dataProcesada = animalesRes.data.map((a: any) => {
-                const ultimoP = ultimosPesajesMap.get(a.id) || null;
-                const fechaRef = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
+            const dataProcesada = cachedAnimales.map((a: any) => {
+                const fechaRef = a.fecha_ultimo_pesaje ? new Date(a.fecha_ultimo_pesaje) : new Date(a.fecha_ingreso);
                 fechaRef.setHours(0, 0, 0, 0);
                 const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
 
                 return {
-                    ...a,
-                    registros_pesaje: ultimoP ? [ultimoP] : [],
-                    potreroNombre: a.potreros?.nombre || 'Sin potrero',
-                    potreradaNombre: a.potreradas?.nombre || 'Sin potrerada',
+                    id: a.id,
+                    numero_chapeta: a.numero_chapeta,
+                    nombre_propietario: a.nombre_propietario || 'Sin Propietario',
+                    especie: 'bovino',
+                    sexo: 'M',
+                    etapa: a.etapa,
+                    peso_ingreso: a.peso_ingreso || 0,
+                    peso_compra: a.peso_compra,
+                    fecha_ingreso: a.fecha_ingreso,
+                    fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+                    peso_ingreso_ceba: a.peso_ingreso_ceba,
+                    estado: 'activo',
+                    id_potrerada: a.id_potrerada,
+                    potreroNombre: a.potrero_nombre || 'Sin potrero',
+                    potreradaNombre: a.potrerada_nombre || 'Sin potrerada',
+                    registros_pesaje: a.ultimo_peso ? [{ peso: a.ultimo_peso, fecha: a.fecha_ultimo_pesaje || a.updated_at, gdp_calculada: 0 }] : [],
                     diasDesdeUltimoPesaje
                 };
             });
+
             setAnimales(dataProcesada);
         }
 
-        if (potsRes.data) setPotreradasDisponibles(potsRes.data);
-        if (propRes.data) setPropietariosLista(propRes.data);
+        if (cachedPotreradas && cachedPotreradas.length > 0) {
+            setPotreradasDisponibles(cachedPotreradas);
+        }
 
         setLoading(false);
     };
