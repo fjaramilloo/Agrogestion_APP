@@ -196,48 +196,58 @@ export default function Dashboard() {
                 }));
             }
 
-            // 3. Traer datos históricos para gráficas (todos los animales)
-            const { data: todosAnimales } = await supabase.from('animales').select(`
-                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado, fecha_muerte, id_potrerada, comprador_venta, fecha_venta, observaciones_venta,
+            // 3. FASE 2 OPTIMIZACIÓN: 4 queries en paralelo en lugar de 1 masiva con pesajes embebidos
+            // Antes: 2,052 animales + 5,754 pesajes en un solo JSON → lento y pesado
+            // Ahora: animales sin pesajes + RPCs especializados que usan los índices creados en Fase 1
+            const [lluviasRes, animalesActivosRes, animalesBajaRes, pesajesRpcRes, ultPesajesRes] = await Promise.all([
+                // Lluvia (movida aquí para no bloquear)
+                supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }),
+
+                // Activos sin pesajes embebidos (para permanencia, distribución, despachos)
+                supabase.from('animales').select(`
+                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
+                    fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, id_potrerada, estado,
                     potreros ( nombre ),
-                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                    registros_pesaje (
-                        id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
-                    )
-                `).eq('id_finca', fincaId);
+                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
+                `).eq('id_finca', fincaId).eq('estado', 'activo'),
 
-            // Filtrar los grupos principales en memoria (animales activos)
-            const animales = (todosAnimales || []).filter((a: any) => a.estado === 'activo');
+                // Muertos/vendidos: solo metadata, sin pesajes (para modal de muertes)
+                supabase.from('animales').select(
+                    'id, numero_chapeta, etapa, nombre_propietario, estado, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta'
+                ).eq('id_finca', fincaId).in('estado', ['muerto', 'vendido']),
 
+                // RPC: todos los pesajes de activos en formato plano (para gráfica GMP evolution)
+                // Aprovecha idx_registros_pesaje_animal_fecha. Sin metadata del animal duplicada por pesaje.
+                supabase.rpc('get_pesajes_activos_finca', { p_finca_id: fincaId }),
 
-            const pesajesMap: Record<string, any[]> = {};
-            const pesajesFlat: any[] = [];
-            todosAnimales?.forEach(a => {
-                if (a.registros_pesaje && Array.isArray(a.registros_pesaje)) {
-                    const sorted = a.registros_pesaje.sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
-                    
-                    // Asegurar omitir pesajes duplicados el mismo día (dejamos el primero cronológicamente)
-                    const uniqueFechas = new Set();
-                    const deduplicated = sorted.filter((p: any) => {
-                        const dateOnly = p.fecha.split('T')[0];
-                        if (uniqueFechas.has(dateOnly)) return false;
-                        uniqueFechas.add(dateOnly);
-                        return true;
-                    });
+                // RPC: solo el ÚLTIMO pesaje por animal activo (para distribución de pesos y despachos)
+                supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId })
+            ]);
 
-                    pesajesMap[a.id] = deduplicated;
-                    pesajesFlat.push(...deduplicated);
-                } else {
-                    pesajesMap[a.id] = [];
-                }
+            const lluvias = lluviasRes.data;
+            const animales: any[] = animalesActivosRes.data || [];
+
+            // Mapa de último pesaje por animal activo (para distribución de pesos y despachos)
+            const ultPesajesMap = new Map<string, any>();
+            (ultPesajesRes.data || []).forEach((p: any) => {
+                ultPesajesMap.set(p.id_animal, {
+                    peso: p.peso, fecha: p.fecha,
+                    gdp_calculada: p.gdp_calculada, gmp_calculada: p.gmp_calculada
+                });
             });
 
-            // 4. Registros de lluvia
-            const { data: lluvias } = await supabase
-                .from('registros_lluvia')
-                .select('fecha, milimetros')
-                .eq('id_finca', fincaId)
-                .order('fecha', { ascending: true });
+            // Pesajes planos de activos para la gráfica GMP (campo renombrado desde el RPC)
+            const pesajesFlat = (pesajesRpcRes.data || []).map((row: any) => ({
+                id_animal: row.id_animal,
+                peso: row.pesaje_peso,
+                fecha: row.pesaje_fecha,
+                etapa: row.pesaje_etapa,
+                gdp_calculada: row.pesaje_gdp,
+                gmp_calculada: row.pesaje_gmp
+            }));
+
+            // todosAnimales: activos + bajas combinados (para rawData y muertes)
+            const todosAnimales = [...animales, ...(animalesBajaRes.data || [])];
 
                 // Cálculos de permanencia (Siguen siendo necesarios para el Dashboard ya que no están en el resumen)
                 let totalDiasLevante = 0;
@@ -323,8 +333,8 @@ export default function Dashboard() {
                 const distAnimales: Record<string, any[]> = { rango1: [], rango2: [], rango3: [], rango4: [] };
                 
                 animales.forEach((animal: any) => {
-                    const misPsjs = pesajesMap[animal.id] || [];
-                    const ultimoP = misPsjs[misPsjs.length - 1];
+                    // FASE 2: último pesaje viene del RPC (Map lookup O(1), sin iterar arrays)
+                    const ultimoP = ultPesajesMap.get(animal.id) || null;
                     const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
                     const pesoRef = ultimoP ? ultimoP.peso : pesoBase;
                     const fechaRef = ultimoP ? ultimoP.fecha : animal.fecha_ingreso;
@@ -388,8 +398,8 @@ export default function Dashboard() {
                     if (!idPot || a.etapa !== 'ceba') return;
 
                     const potNombre = a.potreradas?.nombre || 'Potrerada Desconocida';
-                    const misPsjs = pesajesMap[a.id] || [];
-                    const ultimoP = misPsjs[misPsjs.length - 1];
+                    // FASE 2: último pesaje del RPC (O(1) lookup)
+                    const ultimoP = ultPesajesMap.get(a.id) || null;
                     const pesoBase = a.peso_compra ?? a.peso_ingreso;
                     const pesoRef = ultimoP ? ultimoP.peso : pesoBase;
                     const fechaRef = ultimoP ? ultimoP.fecha : a.fecha_ingreso;
