@@ -221,6 +221,7 @@ export default function Inventory() {
         if (propRes.data) setPropietariosLista(propRes.data);
 
         setLoading(false);
+    };
 
     // Debounce search term to improve performance with 1700+ animals
 
