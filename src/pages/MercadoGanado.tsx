@@ -8,14 +8,13 @@ import {
     Scale,
     Info,
     Calendar,
-    DollarSign,
-    AlertCircle,
     MapPin,
     Layers,
     Activity,
     ChevronRight,
     MessageCircle,
-    ArrowUpRight
+    ArrowUpRight,
+    Award
 } from 'lucide-react';
 import {
     LineChart,
@@ -67,7 +66,7 @@ const REGIONS = [
 ];
 
 export default function MercadoGanado() {
-    const { fincaId, role, licenciaInfo } = useAuth();
+    const { fincaId, licenciaInfo } = useAuth();
     const plan = licenciaInfo?.licencia || 'demo';
 
     const [precios, setPrecios] = useState<PrecioBoletin[]>([]);
