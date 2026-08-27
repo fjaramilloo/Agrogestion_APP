@@ -5,6 +5,8 @@ import ModalUpsell from '../components/ModalUpsell';
 import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { localDB } from '../lib/db';
+import { guardarPesajeOffline } from '../lib/offlineService';
 
 interface AnimalPreview {
     id: string;
@@ -141,40 +143,82 @@ export default function Weighing() {
         setCastrarHoy(false);
         setFechaPesaje(new Date().toISOString().split('T')[0]);
 
-        const { data, error } = await supabase
-            .from('animales')
-            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada')
-            .eq('id_finca', fincaId)
-            .eq('numero_chapeta', chapeta.trim())
-            .single();
+        const targetChapeta = chapeta.trim();
+        let data: any = null;
+        let isOfflineResult = false;
 
-        if (error || !data) {
+        if (navigator.onLine) {
+            try {
+                const res = await supabase
+                    .from('animales')
+                    .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada')
+                    .eq('id_finca', fincaId)
+                    .eq('numero_chapeta', targetChapeta)
+                    .single();
+                data = res.data;
+            } catch (e) {
+                data = null;
+            }
+        }
+
+        // Búsqueda en Caché Local (IndexedDB) si no hay red o falló Supabase
+        if (!data) {
+            const cached = await localDB.animalesCache
+                .where('id_finca').equals(fincaId)
+                .filter(a => a.numero_chapeta === targetChapeta)
+                .first();
+
+            if (cached) {
+                data = {
+                    id: cached.id,
+                    numero_chapeta: cached.numero_chapeta,
+                    peso_ingreso: cached.peso_ingreso || 0,
+                    peso_compra: cached.peso_compra,
+                    fecha_ingreso: cached.fecha_ingreso,
+                    etapa: cached.etapa,
+                    peso_ingreso_ceba: cached.peso_ingreso_ceba,
+                    fecha_ingreso_ceba: cached.fecha_ingreso_ceba,
+                    nombre_propietario: cached.nombre_propietario,
+                    id_potrerada: cached.id_potrerada
+                };
+                isOfflineResult = true;
+            }
+        }
+
+        if (!data) {
             setAnimalNoEncontrado(true);
             setMsjError('Animal no encontrado. Puede revisar la chapeta o crear uno nuevo.');
         } else {
-            // Buscar el último pesaje
-            const { data: pesajes } = await supabase
-                .from('registros_pesaje')
-                .select('peso, fecha, gmp_calculada, gdp_calculada')
-                .eq('id_animal', data.id)
-                .order('fecha', { ascending: false });
+            let pesajes: any[] = [];
+            if (navigator.onLine && !isOfflineResult) {
+                const { data: psjs } = await supabase
+                    .from('registros_pesaje')
+                    .select('peso, fecha, gmp_calculada, gdp_calculada')
+                    .eq('id_animal', data.id)
+                    .order('fecha', { ascending: false });
+                if (psjs) pesajes = psjs;
+            }
 
             let gmp = 0;
-            // Buscar la etapa de la potrerada por separado (evita que un join falle y oculte el animal)
             let potreradaEtapa: string | null = null;
             let potreradaNombre: string | null = null;
+
             if ((data as any).id_potrerada) {
-                const { data: pot } = await supabase
-                    .from('potreradas')
-                    .select('etapa, nombre')
-                    .eq('id', (data as any).id_potrerada)
-                    .single();
-                potreradaEtapa = pot?.etapa || null;
-                potreradaNombre = pot?.nombre || null;
+                if (navigator.onLine) {
+                    const { data: pot } = await supabase
+                        .from('potreradas')
+                        .select('etapa, nombre')
+                        .eq('id', (data as any).id_potrerada)
+                        .single();
+                    potreradaEtapa = pot?.etapa || null;
+                    potreradaNombre = pot?.nombre || null;
+                } else {
+                    const potCached = await localDB.potreradasCache.get((data as any).id_potrerada);
+                    potreradaNombre = potCached?.nombre || null;
+                }
             }
             const etapaEfectiva: string = potreradaEtapa || data.etapa;
 
-            // Usar peso de la etapa actual como base
             let pesoBase = data.peso_compra || data.peso_ingreso;
             let fechaBase = data.fecha_ingreso;
             if (etapaEfectiva === 'ceba') {
@@ -244,8 +288,6 @@ export default function Weighing() {
 
             if (error) throw error;
 
-            setMsjExito(`¡Animal #${chapeta} creado exitosamente!`);
-
             setMsjExito(`¡Animal #${chapeta} creado exitosamente! Su peso inicial ha sido registrado.`);
 
             setAnimal({
@@ -290,7 +332,6 @@ export default function Weighing() {
                     throw new Error(`Este animal ya tiene un pesaje registrado para la fecha ${fechaPesaje}.`);
                 }
 
-                // Si es el mismo día, no calculamos ganancia para evitar errores de 0 GDP
                 if (fechaPesaje !== fechaUltimo) {
                     const diffDias = differenceInDays(new Date(fechaPesaje + 'T12:00:00'), new Date(fechaUltimo + 'T12:00:00'));
                     if (diffDias > 0) {
@@ -299,6 +340,28 @@ export default function Weighing() {
                 }
             }
 
+            // MODO OFFLINE: Si no hay conexión o si falla la llamada HTTP a Supabase
+            if (!navigator.onLine) {
+                await guardarPesajeOffline({
+                    id_finca: fincaId,
+                    id_animal: animal.id,
+                    chapeta_ref: animal.numero_chapeta,
+                    peso: pesoFloat,
+                    fecha: fechaPesaje,
+                    etapa: animal.etapa,
+                    gdp_calculada: gdpCalculada,
+                    gmp_calculada: gdpCalculada * 30
+                });
+
+                setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente (Modo Offline). Se sincronizará al recuperar la señal.`);
+                setAnimal(null);
+                setChapeta('');
+                setNuevoPeso('');
+                setFechaPesaje(new Date().toISOString().split('T')[0]);
+                return;
+            }
+
+            // MODO ONLINE
             const { error } = await supabase.from('registros_pesaje').insert({
                 id_animal: animal.id,
                 peso: pesoFloat,
@@ -307,7 +370,29 @@ export default function Weighing() {
                 gdp_calculada: gdpCalculada
             });
 
-            if (error) throw error;
+            if (error) {
+                // Si ocurre un error de red al intentar insertar en Supabase
+                if (error.message?.includes('fetch') || error.message?.includes('network') || !navigator.onLine) {
+                    await guardarPesajeOffline({
+                        id_finca: fincaId,
+                        id_animal: animal.id,
+                        chapeta_ref: animal.numero_chapeta,
+                        peso: pesoFloat,
+                        fecha: fechaPesaje,
+                        etapa: animal.etapa,
+                        gdp_calculada: gdpCalculada,
+                        gmp_calculada: gdpCalculada * 30
+                    });
+
+                    setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente por fallo de red. Se sincronizará al conectar.`);
+                    setAnimal(null);
+                    setChapeta('');
+                    setNuevoPeso('');
+                    setFechaPesaje(new Date().toISOString().split('T')[0]);
+                    return;
+                }
+                throw error;
+            }
 
             // Verificar si el peso supera el umbral de entrada a ceba
             let marcaOkCeba = false;

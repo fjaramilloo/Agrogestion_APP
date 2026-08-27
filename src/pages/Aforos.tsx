@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, UploadCloud } from 'lucide-react';
+import { guardarAforoOffline } from '../lib/offlineService';
 
 interface Potrero {
     id: string;
@@ -314,33 +315,35 @@ export default function Aforos() {
                 setViabilidad('70');
                 fetchHistorial();
             } catch (err: any) {
-                setMsjError(err.message);
+                // Si falla la red durante la inserción
+                const pNombre = potreros.find(p => p.id === selectedPotreroId)?.nombre || 'Desconocido';
+                await guardarAforoOffline({
+                    id_finca: fincaId || '',
+                    id_potrero: selectedPotreroId,
+                    potrero_nombre_ref: pNombre,
+                    fecha: fecha,
+                    metodo: 'cuadrom2',
+                    gramos_m2: avgMuestra * 1000
+                });
+                setMsjExito('📱 Aforo guardado localmente por falla de red. Se sincronizará al conectar.');
+                setMuestras(Array(8).fill(''));
+                setSelectedPotreroId('');
             } finally {
                 setLoading(false);
             }
         } else {
             const pNombre = potreros.find(p => p.id === selectedPotreroId)?.nombre || 'Desconocido';
-            const newPayload: OfflineAforoPayload = {
-                id_temp: 'aforo_' + Math.random().toString(36).substring(7),
+            await guardarAforoOffline({
                 id_finca: fincaId || '',
                 id_potrero: selectedPotreroId,
+                potrero_nombre_ref: pNombre,
                 fecha: fecha,
-                muestras: nums,
-                promedio_muestras_kg: avgMuestra,
-                viabilidad: viaValue,
-                aforo_real_kg: aforoReal,
-                id_potrerada: potreradaInfo?.id || null,
-                animales_presentes: animalCount,
-                potrero: { nombre: pNombre }
-            };
-            const newQueue = [...offlineQueue, newPayload];
-            setOfflineQueue(newQueue);
-            localStorage.setItem('agrogestion_aforos_offline', JSON.stringify(newQueue));
-            
-            setMsjExito('Aforo guardado localmente (Offline). Se sincronizará cuando haya conexión.');
+                metodo: 'cuadrom2',
+                gramos_m2: avgMuestra * 1000
+            });
+            setMsjExito('📱 Aforo guardado en la memoria del teléfono (Modo Offline).');
             setMuestras(Array(8).fill(''));
             setSelectedPotreroId('');
-            setViabilidad('70');
         }
     };
 
