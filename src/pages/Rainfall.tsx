@@ -55,6 +55,7 @@ export default function Rainfall() {
 
     const [registros, setRegistros] = useState<RegistroLluvia[]>([]);
     const [ubicacionFinca, setUbicacionFinca] = useState<string | null>(null);
+    const [municipioFinca, setMunicipioFinca] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [tabGrafica, setTabGrafica] = useState<string>(TAB_MENSUAL);
@@ -231,13 +232,14 @@ export default function Rainfall() {
                     .order('fecha', { ascending: false }),
                 supabase
                     .from('fincas')
-                    .select('ubicacion')
+                    .select('ubicacion, municipio')
                     .eq('id', fincaId)
                     .single(),
             ]);
             if (lluviasRes.error) throw lluviasRes.error;
             setRegistros(lluviasRes.data || []);
             setUbicacionFinca(fincaRes.data?.ubicacion || null);
+            setMunicipioFinca(fincaRes.data?.municipio || null);
         } catch (err: any) {
             console.error('Error fetching rainfall:', err);
         } finally {
@@ -332,7 +334,6 @@ export default function Rainfall() {
                     <p style={{ color: 'var(--text-muted)', marginTop: '6px', marginBottom: '10px' }}>
                         Control de pluviosidad diaria por finca (mm)
                     </p>
-                    {/* Insignia de región climática */}
                     <div style={{
                         display: 'inline-flex', alignItems: 'center', gap: '8px',
                         padding: '6px 14px', borderRadius: '20px',
@@ -340,7 +341,7 @@ export default function Rainfall() {
                         fontSize: '0.8rem', color: '#7dd3fc',
                     }}>
                         <span>{perfil.emoji}</span>
-                        <span style={{ fontWeight: 600 }}>{perfil.zona}</span>
+                        <span style={{ fontWeight: 600 }}>{municipioFinca ? `${municipioFinca} (${perfil.zona})` : perfil.zona}</span>
                         <span style={{ color: 'rgba(125,211,252,0.6)' }}>•</span>
                         <span>Lluvia efectiva ≥ {perfil.umbralEfectivoMm} mm</span>
                         {!ubicacionFinca && (

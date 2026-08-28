@@ -78,7 +78,8 @@ export default function Dashboard() {
         nombre: '',
         proposito: '',
         area_aprovechable: 0,
-        ubicacion: ''
+        ubicacion: '',
+        municipio: ''
     });
     const [evolucionGmp, setEvolucionGmp] = useState<EvolucionItem[]>([]);
     const [evolucionPorPesaje, setEvolucionPorPesaje] = useState<any[]>([]);
@@ -148,7 +149,7 @@ export default function Dashboard() {
 
             // 2. Información de la Finca y Configuración en paralelo
             const [fincaRes, configRes] = await Promise.all([
-                supabase.from('fincas').select('nombre, proposito, area_aprovechable, ubicacion').eq('id', fincaId).single(),
+                supabase.from('fincas').select('nombre, proposito, area_aprovechable, ubicacion, municipio').eq('id', fincaId).single(),
                 supabase.from('configuracion_kpi').select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp').eq('id_finca', fincaId).single()
             ]);
 
@@ -160,7 +161,8 @@ export default function Dashboard() {
                     nombre: finca.nombre,
                     proposito: finca.proposito || 'No Definido',
                     area_aprovechable: finca.area_aprovechable || 0,
-                    ubicacion: finca.ubicacion || 'Sin ubicación'
+                    ubicacion: finca.ubicacion || 'Sin ubicación',
+                    municipio: finca.municipio || ''
                 });
             }
 
@@ -717,7 +719,7 @@ export default function Dashboard() {
                             <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'white', marginBottom: '8px' }}>{fincaInfo.nombre}</h2>
                             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                                    <MapPin size={18} /> {fincaInfo.ubicacion}
+                                    <MapPin size={18} /> {fincaInfo.municipio ? `${fincaInfo.municipio} (${fincaInfo.ubicacion})` : fincaInfo.ubicacion}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
                                     <Activity size={18} /> <span style={{ color: 'white', fontWeight: 'bold' }}>{fincaInfo.proposito}</span>

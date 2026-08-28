@@ -132,6 +132,7 @@ export default function Settings() {
         area_total: '',
         area_aprovechable: '',
         ubicacion: '',
+        municipio: '',
         proposito: '',
         precio_venta_promedio: '',
         precio_compra_promedio: '',
@@ -217,7 +218,7 @@ export default function Settings() {
         // Datos generales de la finca
         const { data: finca, error: fincaErr } = await supabase
             .from('fincas')
-            .select('area_total, area_aprovechable, ubicacion, proposito')
+            .select('area_total, area_aprovechable, ubicacion, municipio, proposito')
             .eq('id', fincaId)
             .single();
 
@@ -233,6 +234,7 @@ export default function Settings() {
                 area_total: finca.area_total?.toString() || '',
                 area_aprovechable: finca.area_aprovechable?.toString() || '',
                 ubicacion: finca.ubicacion || '',
+                municipio: finca.municipio || '',
                 proposito: finca.proposito || '',
                 precio_venta_promedio: config?.precio_venta_promedio?.toString() || '0',
                 precio_compra_promedio: config?.precio_compra_promedio?.toString() || '0',
@@ -334,7 +336,8 @@ export default function Settings() {
                 .update({
                     area_total: farmInfo.area_total ? parseFloat(farmInfo.area_total) : null,
                     area_aprovechable: farmInfo.area_aprovechable ? parseFloat(farmInfo.area_aprovechable) : null,
-                    ubicacion: farmInfo.ubicacion,
+                    ubicacion: farmInfo.ubicacion || null,
+                    municipio: farmInfo.municipio || null,
                     proposito: farmInfo.proposito || null
                 })
                 .eq('id', fincaId);
@@ -1375,8 +1378,18 @@ export default function Settings() {
                                                 <input type="number" step="0.01" value={farmInfo.area_aprovechable} onChange={e => setFarmInfo({ ...farmInfo, area_aprovechable: e.target.value })} />
                                             </div>
                                             <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={16} /> Ubicación</label>
-                                                <input type="text" value={farmInfo.ubicacion} onChange={e => setFarmInfo({ ...farmInfo, ubicacion: e.target.value })} />
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={16} /> Región Climática</label>
+                                                <select value={farmInfo.ubicacion} onChange={e => setFarmInfo({ ...farmInfo, ubicacion: e.target.value })}>
+                                                    <option value="">Seleccione Región...</option>
+                                                    <option value="Costa Caribe">Costa Caribe</option>
+                                                    <option value="Magdalena Medio">Magdalena Medio</option>
+                                                    <option value="Llanos Orientales / Orinoquía">Llanos Orientales</option>
+                                                    <option value="Zona Andina / Trópico Alto">Trópico Alto (Zona Andina)</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={16} /> Municipio / Ciudad</label>
+                                                <input type="text" placeholder="Ej. Montería, Córdoba" value={farmInfo.municipio} onChange={e => setFarmInfo({ ...farmInfo, municipio: e.target.value })} />
                                             </div>
                                             <div>
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Target size={16} /> Propósito</label>
