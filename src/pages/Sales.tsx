@@ -529,7 +529,7 @@ export default function Sales() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                     <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                        <Tag size={32} /> Registro de Venta
+                        <Tag size={32} /> Registrar Venta
                     </h1>
                     <p style={{ color: 'var(--text-muted)', margin: '8px 0 0 0' }}>Módulo para dar de baja animales vendidos y registrar su peso final.</p>
                 </div>

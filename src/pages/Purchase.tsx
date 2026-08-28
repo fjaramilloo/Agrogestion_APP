@@ -501,7 +501,7 @@ export default function Purchase() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                     <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                        <ShoppingCart size={32} /> Registro de Compra
+                        <ShoppingCart size={32} /> Registrar Compra
                     </h1>
                     <p style={{ color: 'var(--text-muted)', margin: '8px 0 0 0' }}>Módulo para el registro masivo de animales nuevos.</p>
                 </div>

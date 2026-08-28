@@ -181,7 +181,7 @@ export default function Rotations() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                 <div>
                     <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                        <MapPin size={32} /> Módulos de Pastoreo
+                        <MapPin size={32} /> Rotaciones
                     </h1>
                     <div style={{ display: 'flex', gap: '20px', marginTop: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>

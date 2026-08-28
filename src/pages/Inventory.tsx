@@ -511,7 +511,7 @@ export default function Inventory() {
     return (
         <div className="page-container">
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '16px' }}>
-                <h1 className="title" style={{ margin: 0 }}>Inventario de Semovientes</h1>
+                <h1 className="title" style={{ margin: 0 }}>Inventario</h1>
 
                 {role !== 'observador' && (
                     <div style={{ display: 'flex', gap: '12px' }}>

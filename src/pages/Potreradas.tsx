@@ -1346,7 +1346,7 @@ export default function Potreradas() {
         <div className="page-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                 <div>
-                    <h1 className="title">Gestión de Potreradas</h1>
+                    <h1 className="title">Gestión de Lotes</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Métricas y administración de grupos de animales.</p>
                 </div>
                 {role !== 'observador' && (
@@ -1354,7 +1354,7 @@ export default function Potreradas() {
                         onClick={() => setShowAddModal(true)}
                         style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
                     >
-                        <Plus size={20} /> Nueva Potrerada
+                        <Plus size={20} /> Nuevo Lote
                     </button>
                 )}
             </div>
