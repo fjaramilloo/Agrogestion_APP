@@ -254,11 +254,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     </NavLink>
                                     <NavLink to="/compra" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                         <span className="sidebar-icon"><ShoppingCart size={20} /></span>
-                                        <span className="sidebar-label">Compra</span>
+                                        <span className="sidebar-label">Registro de Compra</span>
                                     </NavLink>
                                     <NavLink to="/venta" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                         <span className="sidebar-icon"><Tag size={20} /></span>
-                                        <span className="sidebar-label">Venta</span>
+                                        <span className="sidebar-label">Registro de Venta</span>
                                     </NavLink>
                                     {hayMercado && (
                                         <NavLink to="/animales-ceba" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`} style={{ position: 'relative' }}>
@@ -295,11 +295,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <NavLink to="/inventario" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                     <span className="sidebar-icon"><ListChecks size={20} /></span>
-                                    <span className="sidebar-label">Animales</span>
+                                    <span className="sidebar-label">Inventario de Semovientes</span>
                                 </NavLink>
                                 <NavLink to="/rotaciones" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                     <span className="sidebar-icon"><MapPin size={20} /></span>
-                                    <span className="sidebar-label">Rotaciones</span>
+                                    <span className="sidebar-label">Módulos de Pastoreo</span>
                                 </NavLink>
                                  {(role === 'administrador' || role === 'vaquero') && (
                                     <NavLink to="/potreradas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
@@ -309,11 +309,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 )}
                                 <NavLink to="/historial-ventas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                     <span className="sidebar-icon"><FileText size={20} /></span>
-                                    <span className="sidebar-label">Historial Ventas</span>
+                                    <span className="sidebar-label">Historial de Ventas</span>
                                 </NavLink>
                                 <NavLink to="/historial-compras" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                     <span className="sidebar-icon"><ShoppingCart size={20} /></span>
-                                    <span className="sidebar-label">Historial Compras</span>
+                                    <span className="sidebar-label">Historial de Compras</span>
                                 </NavLink>
                             </div>
 
