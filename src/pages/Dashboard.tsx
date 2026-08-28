@@ -796,21 +796,22 @@ export default function Dashboard() {
                                 <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Levante</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tiempo Promedio</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioLevanteMeses.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>meses</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{stats.promedioLevanteMeses.toFixed(1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>meses</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{getModoLabel(modoGanancia)} Lote</span>
                                     <span style={{ 
                                         fontWeight: 'bold', 
-                                        fontSize: '1.4rem', 
+                                        fontSize: '1.25rem', 
+                                        whiteSpace: 'nowrap',
                                         color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? 'var(--warning)' : (stats.gmpLevante <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                         textShadow: (stats.gmpLevante > umbralMedio && stats.gmpLevante <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
-                                    }}>{toDisplayValue(stats.gmpLevante, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>{getUnidadLabel(modoGanancia)}</span></span>
+                                    }}>{toDisplayValue(stats.gmpLevante, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>{getUnidadLabel(modoGanancia)}</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
                                         <span style={{ fontSize: '0.75rem', fontStyle: 'italic' }}>Meta Mínima</span>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{toDisplayValue(stats.metaMinima, modoGanancia).toFixed(1)} {getUnidadLabel(modoGanancia)}</span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{toDisplayValue(stats.metaMinima, modoGanancia).toFixed(1)} <span style={{ fontSize: '0.68rem', fontWeight: 'normal' }}>{getUnidadLabel(modoGanancia)}</span></span>
                                     </div>
                                 )}
                             </div>
@@ -824,21 +825,22 @@ export default function Dashboard() {
                                 <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Ceba</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tiempo Promedio</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioCebaMeses.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>meses</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{stats.promedioCebaMeses.toFixed(1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>meses</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{getModoLabel(modoGanancia)} Lote</span>
                                     <span style={{ 
                                         fontWeight: 'bold', 
-                                        fontSize: '1.4rem', 
+                                        fontSize: '1.25rem', 
+                                        whiteSpace: 'nowrap',
                                         color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? 'var(--warning)' : (stats.gmpCeba <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                         textShadow: (stats.gmpCeba > umbralMedio && stats.gmpCeba <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
-                                    }}>{toDisplayValue(stats.gmpCeba, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>{getUnidadLabel(modoGanancia)}</span></span>
+                                    }}>{toDisplayValue(stats.gmpCeba, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>{getUnidadLabel(modoGanancia)}</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
                                         <span style={{ fontSize: '0.75rem', fontStyle: 'italic' }}>Meta Mínima</span>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{toDisplayValue(stats.metaMinima, modoGanancia).toFixed(1)} {getUnidadLabel(modoGanancia)}</span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{toDisplayValue(stats.metaMinima, modoGanancia).toFixed(1)} <span style={{ fontSize: '0.68rem', fontWeight: 'normal' }}>{getUnidadLabel(modoGanancia)}</span></span>
                                     </div>
                                 )}
                             </div>
@@ -853,11 +855,11 @@ export default function Dashboard() {
                                 <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Rendimiento Ha</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Kg / Ha / Año</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{Math.round(stats.produccionCarneHaAno)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.produccionCarneHaAno)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>kg</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Carga Animal Actual</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.cargaAnimal.toFixed(2)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>UG/Ha</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{stats.cargaAnimal.toFixed(2)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>UG/Ha</span></span>
                                 </div>
                             </div>
                         </div>
@@ -870,11 +872,11 @@ export default function Dashboard() {
                                 <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Pesos Promedio</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Entrada</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.pesoPromedioEntrada)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.pesoPromedioEntrada)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>kg</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Salida / Venta</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.pesoPromedioSalida)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.pesoPromedioSalida)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>kg</span></span>
                                 </div>
                             </div>
                         </div>
