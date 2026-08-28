@@ -323,16 +323,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                 <div style={{ marginTop: 'auto', paddingTop: '24px' }}>
                     <div className="sidebar-divider" style={{ margin: '0 14px 16px' }} />
-                    
-                    <NavLink to="/suscripcion" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                        <span className="sidebar-icon"><Award size={20} /></span>
-                        <span className="sidebar-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                            <span>Suscripción</span>
-                            <span style={{ fontSize: '0.62rem', padding: '2px 7px', borderRadius: '10px', fontWeight: 800, textTransform: 'uppercase', background: licenciaInfo?.licencia === 'premium' ? 'rgba(168, 85, 247, 0.2)' : licenciaInfo?.licencia === 'finca' ? 'rgba(14, 165, 233, 0.2)' : 'rgba(255, 179, 0, 0.2)', color: licenciaInfo?.licencia === 'premium' ? '#c084fc' : licenciaInfo?.licencia === 'finca' ? '#38bdf8' : '#ffb74d' }}>
-                                {licenciaInfo?.licencia || 'demo'}
-                            </span>
-                        </span>
-                    </NavLink>
 
                     <NavLink to="/configuracion" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                         <span className="sidebar-icon"><Settings size={20} /></span>

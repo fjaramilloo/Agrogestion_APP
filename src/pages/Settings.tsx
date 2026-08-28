@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award } from 'lucide-react';
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
 // @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
@@ -56,7 +56,8 @@ const cleanNumber = (val: any): number => {
 };
 
 export default function Settings() {
-    const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, setModoGanancia } = useAuth();
+    const navigate = useNavigate();
+    const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, setModoGanancia, licenciaInfo } = useAuth();
     const [umbral, setUmbral] = useState('0.434');
     // Umbrales: siempre en la unidad seleccionada para display; se convierten a kg/mes al guardar
     const [umbralMedioDisplay, setUmbralMedioDisplay] = useState('10');
@@ -1118,7 +1119,8 @@ export default function Settings() {
         { id: 'datosTecnicos', label: 'Parámetros', icon: <Home size={28} />, desc: 'KPIs y Finca' },
         { id: 'usuarios', label: 'Personal', icon: <Users size={28} />, desc: 'Gestión de equipo' },
         { id: 'contactosNegocio', label: 'Negocios', icon: <Briefcase size={28} />, desc: 'Contactos y socios' },
-        { id: 'cargasMasivas', label: 'Carga Masiva', icon: <Upload size={28} />, desc: 'Importar CSV/Excel' }
+        { id: 'cargasMasivas', label: 'Carga Masiva', icon: <Upload size={28} />, desc: 'Importar CSV/Excel' },
+        { id: 'suscripcion', label: 'Suscripción', icon: <Award size={28} />, desc: 'Plan y Licencia', isLink: true }
     ];
 
 
@@ -1238,6 +1240,51 @@ export default function Settings() {
                             marginBottom: '32px' 
                         }}>
                             {sectionCards.map(section => {
+                                if (section.isLink) {
+                                    return (
+                                        <div 
+                                            key={section.id}
+                                            onClick={() => navigate('/suscripcion')}
+                                            className="card"
+                                            style={{ 
+                                                margin: 0,
+                                                padding: '24px 16px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                textAlign: 'center',
+                                                gap: '12px',
+                                                border: '2px solid transparent',
+                                                background: 'rgba(255,255,255,0.02)',
+                                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.5)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+                                        >
+                                            <div style={{ color: '#c084fc' }}>
+                                                {section.icon}
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                                    <span style={{ fontWeight: 'bold', fontSize: '1rem', color: 'white' }}>{section.label}</span>
+                                                    <span style={{ 
+                                                        fontSize: '0.62rem', 
+                                                        padding: '2px 7px', 
+                                                        borderRadius: '10px', 
+                                                        fontWeight: 800, 
+                                                        textTransform: 'uppercase', 
+                                                        background: licenciaInfo?.licencia === 'premium' ? 'rgba(168, 85, 247, 0.25)' : licenciaInfo?.licencia === 'finca' ? 'rgba(14, 165, 233, 0.25)' : 'rgba(255, 179, 0, 0.25)', 
+                                                        color: licenciaInfo?.licencia === 'premium' ? '#c084fc' : licenciaInfo?.licencia === 'finca' ? '#38bdf8' : '#ffb74d'
+                                                    }}>
+                                                        {licenciaInfo?.licencia || 'demo'}
+                                                    </span>
+                                                </div>
+                                                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.8 }}>{section.desc}</small>
+                                            </div>
+                                        </div>
+                                    );
+                                }
                                 const isActive = !collapsed[section.id as keyof typeof collapsed];
                                 return (
                                     <div 
