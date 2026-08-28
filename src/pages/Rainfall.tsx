@@ -120,7 +120,7 @@ export default function Rainfall() {
                 <div>
                     <h1 className="title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <CloudRain size={32} color="var(--primary-light)" />
-                        Registro de Lluvias
+                        Pluviometría
                     </h1>
                     <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>Control de pluviosidad diaria por finca (mm)</p>
                 </div>

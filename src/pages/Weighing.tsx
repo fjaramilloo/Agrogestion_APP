@@ -471,7 +471,7 @@ export default function Weighing() {
 
     return (
         <div className="page-container" style={{ maxWidth: '600px' }}>
-            <h1 className="title text-center" style={{ fontSize: '2.5rem', marginBottom: '8px' }}>Registro de Pesaje</h1>
+            <h1 className="title text-center" style={{ fontSize: '2.5rem', marginBottom: '8px' }}>Control de Pesaje</h1>
             <p className="text-center" style={{ color: 'var(--text-muted)', marginBottom: '8px' }}>Busque al animal para registrar el peso actual.</p>
             <p className="text-center" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '32px' }}>
                 Umbral entrada a ceba: <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>

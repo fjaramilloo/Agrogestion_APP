@@ -415,7 +415,7 @@ export default function Aforos() {
         <div className="page-container" style={{ maxWidth: '900px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '32px' }}>
                 <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                    <Layers size={32} /> Aforos de Potreros
+                    <Layers size={32} /> Aforos y Forraje
                 </h1>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

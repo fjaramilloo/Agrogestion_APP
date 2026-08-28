@@ -183,7 +183,7 @@ export default function Movements() {
     return (
         <div className="page-container" style={{ maxWidth: '600px', margin: '0 auto' }}>
             <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'left', marginBottom: '32px' }}>
-                <ArrowLeftRight size={32} /> Movimientos de Potreradas
+                <ArrowLeftRight size={32} /> Rotación de Lotes
             </h1>
 
             {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
@@ -192,7 +192,7 @@ export default function Movements() {
             <div className="card">
                 <form onSubmit={handleSaveMovement} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div style={{ position: 'relative' }}>
-                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Seleccionar Potrerada *</label>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Seleccionar Lote *</label>
                         
                         {/* Custom Searchable Select */}
                         <div 
@@ -242,7 +242,7 @@ export default function Movements() {
                                         <Search size={16} style={{ color: 'var(--text-muted)' }} />
                                         <input 
                                             type="text" 
-                                            placeholder="Buscar potrerada..."
+                                            placeholder="Buscar lote..."
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                             autoFocus
@@ -308,7 +308,7 @@ export default function Movements() {
                             {/* Lógica Simplificada: Si hay rotación asignada o detectada, solo mostrar potreros */}
                             {(!potreradas.find(p => p.id === selectedPotreradaId)?.id_rotacion && !currentPotrero?.id_rotacion) && (
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>¿A dónde se moverá la potrerada?</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>¿A dónde se moverá el lote?</label>
                                     <div style={{ display: 'flex', gap: '10px' }}>
                                         <button 
                                             type="button" 
