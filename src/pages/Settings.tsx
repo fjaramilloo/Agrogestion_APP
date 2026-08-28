@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award } from 'lucide-react';
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
@@ -152,7 +153,7 @@ export default function Settings() {
     };
 
     // Filtrar fincas donde el usuario es administrador
-    const fincasAdmin = userFincas.filter(f => f.rol === 'administrador' || isSuperAdmin);
+    const fincasAdmin = userFincas.filter((f: any) => f.rol === 'administrador' || isSuperAdmin);
 
     const fetchConfig = async () => {
         if (!fincaId) return;
@@ -1552,7 +1553,7 @@ export default function Settings() {
 
                                         <label style={{ marginBottom: '12px', display: 'block' }}>Asignar a Fincas:</label>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', marginBottom: '24px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                            {fincasAdmin.map(f => (
+                                            {fincasAdmin.map((f: any) => (
                                                 <div key={f.id_finca} onClick={() => toggleFincaSelection(f.id_finca)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '6px', cursor: 'pointer', backgroundColor: selectedFincas.includes(f.id_finca) ? 'rgba(76, 175, 80, 0.1)' : 'transparent', border: '1px solid', borderColor: selectedFincas.includes(f.id_finca) ? 'var(--primary)' : 'transparent' }}>
                                                     {selectedFincas.includes(f.id_finca) ? <CheckSquare size={16} color="var(--primary)" /> : <Square size={16} color="var(--text-muted)" />}
                                                     <span style={{ fontSize: '0.85rem' }}>{f.nombre_finca}</span>

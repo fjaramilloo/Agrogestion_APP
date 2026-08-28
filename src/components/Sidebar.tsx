@@ -22,7 +22,6 @@ import {
     ShoppingBag,
     FileText,
     Leaf,
-    Award,
     TrendingUp
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -35,7 +34,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-    const { role, isSuperAdmin, userFincas, fincaId, setFincaId, refreshFincas, user, signOut, licenciaInfo } = useAuth();
+    const { role, isSuperAdmin, userFincas, fincaId, setFincaId, refreshFincas, user, signOut } = useAuth();
     const [showFincas, setShowFincas] = useState(false);
     const [showTrabajoCampo, setShowTrabajoCampo] = useState(true);
     const [showInformacion, setShowInformacion] = useState(false);
