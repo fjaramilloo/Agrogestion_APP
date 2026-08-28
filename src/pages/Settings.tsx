@@ -342,14 +342,12 @@ export default function Settings() {
                 fincaPayload.proposito = farmInfo.proposito;
             }
 
-            const { data: fincaUpdated, error: fincaError } = await supabase
+            const { error: fincaError } = await supabase
                 .from('fincas')
                 .update(fincaPayload)
-                .eq('id', fincaId)
-                .select();
+                .eq('id', fincaId);
 
-            console.log('[Settings] finca update result:', { fincaUpdated, fincaError, fincaId });
-            if (fincaError) throw new Error('Error finca: ' + JSON.stringify(fincaError));
+            if (fincaError) throw new Error('Error finca: ' + fincaError.message);
 
             setMsjExito('Información y parámetros actualizados exitosamente.');
         } catch (err: any) {

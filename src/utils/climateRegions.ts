@@ -20,8 +20,8 @@ export interface PerfilClimatico {
 const PERFILES_CLIMATICOS: { keywords: string[]; perfil: PerfilClimatico }[] = [
     {
         keywords: [
-            'costa', 'caribe', 'montería', 'monteria', 'córdoba', 'cordoba',
-            'sucre', 'sincelejo', 'valledupar', 'cesar', 'magdalena', 'santa marta',
+            'costa caribe', 'costa', 'caribe', 'montería', 'monteria', 'córdoba', 'cordoba',
+            'sucre', 'sincelejo', 'valledupar', 'cesar', 'santa marta',
             'barranquilla', 'guajira', 'atlántico', 'atlantico', 'bolivar', 'bolívar',
             'mompós', 'mompos', 'corozal', 'chinú', 'chinu', 'sahagún', 'sahagun',
         ],
@@ -127,8 +127,18 @@ const PERFIL_DEFAULT: PerfilClimatico = {
 export function detectarRegionClimatica(ubicacion: string | null | undefined): PerfilClimatico {
     if (!ubicacion) return PERFIL_DEFAULT;
 
+    // Match exacto con los valores del dropdown (prioridad absoluta)
+    const EXACT_MAP: Record<string, PerfilClimatico> = {};
+    for (const entrada of PERFILES_CLIMATICOS) {
+        EXACT_MAP[entrada.perfil.zona.toLowerCase()] = entrada.perfil;
+    }
+    const exactKey = ubicacion.trim().toLowerCase();
+    if (EXACT_MAP[exactKey]) return EXACT_MAP[exactKey];
+
+    // Fallback: búsqueda por keywords (compatibilidad con datos antiguos)
     const texto = ubicacion.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+    // Para evitar falsos positivos, excluimos 'magdalena' suelto si el texto contiene 'medio'
     let mejorCoincidencia: { perfil: PerfilClimatico; matches: number } | null = null;
 
     for (const entrada of PERFILES_CLIMATICOS) {
