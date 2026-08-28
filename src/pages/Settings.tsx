@@ -331,18 +331,25 @@ export default function Settings() {
             setModoGanancia(modoLocal);
 
             // 2. Guardar información de la finca
-            const { error: fincaError } = await supabase
-                .from('fincas')
-                .update({
-                    area_total: farmInfo.area_total ? parseFloat(farmInfo.area_total) : null,
-                    area_aprovechable: farmInfo.area_aprovechable ? parseFloat(farmInfo.area_aprovechable) : null,
-                    ubicacion: farmInfo.ubicacion || null,
-                    municipio: farmInfo.municipio || null,
-                    proposito: farmInfo.proposito || null
-                })
-                .eq('id', fincaId);
+            // Build payload dynamically to avoid sending empty string to enum column
+            const fincaPayload: Record<string, any> = {
+                area_total: farmInfo.area_total ? parseFloat(farmInfo.area_total) : null,
+                area_aprovechable: farmInfo.area_aprovechable ? parseFloat(farmInfo.area_aprovechable) : null,
+                ubicacion: farmInfo.ubicacion || null,
+                municipio: farmInfo.municipio || null,
+            };
+            if (farmInfo.proposito) {
+                fincaPayload.proposito = farmInfo.proposito;
+            }
 
-            if (fincaError) throw fincaError;
+            const { data: fincaUpdated, error: fincaError } = await supabase
+                .from('fincas')
+                .update(fincaPayload)
+                .eq('id', fincaId)
+                .select();
+
+            console.log('[Settings] finca update result:', { fincaUpdated, fincaError, fincaId });
+            if (fincaError) throw new Error('Error finca: ' + JSON.stringify(fincaError));
 
             setMsjExito('Información y parámetros actualizados exitosamente.');
         } catch (err: any) {
