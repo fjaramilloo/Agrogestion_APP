@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { CheckCircle2, ArrowRight, AlertTriangle, RotateCcw, X, MapPin, ArrowUpDown } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface AnimalMercado {
     id: string;
@@ -222,7 +223,7 @@ export default function Mercado() {
                 nombreResult = nombrePotrerada.trim();
 
                 // 3. Registrar un único movimiento de potrero para la nueva potrerada
-                const hoy = new Date().toISOString().split('T')[0];
+                const hoy = getLocalIsoDate();
                 await supabase.from('movimientos_potreros').insert({
                     id_finca: fincaId,
                     id_potrerada: targetPotreradaId,

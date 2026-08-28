@@ -5,6 +5,7 @@ import ModalUpsell from '../components/ModalUpsell';
 import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface OfflinePurchasePayload {
     id: string;
@@ -27,7 +28,7 @@ export default function Purchase() {
     const { fincaId, role, userFincas, licenciaInfo, refreshLicencia } = useAuth();
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [cantidad, setCantidad] = useState('1');
-    const [fechaIngreso, setFechaIngreso] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaIngreso, setFechaIngreso] = useState(getLocalIsoDate());
     const [animales, setAnimales] = useState<AnimalCompra[]>([]);
     const [propietarios, setPropietarios] = useState<{ id: string, nombre: string }[]>([]);
     const [proveedores, setProveedores] = useState<{ id: string, nombre: string }[]>([]);
@@ -675,7 +676,7 @@ export default function Purchase() {
                                         const animalsForReport = quickWeights.map((w, idx) => ({ numero_chapeta: `A${idx + 1}`, peso_ingreso: parseFloat(w) || 0 }));
                                         setQuickReportData({
                                             proveedor: quickProveedor,
-                                            fecha: new Date().toISOString().split('T')[0],
+                                            fecha: getLocalIsoDate(),
                                             animales: animalsForReport,
                                             pesoCompraTotal: parseFloat(quickKgComprados)
                                         });

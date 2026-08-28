@@ -6,6 +6,7 @@ import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquar
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
 // @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 const parseFechaCol = (fechaStr: string) => {
     if (!fechaStr) return null;
@@ -603,7 +604,7 @@ export default function Settings() {
                         
                         // Mapeo flexible de fechas
                         const rawFecha = row.fecha_ingreso || row['fecha_ingreso(Año-Mes-Día)'] || row.fecha_ingreso_ceba || row.fecha || row.Fecha;
-                        const fechaFinal = parseFechaCol(rawFecha) || new Date().toISOString().split('T')[0];
+                        const fechaFinal = parseFechaCol(rawFecha) || getLocalIsoDate();
                         const pesoIngreso = cleanNumber(row.peso_ingreso);
 
                         const sexoFinal = row.sexo?.toUpperCase() || 'M';
@@ -865,7 +866,7 @@ export default function Settings() {
 
                         const peso = cleanNumber(row.peso);
                         const rawFecha = row.fecha || row['fecha(Año-Mes-Día)'] || row['Fecha'];
-                        const fecha = parseFechaCol(rawFecha) || new Date().toISOString().split('T')[0];
+                        const fecha = parseFechaCol(rawFecha) || getLocalIsoDate();
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
 
                         if (isNaN(peso) || peso <= 0) {

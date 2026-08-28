@@ -5,6 +5,7 @@ import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, UploadCloud, Trendi
 import { guardarAforoOffline } from '../lib/offlineService';
 import { localDB } from '../lib/db';
 import { detectarRegionClimatica } from '../utils/climateRegions';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface Potrero {
     id: string;
@@ -76,7 +77,7 @@ export default function Aforos() {
     // Formulario Aforo
     const [muestras, setMuestras] = useState<string[]>(Array(8).fill('')); // Iniciar con 8 vacias
     const [viabilidad, setViabilidad] = useState('70');
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalIsoDate());
     const [historial, setHistorial] = useState<RegistroAforo[]>([]);
 
     const [loading, setLoading] = useState(false);

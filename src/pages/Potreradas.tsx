@@ -11,6 +11,7 @@ import autoTable from 'jspdf-autotable';
 import { Download, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface Potrerada {
     id: string;
@@ -123,7 +124,7 @@ export default function Potreradas() {
     const [weighingData, setWeighingData] = useState<{ [animalId: string]: string }>({});
     const [savingWeighings, setSavingWeighings] = useState(false);
     const [showWeighingForm, setShowWeighingForm] = useState(false);
-    const [weighingDate, setWeighingDate] = useState(new Date().toISOString().split('T')[0]);
+    const [weighingDate, setWeighingDate] = useState(getLocalIsoDate());
     
     // Pdf ref & loader
     const chartsRef = useRef<HTMLDivElement>(null);
@@ -135,7 +136,7 @@ export default function Potreradas() {
     const [targetPotreradaId, setTargetPotreradaId] = useState<string>('');
     const [movingAnimals, setMovingAnimals] = useState(false);
     const [searchMoveAnimals, setSearchMoveAnimals] = useState('');
-    const [moveDate, setMoveDate] = useState(new Date().toISOString().split('T')[0]);
+    const [moveDate, setMoveDate] = useState(getLocalIsoDate());
 
     const fetchPotreradasData = async () => {
         if (!fincaId) return;
@@ -433,7 +434,7 @@ export default function Potreradas() {
                     const updatePromises = animalsInPotrerada.map(a => {
                         const animalData: any = { etapa: newEtapa, ok_ceba: false };
                         if (newEtapa === 'ceba') {
-                            animalData.fecha_ingreso_ceba = new Date().toISOString().split('T')[0];
+                            animalData.fecha_ingreso_ceba = getLocalIsoDate();
                             animalData.peso_ingreso_ceba = a.pesoActual;
                         } else if (editingPotrerada.etapa === 'ceba') {
                             animalData.fecha_ingreso_ceba = null;
@@ -848,7 +849,7 @@ export default function Potreradas() {
         const initial: { [id: string]: string } = {};
         detailData.animales.forEach(a => { initial[a.id] = ''; });
         setWeighingData(initial);
-        setWeighingDate(new Date().toISOString().split('T')[0]);
+        setWeighingDate(getLocalIsoDate());
         setShowWeighingForm(true);
     };
 
@@ -1185,7 +1186,7 @@ export default function Potreradas() {
         setSelectedAnimalsToMove(new Set());
         setTargetPotreradaId('');
         setSearchMoveAnimals('');
-        setMoveDate(new Date().toISOString().split('T')[0]);
+        setMoveDate(getLocalIsoDate());
         setShowMoveModal(true);
     };
 

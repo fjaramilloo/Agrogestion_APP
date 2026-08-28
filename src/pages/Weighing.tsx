@@ -7,6 +7,7 @@ import { format, differenceInDays } from 'date-fns';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 import { localDB } from '../lib/db';
 import { guardarPesajeOffline } from '../lib/offlineService';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface AnimalPreview {
     id: string;
@@ -32,14 +33,14 @@ export default function Weighing() {
     const [chapeta, setChapeta] = useState('');
     const [animal, setAnimal] = useState<AnimalPreview | null>(null);
     const [nuevoPeso, setNuevoPeso] = useState('');
-    const [fechaPesaje, setFechaPesaje] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaPesaje, setFechaPesaje] = useState(getLocalIsoDate());
     const [castrarHoy, setCastrarHoy] = useState(false);
 
     // Estados para la creación
     const [animalNoEncontrado, setAnimalNoEncontrado] = useState(false);
     const [showCrearAnimal, setShowCrearAnimal] = useState(false);
     const [propietarioNuevo, setPropietarioNuevo] = useState('');
-    const [fechaIngresoNueva, setFechaIngresoNueva] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaIngresoNueva, setFechaIngresoNueva] = useState(getLocalIsoDate());
     const [pesoIngresoNuevo, setPesoIngresoNuevo] = useState('');
 
     // Lista de propietarios cargados desde la base de datos
@@ -87,7 +88,7 @@ export default function Weighing() {
 
     const fetchPesajesHoy = useCallback(async () => {
         if (!fincaId) return;
-        const hoy = new Date().toISOString().split('T')[0];
+        const hoy = getLocalIsoDate();
         const { data, error } = await supabase
             .from('registros_pesaje')
             .select('id, peso, fecha, animales!inner(numero_chapeta, nombre_propietario, id_finca, id_potrerada)')
@@ -141,7 +142,7 @@ export default function Weighing() {
         setShowCrearAnimal(false);
         setMarcadoCeba(false);
         setCastrarHoy(false);
-        setFechaPesaje(new Date().toISOString().split('T')[0]);
+        setFechaPesaje(getLocalIsoDate());
 
         const targetChapeta = chapeta.trim();
         let data: any = null;
@@ -357,7 +358,7 @@ export default function Weighing() {
                 setAnimal(null);
                 setChapeta('');
                 setNuevoPeso('');
-                setFechaPesaje(new Date().toISOString().split('T')[0]);
+                setFechaPesaje(getLocalIsoDate());
                 return;
             }
 
@@ -388,7 +389,7 @@ export default function Weighing() {
                     setAnimal(null);
                     setChapeta('');
                     setNuevoPeso('');
-                    setFechaPesaje(new Date().toISOString().split('T')[0]);
+                    setFechaPesaje(getLocalIsoDate());
                     return;
                 }
                 throw error;
@@ -425,7 +426,7 @@ export default function Weighing() {
             setAnimal(null);
             setChapeta('');
             setNuevoPeso('');
-            setFechaPesaje(new Date().toISOString().split('T')[0]);
+            setFechaPesaje(getLocalIsoDate());
             fetchPesajesHoy();
         } catch (err: any) {
             setMsjError(err.message || 'Error al guardar el pesaje');

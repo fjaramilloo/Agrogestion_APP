@@ -27,6 +27,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Sidebar.css';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -46,7 +47,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     useEffect(() => {
         if (!fincaId) return;
         const checkMercado = async () => {
-            const hoy = new Date().toISOString().split('T')[0];
+            const hoy = getLocalIsoDate();
             
             // 1. Verificar si hubo pesajes hoy en esta finca
             const { data: pesajesHoy } = await supabase

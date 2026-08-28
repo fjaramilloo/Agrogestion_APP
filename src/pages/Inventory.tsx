@@ -11,6 +11,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 import { localDB } from '../lib/db';
 import { sincronizarCacheFinca } from '../lib/offlineService';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface Pesaje {
     peso: number;
@@ -80,7 +81,7 @@ export default function Inventory() {
     // Estados para Muerte
     const [showMuerteModal, setShowMuerteModal] = useState(false);
     const [chapetaMuerte, setChapetaMuerte] = useState('');
-    const [fechaMuerte, setFechaMuerte] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaMuerte, setFechaMuerte] = useState(getLocalIsoDate());
     const [msjErrorMuerte, setMsjErrorMuerte] = useState('');
 
     // Modal Historial Animal
@@ -106,7 +107,7 @@ export default function Inventory() {
         sexo: 'M',
         etapa: 'levante',
         peso_ingreso: '',
-        fecha_ingreso: new Date().toISOString().split('T')[0],
+        fecha_ingreso: getLocalIsoDate(),
         id_potrerada: '',
         tipo_macho: 'Toro'
     });
@@ -407,7 +408,7 @@ export default function Inventory() {
                 sexo: 'M',
                 etapa: 'levante',
                 peso_ingreso: '',
-                fecha_ingreso: new Date().toISOString().split('T')[0],
+                fecha_ingreso: getLocalIsoDate(),
                 id_potrerada: '',
                 tipo_macho: 'Toro'
             });
@@ -1109,7 +1110,7 @@ export default function Inventory() {
                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                 <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--primary-light)' }}>Historial de Pesajes</h3>
                                 <button 
-                                    onClick={() => setNuevosPesajes([...nuevosPesajes, { fecha: new Date().toISOString().split('T')[0], peso: '', etapa: nuevoAnimal.etapa }])}
+                                    onClick={() => setNuevosPesajes([...nuevosPesajes, { fecha: getLocalIsoDate(), peso: '', etapa: nuevoAnimal.etapa }])}
                                     style={{ width: 'auto', padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)' }}
                                 >
                                     + Agregar Pesaje

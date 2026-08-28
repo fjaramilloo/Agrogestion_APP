@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { differenceInDays } from 'date-fns';
 import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface OfflineSalesPayload {
     id: string;
@@ -36,7 +37,7 @@ interface AnimalVenta {
 export default function Sales() {
     const { fincaId, role, userFincas, modoGanancia } = useAuth();
     const [cantidad, setCantidad] = useState('1');
-    const [fechaVenta, setFechaVenta] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaVenta, setFechaVenta] = useState(getLocalIsoDate());
     const [animales, setAnimales] = useState<AnimalVenta[]>([]);
     const [compradores, setCompradores] = useState<{ id: string, nombre: string }[]>([]);
     const [selectedComprador, setSelectedComprador] = useState('');

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
+import { getLocalIsoDate } from '../utils/dateUtils';
     Building2, UserPlus, ShieldCheck, MapPin, Users,
     ChevronDown, ChevronUp, BarChart3, Tractor,
     Eye, Wrench, Globe, Trash2, AlertTriangle,
@@ -75,7 +76,7 @@ export default function SuperAdmin() {
     // Precios de mercado state
     const [preciosRegistrados, setPreciosRegistrados] = useState<any[]>([]);
     const [loadingPrecios, setLoadingPrecios] = useState(false);
-    const [formFechaBoletin, setFormFechaBoletin] = useState(new Date().toISOString().split('T')[0]);
+    const [formFechaBoletin, setFormFechaBoletin] = useState(getLocalIsoDate());
     const [formRegion, setFormRegion] = useState('puerto_berrio');
     const [formFuente, setFormFuente] = useState('Sugaberrío');
     const [preciosCategorias, setPreciosCategorias] = useState<Record<string, string>>({

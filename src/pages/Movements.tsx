@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeftRight, Save, Search, ChevronDown, Check } from 'lucide-react';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 export default function Movements() {
     const { fincaId, role } = useAuth();
@@ -21,7 +22,7 @@ export default function Movements() {
     
     const [selectedTargetRotacionId, setSelectedTargetRotacionId] = useState('');
     const [selectedTargetPotreroId, setSelectedTargetPotreroId] = useState('');
-    const [fechaMovimiento, setFechaMovimiento] = useState(new Date().toISOString().split('T')[0]);
+    const [fechaMovimiento, setFechaMovimiento] = useState(getLocalIsoDate());
 
     const [rotacionMode, setRotacionMode] = useState<'misma' | 'cambiar' | null>(null);
     const [searchTerm, setSearchTerm] = useState('');

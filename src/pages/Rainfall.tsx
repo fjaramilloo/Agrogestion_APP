@@ -14,6 +14,7 @@ import {
     LineChart, Line, ReferenceLine, Legend
 } from 'recharts';
 import { detectarRegionClimatica, generarRecomendacion } from '../utils/climateRegions';
+import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface RegistroLluvia {
     id: string;
@@ -61,7 +62,7 @@ export default function Rainfall() {
     const [tabGrafica, setTabGrafica] = useState<string>(TAB_MENSUAL);
 
     // Formulario
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalIsoDate());
     const [lecturaAcumulada, setLecturaAcumulada] = useState('');
     const [notas, setNotas] = useState('');
     const [error, setError] = useState('');
