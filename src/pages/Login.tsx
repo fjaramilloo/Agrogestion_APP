@@ -95,6 +95,7 @@ export default function Login() {
                 email: email.trim(),
                 password,
                 options: {
+                    emailRedirectTo: `${window.location.origin}`,
                     data: {
                         nombre: nombre.trim(),
                         apellido: apellido.trim(),
@@ -109,7 +110,7 @@ export default function Login() {
             } else if (data.session) {
                 setMessage('¡Cuenta demo creada con éxito! Ingresando a tu panel...');
             } else if (data.user) {
-                setMessage('¡Cuenta demo creada con éxito! Si tu cuenta requiere confirmación, revisa tu correo electrónico para activarla.');
+                setMessage(`¡Cuenta demo creada con éxito! Hemos enviado un enlace de confirmación a ${email.trim()}. Por favor revisa tu bandeja de entrada o spam para activar tu cuenta.`);
                 setMode('login');
             }
         } catch (err: any) {
