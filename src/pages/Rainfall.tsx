@@ -129,6 +129,16 @@ export default function Rainfall() {
             .filter(r => parseISO(r.fecha + 'T12:00:00') >= hace30)
             .reduce((s, r) => s + r.milimetros, 0);
 
+        // Lluvia de hoy
+        const fechaHoyStr = format(hoy, 'yyyy-MM-dd');
+        const registroHoy = registros.find(r => r.fecha === fechaHoyStr);
+        const lluviaHoy = registroHoy ? registroHoy.milimetros : 0;
+
+        // Días sin lluvia (mes actual)
+        const diasConLluvia = mesActualReg.filter(r => r.milimetros > 0).length;
+        const diasTranscurridos = hoy.getDate();
+        const diasSecosMes = Math.max(0, diasTranscurridos - diasConLluvia);
+
         return {
             mmMesActual: parseFloat(mmMesActual.toFixed(1)),
             mmMesAnterior: parseFloat(mmMesAnterior.toFixed(1)),
@@ -137,6 +147,9 @@ export default function Rainfall() {
             diasSecos,
             mmAnual: parseFloat(mmAnual.toFixed(1)),
             mm30dias,
+            lluviaHoy: parseFloat(lluviaHoy.toFixed(1)),
+            diasSecosMes,
+            diasTranscurridos
         };
     }, [registros, perfil]);
 
@@ -377,8 +390,23 @@ export default function Rainfall() {
                 <>
                     {/* ── KPI CARDS ── */}
                     {kpis && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '28px' }}>
-                            {/* Mes Actual */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+                            {/* 1. Lluvia de Hoy */}
+                            <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #38bdf8, #0ea5e9)' }} />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div>
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Lluvia de Hoy</p>
+                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: '#38bdf8', margin: '6px 0 4px' }}>{kpis.lluviaHoy}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> mm</span></p>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                            {format(new Date(), "dd 'de' MMMM", { locale: es })}
+                                        </span>
+                                    </div>
+                                    <Droplets size={28} style={{ color: '#38bdf8', opacity: 0.5 }} />
+                                </div>
+                            </div>
+
+                            {/* 2. Lluvia Mes Actual */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
                                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #3b82f6, #60a5fa)' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -395,20 +423,33 @@ export default function Rainfall() {
                                 </div>
                             </div>
 
-                            {/* Días Lluvia Efectiva */}
+                            {/* 3. Acumulado Anual */}
+                            <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #a855f7, #c084fc)' }} />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div>
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Acumulado Anual</p>
+                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: '#c084fc', margin: '6px 0 4px' }}>{kpis.mmAnual.toLocaleString('es-CO')}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> mm</span></p>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ref. zona: ~{perfil.mmAnualReferencia.toLocaleString('es-CO')} mm/año</span>
+                                    </div>
+                                    <TrendingUp size={28} style={{ color: '#c084fc', opacity: 0.5 }} />
+                                </div>
+                            </div>
+
+                            {/* 4. Días Lluvia Efectiva */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
                                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #4caf50, #60ad5e)' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Días Lluvia Efectiva</p>
                                         <p style={{ fontSize: '2rem', fontWeight: 700, color: '#4caf50', margin: '6px 0 4px' }}>{kpis.diasEfectivos}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> días</span></p>
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>≥{perfil.umbralEfectivoMm} mm este mes</span>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>≥ {perfil.umbralEfectivoMm} mm este mes</span>
                                     </div>
-                                    <Droplets size={28} style={{ color: '#4caf50', opacity: 0.5 }} />
+                                    <CloudRain size={28} style={{ color: '#4caf50', opacity: 0.5 }} />
                                 </div>
                             </div>
 
-                            {/* Racha Seca */}
+                            {/* 5. Racha Seca */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
                                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: `linear-gradient(90deg, ${colorSemaforoSecos(kpis.diasSecos)}, ${colorSemaforoSecos(kpis.diasSecos)}88)` }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -425,16 +466,18 @@ export default function Rainfall() {
                                 </div>
                             </div>
 
-                            {/* Acumulado Anual */}
+                            {/* 6. Días sin Lluvia (Mes) */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #a855f7, #c084fc)' }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #f59e0b, #d97706)' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
-                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Acumulado Anual</p>
-                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: '#c084fc', margin: '6px 0 4px' }}>{kpis.mmAnual.toLocaleString('es-CO')}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> mm</span></p>
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ref. zona: ~{perfil.mmAnualReferencia.toLocaleString('es-CO')} mm/año</span>
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Días sin Lluvia (Mes)</p>
+                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: '#f59e0b', margin: '6px 0 4px' }}>{kpis.diasSecosMes}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> días</span></p>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                            De {kpis.diasTranscurridos} días transcurridos
+                                        </span>
                                     </div>
-                                    <TrendingUp size={28} style={{ color: '#c084fc', opacity: 0.5 }} />
+                                    <Calendar size={28} style={{ color: '#f59e0b', opacity: 0.5 }} />
                                 </div>
                             </div>
                         </div>
