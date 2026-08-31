@@ -135,9 +135,12 @@ export default function Rainfall() {
         const lluviaHoy = registroHoy ? registroHoy.milimetros : 0;
 
         // Días sin lluvia (mes actual)
-        const diasConLluvia = mesActualReg.filter(r => r.milimetros > 0).length;
+        const uniqueRainyDays = new Set(
+            mesActualReg.filter(r => r.milimetros > 0).map(r => r.fecha)
+        ).size;
         const diasTranscurridos = hoy.getDate();
-        const diasSecosMes = Math.max(0, diasTranscurridos - diasConLluvia);
+        const diasSecosMes = Math.max(0, diasTranscurridos - uniqueRainyDays);
+        const nombreMesActual = format(hoy, 'MMMM', { locale: es });
 
         return {
             mmMesActual: parseFloat(mmMesActual.toFixed(1)),
@@ -149,7 +152,8 @@ export default function Rainfall() {
             mm30dias,
             lluviaHoy: parseFloat(lluviaHoy.toFixed(1)),
             diasSecosMes,
-            diasTranscurridos
+            diasTranscurridos,
+            nombreMesActual
         };
     }, [registros, perfil]);
 
@@ -338,6 +342,24 @@ export default function Rainfall() {
     // ── Render ────────────────────────────────────────────────────────
     return (
         <div className="page-container">
+            <style>{`
+                .rainfall-kpi-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 16px;
+                    margin-bottom: 28px;
+                }
+                @media (max-width: 1024px) {
+                    .rainfall-kpi-grid {
+                        grid-template-columns: repeat(2, 1fr);
+                    }
+                }
+                @media (max-width: 640px) {
+                    .rainfall-kpi-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+            `}</style>
             {/* ── HEADER ── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
@@ -390,7 +412,7 @@ export default function Rainfall() {
                 <>
                     {/* ── KPI CARDS ── */}
                     {kpis && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+                        <div className="rainfall-kpi-grid">
                             {/* 1. Lluvia de Hoy */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
                                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #38bdf8, #0ea5e9)' }} />
@@ -474,7 +496,7 @@ export default function Rainfall() {
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Días sin Lluvia (Mes)</p>
                                         <p style={{ fontSize: '2rem', fontWeight: 700, color: '#f59e0b', margin: '6px 0 4px' }}>{kpis.diasSecosMes}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> días</span></p>
                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                            De {kpis.diasTranscurridos} días transcurridos
+                                            En lo que va de {kpis.nombreMesActual}
                                         </span>
                                     </div>
                                     <Calendar size={28} style={{ color: '#f59e0b', opacity: 0.5 }} />
