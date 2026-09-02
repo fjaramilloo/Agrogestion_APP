@@ -1,0 +1,485 @@
+import React, { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { Layers, Navigation, RefreshCw, Upload, Users, ArrowRightLeft } from 'lucide-react';
+import { findCurrentPaddockByGps } from '../utils/geoUtils';
+
+interface PotreroMapData {
+  id: string;
+  nombre: string;
+  area_hectareas: number;
+  geojson_geometry?: any;
+  color_mapa?: string;
+  potrerada_actual?: {
+    id: string;
+    nombre: string;
+    total_animales: number;
+  } | null;
+}
+
+interface InteractiveFarmMapProps {
+  fincaNombre?: string;
+  potreros: PotreroMapData[];
+  userRole: 'administrador' | 'vaquero' | 'observador';
+  centerLat?: number;
+  centerLng?: number;
+  zoom?: number;
+  onOpenUploader?: () => void;
+  onMoveCattleToPotrero?: (potreroId: string, potreroNombre: string) => void;
+}
+
+export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
+  potreros,
+  userRole,
+  centerLat = 4.5709,
+  centerLng = -74.2973,
+  zoom = 15,
+  onOpenUploader,
+  onMoveCattleToPotrero,
+}) => {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const userMarkerRef = useRef<L.Marker | null>(null);
+  const userAccuracyCircleRef = useRef<L.Circle | null>(null);
+
+  const [mapType, setMapType] = useState<'satellite' | 'street'>('satellite');
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [currentPaddock, setCurrentPaddock] = useState<{ id: string; nombre: string } | null>(null);
+  const [selectedPotrero, setSelectedPotrero] = useState<PotreroMapData | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+
+  // Inicialización del Mapa de Leaflet
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: [centerLat, centerLng],
+        zoom: zoom,
+        zoomControl: false,
+      });
+
+      // Añadir control de zoom abajo a la derecha
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      mapInstanceRef.current = map;
+    }
+
+    const map = mapInstanceRef.current;
+
+    // Remover capas antiguas
+    map.eachLayer((layer: L.Layer) => {
+      if (layer instanceof L.TileLayer) {
+        map.removeLayer(layer);
+      }
+    });
+
+    // Agregar Capa Satelital (Esri World Imagery) o Capa de Terreno (OSM)
+    if (mapType === 'satellite') {
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+          maxZoom: 19,
+        }
+      ).addTo(map);
+    } else {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(map);
+    }
+
+    return () => {
+      // no destruir mapa para renderizado suave
+    };
+  }, [mapType, centerLat, centerLng, zoom]);
+
+  // Dibujar Polígonos de Potreros y Etiquetas Flotantes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Limpiar polígonos y marcadores anteriores (excepto capa base)
+    map.eachLayer((layer: L.Layer) => {
+      if (layer instanceof L.GeoJSON || layer instanceof L.Polygon || (layer instanceof L.Marker && layer !== userMarkerRef.current)) {
+        map.removeLayer(layer);
+      }
+    });
+
+    const bounds = L.latLngBounds([]);
+
+    potreros.forEach((p) => {
+      if (!p.geojson_geometry) return;
+
+      const hasCattle = !!p.potrerada_actual;
+      const polyColor = hasCattle ? '#3B82F6' : '#10B981'; // Azul si tiene animales, verde si libre
+
+      const geoJsonLayer = L.geoJSON(p.geojson_geometry, {
+        style: {
+          color: polyColor,
+          weight: 2,
+          opacity: 0.9,
+          fillColor: polyColor,
+          fillOpacity: 0.25,
+        },
+        onEachFeature: (_feature: any, layer: L.Layer) => {
+          layer.on('click', () => {
+            setSelectedPotrero(p);
+          });
+        },
+      }).addTo(map);
+
+      // Calcular centroide del polígono para poner el Badge
+      try {
+        const polyBounds = geoJsonLayer.getBounds();
+        if (polyBounds.isValid()) {
+          bounds.extend(polyBounds);
+          const center = polyBounds.getCenter();
+
+          // Crear Badge HTML flotante sobre el potrero
+          const badgeHtml = `
+            <div style="
+              background-color: rgba(15, 23, 42, 0.88);
+              backdrop-filter: blur(4px);
+              border: 1px solid ${polyColor};
+              border-radius: 8px;
+              padding: 4px 8px;
+              color: white;
+              font-family: sans-serif;
+              font-size: 11px;
+              font-weight: 600;
+              text-align: center;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+              white-space: nowrap;
+              pointer-events: auto;
+              cursor: pointer;
+            ">
+              <div style="color: #F8FAFC; font-weight: 700;">${p.nombre}</div>
+              <div style="font-size: 9.5px; color: #94A3B8;">${p.area_hectareas} Ha</div>
+              ${
+                hasCattle
+                  ? `<div style="margin-top: 2px; font-size: 9px; background: #3B82F6; color: white; padding: 2px 4px; border-radius: 4px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales})</div>`
+                  : ''
+              }
+            </div>
+          `;
+
+          const customIcon = L.divIcon({
+            html: badgeHtml,
+            className: '',
+            iconSize: [100, 40],
+            iconAnchor: [50, 20],
+          });
+
+          const badgeMarker = L.marker(center, { icon: customIcon }).addTo(map);
+          badgeMarker.on('click', () => setSelectedPotrero(p));
+        }
+      } catch (e) {
+        console.warn('Error calculando centro de polígono potrero:', e);
+      }
+    });
+
+    // Ajustar vista del mapa si hay potreros
+    if (bounds.isValid() && potreros.some((p) => p.geojson_geometry)) {
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  }, [potreros]);
+
+  // Manejar Geolocalización GPS del Usuario en Tiempo Real
+  const handleTrackGps = () => {
+    if (!navigator.geolocation) {
+      alert('Tu navegador o dispositivo no soporta geolocalización GPS.');
+      return;
+    }
+
+    setGpsLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        const coords: [number, number] = [latitude, longitude];
+
+        setUserLocation({ lat: latitude, lng: longitude, accuracy });
+        setGpsLoading(false);
+
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        // Centrar suavemente en la posición
+        map.flyTo(coords, 17, { animate: true, duration: 1.5 });
+
+        // Crear o actualizar Marcador de Punto Azul Pulsante
+        if (!userMarkerRef.current) {
+          const userIcon = L.divIcon({
+            html: `
+              <div style="position: relative; width: 22px; height: 22px;">
+                <div style="
+                  position: absolute;
+                  width: 22px;
+                  height: 22px;
+                  background-color: #3B82F6;
+                  border-radius: 50%;
+                  opacity: 0.4;
+                  animation: pulse 2s infinite;
+                "></div>
+                <div style="
+                  position: absolute;
+                  top: 3px;
+                  left: 3px;
+                  width: 16px;
+                  height: 16px;
+                  background-color: #2563EB;
+                  border: 2px solid #FFFFFF;
+                  border-radius: 50%;
+                  box-shadow: 0 0 8px rgba(37, 99, 235, 0.8);
+                "></div>
+              </div>
+            `,
+            className: '',
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          });
+
+          userMarkerRef.current = L.marker(coords, { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
+        } else {
+          userMarkerRef.current.setLatLng(coords);
+        }
+
+        // Círculo de Precisión
+        if (userAccuracyCircleRef.current) {
+          map.removeLayer(userAccuracyCircleRef.current);
+        }
+
+        userAccuracyCircleRef.current = L.circle(coords, {
+          radius: accuracy,
+          color: '#3B82F6',
+          fillColor: '#3B82F6',
+          fillOpacity: 0.15,
+          weight: 1,
+        }).addTo(map);
+
+        // Detectar potrero actual por GPS
+        const found = findCurrentPaddockByGps(latitude, longitude, potreros);
+        setCurrentPaddock(found);
+      },
+      (err) => {
+        setGpsLoading(false);
+        alert('No se pudo obtener tu ubicación GPS: ' + err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
+      {/* Contenedor del Mapa Leaflet */}
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1 }} />
+
+      {/* Banner de Estado GPS / Ubicación Actual */}
+      {currentPaddock && (
+        <div style={{
+          position: 'absolute',
+          top: '16px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(15, 23, 42, 0.92)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid #3B82F6',
+          borderRadius: '30px',
+          padding: '8px 20px',
+          color: '#F8FAFC',
+          fontSize: '0.85rem',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          zIndex: 1000,
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+        }}>
+          <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3B82F6' }} />
+          📍 Te encuentras en: <span style={{ color: '#60A5FA' }}>{currentPaddock.nombre}</span>
+        </div>
+      )}
+
+      {/* Botones Flotantes de Control Superior */}
+      <div style={{
+        position: 'absolute',
+        top: '16px',
+        right: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        zIndex: 1000,
+      }}>
+        {/* Cambiar Capa Satélite/Calle */}
+        <button
+          onClick={() => setMapType(mapType === 'satellite' ? 'street' : 'satellite')}
+          title="Cambiar tipo de mapa"
+          style={{
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            border: '1px solid #334155',
+            color: '#F8FAFC',
+            padding: '10px 14px',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            backdropFilter: 'blur(6px)',
+          }}
+        >
+          <Layers size={18} color="#3B82F6" />
+          {mapType === 'satellite' ? 'Satélite' : 'Mapa Terreno'}
+        </button>
+
+        {/* Botón Cargar Plano KMZ (Para Administradores) */}
+        {userRole === 'administrador' && onOpenUploader && (
+          <button
+            onClick={onOpenUploader}
+            style={{
+              backgroundColor: '#10B981',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '10px 16px',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
+            }}
+          >
+            <Upload size={18} /> Cargar Plano KMZ
+          </button>
+        )}
+      </div>
+
+      {/* Botón Flotante "Centrar en mi GPS" */}
+      <button
+        onClick={handleTrackGps}
+        disabled={gpsLoading}
+        style={{
+          position: 'absolute',
+          bottom: '24px',
+          left: '24px',
+          backgroundColor: '#3B82F6',
+          color: '#FFFFFF',
+          border: 'none',
+          padding: '12px 20px',
+          borderRadius: '30px',
+          cursor: gpsLoading ? 'wait' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '0.9rem',
+          fontWeight: 600,
+          boxShadow: '0 4px 20px rgba(59, 130, 246, 0.5)',
+          zIndex: 1000,
+        }}
+      >
+        {gpsLoading ? <RefreshCw className="animate-spin" size={18} /> : <Navigation size={18} />}
+        {userLocation ? 'Mi Ubicación GPS' : 'Localizarme en el mapa'}
+      </button>
+
+      {/* Drawer / Modal de Detalle de Potrero Seleccionado */}
+      {selectedPotrero && (
+        <div style={{
+          position: 'absolute',
+          bottom: '16px',
+          right: '16px',
+          width: '320px',
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid #334155',
+          borderRadius: '16px',
+          padding: '20px',
+          color: '#F8FAFC',
+          zIndex: 1000,
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+            <div>
+              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 600 }}>Potrero</span>
+              <h3 style={{ margin: '2px 0 0 0', fontSize: '1.2rem', fontWeight: 700 }}>{selectedPotrero.nombre}</h3>
+            </div>
+            <button
+              onClick={() => setSelectedPotrero(null)}
+              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ backgroundColor: '#1E293B', padding: '10px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Área</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#10B981' }}>{selectedPotrero.area_hectareas} Ha</div>
+            </div>
+            <div style={{ backgroundColor: '#1E293B', padding: '10px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Estado</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: selectedPotrero.potrerada_actual ? '#60A5FA' : '#34D399' }}>
+                {selectedPotrero.potrerada_actual ? 'Ocupado' : 'Libre'}
+              </div>
+            </div>
+          </div>
+
+          {selectedPotrero.potrerada_actual ? (
+            <div style={{
+              backgroundColor: '#1E293B80',
+              border: '1px solid #3B82F640',
+              borderRadius: '12px',
+              padding: '12px',
+              marginBottom: '16px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <Users size={16} color="#3B82F6" />
+                <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#F1F5F9' }}>
+                  {selectedPotrero.potrerada_actual.nombre}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#94A3B8' }}>
+                Ganado asignado: <strong style={{ color: '#F8FAFC' }}>{selectedPotrero.potrerada_actual.total_animales} cabezas</strong>
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.85rem', color: '#94A3B8', marginBottom: '16px', fontStyle: 'italic' }}>
+              Sin lote de ganado asignado actualmente en este potrero.
+            </div>
+          )}
+
+          {/* Acciones del Potrero */}
+          {userRole !== 'observador' && onMoveCattleToPotrero && (
+            <button
+              onClick={() => {
+                onMoveCattleToPotrero(selectedPotrero.id, selectedPotrero.nombre);
+                setSelectedPotrero(null);
+              }}
+              style={{
+                width: '100%',
+                backgroundColor: '#3B82F6',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '10px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+              }}
+            >
+              <ArrowRightLeft size={16} /> Mover Ganado a este Potrero
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};

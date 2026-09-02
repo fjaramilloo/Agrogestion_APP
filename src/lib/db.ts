@@ -25,6 +25,18 @@ export interface PotreroCacheItem {
   nombre: string;
   area_ha?: number;
   capacidad_maxima?: number;
+  geojson_geometry?: any;
+  color_mapa?: string;
+  kml_name?: string;
+}
+
+export interface MapaFincaCacheItem {
+  id_finca: string;
+  nombre_archivo: string;
+  centro_latitud?: number;
+  centro_longitud?: number;
+  zoom_inicial?: number;
+  actualizado_en: string;
 }
 
 export interface PotreradaCacheItem {
@@ -68,6 +80,7 @@ export class AgrogestionDB extends Dexie {
   potreradasCache!: Table<PotreradaCacheItem, string>;
   pesajesOfflineQueue!: Table<PesajeOfflineQueueItem, string>;
   aforosOfflineQueue!: Table<AforoOfflineQueueItem, string>;
+  mapasFincaCache!: Table<MapaFincaCacheItem, string>;
 
   constructor() {
     super('AgrogestionLocalDB');
@@ -79,6 +92,16 @@ export class AgrogestionDB extends Dexie {
       potreradasCache: 'id, id_finca, nombre',
       pesajesOfflineQueue: 'id, id_finca, id_animal, status_sync, fecha',
       aforosOfflineQueue: 'id, id_finca, id_potrero, status_sync, fecha'
+    });
+
+    // Esquema v2 con mapas
+    this.version(2).stores({
+      animalesCache: 'id, id_finca, numero_chapeta, etapa',
+      potrerosCache: 'id, id_finca, nombre',
+      potreradasCache: 'id, id_finca, nombre',
+      pesajesOfflineQueue: 'id, id_finca, id_animal, status_sync, fecha',
+      aforosOfflineQueue: 'id, id_finca, id_potrero, status_sync, fecha',
+      mapasFincaCache: 'id_finca'
     });
   }
 }

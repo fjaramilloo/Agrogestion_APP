@@ -23,6 +23,7 @@ import Aforos from './pages/Aforos';
 import VersionNotifier from './components/VersionNotifier';
 import UpdatePassword from './pages/UpdatePassword';
 import Suscripcion from './pages/Suscripcion';
+import { FarmMapPage } from './pages/FarmMap';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, role, loading } = useAuth();
@@ -120,6 +121,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['administrador']}>
             <MercadoGanado />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/mapa-finca"
+        element={
+          <ProtectedRoute allowedRoles={['administrador', 'vaquero', 'observador']}>
+            <FarmMapPage />
           </ProtectedRoute>
         }
       />
