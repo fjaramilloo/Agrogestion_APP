@@ -236,6 +236,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                             
                             {showTrabajoCampo && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <NavLink to="/mapa-finca" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                        <span className="sidebar-icon"><MapPin size={20} /></span>
+                                        <span className="sidebar-label">Plano de Finca</span>
+                                    </NavLink>
                                     <NavLink to="/lluvias" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                         <span className="sidebar-icon"><CloudRain size={20} /></span>
                                         <span className="sidebar-label">Pluviometría</span>
@@ -243,10 +247,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     <NavLink to="/aforos" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                         <span className="sidebar-icon"><Leaf size={20} /></span>
                                         <span className="sidebar-label">Aforos y Forraje</span>
-                                    </NavLink>
-                                    <NavLink to="/mapa-finca" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                        <span className="sidebar-icon"><MapPin size={20} /></span>
-                                        <span className="sidebar-label">Plano de Finca</span>
                                     </NavLink>
                                     <NavLink to="/movimientos" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                         <span className="sidebar-icon"><ArrowLeftRight size={20} /></span>
