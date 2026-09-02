@@ -68,31 +68,123 @@ export const FarmMapPage: React.FC = () => {
       // 3. Cargar movimientos activos de potreradas para saber qué ganado está en qué potrero
       const { data: movsData } = await supabase
         .from('movimientos_potreros')
-        .select('id_potrero, id_potrerada, potreradas(nombre)')
+        .select('id_potrero, id_potrerada, fecha_entrada, potreradas(nombre)')
         .eq('id_finca', fincaId)
         .is('fecha_salida', null);
 
-      // Cargar conteo de animales por potrerada
+      // Cargar animales con sus pesajes para calcular peso promedio y peso estimado
       const { data: animalesData } = await supabase
         .from('animales')
-        .select('id_potrerada')
+        .select(`
+          id,
+          id_potrerada,
+          peso_ingreso,
+          peso_compra,
+          fecha_ingreso,
+          registros_pesaje (
+            peso,
+            fecha,
+            gdp_calculada,
+            gmp_calculada
+          )
+        `)
         .eq('id_finca', fincaId)
         .eq('estado', 'activo');
 
-      const countMap = new Map<string, number>();
-      animalesData?.forEach((a) => {
+      const calculateDaysDiff = (dateStr: string) => {
+        if (!dateStr) return 0;
+        const target = new Date(dateStr.split('T')[0] + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diffTime = today.getTime() - target.getTime();
+        return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+      };
+
+      // Agrupar métricas por potrerada
+      const potreradaMetricsMap = new Map<string, {
+        total_animales: number;
+        peso_promedio: number;
+        peso_promedio_estimado: number;
+      }>();
+
+      const animalesPorPotrerada = new Map<string, any[]>();
+      (animalesData || []).forEach((a: any) => {
         if (a.id_potrerada) {
-          countMap.set(a.id_potrerada, (countMap.get(a.id_potrerada) || 0) + 1);
+          if (!animalesPorPotrerada.has(a.id_potrerada)) {
+            animalesPorPotrerada.set(a.id_potrerada, []);
+          }
+          animalesPorPotrerada.get(a.id_potrerada)!.push(a);
         }
       });
 
-      const potreroAssignmentMap = new Map<string, { id: string; nombre: string; total_animales: number }>();
-      movsData?.forEach((m: any) => {
+      animalesPorPotrerada.forEach((animales, potreradaId) => {
+        let sumPeso = 0;
+        let sumPesoEstimado = 0;
+        let validCount = 0;
+
+        animales.forEach((a: any) => {
+          const registros = (a.registros_pesaje || []).sort(
+            (x: any, y: any) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+          );
+
+          const lastP = registros[0];
+          const pesoBase = Number(a.peso_compra ?? a.peso_ingreso ?? 0);
+          const pesoActual = lastP ? Number(lastP.peso) : pesoBase;
+
+          sumPeso += pesoActual;
+          validCount++;
+
+          // Estimación de peso
+          if (lastP) {
+            const gmp = lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined 
+              ? Number(lastP.gmp_calculada) 
+              : (lastP.gdp_calculada ? Number(lastP.gdp_calculada) * 30 : 10.3);
+            const diasDesdePesaje = calculateDaysDiff(lastP.fecha);
+            const pesoEst = pesoActual + (diasDesdePesaje * (gmp / 30));
+            sumPesoEstimado += pesoEst;
+          } else if (a.fecha_ingreso) {
+            const diasDesdeIngreso = calculateDaysDiff(a.fecha_ingreso);
+            const pesoEst = pesoBase + (diasDesdeIngreso * (10.3 / 30));
+            sumPesoEstimado += pesoEst;
+          } else {
+            sumPesoEstimado += pesoActual;
+          }
+        });
+
+        potreradaMetricsMap.set(potreradaId, {
+          total_animales: validCount,
+          peso_promedio: validCount > 0 ? Math.round(sumPeso / validCount) : 0,
+          peso_promedio_estimado: validCount > 0 ? Math.round(sumPesoEstimado / validCount) : 0,
+        });
+      });
+
+      const potreroAssignmentMap = new Map<string, {
+        id: string;
+        nombre: string;
+        total_animales: number;
+        peso_promedio: number;
+        peso_promedio_estimado: number;
+        dias_en_potrero: number;
+        fecha_entrada?: string;
+      }>();
+
+      (movsData || []).forEach((m: any) => {
         if (m.id_potrero && m.id_potrerada) {
+          const metrics = potreradaMetricsMap.get(m.id_potrerada) || {
+            total_animales: 0,
+            peso_promedio: 0,
+            peso_promedio_estimado: 0,
+          };
+          const diasOcupacion = m.fecha_entrada ? calculateDaysDiff(m.fecha_entrada) : 0;
+
           potreroAssignmentMap.set(m.id_potrero, {
             id: m.id_potrerada,
             nombre: m.potreradas?.nombre || 'Lote Ganado',
-            total_animales: countMap.get(m.id_potrerada) || 0,
+            total_animales: metrics.total_animales,
+            peso_promedio: metrics.peso_promedio,
+            peso_promedio_estimado: metrics.peso_promedio_estimado,
+            dias_en_potrero: diasOcupacion,
+            fecha_entrada: m.fecha_entrada,
           });
         }
       });
