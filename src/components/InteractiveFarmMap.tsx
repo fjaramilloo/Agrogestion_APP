@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Layers, Navigation, RefreshCw, Upload, Users, ArrowRightLeft } from 'lucide-react';
+import { Layers, Navigation, RefreshCw, Upload, Users, ArrowRightLeft, Lock } from 'lucide-react';
 import { findCurrentPaddockByGps } from '../utils/geoUtils';
 
 interface PotreroMapData {
@@ -25,6 +25,7 @@ interface InteractiveFarmMapProps {
   fincaNombre?: string;
   potreros: PotreroMapData[];
   userRole: 'administrador' | 'vaquero' | 'observador';
+  tipoLicencia?: 'demo' | 'finca' | 'premium';
   centerLat?: number;
   centerLng?: number;
   zoom?: number;
@@ -35,6 +36,7 @@ interface InteractiveFarmMapProps {
 export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   potreros,
   userRole,
+  tipoLicencia = 'premium',
   centerLat = 4.5709,
   centerLng = -74.2973,
   zoom = 15,
@@ -112,12 +114,13 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     });
 
     const bounds = L.latLngBounds([]);
+    const isDemo = tipoLicencia === 'demo';
 
     potreros.forEach((p) => {
       if (!p.geojson_geometry) return;
 
-      const hasCattle = !!p.potrerada_actual;
-      const polyColor = hasCattle ? '#3B82F6' : '#10B981'; // Azul si tiene animales, verde si libre
+      const hasCattle = !isDemo && !!p.potrerada_actual;
+      const polyColor = isDemo ? '#10B981' : hasCattle ? '#3B82F6' : '#10B981'; // Azul si tiene animales, verde si libre o demo
 
       const geoJsonLayer = L.geoJSON(p.geojson_geometry, {
         style: {
@@ -188,10 +191,15 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     if (bounds.isValid() && potreros.some((p) => p.geojson_geometry)) {
       map.fitBounds(bounds, { padding: [40, 40] });
     }
-  }, [potreros]);
+  }, [potreros, tipoLicencia]);
 
-  // Manejar Geolocalización GPS del Usuario en Tiempo Real
+  // Manejar Geolocalización GPS del Usuario en Tiempo Real (Exclusivo Plan Premium)
   const handleTrackGps = () => {
+    if (tipoLicencia !== 'premium') {
+      alert('🔒 La geolocalización GPS en tiempo real sobre el plano está disponible exclusivamente en el Plan Premium.\n\nActualiza tu suscripción para ubicarte dentro de tus potreros en campo.');
+      return;
+    }
+
     if (!navigator.geolocation) {
       alert('Tu navegador o dispositivo no soporta geolocalización GPS.');
       return;
@@ -285,8 +293,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
       {/* Contenedor del Mapa Leaflet */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1 }} />
 
-      {/* Banner de Estado GPS / Ubicación Actual */}
-      {currentPaddock && (
+      {/* Banner de Estado GPS / Ubicación Actual (Solo Premium) */}
+      {tipoLicencia === 'premium' && currentPaddock && (
         <div style={{
           position: 'absolute',
           top: '16px',
@@ -387,9 +395,9 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           position: 'absolute',
           bottom: '24px',
           left: '24px',
-          backgroundColor: '#3B82F6',
-          color: '#FFFFFF',
-          border: 'none',
+          backgroundColor: tipoLicencia === 'premium' ? '#3B82F6' : '#1E293B',
+          border: tipoLicencia === 'premium' ? 'none' : '1px solid #475569',
+          color: tipoLicencia === 'premium' ? '#FFFFFF' : '#94A3B8',
           padding: '12px 20px',
           borderRadius: '30px',
           cursor: gpsLoading ? 'wait' : 'pointer',
@@ -398,12 +406,26 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           gap: '8px',
           fontSize: '0.9rem',
           fontWeight: 600,
-          boxShadow: '0 4px 20px rgba(59, 130, 246, 0.5)',
+          boxShadow: tipoLicencia === 'premium' ? '0 4px 20px rgba(59, 130, 246, 0.5)' : '0 4px 12px rgba(0, 0, 0, 0.4)',
           zIndex: 1000,
         }}
       >
-        {gpsLoading ? <RefreshCw className="animate-spin" size={18} /> : <Navigation size={18} />}
-        {userLocation ? 'Mi Ubicación GPS' : 'Localizarme en el mapa'}
+        {tipoLicencia !== 'premium' ? (
+          <>
+            <Lock size={16} color="#F59E0B" />
+            <span>GPS en vivo (Plan Premium)</span>
+          </>
+        ) : gpsLoading ? (
+          <>
+            <RefreshCw className="animate-spin" size={18} />
+            <span>Detectando GPS...</span>
+          </>
+        ) : (
+          <>
+            <Navigation size={18} />
+            <span>{userLocation ? 'Mi Ubicación GPS' : 'Localizarme en el mapa'}</span>
+          </>
+        )}
       </button>
 
       {/* Drawer / Modal de Detalle de Potrero Seleccionado */}
@@ -442,13 +464,63 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             </div>
             <div style={{ backgroundColor: '#1E293B', padding: '10px', borderRadius: '10px' }}>
               <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Estado</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: selectedPotrero.potrerada_actual ? '#60A5FA' : '#34D399' }}>
-                {selectedPotrero.potrerada_actual ? 'Ocupado' : 'Libre'}
+              <div style={{
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                color: tipoLicencia === 'demo' ? '#94A3B8' : selectedPotrero.potrerada_actual ? '#60A5FA' : '#34D399',
+              }}>
+                {tipoLicencia === 'demo' ? 'Vista Previa' : selectedPotrero.potrerada_actual ? 'Ocupado' : 'Libre'}
               </div>
             </div>
           </div>
 
-          {selectedPotrero.potrerada_actual ? (
+          {/* Si es Plan Demo: Mostrar tarjeta bloqueada invitando a Plan Finca */}
+          {tipoLicencia === 'demo' ? (
+            <div style={{
+              backgroundColor: '#1E293B80',
+              border: '1px solid #3B82F640',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '16px',
+              textAlign: 'center',
+            }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                backgroundColor: '#3B82F620',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 8px auto',
+                color: '#60A5FA',
+              }}>
+                <Lock size={18} />
+              </div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#F1F5F9', marginBottom: '4px' }}>
+                Integración de Lotes y Pesos
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8', lineHeight: 1.4, marginBottom: '12px' }}>
+                Actualiza al <strong>Plan Finca</strong> o <strong>Premium</strong> para vincular tus animales, ver pesos y mover ganado sobre el mapa.
+              </div>
+              <button
+                onClick={() => (window.location.href = '/suscripcion')}
+                style={{
+                  backgroundColor: '#3B82F6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  width: '100%',
+                }}
+              >
+                Ver Planes de Suscripción →
+              </button>
+            </div>
+          ) : selectedPotrero.potrerada_actual ? (
             <div style={{
               backgroundColor: '#1E293B90',
               border: '1px solid #3B82F640',
@@ -500,8 +572,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             </div>
           )}
 
-          {/* Acciones del Potrero */}
-          {userRole !== 'observador' && onMoveCattleToPotrero && (
+          {/* Acciones del Potrero (Solo para Finca y Premium) */}
+          {tipoLicencia !== 'demo' && userRole !== 'observador' && onMoveCattleToPotrero && (
             <button
               onClick={() => {
                 onMoveCattleToPotrero(selectedPotrero.id, selectedPotrero.nombre);

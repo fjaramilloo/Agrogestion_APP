@@ -52,6 +52,7 @@ export default function Suscripcion() {
             caracteristicas: [
                 'Hasta 40 animales activos',
                 '1 finca autorizada',
+                'Carga de plano KMZ/KML (Vista previa de potreros y áreas)',
                 'Precios de mercado (Nivel Nacional)',
                 'Pesaje y control de pastoreo',
                 'Reportes zootécnicos básicos'
@@ -71,6 +72,8 @@ export default function Suscripcion() {
             caracteristicas: [
                 'Acceso a AgroBot (IA Mentora)',
                 'Hasta 500 animales activos',
+                'Plano interactivo de finca con Lotes, Pesos promedio y Días de ocupación',
+                'Traslado rápido de ganado entre potreros desde el mapa',
                 'Precios de mercado regionales (Subastas en tiempo real)',
                 'Historial y tendencias de precios ganaderos',
                 '1 vaquero + 1 observador/visualizador',
@@ -90,6 +93,9 @@ export default function Suscripcion() {
             bg: 'rgba(192, 132, 252, 0.08)',
             caracteristicas: [
                 'Animales activos ilimitados',
+                'Geolocalización GPS en campo en tiempo real sobre el plano de la finca',
+                'Detección automática de potrero actual con métricas zootécnicas en vivo',
+                'Plano satelital y multi-finca interactivo completo',
                 'Valoración Patrimonial del Inventario Vivo en tiempo real',
                 'Precios de mercado regionales e históricos',
                 'Múltiples fincas y rotaciones',
@@ -188,7 +194,7 @@ export default function Suscripcion() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '40px' }}>
                 {planes.map(plan => {
                     const esPlanActual = licencia === plan.id;
-                    
+
                     const planRanks: Record<string, number> = { demo: 0, finca: 1, premium: 2 };
                     const currentRank = planRanks[licencia] ?? 0;
                     const cardRank = planRanks[plan.id] ?? 0;
@@ -262,16 +268,16 @@ export default function Suscripcion() {
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                                     padding: '12px', borderRadius: '10px', textDecoration: 'none', fontWeight: 700,
                                     fontSize: '0.9rem', transition: 'all 0.2s',
-                                    background: esPlanActual 
-                                        ? 'rgba(255,255,255,0.08)' 
-                                        : actionType === 'mejora' 
-                                            ? `linear-gradient(135deg, ${plan.color}, #7c3aed)` 
+                                    background: esPlanActual
+                                        ? 'rgba(255,255,255,0.08)'
+                                        : actionType === 'mejora'
+                                            ? `linear-gradient(135deg, ${plan.color}, #7c3aed)`
                                             : 'rgba(255,255,255,0.04)',
                                     color: actionType === 'disminucion' ? 'var(--text-muted)' : 'white',
-                                    border: esPlanActual 
-                                        ? '1px solid rgba(255,255,255,0.2)' 
-                                        : actionType === 'disminucion' 
-                                            ? '1px solid rgba(255,255,255,0.1)' 
+                                    border: esPlanActual
+                                        ? '1px solid rgba(255,255,255,0.2)'
+                                        : actionType === 'disminucion'
+                                            ? '1px solid rgba(255,255,255,0.1)'
                                             : 'none'
                                 }}
                             >

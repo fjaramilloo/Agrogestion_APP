@@ -5,7 +5,7 @@ import { InteractiveFarmMap } from '../components/InteractiveFarmMap';
 import { MultiFarmMap, type FarmSummaryData } from '../components/MultiFarmMap';
 import { KmzUploaderModal } from '../components/KmzUploaderModal';
 import { localDB } from '../lib/db';
-import { MapPin, Upload, Lock, RefreshCw, Trash2 } from 'lucide-react';
+import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles } from 'lucide-react';
 
 export const FarmMapPage: React.FC = () => {
   const { fincaId, userFincas, role, licenciaInfo, setFincaId } = useAuth();
@@ -496,6 +496,46 @@ export const FarmMapPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Banner Informativo para Plan Demo */}
+      {licenciaInfo?.licencia === 'demo' && (
+        <div style={{
+          backgroundColor: 'rgba(59, 130, 246, 0.12)',
+          border: '1px solid rgba(59, 130, 246, 0.35)',
+          borderRadius: '12px',
+          padding: '12px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          color: '#93C5FD',
+          fontSize: '0.85rem',
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Sparkles size={18} color="#60A5FA" style={{ flexShrink: 0 }} />
+            <span>
+              <strong>Vista Previa (Plan Demo):</strong> Estás visualizando la delimitación y áreas de tu plano. Pasa al <strong>Plan Finca</strong> para ver tus lotes de ganado, pesos y traslados, o al <strong>Plan Premium</strong> para activar la geolocalización GPS en campo.
+            </span>
+          </div>
+          <button
+            onClick={() => (window.location.href = '/suscripcion')}
+            style={{
+              backgroundColor: '#3B82F6',
+              color: 'white',
+              border: 'none',
+              padding: '7px 16px',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Ver Planes de Suscripción →
+          </button>
+        </div>
+      )}
+
       {/* Contenido Principal: Mapa o Estado Vacío */}
       {loading ? (
         <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8' }}>
@@ -556,6 +596,7 @@ export const FarmMapPage: React.FC = () => {
           fincaNombre={currentFincaName}
           potreros={potreros}
           userRole={role as any}
+          tipoLicencia={licenciaInfo?.licencia || 'demo'}
           centerLat={mapMeta?.lat || 4.5709}
           centerLng={mapMeta?.lng || -74.2973}
           onOpenUploader={() => setUploaderOpen(true)}
