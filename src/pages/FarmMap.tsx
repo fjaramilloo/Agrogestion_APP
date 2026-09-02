@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 import { InteractiveFarmMap } from '../components/InteractiveFarmMap';
 import { MultiFarmMap, type FarmSummaryData } from '../components/MultiFarmMap';
 import { KmzUploaderModal } from '../components/KmzUploaderModal';
-import { MapPin, Upload, Lock, RefreshCw } from 'lucide-react';
+import { localDB } from '../lib/db';
+import { MapPin, Upload, Lock, RefreshCw, Trash2 } from 'lucide-react';
 
 export const FarmMapPage: React.FC = () => {
   const { fincaId, userFincas, role, licenciaInfo, setFincaId } = useAuth();
@@ -290,6 +291,35 @@ export const FarmMapPage: React.FC = () => {
     }
   };
 
+  const handleClearFarmMap = async () => {
+    if (!fincaId) return;
+    const confirmed = window.confirm(
+      '¿Estás seguro de que deseas eliminar y revertir el plano de esta finca?\n\nEsto quitará los polígonos del mapa, pero tus potreros, animales, lotes y pesajes permanecerán 100% intactos.'
+    );
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      // 1. Eliminar registro del mapa
+      await supabase.from('mapas_finca').delete().eq('id_finca', fincaId);
+
+      // 2. Limpiar geometrías asociadas a los potreros de esta finca
+      await supabase
+        .from('potreros')
+        .update({ geojson_geometry: null, kml_name: null })
+        .eq('id_finca', fincaId);
+
+      // 3. Limpiar caché local
+      await localDB.mapasFincaCache.where('id_finca').equals(fincaId).delete();
+
+      await loadFarmMapData();
+    } catch (err: any) {
+      alert('Error al revertir el plano: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Bloqueo si no tiene licencia
   if (licenciaInfo?.licencia === 'demo' && !fincaId) {
     return (
@@ -420,24 +450,48 @@ export const FarmMapPage: React.FC = () => {
           )}
 
           {role === 'administrador' && (
-            <button
-              onClick={() => setUploaderOpen(true)}
-              style={{
-                backgroundColor: '#10B981',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '10px',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <Upload size={16} /> Cargar Plano KMZ
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {hasMapPolygons && (
+                <button
+                  onClick={handleClearFarmMap}
+                  title="Eliminar plano y revertir potreros"
+                  style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    color: '#FCA5A5',
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Trash2 size={16} /> Quitar Plano
+                </button>
+              )}
+
+              <button
+                onClick={() => setUploaderOpen(true)}
+                style={{
+                  backgroundColor: '#10B981',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Upload size={16} /> {hasMapPolygons ? 'Reemplazar Plano' : 'Cargar Plano KMZ'}
+              </button>
+            </div>
           )}
         </div>
       </div>
