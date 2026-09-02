@@ -55,7 +55,10 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
 
   const handleSelectPotrero = (kmzIndex: number, potreroId: string) => {
     const updated = [...matches];
-    if (potreroId === 'NEW') {
+    if (potreroId === 'OMIT') {
+      updated[kmzIndex].matchedPotreroId = null;
+      updated[kmzIndex].status = 'omit';
+    } else if (potreroId === 'NEW') {
       updated[kmzIndex].matchedPotreroId = null;
       updated[kmzIndex].status = 'new';
     } else {
@@ -95,8 +98,13 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
         actualizado_en: new Date().toISOString(),
       });
 
-      // 2. Procesar cada potrero vinculado o nuevo
+      // 2. Procesar cada potrero vinculado o nuevo (omitiendo los marcados como 'omit')
       for (const item of matches) {
+        if (item.status === 'omit') {
+          // Omitir este polígono por completo
+          continue;
+        }
+
         const { kmzFeature, matchedPotreroId } = item;
 
         if (matchedPotreroId) {
@@ -134,7 +142,8 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
     }
   };
 
-  const matchedCount = matches.filter((m) => m.matchedPotreroId !== null).length;
+  const matchedCount = matches.filter((m) => m.matchedPotreroId !== null && m.status !== 'omit').length;
+  const omittedCount = matches.filter((m) => m.status === 'omit').length;
 
   return (
     <div style={{
@@ -187,7 +196,9 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
             <div>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>Cargar Plano de la Finca (KMZ / KML)</h3>
               <p style={{ margin: 0, fontSize: '0.85rem', color: '#94A3B8' }}>
-                {step === 1 ? 'Selecciona tu archivo de potreros para importarlo al mapa' : `Revisa la vinculación de potreros (${matchedCount} vinculados de ${matches.length})`}
+                {step === 1
+                  ? 'Selecciona tu archivo de potreros para importarlo al mapa'
+                  : `Revisa la vinculación (${matchedCount} vinculados, ${matches.filter((m) => m.status === 'new').length} nuevos${omittedCount > 0 ? `, ${omittedCount} omitidos` : ''})`}
               </p>
             </div>
           </div>
@@ -294,54 +305,73 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                 overflowY: 'auto',
                 paddingRight: '4px',
               }}>
-                {matches.map((match, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      backgroundColor: '#0F172A',
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      border: '1px solid #334155',
-                      gap: '12px',
-                    }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#F1F5F9' }}>
-                        {match.kmzFeature.name}
+                {matches.map((match, idx) => {
+                  const isOmitted = match.status === 'omit';
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: isOmitted ? '#0F172A60' : '#0F172A',
+                        padding: '12px 16px',
+                        borderRadius: '10px',
+                        border: isOmitted ? '1px dashed #EF444450' : '1px solid #334155',
+                        gap: '12px',
+                        opacity: isOmitted ? 0.65 : 1,
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{
+                          fontWeight: 600,
+                          fontSize: '0.95rem',
+                          color: isOmitted ? '#94A3B8' : '#F1F5F9',
+                          textDecoration: isOmitted ? 'line-through' : 'none',
+                        }}>
+                          {match.kmzFeature.name}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: isOmitted ? '#EF4444' : '#64748B' }}>
+                          {isOmitted ? '🚫 Omitido (No se creará ni vinculará)' : `Superficie: ${match.kmzFeature.areaHa} Hectáreas`}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
-                        Superficie: {match.kmzFeature.areaHa} Hectáreas
-                      </div>
-                    </div>
 
-                    <div style={{ minWidth: '220px' }}>
-                      <select
-                        value={match.matchedPotreroId || 'NEW'}
-                        onChange={(e) => handleSelectPotrero(idx, e.target.value)}
-                        style={{
-                          width: '100%',
-                          backgroundColor: '#1E293B',
-                          color: '#F8FAFC',
-                          border: match.status === 'exact' ? '1px solid #10B981' : '1px solid #475569',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          fontSize: '0.85rem',
-                          outline: 'none',
-                        }}
-                      >
-                        <option value="NEW">➕ Crear como nuevo potrero</option>
-                        {existingPotreros.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            🔗 Vincular a: {p.nombre} ({p.area_hectareas} Ha)
+                      <div style={{ minWidth: '230px' }}>
+                        <select
+                          value={match.status === 'omit' ? 'OMIT' : (match.matchedPotreroId || 'NEW')}
+                          onChange={(e) => handleSelectPotrero(idx, e.target.value)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: isOmitted ? '#1E293B80' : '#1E293B',
+                            color: isOmitted ? '#FCA5A5' : '#F8FAFC',
+                            border: isOmitted
+                              ? '1px solid #EF444470'
+                              : match.status === 'exact'
+                              ? '1px solid #10B981'
+                              : '1px solid #475569',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.85rem',
+                            outline: 'none',
+                          }}
+                        >
+                          <option value="NEW">➕ Crear como nuevo potrero</option>
+                          <option value="OMIT" style={{ color: '#EF4444' }}>
+                            🚫 Omitir / No incluir en el mapa
                           </option>
-                        ))}
-                      </select>
+                          <optgroup label="Vincular a potrero existente:">
+                            {existingPotreros.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                🔗 Vincular a: {p.nombre} ({p.area_hectareas} Ha)
+                              </option>
+                            ))}
+                          </optgroup>
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

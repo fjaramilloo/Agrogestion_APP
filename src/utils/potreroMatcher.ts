@@ -12,7 +12,7 @@ export interface MatchCandidate {
   matchedPotreroId: string | null; // ID del potrero existente coincidente, o null si es nuevo
   matchedPotreroName?: string;
   confidence: number; // 0.0 a 1.0
-  status: 'exact' | 'fuzzy' | 'new'; // 'exact' = coincidencia exacta, 'fuzzy' = sugerido, 'new' = se creará como nuevo
+  status: 'exact' | 'fuzzy' | 'new' | 'omit'; // 'exact' = coincidencia exacta, 'fuzzy' = sugerido, 'new' = se creará como nuevo, 'omit' = no incluir
 }
 
 /**
