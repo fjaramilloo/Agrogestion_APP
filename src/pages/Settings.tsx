@@ -375,7 +375,7 @@ export default function Settings() {
         setLoading(true);
 
         try {
-            const { data, error } = await supabase.rpc('crear_trabajador_finca', {
+            const { error } = await supabase.rpc('crear_trabajador_finca', {
                 p_email: newUserEmail,
                 p_password: newUserPass,
                 p_finca_ids: selectedFincas,
