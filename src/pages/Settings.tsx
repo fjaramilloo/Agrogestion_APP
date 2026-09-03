@@ -89,6 +89,7 @@ export default function Settings() {
     const [newUserApellido, setNewUserApellido] = useState('');
     const [newUserRole, setNewUserRole] = useState<'vaquero' | 'observador'>('vaquero');
     const [selectedFincas, setSelectedFincas] = useState<string[]>([]);
+    const [userFormMsg, setUserFormMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     
     // Estados para secciones colapsables
     const [collapsed, setCollapsed] = useState({
@@ -360,36 +361,40 @@ export default function Settings() {
 
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
+        setUserFormMsg(null);
+
         if (selectedFincas.length === 0) {
-            setMsjError('Debe seleccionar al menos una finca para asignar al usuario.');
+            setUserFormMsg({ type: 'error', text: 'Debe seleccionar al menos una finca para asignar al usuario.' });
             return;
         }
-        if (!newUserEmail || !newUserPass) return;
+        if (!newUserEmail || !newUserPass) {
+            setUserFormMsg({ type: 'error', text: 'El correo y la contraseña son obligatorios.' });
+            return;
+        }
 
         setLoading(true);
-        setMsjExito('');
-        setMsjError('');
 
         try {
-            const { error } = await supabase.rpc('crear_trabajador_finca', {
+            const { data, error } = await supabase.rpc('crear_trabajador_finca', {
                 p_email: newUserEmail,
                 p_password: newUserPass,
                 p_finca_ids: selectedFincas,
                 p_rol: newUserRole,
-                p_nombre: newUserNombre,
-                p_apellido: newUserApellido
+                p_nombre: newUserNombre || null,
+                p_apellido: newUserApellido || null
             });
 
             if (error) throw error;
 
-            setMsjExito(`Usuario ${newUserEmail} creado y asignado a ${selectedFincas.length} fincas.`);
+            setUserFormMsg({ type: 'success', text: `✓ Usuario ${newUserEmail} creado y asignado a ${selectedFincas.length} finca(s) exitosamente.` });
             setNewUserEmail('');
             setNewUserPass('');
             setNewUserNombre('');
             setNewUserApellido('');
             setSelectedFincas([fincaId || '']);
         } catch (err: any) {
-            setMsjError('Error creando usuario: ' + err.message);
+            const msg = err?.message || 'Error desconocido al crear el usuario.';
+            setUserFormMsg({ type: 'error', text: '✗ ' + msg });
         } finally {
             setLoading(false);
         }
@@ -1579,9 +1584,23 @@ export default function Settings() {
                                                 </div>
                                             ))}
                                         </div>
-                                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)' }}>
+                                        <button type="submit" disabled={loading} style={{ backgroundColor: loading ? 'rgba(76, 175, 80, 0.5)' : 'var(--primary)', cursor: loading ? 'not-allowed' : 'pointer' }}>
                                             <UserPlus size={18} /> {loading ? 'Creando Usuario...' : 'Crear Usuario'}
                                         </button>
+                                        {userFormMsg && (
+                                            <div style={{
+                                                marginTop: '16px',
+                                                padding: '14px 18px',
+                                                borderRadius: '10px',
+                                                fontSize: '0.9rem',
+                                                fontWeight: 600,
+                                                backgroundColor: userFormMsg.type === 'success' ? 'rgba(76, 175, 80, 0.12)' : 'rgba(239, 83, 80, 0.12)',
+                                                border: `1px solid ${userFormMsg.type === 'success' ? 'rgba(76, 175, 80, 0.4)' : 'rgba(239, 83, 80, 0.4)'}`,
+                                                color: userFormMsg.type === 'success' ? '#4caf50' : '#ef5350'
+                                            }}>
+                                                {userFormMsg.text}
+                                            </div>
+                                        )}
                                     </form>
                                 </div>
                             )}
