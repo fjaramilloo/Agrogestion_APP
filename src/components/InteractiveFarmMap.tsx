@@ -21,9 +21,19 @@ interface PotreroMapData {
   } | null;
 }
 
+export interface ZonaAdicionalMapData {
+  id: string;
+  nombre: string;
+  tipo: 'bosque' | 'reforestacion' | 'reserva' | 'agua' | 'infraestructura' | 'otro';
+  area_hectareas: number;
+  geojson_geometry: any;
+  color?: string;
+}
+
 interface InteractiveFarmMapProps {
   fincaNombre?: string;
   potreros: PotreroMapData[];
+  zonasAdicionales?: ZonaAdicionalMapData[];
   userRole: 'administrador' | 'vaquero' | 'observador';
   tipoLicencia?: 'demo' | 'finca' | 'premium';
   centerLat?: number;
@@ -35,6 +45,7 @@ interface InteractiveFarmMapProps {
 
 export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   potreros,
+  zonasAdicionales = [],
   userRole,
   tipoLicencia = 'premium',
   centerLat = 4.5709,
@@ -51,7 +62,9 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   const [mapType, setMapType] = useState<'satellite' | 'street'>('satellite');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [currentPaddock, setCurrentPaddock] = useState<PotreroMapData | null>(null);
+  const [currentSpecialZone, setCurrentSpecialZone] = useState<ZonaAdicionalMapData | null>(null);
   const [selectedPotrero, setSelectedPotrero] = useState<PotreroMapData | null>(null);
+  const [selectedZona, setSelectedZona] = useState<ZonaAdicionalMapData | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
 
   // Inicialización del Mapa de Leaflet
@@ -116,6 +129,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     const bounds = L.latLngBounds([]);
     const isDemo = tipoLicencia === 'demo';
 
+    // 1. Renderizar Potreros de Pastoreo
     potreros.forEach((p) => {
       if (!p.geojson_geometry) return;
 
@@ -132,6 +146,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         },
         onEachFeature: (_feature: any, layer: L.Layer) => {
           layer.on('click', () => {
+            setSelectedZona(null);
             setSelectedPotrero(p);
           });
         },
@@ -180,18 +195,96 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           });
 
           const badgeMarker = L.marker(center, { icon: customIcon }).addTo(map);
-          badgeMarker.on('click', () => setSelectedPotrero(p));
+          badgeMarker.on('click', () => {
+            setSelectedZona(null);
+            setSelectedPotrero(p);
+          });
         }
       } catch (e) {
         console.warn('Error calculando centro de polígono potrero:', e);
       }
     });
 
-    // Ajustar vista del mapa si hay potreros
-    if (bounds.isValid() && potreros.some((p) => p.geojson_geometry)) {
+    // 2. Renderizar Zonas Especiales No Ganaderas (Bosques, Agua, Infraestructura)
+    zonasAdicionales.forEach((z) => {
+      if (!z.geojson_geometry) return;
+
+      const isBosque = z.tipo === 'bosque' || z.tipo === 'reforestacion' || z.tipo === 'reserva';
+      const isAgua = z.tipo === 'agua';
+      const isInfra = z.tipo === 'infraestructura';
+
+      const zoneColor = z.color || (isBosque ? '#059669' : isAgua ? '#0284C7' : isInfra ? '#D97706' : '#8B5CF6');
+      const zoneIcon = isBosque ? '🌳' : isAgua ? '💧' : isInfra ? '🏠' : '📍';
+      const zoneLabel = isBosque ? 'Bosque/Reforestación' : isAgua ? 'Agua' : isInfra ? 'Infraestructura' : 'Zona Especial';
+
+      const geoJsonLayer = L.geoJSON(z.geojson_geometry, {
+        style: {
+          color: zoneColor,
+          weight: 2,
+          dashArray: isBosque ? '4, 4' : undefined,
+          opacity: 0.9,
+          fillColor: zoneColor,
+          fillOpacity: isAgua ? 0.4 : 0.25,
+        },
+        onEachFeature: (_feature: any, layer: L.Layer) => {
+          layer.on('click', () => {
+            setSelectedPotrero(null);
+            setSelectedZona(z);
+          });
+        },
+      }).addTo(map);
+
+      try {
+        const polyBounds = geoJsonLayer.getBounds();
+        if (polyBounds.isValid()) {
+          bounds.extend(polyBounds);
+          const center = polyBounds.getCenter();
+
+          const badgeHtml = `
+            <div style="
+              background-color: rgba(15, 23, 42, 0.92);
+              backdrop-filter: blur(4px);
+              border: 1px solid ${zoneColor};
+              border-radius: 8px;
+              padding: 4px 8px;
+              color: white;
+              font-family: sans-serif;
+              font-size: 11px;
+              font-weight: 600;
+              text-align: center;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+              white-space: nowrap;
+              pointer-events: auto;
+              cursor: pointer;
+            ">
+              <div style="color: #F8FAFC; font-weight: 700;">${zoneIcon} ${z.nombre}</div>
+              <div style="font-size: 9.5px; color: ${zoneColor}; font-weight: 600;">${z.area_hectareas} Ha &bull; ${zoneLabel}</div>
+            </div>
+          `;
+
+          const customIcon = L.divIcon({
+            html: badgeHtml,
+            className: '',
+            iconSize: [130, 44],
+            iconAnchor: [65, 22],
+          });
+
+          const badgeMarker = L.marker(center, { icon: customIcon }).addTo(map);
+          badgeMarker.on('click', () => {
+            setSelectedPotrero(null);
+            setSelectedZona(z);
+          });
+        }
+      } catch (e) {
+        console.warn('Error calculando centro de polígono zona especial:', e);
+      }
+    });
+
+    // Ajustar vista del mapa si hay potreros o zonas
+    if (bounds.isValid() && (potreros.some((p) => p.geojson_geometry) || zonasAdicionales.some((z) => z.geojson_geometry))) {
       map.fitBounds(bounds, { padding: [40, 40] });
     }
-  }, [potreros, tipoLicencia]);
+  }, [potreros, zonasAdicionales, tipoLicencia]);
 
   // Manejar Geolocalización GPS del Usuario en Tiempo Real (Exclusivo Plan Premium)
   const handleTrackGps = () => {
@@ -271,13 +364,21 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           weight: 1,
         }).addTo(map);
 
-        // Detectar potrero actual por GPS
-        const found = findCurrentPaddockByGps(latitude, longitude, potreros);
-        if (found) {
-          const fullPotrero = potreros.find((p) => p.id === found.id) || null;
+        // Detectar potrero actual o zona especial por GPS
+        const foundPotrero = findCurrentPaddockByGps(latitude, longitude, potreros);
+        if (foundPotrero) {
+          const fullPotrero = potreros.find((p) => p.id === foundPotrero.id) || null;
           setCurrentPaddock(fullPotrero);
+          setCurrentSpecialZone(null);
         } else {
           setCurrentPaddock(null);
+          const foundZone = findCurrentPaddockByGps(latitude, longitude, zonasAdicionales);
+          if (foundZone) {
+            const fullZone = zonasAdicionales.find((z) => z.id === foundZone.id) || null;
+            setCurrentSpecialZone(fullZone);
+          } else {
+            setCurrentSpecialZone(null);
+          }
         }
       },
       (err) => {
@@ -327,6 +428,36 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
               <span>📈 Est: <strong>{currentPaddock.potrerada_actual.peso_promedio_estimado} kg</strong></span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Banner de Zona Especial Actual (Solo Premium) */}
+      {tipoLicencia === 'premium' && !currentPaddock && currentSpecialZone && (
+        <div style={{
+          position: 'absolute',
+          top: '16px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: currentSpecialZone.tipo === 'bosque' ? '1px solid #059669' : currentSpecialZone.tipo === 'agua' ? '1px solid #0284C7' : '1px solid #D97706',
+          borderRadius: '20px',
+          padding: '10px 22px',
+          color: '#F8FAFC',
+          fontSize: '0.85rem',
+          zIndex: 1000,
+          boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontWeight: 700,
+          maxWidth: '90%',
+        }}>
+          <span>
+            📍 Estás en: <span style={{ color: currentSpecialZone.tipo === 'bosque' ? '#34D399' : currentSpecialZone.tipo === 'agua' ? '#38BDF8' : '#FBBF24' }}>
+              {currentSpecialZone.tipo === 'bosque' ? '🌳' : currentSpecialZone.tipo === 'agua' ? '💧' : '🏠'} {currentSpecialZone.nombre}
+            </span> ({currentSpecialZone.area_hectareas} Ha &bull; {currentSpecialZone.tipo === 'bosque' ? 'Zona Ambiental / Forestal' : currentSpecialZone.tipo === 'agua' ? 'Cuerpo de Agua' : 'Infraestructura'})
+          </span>
         </div>
       )}
 
@@ -446,7 +577,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
             <div>
-              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 600 }}>Potrero</span>
+              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 600 }}>Potrero de Pastoreo</span>
               <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700 }}>{selectedPotrero.nombre}</h3>
             </div>
             <button
@@ -598,6 +729,83 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
               <ArrowRightLeft size={16} /> Mover Ganado a este Potrero
             </button>
           )}
+        </div>
+      )}
+
+      {/* Drawer / Modal de Detalle de Zona Especial Seleccionada (Bosques, Agua, Infraestructura) */}
+      {selectedZona && (
+        <div style={{
+          position: 'absolute',
+          bottom: '16px',
+          right: '16px',
+          width: '340px',
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid #334155',
+          borderRadius: '16px',
+          padding: '20px',
+          color: '#F8FAFC',
+          zIndex: 1000,
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+            <div>
+              <span style={{
+                fontSize: '0.75rem',
+                textTransform: 'uppercase',
+                color: selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva'
+                  ? '#34D399'
+                  : selectedZona.tipo === 'agua'
+                  ? '#38BDF8'
+                  : '#FBBF24',
+                fontWeight: 700,
+              }}>
+                {selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva'
+                  ? '🌳 Zona Ambiental / Forestal'
+                  : selectedZona.tipo === 'agua'
+                  ? '💧 Cuerpo de Agua'
+                  : '🏠 Infraestructura'}
+              </span>
+              <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700 }}>{selectedZona.nombre}</h3>
+            </div>
+            <button
+              onClick={() => setSelectedZona(null)}
+              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ backgroundColor: '#1E293B', padding: '10px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Superficie</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#10B981' }}>{selectedZona.area_hectareas} Ha</div>
+            </div>
+            <div style={{ backgroundColor: '#1E293B', padding: '10px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Uso</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#CBD5E1' }}>No ganadero</div>
+            </div>
+          </div>
+
+          <div style={{
+            backgroundColor: '#1E293B80',
+            border: '1px solid #334155',
+            borderRadius: '12px',
+            padding: '14px',
+            fontSize: '0.85rem',
+            color: '#94A3B8',
+            lineHeight: 1.5,
+          }}>
+            {(selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva') && (
+              <span>🌿 Área de conservación, bosque nativo o reforestación. Se muestra en el plano para control espacial y ambiental sin crear potreros de pastoreo.</span>
+            )}
+            {selectedZona.tipo === 'agua' && (
+              <span>💧 Cuerpo de agua natural, lago, reservorio o humedal.</span>
+            )}
+            {selectedZona.tipo === 'infraestructura' && (
+              <span>🏠 Infraestructura e instalaciones de la finca (casa principal, corrales, bodega o campamento).</span>
+            )}
+          </div>
         </div>
       )}
     </div>

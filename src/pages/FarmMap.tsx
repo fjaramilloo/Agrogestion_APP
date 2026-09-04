@@ -18,6 +18,7 @@ export const FarmMapPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [uploaderOpen, setUploaderOpen] = useState(false);
   const [mapMeta, setMapMeta] = useState<{ lat?: number; lng?: number } | null>(null);
+  const [zonasAdicionales, setZonasAdicionales] = useState<any[]>([]);
 
   // Modal para traslado rápido de ganado a potrero desde el mapa
   const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -56,6 +57,9 @@ export const FarmMapPage: React.FC = () => {
           lat: mapData.centro_latitud,
           lng: mapData.centro_longitud,
         });
+        setZonasAdicionales(mapData.zonas_adicionales || []);
+      } else {
+        setZonasAdicionales([]);
       }
 
       // 2. Cargar potreros con geometrías
@@ -375,7 +379,7 @@ export const FarmMapPage: React.FC = () => {
     geojson_geometry: p.geojson_geometry,
   }));
 
-  const hasMapPolygons = potreros.some((p) => p.geojson_geometry);
+  const hasMapPolygons = potreros.some((p) => p.geojson_geometry) || zonasAdicionales.length > 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -408,7 +412,7 @@ export const FarmMapPage: React.FC = () => {
           <div>
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Plano de la Finca: {currentFincaName}</h2>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#94A3B8' }}>
-              {potreros.length} Potreros registrados &bull; {potreros.filter(p => p.geojson_geometry).length} delimitados en el mapa
+              {potreros.length} Potreros registrados &bull; {potreros.filter(p => p.geojson_geometry).length} potreros delimitados {zonasAdicionales.length > 0 ? `&bull; ${zonasAdicionales.length} zonas no ganaderas` : ''}
             </p>
           </div>
         </div>
@@ -595,6 +599,7 @@ export const FarmMapPage: React.FC = () => {
         <InteractiveFarmMap
           fincaNombre={currentFincaName}
           potreros={potreros}
+          zonasAdicionales={zonasAdicionales}
           userRole={role as any}
           tipoLicencia={licenciaInfo?.licencia || 'demo'}
           centerLat={mapMeta?.lat || 4.5709}

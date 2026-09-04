@@ -7,12 +7,21 @@ export interface ExistingPotrero {
   geojson_geometry?: any;
 }
 
+export type MatchStatus =
+  | 'exact'
+  | 'fuzzy'
+  | 'new'
+  | 'omit'
+  | 'bosque'
+  | 'agua'
+  | 'infraestructura';
+
 export interface MatchCandidate {
   kmzFeature: ParsedKmlFeature;
-  matchedPotreroId: string | null; // ID del potrero existente coincidente, o null si es nuevo
+  matchedPotreroId: string | null; // ID del potrero existente coincidente, o null si es nuevo/zona
   matchedPotreroName?: string;
   confidence: number; // 0.0 a 1.0
-  status: 'exact' | 'fuzzy' | 'new' | 'omit'; // 'exact' = coincidencia exacta, 'fuzzy' = sugerido, 'new' = se creará como nuevo, 'omit' = no incluir
+  status: MatchStatus;
 }
 
 /**
@@ -28,6 +37,37 @@ export function normalizeName(name: string): string {
     .replace(/^(potrero|potreros|pot|lote|p-)\s*/i, '') // Eliminar prefijos comunes
     .replace(/[^a-z0-9]/g, '') // Dejar solo letras y números
     .trim();
+}
+
+/**
+ * Detecta si el nombre del polígono corresponde a una zona ambiental o infraestructura.
+ */
+export function detectSpecialZoneType(name: string): 'bosque' | 'agua' | 'infraestructura' | null {
+  if (!name) return null;
+  const lower = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u06ff]/g, '');
+
+  // Bosques, Reforestaciones, Reservas, Montes, Guaduales
+  if (
+    /(bosque|reforestaci|reserva|arbol|monte|guadual|selva|vegetaci|proteg|flora|fauna|silvopast)/i.test(lower)
+  ) {
+    return 'bosque';
+  }
+
+  // Cuerpos de agua, Humedales, Ríos, Represas, Pozos, Jagüeyes
+  if (
+    /(lago|laguna|rio|quebrada|humedal|represa|jaguey|pozo|nacimiento|estero|canada|dique|alberca)/i.test(lower)
+  ) {
+    return 'agua';
+  }
+
+  // Infraestructura, Casas, Corrales, Bodegas, Establo, Campamento
+  if (
+    /(casa|corral|bodega|establo|kiosko|quiosco|campamento|infraestructura|vaqueria|bascula|brete|orde|manga|taller)/i.test(lower)
+  ) {
+    return 'infraestructura';
+  }
+
+  return null;
 }
 
 /**
@@ -92,11 +132,13 @@ export function matchKmzWithExistingPotreros(
         status: highestScore >= 0.95 ? 'exact' : 'fuzzy',
       });
     } else {
+      // Si no coincide con un potrero existente, revisar si es zona ambiental/infraestructura
+      const specialZone = detectSpecialZoneType(feature.name);
       results.push({
         kmzFeature: feature,
         matchedPotreroId: null,
-        confidence: 0,
-        status: 'new',
+        confidence: specialZone ? 0.8 : 0,
+        status: specialZone || 'new',
       });
     }
   }

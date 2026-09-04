@@ -30,12 +30,22 @@ export interface PotreroCacheItem {
   kml_name?: string;
 }
 
+export interface ZonaAdicionalItem {
+  id: string;
+  nombre: string;
+  tipo: 'bosque' | 'reforestacion' | 'reserva' | 'agua' | 'infraestructura' | 'otro';
+  area_hectareas: number;
+  geojson_geometry: any;
+  color?: string;
+}
+
 export interface MapaFincaCacheItem {
   id_finca: string;
   nombre_archivo: string;
   centro_latitud?: number;
   centro_longitud?: number;
   zoom_inicial?: number;
+  zonas_adicionales?: ZonaAdicionalItem[];
   actualizado_en: string;
 }
 

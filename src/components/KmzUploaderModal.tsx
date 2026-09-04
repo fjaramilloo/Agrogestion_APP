@@ -58,6 +58,15 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
     if (potreroId === 'OMIT') {
       updated[kmzIndex].matchedPotreroId = null;
       updated[kmzIndex].status = 'omit';
+    } else if (potreroId === 'BOSQUE') {
+      updated[kmzIndex].matchedPotreroId = null;
+      updated[kmzIndex].status = 'bosque';
+    } else if (potreroId === 'AGUA') {
+      updated[kmzIndex].matchedPotreroId = null;
+      updated[kmzIndex].status = 'agua';
+    } else if (potreroId === 'INFRA') {
+      updated[kmzIndex].matchedPotreroId = null;
+      updated[kmzIndex].status = 'infraestructura';
     } else if (potreroId === 'NEW') {
       updated[kmzIndex].matchedPotreroId = null;
       updated[kmzIndex].status = 'new';
@@ -76,13 +85,26 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
     setError(null);
 
     try {
-      // 1. Guardar metadatos del mapa en la tabla mapas_finca
+      // 1. Extraer zonas especiales no ganaderas (bosques, agua, infraestructura)
+      const zonasAdicionales = matches
+        .filter((m) => m.status === 'bosque' || m.status === 'agua' || m.status === 'infraestructura')
+        .map((m, idx) => ({
+          id: `zona_${Date.now()}_${idx}`,
+          nombre: m.kmzFeature.name,
+          tipo: m.status as 'bosque' | 'agua' | 'infraestructura',
+          area_hectareas: m.kmzFeature.areaHa > 0 ? m.kmzFeature.areaHa : 0,
+          geojson_geometry: m.kmzFeature.geometry,
+          color: m.status === 'bosque' ? '#059669' : m.status === 'agua' ? '#0284C7' : '#D97706',
+        }));
+
+      // 2. Guardar metadatos del mapa en la tabla mapas_finca
       const { error: mapErr } = await supabase.from('mapas_finca').upsert({
         id_finca: fincaId,
         nombre_archivo: parsedData.fileName,
         centro_latitud: parsedData.center[0],
         centro_longitud: parsedData.center[1],
         zoom_inicial: 16,
+        zonas_adicionales: zonasAdicionales,
         actualizado_en: new Date().toISOString(),
       });
 
@@ -95,13 +117,19 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
         centro_latitud: parsedData.center[0],
         centro_longitud: parsedData.center[1],
         zoom_inicial: 16,
+        zonas_adicionales: zonasAdicionales,
         actualizado_en: new Date().toISOString(),
       });
 
-      // 2. Procesar cada potrero vinculado o nuevo (omitiendo los marcados como 'omit')
+      // 3. Procesar potreros vinculados o nuevos (omitiendo zonas especiales y omitidos)
       for (const item of matches) {
-        if (item.status === 'omit') {
-          // Omitir este polígono por completo
+        if (
+          item.status === 'omit' ||
+          item.status === 'bosque' ||
+          item.status === 'agua' ||
+          item.status === 'infraestructura'
+        ) {
+          // No crear ni tocar la tabla potreros
           continue;
         }
 
@@ -120,7 +148,7 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
 
           if (potErr) console.warn('Error al actualizar potrero:', potErr);
         } else {
-          // Crear un nuevo potrero en la finca
+          // Crear un nuevo potrero de pastoreo en la finca
           const { error: insErr } = await supabase.from('potreros').insert({
             id_finca: fincaId,
             nombre: kmzFeature.name,
@@ -142,7 +170,9 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
     }
   };
 
-  const matchedCount = matches.filter((m) => m.matchedPotreroId !== null && m.status !== 'omit').length;
+  const matchedCount = matches.filter((m) => m.matchedPotreroId !== null).length;
+  const newPastureCount = matches.filter((m) => m.status === 'new').length;
+  const specialZoneCount = matches.filter((m) => m.status === 'bosque' || m.status === 'agua' || m.status === 'infraestructura').length;
   const omittedCount = matches.filter((m) => m.status === 'omit').length;
 
   return (
@@ -198,7 +228,7 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
               <p style={{ margin: 0, fontSize: '0.85rem', color: '#94A3B8' }}>
                 {step === 1
                   ? 'Selecciona tu archivo de potreros para importarlo al mapa'
-                  : `Revisa la vinculación (${matchedCount} vinculados, ${matches.filter((m) => m.status === 'new').length} nuevos${omittedCount > 0 ? `, ${omittedCount} omitidos` : ''})`}
+                  : `Revisa la vinculación (${matchedCount} vinculados, ${newPastureCount} nuevos${specialZoneCount > 0 ? `, ${specialZoneCount} zonas ambientales` : ''}${omittedCount > 0 ? `, ${omittedCount} omitidos` : ''})`}
               </p>
             </div>
           </div>
@@ -289,12 +319,12 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                   <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{parsedData.fileName}</span>
                 </div>
                 <span style={{ fontSize: '0.85rem', color: '#94A3B8' }}>
-                  {parsedData.polygons.length} Potreros detectados
+                  {parsedData.polygons.length} Polígonos detectados
                 </span>
               </div>
 
               <div style={{ marginBottom: '12px', fontSize: '0.85rem', color: '#CBD5E1' }}>
-                Nuestro algoritmo relacionó automáticamente los potreros del KMZ con los registrados en la app. Puedes ajustar la vinculación en la lista:
+                Asigna el tipo de cada polígono. Puedes vincularlo a un potrero existente, crearlo como nuevo, o cargarlo como <strong>zona ambiental (bosque, agua, infraestructura)</strong> para que se vea en el mapa sin crear potreros de pastoreo:
               </div>
 
               <div style={{
@@ -307,6 +337,43 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
               }}>
                 {matches.map((match, idx) => {
                   const isOmitted = match.status === 'omit';
+                  const isBosque = match.status === 'bosque';
+                  const isAgua = match.status === 'agua';
+                  const isInfra = match.status === 'infraestructura';
+                  const isSpecial = isBosque || isAgua || isInfra;
+
+                  const rowBg = isOmitted
+                    ? '#0F172A60'
+                    : isBosque
+                    ? 'rgba(5, 150, 105, 0.08)'
+                    : isAgua
+                    ? 'rgba(2, 132, 199, 0.08)'
+                    : isInfra
+                    ? 'rgba(217, 119, 6, 0.08)'
+                    : '#0F172A';
+
+                  const rowBorder = isOmitted
+                    ? '1px dashed #EF444450'
+                    : isBosque
+                    ? '1px solid rgba(5, 150, 105, 0.4)'
+                    : isAgua
+                    ? '1px solid rgba(2, 132, 199, 0.4)'
+                    : isInfra
+                    ? '1px solid rgba(217, 119, 6, 0.4)'
+                    : match.status === 'exact'
+                    ? '1px solid rgba(16, 185, 129, 0.4)'
+                    : '1px solid #334155';
+
+                  const selectValue = isOmitted
+                    ? 'OMIT'
+                    : isBosque
+                    ? 'BOSQUE'
+                    : isAgua
+                    ? 'AGUA'
+                    : isInfra
+                    ? 'INFRA'
+                    : match.matchedPotreroId || 'NEW';
+
                   return (
                     <div
                       key={idx}
@@ -314,10 +381,10 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        backgroundColor: isOmitted ? '#0F172A60' : '#0F172A',
+                        backgroundColor: rowBg,
                         padding: '12px 16px',
                         borderRadius: '10px',
-                        border: isOmitted ? '1px dashed #EF444450' : '1px solid #334155',
+                        border: rowBorder,
                         gap: '12px',
                         opacity: isOmitted ? 0.65 : 1,
                         transition: 'all 0.2s',
@@ -327,26 +394,52 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                         <div style={{
                           fontWeight: 600,
                           fontSize: '0.95rem',
-                          color: isOmitted ? '#94A3B8' : '#F1F5F9',
+                          color: isOmitted
+                            ? '#94A3B8'
+                            : isBosque
+                            ? '#34D399'
+                            : isAgua
+                            ? '#38BDF8'
+                            : isInfra
+                            ? '#FBBF24'
+                            : '#F1F5F9',
                           textDecoration: isOmitted ? 'line-through' : 'none',
                         }}>
                           {match.kmzFeature.name}
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: isOmitted ? '#EF4444' : '#64748B' }}>
-                          {isOmitted ? '🚫 Omitido (No se creará ni vinculará)' : `Superficie: ${match.kmzFeature.areaHa} Hectáreas`}
+                        <div style={{ fontSize: '0.8rem', color: isOmitted ? '#EF4444' : '#94A3B8', marginTop: '2px' }}>
+                          {isOmitted
+                            ? '🚫 Omitido (No se incluirá en el mapa)'
+                            : isBosque
+                            ? `🌳 Bosque / Reforestación (${match.kmzFeature.areaHa} Ha &bull; Visual en mapa)`
+                            : isAgua
+                            ? `💧 Cuerpo de Agua / Lago (${match.kmzFeature.areaHa} Ha &bull; Visual en mapa)`
+                            : isInfra
+                            ? `🏠 Infraestructura / Corrales (${match.kmzFeature.areaHa} Ha &bull; Visual en mapa)`
+                            : `Superficie: ${match.kmzFeature.areaHa} Hectáreas (Potrero)`}
                         </div>
                       </div>
 
-                      <div style={{ minWidth: '230px' }}>
+                      <div style={{ minWidth: '240px' }}>
                         <select
-                          value={match.status === 'omit' ? 'OMIT' : (match.matchedPotreroId || 'NEW')}
+                          value={selectValue}
                           onChange={(e) => handleSelectPotrero(idx, e.target.value)}
                           style={{
                             width: '100%',
                             backgroundColor: isOmitted ? '#1E293B80' : '#1E293B',
-                            color: isOmitted ? '#FCA5A5' : '#F8FAFC',
+                            color: isOmitted
+                              ? '#FCA5A5'
+                              : isBosque
+                              ? '#34D399'
+                              : isAgua
+                              ? '#38BDF8'
+                              : isInfra
+                              ? '#FBBF24'
+                              : '#F8FAFC',
                             border: isOmitted
                               ? '1px solid #EF444470'
+                              : isSpecial
+                              ? '1px solid #3B82F6'
                               : match.status === 'exact'
                               ? '1px solid #10B981'
                               : '1px solid #475569',
@@ -357,6 +450,11 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                           }}
                         >
                           <option value="NEW">➕ Crear como nuevo potrero</option>
+                          <optgroup label="Zonas no ganaderas (Visuales en mapa):">
+                            <option value="BOSQUE">🌳 Cargar como Bosque / Reforestación</option>
+                            <option value="AGUA">💧 Cargar como Cuerpo de Agua / Lago</option>
+                            <option value="INFRA">🏠 Cargar como Infraestructura / Instalación</option>
+                          </optgroup>
                           <option value="OMIT" style={{ color: '#EF4444' }}>
                             🚫 Omitir / No incluir en el mapa
                           </option>
