@@ -201,7 +201,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 <span className="sidebar-label">Dashboard</span>
                             </NavLink>
                         </div>
-                                      {/* MERCADO (Precios y Tendencias) - Admin, Vaquero y Visualización */}
+                    )}
+
+                    {/* MERCADO (Precios y Tendencias) - Admin, Vaquero y Visualización */}
                     {(role === 'administrador' || role === 'observador' || role === 'vaquero') && (
                         <div style={{ marginBottom: '8px' }}>
                             <NavLink to="/mercado" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
@@ -324,7 +326,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     </>
                                 )}
                             </div>
-
+                        )}
                     </div>
                 </nav>
 
