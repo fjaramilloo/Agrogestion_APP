@@ -12,7 +12,11 @@ updates:
     labels:
       - "seguridad"
       - "dependencias"
-    # Agrupar actualizaciones menores y de parches en un solo PR
+    # Ignorar actualizaciones de versiones mayores (pueden tener breaking changes)
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    # Agrupar TODAS las actualizaciones menores y de parches en un solo PR
     groups:
       actualizaciones-menores:
         update-types:

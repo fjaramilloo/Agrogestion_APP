@@ -201,10 +201,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 <span className="sidebar-label">Dashboard</span>
                             </NavLink>
                         </div>
-                    )}
-
-                    {/* MERCADO (Precios y Tendencias) - Solo Administrador */}
-                    {(role === 'administrador') && (
+                                      {/* MERCADO (Precios y Tendencias) - Admin, Vaquero y Visualización */}
+                    {(role === 'administrador' || role === 'observador' || role === 'vaquero') && (
                         <div style={{ marginBottom: '8px' }}>
                             <NavLink to="/mercado" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                 <span className="sidebar-icon"><TrendingUp size={20} /></span>
@@ -214,8 +212,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     )}
 
 
-                    {/* TRABAJO DE CAMPO - Para Admin y Vaquero */}
-                    {(role === 'administrador' || role === 'vaquero') && (
+                    {/* TRABAJO DE CAMPO */}
+                    {(role === 'administrador' || role === 'vaquero' || role === 'observador') && (
                         <div style={{ marginBottom: '8px' }}>
                             <div 
                                 onClick={() => setShowTrabajoCampo(!showTrabajoCampo)}
@@ -248,28 +246,32 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                         <span className="sidebar-icon"><Leaf size={20} /></span>
                                         <span className="sidebar-label">Aforos y Forraje</span>
                                     </NavLink>
-                                    <NavLink to="/movimientos" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                        <span className="sidebar-icon"><ArrowLeftRight size={20} /></span>
-                                        <span className="sidebar-label">Rotación de Lotes</span>
-                                    </NavLink>
-                                    <NavLink to="/pesaje" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                        <span className="sidebar-icon"><Scale size={20} /></span>
-                                        <span className="sidebar-label">Control de Pesaje</span>
-                                    </NavLink>
-                                    <NavLink to="/compra" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                        <span className="sidebar-icon"><ShoppingCart size={20} /></span>
-                                        <span className="sidebar-label">Registrar Compra</span>
-                                    </NavLink>
-                                    <NavLink to="/venta" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                        <span className="sidebar-icon"><Tag size={20} /></span>
-                                        <span className="sidebar-label">Registrar Venta</span>
-                                    </NavLink>
-                                    {hayMercado && (
-                                        <NavLink to="/animales-ceba" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`} style={{ position: 'relative' }}>
-                                            <span className="sidebar-icon"><ShoppingBag size={20} /></span>
-                                            <span className="sidebar-label">Animales para Ceba</span>
-                                            <span style={{ marginLeft: 'auto', background: '#2e7d32', color: 'white', borderRadius: '10px', fontSize: '0.65rem', padding: '2px 7px', fontWeight: 'bold' }}>●</span>
-                                        </NavLink>
+                                    {(role === 'administrador' || role === 'vaquero') && (
+                                        <>
+                                            <NavLink to="/movimientos" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                                <span className="sidebar-icon"><ArrowLeftRight size={20} /></span>
+                                                <span className="sidebar-label">Rotación de Lotes</span>
+                                            </NavLink>
+                                            <NavLink to="/pesaje" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                                <span className="sidebar-icon"><Scale size={20} /></span>
+                                                <span className="sidebar-label">Control de Pesaje</span>
+                                            </NavLink>
+                                            <NavLink to="/compra" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                                <span className="sidebar-icon"><ShoppingCart size={20} /></span>
+                                                <span className="sidebar-label">Registrar Compra</span>
+                                            </NavLink>
+                                            <NavLink to="/venta" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                                <span className="sidebar-icon"><Tag size={20} /></span>
+                                                <span className="sidebar-label">Registrar Venta</span>
+                                            </NavLink>
+                                            {hayMercado && (
+                                                <NavLink to="/animales-ceba" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`} style={{ position: 'relative' }}>
+                                                    <span className="sidebar-icon"><ShoppingBag size={20} /></span>
+                                                    <span className="sidebar-label">Animales para Ceba</span>
+                                                    <span style={{ marginLeft: 'auto', background: '#2e7d32', color: 'white', borderRadius: '10px', fontSize: '0.65rem', padding: '2px 7px', fontWeight: 'bold' }}>●</span>
+                                                </NavLink>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             )}
@@ -305,23 +307,24 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     <span className="sidebar-icon"><MapPin size={20} /></span>
                                     <span className="sidebar-label">Rotaciones</span>
                                 </NavLink>
-                                 {(role === 'administrador' || role === 'vaquero') && (
-                                    <NavLink to="/potreradas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                        <span className="sidebar-icon"><Users size={20} /></span>
-                                        <span className="sidebar-label">Lotes</span>
-                                    </NavLink>
+                                {(role === 'administrador' || role === 'vaquero') && (
+                                    <>
+                                        <NavLink to="/potreradas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                            <span className="sidebar-icon"><Users size={20} /></span>
+                                            <span className="sidebar-label">Lotes</span>
+                                        </NavLink>
+                                        <NavLink to="/historial-ventas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                            <span className="sidebar-icon"><FileText size={20} /></span>
+                                            <span className="sidebar-label">Historial Ventas</span>
+                                        </NavLink>
+                                        <NavLink to="/historial-compras" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                            <span className="sidebar-icon"><ShoppingCart size={20} /></span>
+                                            <span className="sidebar-label">Historial Compras</span>
+                                        </NavLink>
+                                    </>
                                 )}
-                                <NavLink to="/historial-ventas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                    <span className="sidebar-icon"><FileText size={20} /></span>
-                                    <span className="sidebar-label">Historial Ventas</span>
-                                </NavLink>
-                                <NavLink to="/historial-compras" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                    <span className="sidebar-icon"><ShoppingCart size={20} /></span>
-                                    <span className="sidebar-label">Historial Compras</span>
-                                </NavLink>
                             </div>
 
-                        )}
                     </div>
                 </nav>
 

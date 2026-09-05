@@ -546,7 +546,7 @@ export default function Aforos() {
                         {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Forzar Online)</>}
                     </span>
 
-                    {offlineQueue.length > 0 && isOnline && (
+                    {offlineQueue.length > 0 && isOnline && isAdminOrCowboy && (
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px' }}>
                                 <UploadCloud size={18} /> {syncing ? 'Sincronizando...' : `Sincronizar (${offlineQueue.length})`}
@@ -791,8 +791,8 @@ export default function Aforos() {
                             </h2>
                         </div>
 
-                        <button type="submit" disabled={loading || !isAdminOrCowboy} style={{ marginTop: '12px', padding: '14px', width: '100%' }}>
-                            {loading ? 'Procesando...' : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Save size={20}/> Guardar Aforo</span>}
+                        <button type="submit" disabled={loading || !isAdminOrCowboy} style={{ marginTop: '12px', padding: '14px', width: '100%', opacity: !isAdminOrCowboy ? 0.6 : 1 }}>
+                            {loading ? 'Procesando...' : !isAdminOrCowboy ? 'Solo Lectura (Visualización)' : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Save size={20}/> Guardar Aforo</span>}
                         </button>
                     </form>
                 </div>

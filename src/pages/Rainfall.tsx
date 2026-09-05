@@ -50,9 +50,10 @@ const TAB_DIARIA = 'diaria';
 const TAB_YOY = 'yoy';
 
 export default function Rainfall() {
-    const { fincaId, licenciaInfo } = useAuth();
+    const { fincaId, role, licenciaInfo } = useAuth();
     const navigate = useNavigate();
     const esDemo = licenciaInfo?.licencia === 'demo';
+    const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
 
     const [registros, setRegistros] = useState<RegistroLluvia[]>([]);
     const [ubicacionFinca, setUbicacionFinca] = useState<string | null>(null);
@@ -385,14 +386,16 @@ export default function Rainfall() {
                         )}
                     </div>
                 </div>
-                <button
-                    className="btn btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', width: 'auto' }}
-                    onClick={() => setShowModal(true)}
-                >
-                    <Plus size={20} />
-                    Nuevo Registro
-                </button>
+                {isAdminOrCowboy && (
+                    <button
+                        className="btn btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', width: 'auto' }}
+                        onClick={() => setShowModal(true)}
+                    >
+                        <Plus size={20} />
+                        Nuevo Registro
+                    </button>
+                )}
             </div>
 
             {loading ? (
@@ -745,13 +748,15 @@ export default function Rainfall() {
                                                                     {r.notas ? `"${r.notas}"` : '—'}
                                                                 </td>
                                                                 <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                                                                    <button
-                                                                        onClick={() => handleEliminar(r.id)}
-                                                                        style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', opacity: 0.6, padding: '4px', width: 'auto' }}
-                                                                        title="Eliminar registro"
-                                                                    >
-                                                                        <Trash2 size={16} />
-                                                                    </button>
+                                                                    {isAdminOrCowboy && (
+                                                                        <button
+                                                                            onClick={() => handleEliminar(r.id)}
+                                                                            style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', opacity: 0.6, padding: '4px', width: 'auto' }}
+                                                                            title="Eliminar registro"
+                                                                        >
+                                                                            <Trash2 size={16} />
+                                                                        </button>
+                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         );
