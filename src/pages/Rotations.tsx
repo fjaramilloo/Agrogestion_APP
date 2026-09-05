@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info, Search } from 'lucide-react';
+import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info, Search, CheckSquare, Square } from 'lucide-react';
 
 interface Potrero {
     id: string;
@@ -32,8 +32,13 @@ export default function Rotations() {
     const [showNuevaRotacion, setShowNuevaRotacion] = useState(false);
     const [nuevaRotNombre, setNuevaRotNombre] = useState('');
     
-    const [showNuevoPotrero, setShowNuevoPotrero] = useState<string | null>(null); // null o id_rotacion
+    // Modal Añadir Potrero
+    const [showNuevoPotrero, setShowNuevoPotrero] = useState<string | null>(null); // null, 'none' o id_rotacion
+    const [potreroModalTab, setPotreroModalTab] = useState<'existente' | 'nuevo'>('existente');
+    const [selectedExistingIds, setSelectedExistingIds] = useState<string[]>([]);
+    const [existingSearchTerm, setExistingSearchTerm] = useState('');
     const [nuevoPotForm, setNuevoPotForm] = useState({ nombre: '', area: '' });
+    const [isSaving, setIsSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
     const isAdmin = role === 'administrador' || role === 'vaquero';
@@ -115,6 +120,7 @@ export default function Rotations() {
     const handleAddPotrero = async (e: React.FormEvent, rotId: string | null) => {
         e.preventDefault();
         if (!nuevoPotForm.nombre.trim() || !fincaId) return;
+        setIsSaving(true);
         try {
             const { error } = await supabase.from('potreros').insert({
                 id_finca: fincaId,
@@ -128,7 +134,50 @@ export default function Rotations() {
             fetchData();
         } catch (err: any) {
             setMsjError(err.message);
+        } finally {
+            setIsSaving(false);
         }
+    };
+
+    const handleAssignExistingPotreros = async (e: React.FormEvent, rotId: string | null) => {
+        e.preventDefault();
+        if (selectedExistingIds.length === 0) return;
+        setIsSaving(true);
+        try {
+            const { error } = await supabase
+                .from('potreros')
+                .update({ id_rotacion: rotId })
+                .in('id', selectedExistingIds);
+            if (error) throw error;
+            setSelectedExistingIds([]);
+            setShowNuevoPotrero(null);
+            fetchData();
+        } catch (err: any) {
+            setMsjError(err.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const openModalForRotation = (rotId: string) => {
+        setShowNuevoPotrero(rotId);
+        setSelectedExistingIds([]);
+        setExistingSearchTerm('');
+        setNuevoPotForm({ nombre: '', area: '' });
+
+        if (rotId === 'none') {
+            setPotreroModalTab('nuevo');
+        } else {
+            // Check if there are available existing potreros
+            const availableCount = potreros.filter(p => p.id_rotacion !== rotId).length;
+            setPotreroModalTab(availableCount > 0 ? 'existente' : 'nuevo');
+        }
+    };
+
+    const toggleSelectExisting = (id: string) => {
+        setSelectedExistingIds(prev => 
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
     };
 
     const deletePotrero = async (id: string) => {
@@ -175,6 +224,24 @@ export default function Rotations() {
     const filteredSinRotacion = sinRotacion.filter(p => 
         p.nombre.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Potreros disponibles para asignar a la rotación seleccionada
+    const currentTargetRot = showNuevoPotrero && showNuevoPotrero !== 'none'
+        ? rotaciones.find(r => r.id === showNuevoPotrero)
+        : null;
+
+    const availableExistingPotreros = showNuevoPotrero
+        ? potreros.filter(p => {
+            if (showNuevoPotrero === 'none') return p.id_rotacion !== null;
+            return p.id_rotacion !== showNuevoPotrero;
+        })
+        : [];
+
+    const filteredAvailablePotreros = availableExistingPotreros.filter(p =>
+        p.nombre.toLowerCase().includes(existingSearchTerm.toLowerCase())
+    );
+
+    const rotacionMap = new Map(rotaciones.map(r => [r.id, r.nombre]));
 
     return (
         <div className="page-container" style={{ maxWidth: '1000px' }}>
@@ -283,7 +350,7 @@ export default function Rotations() {
                             {isAdmin && (
                                 <div style={{ display: 'flex', gap: '12px' }}>
                                     <button 
-                                        onClick={() => setShowNuevoPotrero(rot.id)} 
+                                        onClick={() => openModalForRotation(rot.id)} 
                                         style={{ 
                                             width: 'auto', 
                                             padding: '6px 16px', 
@@ -302,11 +369,11 @@ export default function Rotations() {
                                     >
                                         <Plus size={14} /> Potrero
                                     </button>
-                                            {role === 'administrador' && (
-                                                <button onClick={() => deleteRotacion(rot.id)} style={{ width: 'auto', padding: '6px', background: 'none', color: 'rgba(244, 67, 54, 0.4)' }} title="Eliminar Rotación">
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
+                                    {role === 'administrador' && (
+                                        <button onClick={() => deleteRotacion(rot.id)} style={{ width: 'auto', padding: '6px', background: 'none', color: 'rgba(244, 67, 54, 0.4)' }} title="Eliminar Rotación">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -326,7 +393,7 @@ export default function Rotations() {
                                         <tr><td colSpan={isAdmin ? 3 : 2} style={{ padding: '20px 24px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>No hay potreros asignados.</td></tr>
                                     ) : (
                                         rot.pots.map(p => (
-                                            <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                             <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
                                                 <td style={{ padding: '12px 24px' }}>
                                                     {editingPot === p.id ? (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -390,7 +457,7 @@ export default function Rotations() {
                             </div>
                             {isAdmin && (
                                 <button 
-                                    onClick={() => setShowNuevoPotrero('none')} 
+                                    onClick={() => openModalForRotation('none')} 
                                     style={{ 
                                         width: 'auto', 
                                         padding: '6px 16px', 
@@ -465,21 +532,254 @@ export default function Rotations() {
                 )}
             </div>
 
-            {/* Modal Nuevo Potrero */}
+            {/* Modal Añadir / Asignar Potrero */}
             {showNuevoPotrero && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-                    <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
-                        <h2>Añadir Potrero</h2>
-                        <form onSubmit={(e) => handleAddPotrero(e, showNuevoPotrero === 'none' ? null : showNuevoPotrero)} style={{ marginTop: '20px' }}>
-                            <label>Nombre del Potrero</label>
-                            <input autoFocus type="text" value={nuevoPotForm.nombre} onChange={e => setNuevoPotForm({...nuevoPotForm, nombre: e.target.value})} placeholder="Ej: Lote 1" required />
-                            <label>Área (Hectáreas)</label>
-                            <input type="number" step="0.01" value={nuevoPotForm.area} onChange={e => setNuevoPotForm({...nuevoPotForm, area: e.target.value})} placeholder="0.00" required />
-                            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                                <button type="button" className="btn-secondary" onClick={() => setShowNuevoPotrero(null)}>Cancelar</button>
-                                <button type="submit">Añadir</button>
+                <div style={{ 
+                    position: 'fixed', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    backgroundColor: 'rgba(0,0,0,0.85)', 
+                    backdropFilter: 'blur(6px)', 
+                    zIndex: 1000, 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    padding: '20px' 
+                }}>
+                    <div className="card" style={{ maxWidth: '480px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: '1.3rem' }}>
+                                    {currentTargetRot ? `Añadir a ${currentTargetRot.nombre}` : 'Añadir Potrero'}
+                                </h2>
+                                <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                    {showNuevoPotrero === 'none' 
+                                        ? 'Crea un potrero sin rotación asignada' 
+                                        : 'Selecciona potreros existentes o crea uno nuevo'}
+                                </p>
                             </div>
-                        </form>
+                            <button 
+                                onClick={() => setShowNuevoPotrero(null)} 
+                                style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--text-muted)' }}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Segmented Tabs */}
+                        {showNuevoPotrero !== 'none' && (
+                            <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: '1fr 1fr', 
+                                backgroundColor: 'rgba(255,255,255,0.05)', 
+                                padding: '4px', 
+                                borderRadius: '10px', 
+                                marginBottom: '20px' 
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setPotreroModalTab('existente')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        fontSize: '0.85rem',
+                                        borderRadius: '8px',
+                                        backgroundColor: potreroModalTab === 'existente' ? 'var(--primary)' : 'transparent',
+                                        color: potreroModalTab === 'existente' ? 'white' : 'var(--text-muted)',
+                                        border: 'none',
+                                        boxShadow: potreroModalTab === 'existente' ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    <CheckSquare size={16} /> Seleccionar Existente
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPotreroModalTab('nuevo')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        fontSize: '0.85rem',
+                                        borderRadius: '8px',
+                                        backgroundColor: potreroModalTab === 'nuevo' ? 'var(--primary)' : 'transparent',
+                                        color: potreroModalTab === 'nuevo' ? 'white' : 'var(--text-muted)',
+                                        border: 'none',
+                                        boxShadow: potreroModalTab === 'nuevo' ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    <Plus size={16} /> Crear Nuevo
+                                </button>
+                            </div>
+                        )}
+
+                        {/* TAB: SELECCIONAR EXISTENTE */}
+                        {potreroModalTab === 'existente' && showNuevoPotrero !== 'none' ? (
+                            <form 
+                                onSubmit={(e) => handleAssignExistingPotreros(e, showNuevoPotrero)} 
+                                style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+                            >
+                                {availableExistingPotreros.length > 5 && (
+                                    <div style={{ position: 'relative', marginBottom: '12px' }}>
+                                        <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={16} />
+                                        <input 
+                                            type="text"
+                                            placeholder="Buscar potrero disponible..."
+                                            value={existingSearchTerm}
+                                            onChange={(e) => setExistingSearchTerm(e.target.value)}
+                                            style={{ paddingLeft: '36px', marginBottom: 0, height: '38px', fontSize: '0.85rem' }}
+                                        />
+                                    </div>
+                                )}
+
+                                <div style={{ 
+                                    overflowY: 'auto', 
+                                    maxHeight: '320px', 
+                                    border: '1px solid rgba(255,255,255,0.08)', 
+                                    borderRadius: '8px', 
+                                    padding: '6px',
+                                    marginBottom: '16px',
+                                    backgroundColor: 'rgba(0,0,0,0.2)'
+                                }}>
+                                    {availableExistingPotreros.length === 0 ? (
+                                        <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                            No hay otros potreros registrados en esta finca.
+                                            <div style={{ marginTop: '12px' }}>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setPotreroModalTab('nuevo')}
+                                                    style={{ width: 'auto', padding: '6px 16px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                                >
+                                                    <Plus size={14} /> Crear Nuevo Potrero
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : filteredAvailablePotreros.length === 0 ? (
+                                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                            No se encontraron potreros que coincidan con la búsqueda.
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            {filteredAvailablePotreros.map(p => {
+                                                const isSelected = selectedExistingIds.includes(p.id);
+                                                const isUnassigned = !p.id_rotacion;
+                                                const currentRotName = p.id_rotacion ? rotacionMap.get(p.id_rotacion) : null;
+
+                                                return (
+                                                    <div 
+                                                        key={p.id}
+                                                        onClick={() => toggleSelectExisting(p.id)}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            padding: '10px 12px',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            backgroundColor: isSelected ? 'rgba(46, 125, 50, 0.2)' : 'rgba(255,255,255,0.02)',
+                                                            border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            {isSelected ? (
+                                                                <CheckSquare size={18} color="var(--primary-light)" />
+                                                            ) : (
+                                                                <Square size={18} color="var(--text-muted)" />
+                                                            )}
+                                                            <div>
+                                                                <div style={{ fontWeight: 500, color: 'white', fontSize: '0.9rem' }}>
+                                                                    {p.nombre}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.75rem', color: isUnassigned ? 'var(--primary-light)' : 'var(--text-muted)' }}>
+                                                                    {isUnassigned ? '✦ Sin Rotación' : `Rotación: ${currentRotName || 'Otra'}`}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <span style={{ 
+                                                                fontSize: '0.85rem', 
+                                                                fontWeight: 600, 
+                                                                color: 'var(--primary-light)',
+                                                                fontFamily: 'monospace' 
+                                                            }}>
+                                                                {p.area_hectareas ? p.area_hectareas.toFixed(2) : '0.00'} Ha
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', gap: '12px' }}>
+                                    <button 
+                                        type="button" 
+                                        className="btn-secondary" 
+                                        onClick={() => setShowNuevoPotrero(null)}
+                                        style={{ width: 'auto', padding: '10px 18px' }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        type="submit"
+                                        disabled={selectedExistingIds.length === 0 || isSaving}
+                                        style={{ 
+                                            width: 'auto', 
+                                            padding: '10px 20px',
+                                            opacity: selectedExistingIds.length === 0 || isSaving ? 0.5 : 1,
+                                            cursor: selectedExistingIds.length === 0 || isSaving ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        {isSaving 
+                                            ? 'Guardando...' 
+                                            : `Asignar ${selectedExistingIds.length > 0 ? `(${selectedExistingIds.length})` : ''}`}
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            /* TAB: CREAR NUEVO */
+                            <form 
+                                onSubmit={(e) => handleAddPotrero(e, showNuevoPotrero === 'none' ? null : showNuevoPotrero)} 
+                                style={{ marginTop: '8px' }}
+                            >
+                                <label>Nombre del Potrero</label>
+                                <input 
+                                    autoFocus 
+                                    type="text" 
+                                    value={nuevoPotForm.nombre} 
+                                    onChange={e => setNuevoPotForm({...nuevoPotForm, nombre: e.target.value})} 
+                                    placeholder="Ej: Lote 1, Potrero Norte..." 
+                                    required 
+                                />
+                                <label>Área (Hectáreas)</label>
+                                <input 
+                                    type="number" 
+                                    step="0.01" 
+                                    value={nuevoPotForm.area} 
+                                    onChange={e => setNuevoPotForm({...nuevoPotForm, area: e.target.value})} 
+                                    placeholder="0.00" 
+                                    required 
+                                />
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                                    <button type="button" className="btn-secondary" onClick={() => setShowNuevoPotrero(null)}>
+                                        Cancelar
+                                    </button>
+                                    <button type="submit" disabled={isSaving}>
+                                        {isSaving ? 'Guardando...' : 'Crear Potrero'}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
                     </div>
                 </div>
             )}
