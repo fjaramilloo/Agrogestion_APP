@@ -143,7 +143,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
       const isSelected = selectedPotrero?.id === p.id;
       const hasCattle = !isDemo && !!p.potrerada_actual;
-      const baseColor = isDemo ? '#10B981' : hasCattle ? '#3B82F6' : '#10B981';
+      // Verde si está libre, Gris Pizarra si está ocupado con ganado
+      const baseColor = isDemo ? '#10B981' : hasCattle ? '#64748B' : '#10B981';
       const polyColor = isSelected ? '#F59E0B' : baseColor;
 
       const geoJsonLayer = L.geoJSON(p.geojson_geometry, {
@@ -166,7 +167,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
       const hoverTooltipContent = `
         <div style="font-family: system-ui, sans-serif; font-size: 11px; padding: 2px;">
           <strong style="color: #0F172A;">${p.nombre}</strong> (${p.area_hectareas} Ha)
-          ${hasCattle ? `<div style="color: #2563EB; font-weight: 600; margin-top: 2px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs)</div>` : '<div style="color: #16A34A; font-size: 10px;">🟢 Disponible</div>'}
+          ${hasCattle ? `<div style="color: #475569; font-weight: 600; margin-top: 2px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs)</div>` : '<div style="color: #16A34A; font-size: 10px;">🟢 Disponible / Descanso</div>'}
         </div>
       `;
       geoJsonLayer.bindTooltip(hoverTooltipContent, {
@@ -208,7 +209,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                 gap: 4px;
               ">
                 <span>${p.nombre}</span>
-                ${hasCattle ? `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background-color:#3B82F6;"></span>` : ''}
+                ${hasCattle ? `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background-color:#94A3B8;"></span>` : ''}
               </div>
             `;
             iconWidth = 70;
@@ -235,7 +236,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                   <span style="font-weight: 700; color: #F8FAFC;">${p.nombre}</span>
                   <span style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'};">${p.area_hectareas} Ha</span>
                 </div>
-                ${hasCattle ? `<div style="margin-top: 2px; font-size: 8.5px; background: #3B82F6; color: white; padding: 1px 4px; border-radius: 3px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs)</div>` : ''}
+                ${hasCattle ? `<div style="margin-top: 2px; font-size: 8.5px; background: #475569; color: #F8FAFC; padding: 1px 4px; border-radius: 3px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs)</div>` : ''}
               </div>
             `;
             iconWidth = 105;
@@ -262,7 +263,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                 <div style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'};">${p.area_hectareas} Ha</div>
                 ${
                   hasCattle
-                    ? `<div style="margin-top: 2px; font-size: 9px; background: #3B82F6; color: white; padding: 2px 5px; border-radius: 4px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs &bull; ${p.potrerada_actual?.peso_promedio}kg)</div>`
+                    ? `<div style="margin-top: 2px; font-size: 9px; background: #475569; color: #F8FAFC; padding: 2px 5px; border-radius: 4px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs &bull; ${p.potrerada_actual?.peso_promedio}kg)</div>`
                     : ''
                 }
               </div>
@@ -753,7 +754,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
               <div style={{
                 fontSize: '0.9rem',
                 fontWeight: 600,
-                color: tipoLicencia === 'demo' ? '#94A3B8' : selectedPotrero.potrerada_actual ? '#60A5FA' : '#34D399',
+                color: tipoLicencia === 'demo' ? '#94A3B8' : selectedPotrero.potrerada_actual ? '#CBD5E1' : '#34D399',
               }}>
                 {tipoLicencia === 'demo' ? 'Vista Previa' : selectedPotrero.potrerada_actual ? 'Ocupado' : 'Libre'}
               </div>
@@ -809,13 +810,13 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           ) : selectedPotrero.potrerada_actual ? (
             <div style={{
               backgroundColor: '#1E293B90',
-              border: '1px solid #3B82F640',
+              border: '1px solid #64748B50',
               borderRadius: '12px',
               padding: '14px',
               marginBottom: '16px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', borderBottom: '1px solid #334155', paddingBottom: '8px' }}>
-                <Users size={18} color="#3B82F6" />
+                <Users size={18} color="#94A3B8" />
                 <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#F1F5F9' }}>
                   {selectedPotrero.potrerada_actual.nombre}
                 </span>
