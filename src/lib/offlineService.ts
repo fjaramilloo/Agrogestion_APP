@@ -32,7 +32,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
 
       supabase
         .from('potreros')
-        .select('id, nombre, area_ha, capacidad_maxima')
+        .select('id, nombre, area_hectareas')
         .eq('id_finca', fincaId)
         .limit(10000),
 
@@ -72,8 +72,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         id: p.id,
         id_finca: fincaId,
         nombre: p.nombre,
-        area_ha: p.area_ha,
-        capacidad_maxima: p.capacidad_maxima
+        area_ha: p.area_hectareas,        // columna real en BD es area_hectareas
+        capacidad_maxima: undefined       // columna no existe en BD, se omite
       }));
 
       await localDB.potrerosCache.where('id_finca').equals(fincaId).delete();
