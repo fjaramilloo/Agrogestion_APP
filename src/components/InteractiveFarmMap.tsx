@@ -70,6 +70,14 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   const [currentZoom, setCurrentZoom] = useState<number>(zoom);
   const fittedBoundsKeyRef = useRef<string>('');
 
+  // Detectar si estamos en pantalla móvil
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+
   // Inicialización del Mapa de Leaflet
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -187,7 +195,46 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           let iconWidth = 100;
           let iconHeight = 24;
 
-          if (currentZoom < 14) {
+          if (isMobile && currentZoom < 14) {
+            // Móvil + zoom alejado: NO mostrar badge, el mapa debe ser legible
+            // Solo un punto de color muy pequeño para indicar la existencia del potrero
+            badgeHtml = `
+              <div style="
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: ${polyColor};
+                border: 1.5px solid rgba(255,255,255,0.7);
+                box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+                cursor: pointer;
+              "></div>
+            `;
+            iconWidth = 8;
+            iconHeight = 8;
+          } else if (isMobile && currentZoom < 16) {
+            // Móvil + zoom medio: solo nombre truncado muy compacto
+            const nombreCorto = p.nombre.length > 8 ? p.nombre.substring(0, 8) + '…' : p.nombre;
+            badgeHtml = `
+              <div style="
+                background-color: rgba(15, 23, 42, 0.88);
+                backdrop-filter: blur(4px);
+                border: 1px solid ${polyColor};
+                border-radius: 4px;
+                padding: 2px 5px;
+                color: white;
+                font-family: system-ui, sans-serif;
+                font-size: 9px;
+                font-weight: 700;
+                text-align: center;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+                white-space: nowrap;
+                cursor: pointer;
+                max-width: 70px;
+              ">${nombreCorto}</div>
+            `;
+            iconWidth = 60;
+            iconHeight = 16;
+          } else if (currentZoom < 14) {
             // Nivel 1: Zoom Alejado (Panorámica) -> Píldora ultra-compacta y limpia sin saturación
             badgeHtml = `
               <div style="
@@ -343,7 +390,45 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           let iconWidth = 100;
           let iconHeight = 24;
 
-          if (currentZoom < 14) {
+          if (isMobile && currentZoom < 14) {
+            // Móvil + zoom alejado: solo un punto de color
+            badgeHtml = `
+              <div style="
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: ${zoneColor};
+                border: 1.5px solid rgba(255,255,255,0.7);
+                box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+                cursor: pointer;
+              "></div>
+            `;
+            iconWidth = 8;
+            iconHeight = 8;
+          } else if (isMobile && currentZoom < 16) {
+            // Móvil + zoom medio: nombre muy compacto
+            const nombreCortoZ = z.nombre.length > 8 ? z.nombre.substring(0, 8) + '…' : z.nombre;
+            badgeHtml = `
+              <div style="
+                background-color: rgba(15, 23, 42, 0.88);
+                backdrop-filter: blur(4px);
+                border: 1px solid ${zoneColor};
+                border-radius: 4px;
+                padding: 2px 5px;
+                color: white;
+                font-family: system-ui, sans-serif;
+                font-size: 9px;
+                font-weight: 700;
+                text-align: center;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+                white-space: nowrap;
+                cursor: pointer;
+                max-width: 70px;
+              ">${zoneIcon} ${nombreCortoZ}</div>
+            `;
+            iconWidth = 60;
+            iconHeight = 16;
+          } else if (currentZoom < 14) {
             // Nivel 1: Zoom Alejado -> Píldora ultra compacta
             badgeHtml = `
               <div style="
@@ -440,7 +525,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
       map.fitBounds(bounds, { padding: [40, 40] });
       fittedBoundsKeyRef.current = currentDataKey;
     }
-  }, [potreros, zonasAdicionales, tipoLicencia, currentZoom, selectedPotrero, selectedZona]);
+  }, [potreros, zonasAdicionales, tipoLicencia, currentZoom, selectedPotrero, selectedZona, isMobile]);
 
   // Manejar Geolocalización GPS del Usuario en Tiempo Real (Exclusivo Plan Premium)
   const handleTrackGps = () => {

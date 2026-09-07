@@ -7,8 +7,20 @@ import { KmzUploaderModal } from '../components/KmzUploaderModal';
 import { localDB } from '../lib/db';
 import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles } from 'lucide-react';
 
+// Hook para saber si estamos en pantalla móvil
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export const FarmMapPage: React.FC = () => {
   const { fincaId, userFincas, role, licenciaInfo, setFincaId } = useAuth();
+  const isMobile = useIsMobile();
 
   const currentFincaName = userFincas.find((f) => f.id_finca === fincaId)?.nombre_finca || 'Mi Finca';
 
@@ -453,7 +465,8 @@ export const FarmMapPage: React.FC = () => {
             </div>
           )}
 
-          {role === 'administrador' && (
+          {/* Botones de administración: solo visibles en escritorio */}
+          {role === 'administrador' && !isMobile && (
             <div style={{ display: 'flex', gap: '8px' }}>
               {hasMapPolygons && (
                 <button
