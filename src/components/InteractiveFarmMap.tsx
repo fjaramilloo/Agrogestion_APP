@@ -650,7 +650,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           {mapType === 'satellite' ? 'Satélite' : 'Mapa Terreno'}
         </button>
 
-        {/* Botón Cargar Plano KMZ (Para Administradores) */}
+        {/* Botón Cargar Plano KMZ (Solo Administradores) */}
         {userRole === 'administrador' && onOpenUploader && (
           <button
             onClick={onOpenUploader}
@@ -859,8 +859,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             </div>
           )}
 
-          {/* Acciones del Potrero (Solo para Finca y Premium) */}
-          {tipoLicencia !== 'demo' && userRole !== 'observador' && onMoveCattleToPotrero && (
+          {/* Acciones del Potrero (Solo para Administradores) */}
+          {tipoLicencia !== 'demo' && userRole === 'administrador' && onMoveCattleToPotrero && (
             <button
               onClick={() => {
                 onMoveCattleToPotrero(selectedPotrero.id, selectedPotrero.nombre);
