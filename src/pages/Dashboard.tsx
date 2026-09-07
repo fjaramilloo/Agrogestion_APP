@@ -1098,7 +1098,7 @@ export default function Dashboard() {
 
                         {/* Cuerpo de la Gráfica */}
                         <div style={{ padding: '32px', minHeight: '400px' }}>
-                            <div style={{ width: '100%', height: '400px' }}>
+                            <div style={{ width: '100%', height: '400px', minWidth: 0 }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     {vistaGrafica === 'mensual' ? (
                                         <LineChart data={evolucionGmp} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -1220,7 +1220,7 @@ export default function Dashboard() {
                                 <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Histórico de Lluvias (Pluviosidad)</h3>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Milímetros de agua registrados mensualmente</p>
                             </div>
-                            <div style={{ width: '100%', height: '350px' }}>
+                            <div style={{ width: '100%', height: '350px', minWidth: 0 }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={evolucionLluvia} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
