@@ -585,23 +585,38 @@ export const FarmMapPage: React.FC = () => {
             Sube el archivo de tu finca exportado desde Google Earth, QGIS o tu GPS. El sistema vinculará automáticamente tus potreros y calculará sus superficies.
           </p>
           {role === 'administrador' ? (
-            <button
-              onClick={() => setUploaderOpen(true)}
-              style={{
-                backgroundColor: '#3B82F6',
-                color: 'white',
-                border: 'none',
-                padding: '12px 24px',
+            isMobile ? (
+              <div style={{
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
                 borderRadius: '10px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <Upload size={18} /> Cargar Archivo .KMZ o .KML
-            </button>
+                padding: '12px 16px',
+                color: '#93C5FD',
+                fontSize: '0.85rem',
+                display: 'inline-block',
+                maxWidth: '420px',
+              }}>
+                💻 Para cargar o configurar el archivo KMZ de la finca, por favor ingresa desde una computadora (versión de escritorio).
+              </div>
+            ) : (
+              <button
+                onClick={() => setUploaderOpen(true)}
+                style={{
+                  backgroundColor: '#3B82F6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '10px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Upload size={18} /> Cargar Archivo .KMZ o .KML
+              </button>
+            )
           ) : (
             <div style={{ fontSize: '0.85rem', color: '#64748B' }}>
               Pide al administrador de la finca que suba el archivo KMZ para habilitar el mapa.

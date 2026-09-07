@@ -735,8 +735,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           {mapType === 'satellite' ? 'Satélite' : 'Mapa Terreno'}
         </button>
 
-        {/* Botón Cargar Plano KMZ (Solo Administradores) */}
-        {userRole === 'administrador' && onOpenUploader && (
+        {/* Botón Cargar Plano KMZ (Solo Administradores en Escritorio) */}
+        {userRole === 'administrador' && onOpenUploader && !isMobile && (
           <button
             onClick={onOpenUploader}
             style={{
