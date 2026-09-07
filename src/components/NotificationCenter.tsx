@@ -174,26 +174,42 @@ export default function NotificationCenter() {
             });
 
             // 2. Alerta de Cambio de Potrero (Multi-finca)
-            const { data: potreradas } = await supabase
-                .from('potreradas')
+            // Los campos id_potrero y fecha_entrada están en movimientos_potreros, no en potreradas
+            const { data: movimientosActivos } = await supabase
+                .from('movimientos_potreros')
                 .select(`
-                    id, 
-                    nombre, 
-                    id_potrero, 
+                    id,
+                    id_potrero,
+                    id_potrerada,
                     id_finca,
                     fecha_entrada,
-                    potreros ( 
+                    potreradas (
+                        id,
+                        nombre
+                    ),
+                    potreros (
                         nombre,
                         dias_ocupacion_base,
                         id_rotacion,
-                        rotaciones ( 
+                        rotaciones (
                             nombre,
                             potreros ( id )
                         )
                     )
                 `)
                 .in('id_finca', fincaIds)
-                .not('id_potrero', 'is', null);
+                .is('fecha_salida', null);
+
+            // Renombrar para mantener compatibilidad con el código de abajo
+            const potreradas = movimientosActivos?.map((m: any) => ({
+                id: m.id_potrerada,
+                nombre: m.potreradas?.nombre || 'Lote',
+                id_potrero: m.id_potrero,
+                id_finca: m.id_finca,
+                fecha_entrada: m.fecha_entrada,
+                potreros: m.potreros,
+            }));
+
 
             if (potreradas) {
                 const veinteDiasAtras = new Date();

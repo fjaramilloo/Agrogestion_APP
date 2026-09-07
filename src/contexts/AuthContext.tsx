@@ -224,7 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .from('superadmins')
                 .select('id_usuario')
                 .eq('id_usuario', userId)
-                .single();
+                .maybeSingle();
 
             setIsSuperAdmin(!!adminData);
 
