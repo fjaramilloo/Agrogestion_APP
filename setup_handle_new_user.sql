@@ -1,9 +1,12 @@
 -- Actualización del trigger handle_new_user para soporte de Auto-registro y creación automática de Cuenta Demo
+-- FIX: Añadido SET LOCAL row_security = off para que el SECURITY DEFINER pueda bypassear RLS
+--      (las políticas RLS usan auth.uid() que es NULL durante el trigger de registro)
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_org_id UUID;
@@ -13,6 +16,10 @@ DECLARE
   v_nombre_org TEXT;
   v_nombre_finca TEXT;
 BEGIN
+  -- Desactivar RLS para este bloque (la función corre como superuser con SECURITY DEFINER,
+  -- pero auth.uid() es NULL durante el trigger por lo que las políticas RLS bloquean los INSERTs)
+  SET LOCAL row_security = off;
+
   -- Extraer información del metadata enviado desde el frontend (supabase.auth.signUp)
   v_nombre := new.raw_user_meta_data->>'nombre';
   v_apellido := new.raw_user_meta_data->>'apellido';
