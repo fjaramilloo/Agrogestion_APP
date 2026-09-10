@@ -139,6 +139,13 @@ export default function Rainfall() {
             .filter(r => parseISO(r.fecha + 'T12:00:00') >= hace30 && r.milimetros >= perfil.umbralRegistroMm)
             .reduce((s, r) => s + r.milimetros, 0);
 
+        // mm últimos 7 días – ventana crítica de exceso hídrico a corto plazo
+        // (choque concentrado: anoxia radicular + daño por pisoteo)
+        const hace7 = subDays(hoy, 7);
+        const mm7dias = registros
+            .filter(r => parseISO(r.fecha + 'T12:00:00') >= hace7 && r.milimetros >= perfil.umbralRegistroMm)
+            .reduce((s, r) => s + r.milimetros, 0);
+
         // Lluvia de hoy
         const fechaHoyStr = format(hoy, 'yyyy-MM-dd');
         const registroHoy = registros.find(r => r.fecha === fechaHoyStr);
@@ -162,6 +169,7 @@ export default function Rainfall() {
             diasSecos,
             mmAnual: parseFloat(mmAnual.toFixed(1)),
             mm30dias,
+            mm7dias: parseFloat(mm7dias.toFixed(1)),
             lluviaHoy: parseFloat(lluviaHoy.toFixed(1)),
             diasSecosMes,
             diasTranscurridos,
@@ -335,7 +343,7 @@ export default function Rainfall() {
     // ── Recomendación ─────────────────────────────────────────────────
     const recomendacion = useMemo(() => {
         if (!kpis) return null;
-        return generarRecomendacion(perfil, kpis.diasSecos, kpis.mm30dias);
+        return generarRecomendacion(perfil, kpis.diasSecos, kpis.mm30dias, kpis.mm7dias);
     }, [perfil, kpis]);
 
     const colorSemaforoSecos = (dias: number) => {
@@ -493,7 +501,11 @@ export default function Rainfall() {
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Racha Seca</p>
                                         <p style={{ fontSize: '2rem', fontWeight: 700, color: colorSemaforoSecos(kpis.diasSecos), margin: '6px 0 4px' }}>{kpis.diasSecos}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> días</span></p>
                                         <span style={{ fontSize: '0.8rem', color: kpis.diasSecos >= perfil.diasSecosAlerta ? '#f44336' : 'var(--text-muted)' }}>
-                                            {kpis.diasSecos >= perfil.diasSecosAlerta ? `⚠️ Alerta: supera ${perfil.diasSecosAlerta} días` : `Alerta en ${perfil.diasSecosAlerta} días`}
+                                            {recomendacion?.tipo === 'oreo'
+                                                ? `🌾 En Oreo (buffer ${perfil.diasBufferPostExceso}d post-lluvia)`
+                                                : kpis.diasSecos >= perfil.diasSecosAlerta
+                                                ? `⚠️ Alerta: supera ${perfil.diasSecosAlerta} días`
+                                                : `Alerta en ${perfil.diasSecosAlerta} días`}
                                         </span>
                                     </div>
                                     {kpis.diasSecos >= perfil.diasSecosAlerta
@@ -531,7 +543,7 @@ export default function Rainfall() {
                                     { id: TAB_MENSUAL, label: 'Mensual' },
                                     { id: TAB_DIARIA, label: 'Últimos 30 días' },
                                     { id: TAB_YOY, label: 'Año vs Año' },
-                                ].map(tab => (
+                                    ].map(tab => (
                                     <button
                                         key={tab.id}
                                         onClick={() => setTabGrafica(tab.id)}
@@ -634,74 +646,86 @@ export default function Rainfall() {
                                 </button>
                             </div>
                         </div>
-                    ) : recomendacion && (
-                        <div style={{
-                            borderRadius: '12px', marginBottom: '28px', padding: '20px 24px',
-                            background:
-                                recomendacion.tipo === 'estres'    ? 'rgba(244,67,54,0.08)'
-                                : recomendacion.tipo === 'preAlerta' ? 'rgba(245,158,11,0.08)'
-                                : recomendacion.tipo === 'exceso'  ? 'rgba(255,152,0,0.08)'
-                                : recomendacion.tipo === 'transicion' ? 'rgba(255,179,0,0.08)'
-                                : 'rgba(76,175,80,0.08)',
-                            border: `1px solid ${
-                                recomendacion.tipo === 'estres'    ? 'rgba(244,67,54,0.25)'
-                                : recomendacion.tipo === 'preAlerta' ? 'rgba(245,158,11,0.30)'
-                                : recomendacion.tipo === 'exceso'  ? 'rgba(255,152,0,0.25)'
-                                : recomendacion.tipo === 'transicion' ? 'rgba(255,179,0,0.25)'
-                                : 'rgba(76,175,80,0.25)'
-                            }`,
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-                                <div style={{ fontSize: '1.6rem', lineHeight: 1 }}>
-                                    {recomendacion.tipo === 'estres'     ? '🔴'
-                                    : recomendacion.tipo === 'preAlerta' ? '🟡'
-                                    : recomendacion.tipo === 'exceso'    ? '🌊'
-                                    : recomendacion.tipo === 'transicion' ? '🌤️'
-                                    : '✅'}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                                        <p style={{ margin: 0, fontWeight: 600, color: 'white', fontSize: '0.95rem' }}>
-                                            Asistente Zootécnico – {perfil.emoji} {perfil.zona}
-                                        </p>
-                                        {/* Badge de estado */}
-                                        <span style={{
-                                            fontSize: '0.72rem', fontWeight: 700, padding: '2px 10px',
-                                            borderRadius: '20px', letterSpacing: '0.5px',
-                                            background:
-                                                recomendacion.tipo === 'estres'    ? 'rgba(244,67,54,0.20)'
-                                                : recomendacion.tipo === 'preAlerta' ? 'rgba(245,158,11,0.20)'
-                                                : recomendacion.tipo === 'exceso'  ? 'rgba(255,152,0,0.20)'
-                                                : recomendacion.tipo === 'transicion' ? 'rgba(255,179,0,0.20)'
-                                                : 'rgba(76,175,80,0.20)',
-                                            color:
-                                                recomendacion.tipo === 'estres'    ? '#f44336'
-                                                : recomendacion.tipo === 'preAlerta' ? '#f59e0b'
-                                                : recomendacion.tipo === 'exceso'  ? '#ff9800'
-                                                : recomendacion.tipo === 'transicion' ? '#ffb300'
-                                                : '#4caf50',
-                                        }}>
-                                            {recomendacion.tipo === 'estres'     ? 'ALERTA ROJA'
-                                            : recomendacion.tipo === 'preAlerta' ? 'PRE-ALERTA'
-                                            : recomendacion.tipo === 'exceso'    ? 'EXCESO HÍDRICO'
-                                            : recomendacion.tipo === 'transicion' ? 'TRANSICIÓN'
-                                            : 'CONDICIÓN ÓPTIMA'}
-                                        </span>
-                                        {/* Contexto numérico: días secos y acumulado */}
-                                        {kpis && (
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                {kpis.diasSecos > 0 ? `${kpis.diasSecos} días sin lluvia efectiva` : 'Lluvia efectiva reciente'}
-                                                {' · '}{kpis.mm30dias.toFixed(1)} mm últimos 30 días
+                    ) : recomendacion && (() => {
+                        // ── Paleta de color por estado (7 estados) ───────────────────────────
+                        const colorMap: Record<string, { bg: string; border: string; text: string; badge: string; emoji: string; label: string }> = {
+                            estres:           { bg: 'rgba(244,67,54,0.08)',   border: 'rgba(244,67,54,0.28)',   text: '#f44336', badge: 'rgba(244,67,54,0.20)',   emoji: '🔴', label: 'ALERTA ROJA – SEQUÍA' },
+                            excesoCritico:    { bg: 'rgba(30,100,200,0.10)',  border: 'rgba(59,130,246,0.35)',  text: '#3b82f6', badge: 'rgba(59,130,246,0.22)',  emoji: '🌊', label: 'ANEGAMIENTO CRÍTICO' },
+                            preAlerta:        { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.30)',  text: '#f59e0b', badge: 'rgba(245,158,11,0.20)',  emoji: '🟡', label: 'PRE-ALERTA SEQUÍA' },
+                            excesoPreventivo: { bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.28)',   text: '#06b6d4', badge: 'rgba(6,182,212,0.20)',   emoji: '💧', label: 'ENCHARCAMIENTO PREVENTIVO' },
+                            oreo:             { bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.30)',  text: '#10b981', badge: 'rgba(16,185,129,0.20)',  emoji: '🌾', label: 'OREO ACTIVO – MANEJO TOPOGRÁFICO' },
+                            transicion:       { bg: 'rgba(255,179,0,0.07)',   border: 'rgba(255,179,0,0.25)',   text: '#ffb300', badge: 'rgba(255,179,0,0.18)',   emoji: '🌤️', label: 'TRANSICIÓN' },
+                            optima:           { bg: 'rgba(76,175,80,0.08)',   border: 'rgba(76,175,80,0.25)',   text: '#4caf50', badge: 'rgba(76,175,80,0.18)',   emoji: '✅', label: 'CONDICIÓN ÓPTIMA' },
+                        };
+                        const c = colorMap[recomendacion.tipo] ?? colorMap.optima;
+
+                        // ── Contexto numérico dinámico según estado ──────────────────────────
+                        const esExceso = recomendacion.tipo === 'excesoCritico' || recomendacion.tipo === 'excesoPreventivo';
+                        const esOreo = recomendacion.tipo === 'oreo';
+
+                        return (
+                            <div style={{
+                                borderRadius: '12px', marginBottom: '28px', padding: '20px 24px',
+                                background: c.bg, border: `1px solid ${c.border}`,
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+                                    <div style={{ fontSize: '1.6rem', lineHeight: 1 }}>{c.emoji}</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                                            <p style={{ margin: 0, fontWeight: 600, color: 'white', fontSize: '0.95rem' }}>
+                                                Asistente Zootécnico – {perfil.emoji} {perfil.zona}
+                                            </p>
+                                            {/* Badge de estado */}
+                                            <span style={{
+                                                fontSize: '0.72rem', fontWeight: 700, padding: '2px 10px',
+                                                borderRadius: '20px', letterSpacing: '0.5px',
+                                                background: c.badge, color: c.text,
+                                            }}>
+                                                {c.label}
                                             </span>
+                                        </div>
+                                        {/* Contexto numérico */}
+                                        {kpis && (
+                                            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                                                {esOreo ? (
+                                                    <>
+                                                        <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>
+                                                            🌾 Día {kpis.diasSecos} de {perfil.diasBufferPostExceso} de amortiguación hídrica
+                                                        </span>
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                            Lluvia previa: {kpis.mm7dias.toFixed(1)} mm (7d) / {kpis.mm30dias.toFixed(1)} mm (30d)
+                                                            {' · '}Estrés computado: 0 días (humedad retenida)
+                                                        </span>
+                                                    </>
+                                                ) : esExceso ? (
+                                                    <>
+                                                        <span style={{ fontSize: '0.75rem', color: c.text, fontWeight: 600 }}>
+                                                            🌧 {kpis.mm7dias.toFixed(1)} mm en 7 días
+                                                            {recomendacion.tipo === 'excesoCritico'
+                                                                ? ` · Umbral crítico: ≥ ${perfil.exceso7dRoja} mm`
+                                                                : ` · Umbral alerta: ≥ ${perfil.exceso7dAmarilla} mm`}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                            {kpis.mm30dias.toFixed(1)} mm en 30 días · Umbral mensual: {perfil.exceso30d} mm
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                        {kpis.diasSecos > 0 ? `${kpis.diasSecos} días sin lluvia efectiva` : 'Lluvia efectiva reciente'}
+                                                        {' · '}{kpis.mm30dias.toFixed(1)} mm últimos 30 días
+                                                        {' · '}{kpis.mm7dias.toFixed(1)} mm últimos 7 días
+                                                    </span>
+                                                )}
+                                            </div>
                                         )}
+                                        <p style={{ margin: 0, color: 'var(--text-muted)', lineHeight: 1.7, fontSize: '0.92rem' }}>
+                                            {recomendacion.mensaje}
+                                        </p>
                                     </div>
-                                    <p style={{ margin: 0, color: 'var(--text-muted)', lineHeight: 1.7, fontSize: '0.92rem' }}>
-                                        {recomendacion.mensaje}
-                                    </p>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* ── TABLA AGRUPADA POR MES ── */}
                     <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
