@@ -71,7 +71,8 @@ export default function Rainfall() {
 
     // Formulario
     const [fecha, setFecha] = useState(getLocalIsoDate());
-    const [lecturaAcumulada, setLecturaAcumulada] = useState('');
+    const [modoEntrada, setModoEntrada] = useState<'diaria' | 'acumulada'>('diaria');
+    const [valorEntrada, setValorEntrada] = useState('');
     const [notas, setNotas] = useState('');
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
@@ -287,33 +288,57 @@ export default function Rainfall() {
 
     const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!fincaId || !lecturaAcumulada) return;
+        if (!fincaId || !valorEntrada) return;
         setSaving(true);
         setError('');
         try {
-            const nuevaLectura = parseFloat(lecturaAcumulada);
+            const valorNum = parseFloat(valorEntrada);
+            if (isNaN(valorNum) || valorNum < 0) {
+                throw new Error('Por favor ingresa un valor numérico válido (≥ 0 mm).');
+            }
+
             const registrosAnteriores = registros.filter(r => new Date(r.fecha) < new Date(fecha));
             const ultimoRegistro = registrosAnteriores[0];
-            let lecturaAnterior = 764.4;
-            if (ultimoRegistro && ultimoRegistro.lectura_acumulada) {
-                lecturaAnterior = ultimoRegistro.lectura_acumulada;
+
+            let milimetrosDia = 0;
+            let lecturaAcumuladaFinal: number | null = null;
+
+            if (modoEntrada === 'diaria') {
+                // Pluviómetro manual / probeta: Se ingresa directamente la lámina caída hoy
+                milimetrosDia = valorNum;
+                // Si el registro anterior tenía acumulado, sumamos para dar continuidad histórica
+                if (ultimoRegistro && ultimoRegistro.lectura_acumulada !== undefined && ultimoRegistro.lectura_acumulada !== null) {
+                    lecturaAcumuladaFinal = parseFloat((ultimoRegistro.lectura_acumulada + milimetrosDia).toFixed(1));
+                }
+            } else {
+                // Pluviómetro digital / estación: Se ingresa la lectura total acumulada
+                const nuevaLectura = valorNum;
+                let lecturaAnterior = 0;
+                if (ultimoRegistro && ultimoRegistro.lectura_acumulada !== undefined && ultimoRegistro.lectura_acumulada !== null) {
+                    lecturaAnterior = ultimoRegistro.lectura_acumulada;
+                } else if (registrosAnteriores.length > 0) {
+                    lecturaAnterior = registrosAnteriores.reduce((s, r) => s + r.milimetros, 0);
+                }
+
+                milimetrosDia = nuevaLectura - lecturaAnterior;
+                if (milimetrosDia < 0) {
+                    throw new Error(`La lectura ingresada (${nuevaLectura} mm) no puede ser menor a la lectura anterior (${lecturaAnterior} mm).`);
+                }
+                lecturaAcumuladaFinal = nuevaLectura;
             }
-            const milimetrosDia = nuevaLectura - lecturaAnterior;
-            if (milimetrosDia < 0) {
-                throw new Error(`La lectura (${nuevaLectura}) no puede ser menor a la lectura anterior (${lecturaAnterior}).`);
-            }
+
             const { error: insertErr } = await supabase
                 .from('registros_lluvia')
                 .insert({
                     id_finca: fincaId,
                     fecha,
-                    lectura_acumulada: nuevaLectura,
+                    lectura_acumulada: lecturaAcumuladaFinal,
                     milimetros: parseFloat(milimetrosDia.toFixed(1)),
                     notas: notas.trim() || null,
                 });
             if (insertErr) throw insertErr;
             setShowModal(false);
-            setLecturaAcumulada('');
+            setValorEntrada('');
             setNotas('');
             fetchTodo();
         } catch (err: any) {
@@ -851,40 +876,99 @@ export default function Rainfall() {
             {/* ── MODAL REGISTRO ── */}
             {showModal && (
                 <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
-                    <div className="card" style={{ width: '100%', maxWidth: '450px', padding: '32px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <div className="card" style={{ width: '100%', maxWidth: '460px', padding: '32px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h2 style={{ margin: 0, fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <CloudRain size={22} color="var(--primary-light)" />
-                                Registrar Lluvia Diaria
+                                Registrar Lluvia
                             </h2>
-                            <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', width: 'auto', padding: '4px 8px', fontSize: '1.2rem' }} onClick={() => setShowModal(false)}>✕</button>
+                            <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', width: 'auto', padding: '4px 8px', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setShowModal(false)}>✕</button>
                         </div>
                         <form onSubmit={handleGuardar}>
-                            <div style={{ marginBottom: '18px' }}>
-                                <label>Fecha</label>
+                            {/* Fecha */}
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Fecha</label>
                                 <input type="date" className="input-field" value={fecha} onChange={e => setFecha(e.target.value)} required />
                             </div>
+
+                            {/* Selector de Modo de Pluviómetro */}
                             <div style={{ marginBottom: '18px' }}>
-                                <label>Lectura del Pluviómetro Acumulada (mm)</label>
-                                <input
-                                    type="number" step="0.1" className="input-field"
-                                    placeholder="Ej: 1520.5"
-                                    value={lecturaAcumulada}
-                                    onChange={e => setLecturaAcumulada(e.target.value)}
-                                    required
-                                />
+                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                    Tipo de Medición
+                                </label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setModoEntrada('diaria'); setError(''); }}
+                                        style={{
+                                            padding: '9px 10px',
+                                            fontSize: '0.82rem',
+                                            borderRadius: '8px',
+                                            border: modoEntrada === 'diaria' ? '1px solid rgba(56,189,248,0.5)' : '1px solid transparent',
+                                            background: modoEntrada === 'diaria' ? 'rgba(56,189,248,0.15)' : 'transparent',
+                                            color: modoEntrada === 'diaria' ? '#38bdf8' : 'var(--text-muted)',
+                                            fontWeight: modoEntrada === 'diaria' ? 600 : 400,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                            cursor: 'pointer', transition: 'all 0.2s', width: '100%', textTransform: 'none', letterSpacing: 0,
+                                        }}
+                                    >
+                                        <Droplets size={15} color={modoEntrada === 'diaria' ? '#38bdf8' : '#94a3b8'} />
+                                        Lluvia del Día
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setModoEntrada('acumulada'); setError(''); }}
+                                        style={{
+                                            padding: '9px 10px',
+                                            fontSize: '0.82rem',
+                                            borderRadius: '8px',
+                                            border: modoEntrada === 'acumulada' ? '1px solid rgba(168,85,247,0.5)' : '1px solid transparent',
+                                            background: modoEntrada === 'acumulada' ? 'rgba(168,85,247,0.15)' : 'transparent',
+                                            color: modoEntrada === 'acumulada' ? '#c084fc' : 'var(--text-muted)',
+                                            fontWeight: modoEntrada === 'acumulada' ? 600 : 400,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                            cursor: 'pointer', transition: 'all 0.2s', width: '100%', textTransform: 'none', letterSpacing: 0,
+                                        }}
+                                    >
+                                        <TrendingUp size={15} color={modoEntrada === 'acumulada' ? '#c084fc' : '#94a3b8'} />
+                                        Acumulada Digital
+                                    </button>
+                                </div>
                             </div>
+
+                            {/* Campo de Entrada Dinámico */}
+                            <div style={{ marginBottom: '18px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>
+                                    {modoEntrada === 'diaria' ? 'Lluvia caída hoy (mm)' : 'Lectura acumulada del pluviómetro (mm)'}
+                                </label>
+                                <input
+                                    type="number" step="0.1" min="0" className="input-field"
+                                    placeholder={modoEntrada === 'diaria' ? "Ej: 18.5" : "Ej: 1520.5"}
+                                    value={valorEntrada}
+                                    onChange={e => setValorEntrada(e.target.value)}
+                                    required
+                                    autoFocus
+                                />
+                                <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                                    {modoEntrada === 'diaria'
+                                        ? '💧 Pluviómetro manual / probeta: ingresa directamente los mm caídos.'
+                                        : '📟 Pluviómetro digital / estación: el sistema calculará la diferencia respecto a la lectura anterior.'}
+                                </p>
+                            </div>
+
+                            {/* Notas */}
                             <div style={{ marginBottom: '24px' }}>
-                                <label>Notas (Opcional)</label>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Notas (Opcional)</label>
                                 <textarea
                                     className="input-field"
-                                    placeholder="Ej: Llovió toda la tarde"
+                                    placeholder="Ej: Aguacero fuerte en la tarde"
                                     value={notas}
                                     onChange={e => setNotas(e.target.value)}
                                     rows={3}
                                     style={{ resize: 'none', marginBottom: 0 }}
                                 />
                             </div>
+
                             {error && <p style={{ color: 'var(--error)', marginBottom: '16px', fontSize: '0.9rem', background: 'rgba(244,67,54,0.1)', padding: '10px', borderRadius: '8px' }}>{error}</p>}
                             <div style={{ display: 'flex', gap: '12px' }}>
                                 <button type="button" style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setShowModal(false)}>Cancelar</button>
