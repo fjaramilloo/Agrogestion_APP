@@ -34,14 +34,21 @@ interface MesGroup {
 }
 
 const COLORES_INTENSIDAD = {
-    fuerte: { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.5)', text: '#60a5fa', label: 'Fuerte', emoji: '🌊' },
-    moderada: { bg: 'rgba(96, 165, 250, 0.10)', border: 'rgba(96, 165, 250, 0.3)', text: '#7dd3fc', label: 'Moderada', emoji: '🔵' },
-    leve: { bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.2)', text: '#94a3b8', label: 'Leve/Garúa', emoji: '💧' },
+    fuerte:   { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.5)',   text: '#60a5fa', label: 'Fuerte',            emoji: '🌊' },
+    moderada: { bg: 'rgba(96, 165, 250, 0.10)', border: 'rgba(96, 165, 250, 0.3)',   text: '#7dd3fc', label: 'Moderada (Efectiva)', emoji: '🔵' },
+    leve:     { bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.2)', text: '#94a3b8', label: 'Leve',               emoji: '💧' },
+    trazas:   { bg: 'rgba(100, 116, 139, 0.05)', border: 'rgba(100, 116, 139, 0.15)', text: '#64748b', label: 'Trazas',             emoji: '·' },
 };
 
-function clasificarIntensidad(mm: number, umbral: number) {
-    if (mm >= umbral * 4) return COLORES_INTENSIDAD.fuerte;
-    if (mm >= umbral) return COLORES_INTENSIDAD.moderada;
+// Clasifica la intensidad de un registro de lluvia en 4 niveles:
+//   trazas   → < umbralRegistroMm (< 1.0 mm): margen de error del pluviómetro, no cuenta como lluvia
+//   leve     → ≥ umbralRegistroMm y < umbralEfectivoMm: lluvia real pero no recarga el forraje
+//   moderada → ≥ umbralEfectivoMm: lluvia efectiva para el rebrote
+//   fuerte   → ≥ umbralEfectivoMm × 4: lluvia intensa
+function clasificarIntensidad(mm: number, umbralRegistro: number, umbralEfectivo: number) {
+    if (mm < umbralRegistro)    return COLORES_INTENSIDAD.trazas;
+    if (mm >= umbralEfectivo * 4) return COLORES_INTENSIDAD.fuerte;
+    if (mm >= umbralEfectivo)   return COLORES_INTENSIDAD.moderada;
     return COLORES_INTENSIDAD.leve;
 }
 
@@ -99,7 +106,9 @@ export default function Rainfall() {
 
         const diasEfectivos = mesActualReg.filter(r => r.milimetros >= perfil.umbralEfectivoMm).length;
 
-        // Días secos consecutivos desde hoy hacia atrás
+        // ── Racha seca (días consecutivos sin lluvia EFECTIVA) ────────────────
+        // Solo se reinicia con lluvias >= umbralEfectivoMm. Lluvias leves o
+        // trazas (< umbralEfectivoMm) no recargan el forraje y no resetean la racha.
         const registrosOrdenados = [...registros].sort((a, b) => b.fecha.localeCompare(a.fecha));
         let diasSecos = 0;
         let fechaRef = hoy;
@@ -124,10 +133,10 @@ export default function Rainfall() {
             .filter(r => parseISO(r.fecha + 'T12:00:00').getFullYear() === anoActual)
             .reduce((s, r) => s + r.milimetros, 0);
 
-        // mm últimos 30 días para recomendación
+        // mm últimos 30 días para recomendación (incluye lluvias leves, excluye trazas)
         const hace30 = subDays(hoy, 30);
         const mm30dias = registros
-            .filter(r => parseISO(r.fecha + 'T12:00:00') >= hace30)
+            .filter(r => parseISO(r.fecha + 'T12:00:00') >= hace30 && r.milimetros >= perfil.umbralRegistroMm)
             .reduce((s, r) => s + r.milimetros, 0);
 
         // Lluvia de hoy
@@ -135,9 +144,11 @@ export default function Rainfall() {
         const registroHoy = registros.find(r => r.fecha === fechaHoyStr);
         const lluviaHoy = registroHoy ? registroHoy.milimetros : 0;
 
-        // Días sin lluvia (mes actual)
+        // ── Días sin lluvia en el mes ─────────────────────────────────────────
+        // Usa umbralRegistroMm (≥ 1.0 mm según norma OMM) para distinguir
+        // lluvia real de trazas / margen de error del pluviómetro.
         const uniqueRainyDays = new Set(
-            mesActualReg.filter(r => r.milimetros > 0).map(r => r.fecha)
+            mesActualReg.filter(r => r.milimetros >= perfil.umbralRegistroMm).map(r => r.fecha)
         ).size;
         const diasTranscurridos = hoy.getDate();
         const diasSecosMes = Math.max(0, diasTranscurridos - uniqueRainyDays);
@@ -626,23 +637,64 @@ export default function Rainfall() {
                     ) : recomendacion && (
                         <div style={{
                             borderRadius: '12px', marginBottom: '28px', padding: '20px 24px',
-                            background: recomendacion.tipo === 'estres'
-                                ? 'rgba(244,67,54,0.08)'
-                                : recomendacion.tipo === 'exceso'
-                                    ? 'rgba(255,152,0,0.08)'
-                                    : recomendacion.tipo === 'transicion'
-                                        ? 'rgba(255,179,0,0.08)'
-                                        : 'rgba(76,175,80,0.08)',
-                            border: `1px solid ${recomendacion.tipo === 'estres' ? 'rgba(244,67,54,0.25)' : recomendacion.tipo === 'exceso' ? 'rgba(255,152,0,0.25)' : recomendacion.tipo === 'transicion' ? 'rgba(255,179,0,0.25)' : 'rgba(76,175,80,0.25)'}`,
+                            background:
+                                recomendacion.tipo === 'estres'    ? 'rgba(244,67,54,0.08)'
+                                : recomendacion.tipo === 'preAlerta' ? 'rgba(245,158,11,0.08)'
+                                : recomendacion.tipo === 'exceso'  ? 'rgba(255,152,0,0.08)'
+                                : recomendacion.tipo === 'transicion' ? 'rgba(255,179,0,0.08)'
+                                : 'rgba(76,175,80,0.08)',
+                            border: `1px solid ${
+                                recomendacion.tipo === 'estres'    ? 'rgba(244,67,54,0.25)'
+                                : recomendacion.tipo === 'preAlerta' ? 'rgba(245,158,11,0.30)'
+                                : recomendacion.tipo === 'exceso'  ? 'rgba(255,152,0,0.25)'
+                                : recomendacion.tipo === 'transicion' ? 'rgba(255,179,0,0.25)'
+                                : 'rgba(76,175,80,0.25)'
+                            }`,
                         }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
                                 <div style={{ fontSize: '1.6rem', lineHeight: 1 }}>
-                                    {recomendacion.tipo === 'estres' ? '⚠️' : recomendacion.tipo === 'exceso' ? '🌊' : recomendacion.tipo === 'transicion' ? '🌤️' : '✅'}
+                                    {recomendacion.tipo === 'estres'     ? '🔴'
+                                    : recomendacion.tipo === 'preAlerta' ? '🟡'
+                                    : recomendacion.tipo === 'exceso'    ? '🌊'
+                                    : recomendacion.tipo === 'transicion' ? '🌤️'
+                                    : '✅'}
                                 </div>
-                                <div>
-                                    <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'white', fontSize: '0.95rem' }}>
-                                        Asistente Zootécnico – {perfil.emoji} {perfil.zona}
-                                    </p>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                        <p style={{ margin: 0, fontWeight: 600, color: 'white', fontSize: '0.95rem' }}>
+                                            Asistente Zootécnico – {perfil.emoji} {perfil.zona}
+                                        </p>
+                                        {/* Badge de estado */}
+                                        <span style={{
+                                            fontSize: '0.72rem', fontWeight: 700, padding: '2px 10px',
+                                            borderRadius: '20px', letterSpacing: '0.5px',
+                                            background:
+                                                recomendacion.tipo === 'estres'    ? 'rgba(244,67,54,0.20)'
+                                                : recomendacion.tipo === 'preAlerta' ? 'rgba(245,158,11,0.20)'
+                                                : recomendacion.tipo === 'exceso'  ? 'rgba(255,152,0,0.20)'
+                                                : recomendacion.tipo === 'transicion' ? 'rgba(255,179,0,0.20)'
+                                                : 'rgba(76,175,80,0.20)',
+                                            color:
+                                                recomendacion.tipo === 'estres'    ? '#f44336'
+                                                : recomendacion.tipo === 'preAlerta' ? '#f59e0b'
+                                                : recomendacion.tipo === 'exceso'  ? '#ff9800'
+                                                : recomendacion.tipo === 'transicion' ? '#ffb300'
+                                                : '#4caf50',
+                                        }}>
+                                            {recomendacion.tipo === 'estres'     ? 'ALERTA ROJA'
+                                            : recomendacion.tipo === 'preAlerta' ? 'PRE-ALERTA'
+                                            : recomendacion.tipo === 'exceso'    ? 'EXCESO HÍDRICO'
+                                            : recomendacion.tipo === 'transicion' ? 'TRANSICIÓN'
+                                            : 'CONDICIÓN ÓPTIMA'}
+                                        </span>
+                                        {/* Contexto numérico: días secos y acumulado */}
+                                        {kpis && (
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                {kpis.diasSecos > 0 ? `${kpis.diasSecos} días sin lluvia efectiva` : 'Lluvia efectiva reciente'}
+                                                {' · '}{kpis.mm30dias.toFixed(1)} mm últimos 30 días
+                                            </span>
+                                        )}
+                                    </div>
                                     <p style={{ margin: 0, color: 'var(--text-muted)', lineHeight: 1.7, fontSize: '0.92rem' }}>
                                         {recomendacion.mensaje}
                                     </p>
@@ -711,7 +763,7 @@ export default function Rainfall() {
                                                 </thead>
                                                 <tbody>
                                                     {grupo.registros.map(r => {
-                                                        const intensidad = clasificarIntensidad(r.milimetros, perfil.umbralEfectivoMm);
+                                                        const intensidad = clasificarIntensidad(r.milimetros, perfil.umbralRegistroMm, perfil.umbralEfectivoMm);
                                                         return (
                                                             <tr key={r.id}
                                                                 style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}
