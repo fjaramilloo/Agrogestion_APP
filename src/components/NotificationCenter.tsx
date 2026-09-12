@@ -48,7 +48,6 @@ export default function NotificationCenter() {
                     peso_compra,
                     id_potrerada,
                     id_finca,
-                    id_finca,
                     registros_pesaje (
                         peso,
                         fecha,
@@ -106,14 +105,11 @@ export default function NotificationCenter() {
                     });
                 }
 
-                // B. Detección de Ganancia Negativa
+                // B. Detección de Ganancia Negativa (los pesajes ya vienen ordenados DESC por fecha)
                 const conPerdida = fincaAnimals.filter((a: any) => {
                     const registros = a.registros_pesaje || [];
                     if (registros.length >= 2) {
-                        const sorted = [...registros].sort((x: any, y: any) => 
-                            new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                        );
-                        return Number(sorted[0].peso) < Number(sorted[1].peso);
+                        return Number(registros[0].peso) < Number(registros[1].peso);
                     }
                     return false;
                 });
@@ -174,7 +170,6 @@ export default function NotificationCenter() {
             });
 
             // 2. Alerta de Cambio de Potrero (Multi-finca)
-            // Los campos id_potrero y fecha_entrada están en movimientos_potreros, no en potreradas
             const { data: movimientosActivos } = await supabase
                 .from('movimientos_potreros')
                 .select(`
@@ -210,10 +205,29 @@ export default function NotificationCenter() {
                 potreros: m.potreros,
             }));
 
-
-            if (potreradas) {
+            if (potreradas && potreradas.length > 0) {
                 const veinteDiasAtras = new Date();
                 veinteDiasAtras.setDate(veinteDiasAtras.getDate() - 20);
+
+                const potreroIds = [...new Set(potreradas.map(p => p.id_potrero).filter(Boolean))];
+                let aforosMap: Record<string, { dias_pastoreo_estimados: number, fecha: string }> = {};
+
+                if (potreroIds.length > 0) {
+                    const { data: aforosData } = await supabase
+                        .from('registros_aforo')
+                        .select('id_potrero, dias_pastoreo_estimados, fecha')
+                        .in('id_potrero', potreroIds)
+                        .gte('fecha', veinteDiasAtras.toISOString())
+                        .order('fecha', { ascending: false });
+
+                    if (aforosData) {
+                        aforosData.forEach((af: any) => {
+                            if (!aforosMap[af.id_potrero]) {
+                                aforosMap[af.id_potrero] = af;
+                            }
+                        });
+                    }
+                }
 
                 for (const p of potreradas) {
                     const potreroData = p.potreros as any;
@@ -224,16 +238,7 @@ export default function NotificationCenter() {
                     if (numPotrerosEnRotacion <= 1) continue;
 
                     const diasEnPotrero = differenceInDays(hoy, new Date(p.fecha_entrada));
-                    
-                    // Buscar aforo más reciente (máximo 20 días de antigüedad)
-                    const { data: aforo } = await supabase
-                        .from('registros_aforo')
-                        .select('dias_pastoreo_estimados, fecha')
-                        .eq('id_potrero', p.id_potrero)
-                        .gte('fecha', veinteDiasAtras.toISOString())
-                        .order('fecha', { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
+                    const aforo = aforosMap[p.id_potrero];
 
                     // Obtener días base del potrero específico
                     const diasBase = potreroData?.dias_ocupacion_base || 28;

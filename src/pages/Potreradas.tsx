@@ -144,25 +144,25 @@ export default function Potreradas() {
 
         try {
             const fetchAllAnimals = async () => {
-                let allAnimals: any[] = [];
-                let from = 0;
-                const step = 1000;
-                while (true) {
-                    const { data, error } = await supabase.from('animales').select(`
+                const [activosRes, vendidosRes] = await Promise.all([
+                    supabase.from('animales').select(`
                         id, numero_chapeta, nombre_propietario, id_potrerada,
                         peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
                         fecha_ingreso_ceba, peso_ingreso_ceba,
                         potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
                         registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
-                    `).eq('id_finca', fincaId).in('estado', ['activo', 'vendido']).range(from, from + step - 1);
-                    
-                    if (error) throw error;
-                    if (!data || data.length === 0) break;
-                    allAnimals = [...allAnimals, ...data];
-                    if (data.length < step) break;
-                    from += step;
-                }
-                return { data: allAnimals };
+                    `).eq('id_finca', fincaId).eq('estado', 'activo').order('fecha', { foreignTable: 'registros_pesaje', ascending: false }),
+                    supabase.from('animales').select(`
+                        id, numero_chapeta, nombre_propietario, id_potrerada,
+                        peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
+                        potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
+                    `).eq('id_finca', fincaId).eq('estado', 'vendido').not('id_potrerada', 'is', null)
+                ]);
+
+                if (activosRes.error) throw activosRes.error;
+                if (vendidosRes.error) throw vendidosRes.error;
+
+                return { data: [...(activosRes.data || []), ...(vendidosRes.data || [])] };
             };
 
             const [configRes, potsRes, rotsRes, movsRes, potsDataRes, animRes] = await Promise.all([
@@ -205,17 +205,32 @@ export default function Potreradas() {
 
             const rotacionNombreMap = new Map((rotsRes.data || []).map((r: any) => [r.id, r.nombre]));
 
+            // Agrupar animales por potrerada en un Map para consultas O(1)
+            const animalsByPotrerada = new Map<string, any[]>();
+            const animalesSinPotrerada: any[] = [];
+
             const animalesProcesados: AnimalPotrero[] = (animals || []).map((a: any) => {
-                const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
-                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                );
+                const registros = a.registros_pesaje || [];
+                const firstReg = registros[0];
+
+                if (!a.id_potrerada && a.estado === 'activo') {
+                    animalesSinPotrerada.push(a);
+                } else if (a.id_potrerada) {
+                    let group = animalsByPotrerada.get(a.id_potrerada);
+                    if (!group) {
+                        group = [];
+                        animalsByPotrerada.set(a.id_potrerada, group);
+                    }
+                    group.push(a);
+                }
+
                 return {
                     id: a.id,
                     numero_chapeta: a.numero_chapeta,
                     nombre_propietario: a.nombre_propietario,
                     id_potrerada: a.id_potrerada,
                     potreradaNombre: a.potreradas?.nombre,
-                    pesoActual: registros[0] ? registros[0].peso : (a.peso_compra ?? a.peso_ingreso),
+                    pesoActual: firstReg ? firstReg.peso : (a.peso_compra ?? a.peso_ingreso),
                     estado: a.estado
                 };
             });
@@ -226,7 +241,6 @@ export default function Potreradas() {
             hoy.setHours(0, 0, 0, 0);
 
             // [NUEVO] Agregar potrerada virtual para animales sin asignar
-            const animalesSinPotrerada = animals?.filter((a: any) => !a.id_potrerada && a.estado === 'activo') || [];
             if (animalesSinPotrerada.length > 0) {
                 pots.push({
                     id: 'sin-potrerada',
@@ -239,7 +253,7 @@ export default function Potreradas() {
             const processedPots = pots.map((p: any) => {
                 const groupAnimals = p.id === 'sin-potrerada' 
                     ? animalesSinPotrerada 
-                    : animals?.filter((a: any) => a.id_potrerada === p.id) || [];
+                    : (animalsByPotrerada.get(p.id) || []);
                 const animalesActivos = groupAnimals.filter((a: any) => a.estado === 'activo');
                 const animalesVendidos = groupAnimals.filter((a: any) => a.estado === 'vendido');
                 const loteListoParaLimpiar = animalesActivos.length === 0 && animalesVendidos.length > 0;
@@ -255,18 +269,7 @@ export default function Potreradas() {
                 let validDateCount = 0;
 
                 groupAnimals.forEach((a: any) => {
-                    let registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
-                        new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                    );
-
-                    // Omite duplicados la misma fecha
-                    const unique = new Set();
-                    registros = registros.filter((p: any) => {
-                        const dateOnly = p.fecha.split('T')[0];
-                        if (unique.has(dateOnly)) return false;
-                        unique.add(dateOnly);
-                        return true;
-                    });
+                    const registros = a.registros_pesaje || [];
 
                     const lastP = registros[0];
                     const pesoBase = a.peso_compra ?? a.peso_ingreso;
