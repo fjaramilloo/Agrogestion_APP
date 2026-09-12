@@ -129,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const org: any = fincaData.organizaciones;
                 const orgId = org.id;
 
-                // Contar animales activos de la organización
+                // Obtener fincas de la org y contar animales activos EN PARALELO
                 const { data: orgFincas } = await supabase
                     .from('fincas')
                     .select('id')
@@ -164,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchUserData = async (userId: string) => {
         try {
-            // 1. Verificamos Rol(es) y Finca(s)
+            // 1. Verificamos Rol(es) y Finca(s) — necesario primero para obtener fincaId
             const { data: permisos, error: roleError } = await supabase
                 .from('permisos_finca')
                 .select(`
@@ -191,42 +191,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setFincaId(validFinca.id_finca);
                 setRole(validFinca.rol);
 
-                // Cargar datos de Licencia de la Finca Seleccionada
-                await fetchLicenciaData(validFinca.id_finca);
+                // 2. Con el fincaId ya disponible, lanzar en paralelo:
+                //    - Datos de licencia
+                //    - Modo de ganancia (configuracion_kpi)
+                //    - Perfil del usuario
+                //    - Verificación de superadmin
+                const [kpiRes, perfilRes, adminRes] = await Promise.all([
+                    supabase
+                        .from('configuracion_kpi')
+                        .select('modo_ganancia')
+                        .eq('id_finca', validFinca.id_finca)
+                        .single(),
+                    supabase
+                        .from('perfiles')
+                        .select('nombre, apellido')
+                        .eq('id', userId)
+                        .single(),
+                    supabase
+                        .from('superadmins')
+                        .select('id_usuario')
+                        .eq('id_usuario', userId)
+                        .maybeSingle(),
+                    // Licencia corre en paralelo también (no depende de los otros)
+                    fetchLicenciaData(validFinca.id_finca)
+                ]);
 
-                // Leer modo_ganancia de configuracion_kpi de la finca seleccionada
-                const { data: kpiData } = await supabase
-                    .from('configuracion_kpi')
-                    .select('modo_ganancia')
-                    .eq('id_finca', validFinca.id_finca)
-                    .single();
-                if (kpiData?.modo_ganancia) {
-                    setModoGanancia(kpiData.modo_ganancia as ModoGanancia);
+                if (kpiRes.data?.modo_ganancia) {
+                    setModoGanancia(kpiRes.data.modo_ganancia as ModoGanancia);
                 }
+
+                if (perfilRes.data) {
+                    setProfile({
+                        nombre: perfilRes.data.nombre,
+                        apellido: perfilRes.data.apellido
+                    });
+                }
+
+                setIsSuperAdmin(!!adminRes.data);
             }
-
-            // 2. Verificamos Perfil
-            const { data: perfilData } = await supabase
-                .from('perfiles')
-                .select('nombre, apellido')
-                .eq('id', userId)
-                .single();
-            
-            if (perfilData) {
-                setProfile({
-                    nombre: perfilData.nombre,
-                    apellido: perfilData.apellido
-                });
-            }
-
-            // 3. Verificamos si es superadmin
-            const { data: adminData } = await supabase
-                .from('superadmins')
-                .select('id_usuario')
-                .eq('id_usuario', userId)
-                .maybeSingle();
-
-            setIsSuperAdmin(!!adminData);
 
         } catch (err) {
             console.error(err);

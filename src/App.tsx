@@ -1,29 +1,33 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+// Importación estática para páginas ligeras y de uso frecuente
 import Inventory from './pages/Inventory';
 import Weighing from './pages/Weighing';
-import Settings from './pages/Settings';
-import SuperAdmin from './pages/SuperAdmin';
-import Topbar from './components/Topbar';
-import Sidebar from './components/Sidebar';
 import Purchase from './pages/Purchase';
 import Sales from './pages/Sales';
-import HistorialVentas from './pages/HistorialVentas';
-import HistorialCompras from './pages/HistorialCompras';
-import Rainfall from './pages/Rainfall';
-import Rotations from './pages/Rotations';
 import Movements from './pages/Movements';
-import Potreradas from './pages/Potreradas';
+import Rotations from './pages/Rotations';
 import Mercado from './pages/Mercado';
 import MercadoGanado from './pages/MercadoGanado';
 import Aforos from './pages/Aforos';
+import Rainfall from './pages/Rainfall';
+import Topbar from './components/Topbar';
+import Sidebar from './components/Sidebar';
 import VersionNotifier from './components/VersionNotifier';
 import UpdatePassword from './pages/UpdatePassword';
 import Suscripcion from './pages/Suscripcion';
 import { FarmMapPage } from './pages/FarmMap';
+import AgroBot from './components/AgroBot';
+
+// Importación diferida (lazy) para páginas pesadas — se cargan solo al navegar a ellas
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Potreradas = lazy(() => import('./pages/Potreradas'));
+const HistorialVentas = lazy(() => import('./pages/HistorialVentas'));
+const HistorialCompras = lazy(() => import('./pages/HistorialCompras'));
+const Settings = lazy(() => import('./pages/Settings'));
+const SuperAdmin = lazy(() => import('./pages/SuperAdmin'));
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, role, loading } = useAuth();
@@ -63,7 +67,14 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
       <div style={{ display: 'flex', flex: 1, paddingTop: '64px' }}>
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main className={`main-content-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
-          {children}
+          {/* Suspense aquí para que las páginas lazy muestren un loader mientras cargan */}
+          <Suspense fallback={
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '80px', color: 'var(--primary-light)' }}>
+              Cargando...
+            </div>
+          }>
+            {children}
+          </Suspense>
         </main>
       </div>
     </div>
@@ -216,8 +227,6 @@ const AppRoutes = () => {
     </Routes>
   );
 };
-
-import AgroBot from './components/AgroBot';
 
 function App() {
   return (

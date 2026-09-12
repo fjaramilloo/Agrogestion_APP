@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { getDateRange, DATE_RANGE_LABELS, DATE_RANGE_OPTIONS, type DateRangeOption } from '../utils/dateRanges';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Tag, Calendar, Users, FileText, X, Info, TrendingUp, Download, Loader2 } from 'lucide-react';
+import { Search, Tag, Calendar, Users, FileText, X, Info, TrendingUp, Download, Loader2, Filter } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SalesReport from '../components/SalesReport';
@@ -62,6 +63,7 @@ export default function HistorialVentas() {
     const [showFullHistory, setShowFullHistory] = useState(false);
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
+    const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('mes_actual');
     
     // Estado para abrir el reporte PDF completo
     const [selectedVenta, setSelectedVenta] = useState<VentaGrupo | null>(null);
@@ -90,6 +92,8 @@ export default function HistorialVentas() {
         
         const fetchVentas = async () => {
             setLoading(true);
+            const { start, end } = getDateRange(dateRangeOption);
+
             const { data: config } = await supabase
                 .from('configuracion_kpi')
                 .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio, costo_mensual_animal, participacion_utilidad')
@@ -109,7 +113,7 @@ export default function HistorialVentas() {
                 }
             }
 
-            const { data, error } = await supabase
+            let query = supabase
                 .from('animales')
                 .select(`
                     id, 
@@ -136,8 +140,16 @@ export default function HistorialVentas() {
                     )
                 `)
                 .eq('id_finca', fincaId)
-                .eq('estado', 'vendido')
-                .order('fecha_venta', { ascending: false });
+                .eq('estado', 'vendido');
+
+            if (start) {
+                query = query.gte('fecha_venta', start);
+            }
+            if (end) {
+                query = query.lte('fecha_venta', end);
+            }
+
+            const { data, error } = await query.order('fecha_venta', { ascending: false });
 
             if (data && !error) {
                 const grouped = data.reduce((acc: any, animal: any) => {
@@ -297,7 +309,7 @@ export default function HistorialVentas() {
             setLoading(false);
         };
         fetchVentas();
-    }, [fincaId]);
+    }, [fincaId, dateRangeOption]);
 
     const filteredVentas = ventas.filter(v => 
         v.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -380,12 +392,46 @@ export default function HistorialVentas() {
                 </div>
             </div>
 
-            <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ flex: 1, position: 'relative' }}>
+            {/* Filtros: rango de fechas + búsqueda */}
+            <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* Selector de rango de fechas */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <Filter size={16} style={{ color: 'var(--primary-light)' }} />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Período:</span>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {DATE_RANGE_OPTIONS.map(opt => (
+                            <button
+                                key={opt}
+                                onClick={() => setDateRangeOption(opt)}
+                                style={{
+                                    padding: '6px 14px',
+                                    borderRadius: '20px',
+                                    border: dateRangeOption === opt
+                                        ? '1px solid var(--primary-light)'
+                                        : '1px solid rgba(255,255,255,0.1)',
+                                    background: dateRangeOption === opt
+                                        ? 'rgba(76,175,80,0.2)'
+                                        : 'transparent',
+                                    color: dateRangeOption === opt ? 'var(--primary-light)' : 'var(--text-muted)',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer',
+                                    fontWeight: dateRangeOption === opt ? 'bold' : 'normal',
+                                    transition: 'all 0.2s ease',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {DATE_RANGE_LABELS[opt]}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Búsqueda por texto */}
+                <div style={{ flex: 1, position: 'relative', minWidth: '200px' }}>
                     <Search size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
                     <input
                         type="text"
-                        placeholder="Buscar por comprador o fecha..."
+                        placeholder="Buscar por comprador..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         style={{ marginBottom: 0, paddingLeft: '40px' }}

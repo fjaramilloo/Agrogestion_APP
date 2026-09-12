@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
+import { getDateRange, DATE_RANGE_LABELS, DATE_RANGE_OPTIONS, type DateRangeOption } from '../utils/dateRanges';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, ShoppingCart, Calendar, Users, FileText, X, Info, TrendingUp } from 'lucide-react';
+import { Search, ShoppingCart, Calendar, Users, FileText, X, Info, TrendingUp, Filter } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import PurchaseReport from '../components/PurchaseReport';
@@ -52,6 +53,7 @@ export default function HistorialCompras() {
     const [searchTerm, setSearchTerm] = useState('');
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
+    const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('mes_actual');
     
     // Estado para abrir el reporte PDF completo
     const [selectedCompra, setSelectedCompra] = useState<CompraGrupo | null>(null);
@@ -84,6 +86,7 @@ export default function HistorialCompras() {
     const fetchCompras = async () => {
         if (!fincaId) return;
         setLoading(true);
+        const { start, end } = getDateRange(dateRangeOption);
             const { data: config } = await supabase
                 .from('configuracion_kpi')
                 .select('umbral_alto_gmp, umbral_medio_gmp')
@@ -94,7 +97,7 @@ export default function HistorialCompras() {
                 setUmbralMedio(config.umbral_medio_gmp ?? 10);
             }
 
-            const { data, error } = await supabase
+            let query = supabase
                 .from('animales')
                 .select(`
                     id, 
@@ -113,8 +116,16 @@ export default function HistorialCompras() {
                     )
                 `)
                 .eq('id_finca', fincaId)
-                .not('proveedor_compra', 'is', null)
-                .order('fecha_ingreso', { ascending: false });
+                .not('proveedor_compra', 'is', null);
+
+            if (start) {
+                query = query.gte('fecha_ingreso', start);
+            }
+            if (end) {
+                query = query.lte('fecha_ingreso', end);
+            }
+
+            const { data, error } = await query.order('fecha_ingreso', { ascending: false });
 
             if (data && !error) {
                 const grouped = data.reduce((acc: any, animal: any) => {
@@ -229,7 +240,7 @@ export default function HistorialCompras() {
 
     useEffect(() => {
         fetchCompras();
-    }, [fincaId]);
+    }, [fincaId, dateRangeOption]);
 
     const handleSavePesoCompra = async () => {
         if (!detalleCompra) return;
@@ -367,12 +378,46 @@ export default function HistorialCompras() {
                 </div>
             )}
 
-            <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ flex: 1, position: 'relative' }}>
+            {/* Filtros: rango de fechas + búsqueda */}
+            <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* Selector de rango de fechas */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <Filter size={16} style={{ color: 'var(--primary-light)' }} />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Período:</span>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {DATE_RANGE_OPTIONS.map(opt => (
+                            <button
+                                key={opt}
+                                onClick={() => setDateRangeOption(opt)}
+                                style={{
+                                    padding: '6px 14px',
+                                    borderRadius: '20px',
+                                    border: dateRangeOption === opt
+                                        ? '1px solid var(--primary-light)'
+                                        : '1px solid rgba(255,255,255,0.1)',
+                                    background: dateRangeOption === opt
+                                        ? 'rgba(76,175,80,0.2)'
+                                        : 'transparent',
+                                    color: dateRangeOption === opt ? 'var(--primary-light)' : 'var(--text-muted)',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer',
+                                    fontWeight: dateRangeOption === opt ? 'bold' : 'normal',
+                                    transition: 'all 0.2s ease',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {DATE_RANGE_LABELS[opt]}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Búsqueda por texto */}
+                <div style={{ flex: 1, position: 'relative', minWidth: '200px' }}>
                     <Search size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
                     <input
                         type="text"
-                        placeholder="Buscar por proveedor o fecha..."
+                        placeholder="Buscar por proveedor..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         style={{ marginBottom: 0, paddingLeft: '40px' }}
