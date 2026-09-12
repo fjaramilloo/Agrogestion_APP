@@ -27,6 +27,18 @@ import {
     Legend
 } from 'recharts';
 
+// Hook para detectar pantalla móvil (≤ 768px)
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 768px)');
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
+    return isMobile;
+}
+
 interface PrecioBoletin {
     id: string;
     fecha_boletin: string;
@@ -78,6 +90,7 @@ const REGIONS = [
 export default function MercadoGanado() {
     const { fincaId, licenciaInfo } = useAuth();
     const plan = licenciaInfo?.licencia || 'demo';
+    const isMobile = useIsMobile();
 
     const [precios, setPrecios] = useState<PrecioBoletin[]>([]);
     const [animales, setAnimales] = useState<AnimalCategorizado[]>([]);
@@ -482,7 +495,13 @@ export default function MercadoGanado() {
             </div>
 
             {/* Ratios de Reemplazo y Gráfica */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2.2fr', gap: '24px', marginBottom: '32px', alignItems: 'start' }}>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 2.2fr',
+                gap: '24px',
+                marginBottom: '32px',
+                alignItems: 'start'
+            }}>
                 
                 {/* Panel de Ratios y Métricas */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -538,8 +557,17 @@ export default function MercadoGanado() {
                     </div>
                 </div>
 
-                {/* Gráfica de Historial */}
-                <div style={{ background: 'rgba(30,30,30,0.7)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', padding: '24px', minHeight: '380px', display: 'flex', flexDirection: 'column' }}>
+                {/* Gráfica de Historial — en móvil va debajo (order: 2) */}
+                <div style={{
+                    background: 'rgba(30,30,30,0.7)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    minHeight: isMobile ? 'auto' : '380px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    order: isMobile ? 2 : 0
+                }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                         <div>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'white' }}>Historial y Tendencia</h3>
