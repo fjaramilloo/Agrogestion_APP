@@ -92,7 +92,7 @@ export default function HistorialVentas() {
             setLoading(true);
             const { data: config } = await supabase
                 .from('configuracion_kpi')
-                .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio, costo_mensual_animal')
+                .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio, costo_mensual_animal, participacion_utilidad')
                 .eq('id_finca', fincaId)
                 .single();
             
@@ -103,8 +103,9 @@ export default function HistorialVentas() {
                 
                 const precio = parseFloat(config.precio_venta_promedio || 0);
                 const costo = parseFloat(config.costo_mensual_animal || 0);
+                const participacion = parseFloat(config.participacion_utilidad as any) || 0.6;
                 if (precio > 0) {
-                    metaMinimaVal = (costo / 0.6) / precio;
+                    metaMinimaVal = (costo / participacion) / precio;
                 }
             }
 

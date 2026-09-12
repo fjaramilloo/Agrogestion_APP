@@ -61,6 +61,7 @@ export default function Settings() {
     const navigate = useNavigate();
     const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, setModoGanancia, licenciaInfo } = useAuth();
     const [umbral, setUmbral] = useState('0.434');
+    const [participacionUtilidad, setParticipacionUtilidad] = useState('60');
     // Umbrales: siempre en la unidad seleccionada para display; se convierten a kg/mes al guardar
     const [umbralMedioDisplay, setUmbralMedioDisplay] = useState('10');
     const [umbralAltoDisplay, setUmbralAltoDisplay] = useState('20');
@@ -227,7 +228,7 @@ export default function Settings() {
         // Precio de venta y umbral ceba desde configuracion_kpi
         const { data: config } = await supabase
             .from('configuracion_kpi')
-            .select('precio_venta_promedio, precio_compra_promedio, costo_mensual_animal, peso_entrada_ceba, consumo_dia_potrero')
+            .select('precio_venta_promedio, precio_compra_promedio, costo_mensual_animal, peso_entrada_ceba, consumo_dia_potrero, participacion_utilidad')
             .eq('id_finca', fincaId)
             .single();
 
@@ -244,6 +245,9 @@ export default function Settings() {
                 peso_entrada_ceba: config?.peso_entrada_ceba?.toString() || '380',
                 consumo_dia_potrero: config?.consumo_dia_potrero?.toString() || '50'
             });
+            // Cargar participación de utilidad (guardar como % entero para el display)
+            const partDecimal = config?.participacion_utilidad ?? 0.6;
+            setParticipacionUtilidad(Math.round(partDecimal * 100).toString());
         }
     };
 
@@ -311,6 +315,9 @@ export default function Settings() {
             const costoMensual = parseFloat(farmInfo.costo_mensual_animal) || 0;
             const pesoCeba = parseFloat(farmInfo.peso_entrada_ceba) || 380;
             const consumoDia = parseFloat(farmInfo.consumo_dia_potrero) || 50;
+            // Convertir el porcentaje ingresado (ej. 60) a decimal (ej. 0.60)
+            const partPct = Math.min(99, Math.max(1, parseInt(participacionUtilidad) || 60));
+            const participacionDecimal = partPct / 100;
 
             const { error: kpiError } = await supabase
                 .from('configuracion_kpi')
@@ -324,7 +331,8 @@ export default function Settings() {
                     costo_mensual_animal: costoMensual,
                     peso_entrada_ceba: pesoCeba,
                     consumo_dia_potrero: consumoDia,
-                    modo_ganancia: modoLocal
+                    modo_ganancia: modoLocal,
+                    participacion_utilidad: participacionDecimal
                 }, { onConflict: 'id_finca' });
 
             if (kpiError) throw kpiError;
@@ -1459,6 +1467,60 @@ export default function Settings() {
                                             </div>
                                         </div>
 
+                                        {/* Campo configurable: % participación de utilidad */}
+                                        <div style={{
+                                            background: 'rgba(255,179,0,0.06)',
+                                            border: '1px solid rgba(255,179,0,0.2)',
+                                            borderRadius: '12px',
+                                            padding: '20px',
+                                            marginBottom: '24px'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                                <Coins size={18} color="#ffb74d" />
+                                                <span style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#ffb74d' }}>Reparto de Utilidad — Ganado a Utilidad</span>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'end' }}>
+                                                <div>
+                                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>
+                                                        % Participación del Tenedor (quien cuida el ganado)
+                                                    </label>
+                                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="99"
+                                                            step="1"
+                                                            value={participacionUtilidad}
+                                                            onChange={e => {
+                                                                const v = e.target.value;
+                                                                setParticipacionUtilidad(v);
+                                                            }}
+                                                            style={{ paddingRight: '36px' }}
+                                                        />
+                                                        <span style={{ position: 'absolute', right: '14px', color: 'var(--text-muted)', pointerEvents: 'none', fontWeight: 'bold' }}>%</span>
+                                                    </div>
+                                                </div>
+                                                <div style={{
+                                                    background: 'rgba(255,255,255,0.04)',
+                                                    borderRadius: '10px',
+                                                    padding: '14px 18px',
+                                                    border: '1px solid rgba(255,255,255,0.07)',
+                                                    textAlign: 'center'
+                                                }}>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>% para el Dueño del Ganado</div>
+                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ffb74d' }}>
+                                                        {Math.max(1, 100 - (parseInt(participacionUtilidad) || 60))}%
+                                                    </div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                        Factor almacenado: <strong style={{ color: 'white' }}>{((parseInt(participacionUtilidad) || 60) / 100).toFixed(2)}</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p style={{ margin: '12px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                                                ⚠️ Ejemplo: si el acuerdo es <strong style={{ color: 'white' }}>60-40</strong>, el tenedor recibe el <strong style={{ color: 'white' }}>60%</strong> de la utilidad y el dueño el <strong style={{ color: 'white' }}>40%</strong>. Este porcentaje ajusta el cálculo del punto de equilibrio.
+                                            </p>
+                                        </div>
+
                                         {/* KPI Dinámico de Punto de Equilibrio */}
                                         <div style={{ 
                                             background: 'rgba(76, 175, 80, 0.1)', 
@@ -1480,8 +1542,9 @@ export default function Settings() {
                                                 {(() => {
                                                     const costo = parseFloat(farmInfo.costo_mensual_animal) || 0;
                                                     const precio = parseFloat(farmInfo.precio_venta_promedio) || 0;
+                                                    const partDecimal = (Math.min(99, Math.max(1, parseInt(participacionUtilidad) || 60))) / 100;
                                                     if (precio === 0) return '0.0';
-                                                    const peKgMes = (costo / 0.6) / precio;
+                                                    const peKgMes = (costo / partDecimal) / precio;
                                                     const val = toDisplayValue(peKgMes, modoLocal);
                                                     return val.toFixed(modoLocal === 'GDP' ? 0 : 1);
                                                 })()}

@@ -150,7 +150,7 @@ export default function Dashboard() {
             // 2. Información de la Finca y Configuración en paralelo
             const [fincaRes, configRes] = await Promise.all([
                 supabase.from('fincas').select('nombre, proposito, area_aprovechable, ubicacion, municipio').eq('id', fincaId).single(),
-                supabase.from('configuracion_kpi').select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp').eq('id_finca', fincaId).single()
+                supabase.from('configuracion_kpi').select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad').eq('id_finca', fincaId).single()
             ]);
 
             const finca = fincaRes.data;
@@ -170,7 +170,8 @@ export default function Dashboard() {
             if (configKpi) {
                 const precio = parseFloat(configKpi.precio_venta_promedio || 0);
                 const costo = parseFloat(configKpi.costo_mensual_animal || 0);
-                if (precio > 0) metaMinimaVal = (costo / 0.6) / precio;
+                const participacion = parseFloat(configKpi.participacion_utilidad as any) || 0.6;
+                if (precio > 0) metaMinimaVal = (costo / participacion) / precio;
                 if (configKpi.umbral_alto_gmp) setUmbralAlto(configKpi.umbral_alto_gmp);
                 if (configKpi.umbral_medio_gmp) setUmbralMedio(configKpi.umbral_medio_gmp);
             }

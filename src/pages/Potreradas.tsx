@@ -862,13 +862,14 @@ export default function Potreradas() {
             // 0. Obtener configuración para el Punto de Equilibrio
             const { data: configKpi } = await supabase
                 .from('configuracion_kpi')
-                .select('precio_venta_promedio, costo_mensual_animal')
+                .select('precio_venta_promedio, costo_mensual_animal, participacion_utilidad')
                 .eq('id_finca', fincaId)
                 .single();
 
             const precioVenta = parseFloat(configKpi?.precio_venta_promedio as any) || 0;
             const costoMensual = parseFloat(configKpi?.costo_mensual_animal as any) || 0;
-            const peKgMes = precioVenta > 0 ? (costoMensual / 0.6) / precioVenta : 0;
+            const participacion = parseFloat(configKpi?.participacion_utilidad as any) || 0.6;
+            const peKgMes = precioVenta > 0 ? (costoMensual / participacion) / precioVenta : 0;
 
             const p = detailData.potrerada;
             const fechaDoc = format(new Date(), 'dd/MM/yyyy');
