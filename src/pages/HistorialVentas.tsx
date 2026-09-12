@@ -394,36 +394,35 @@ export default function HistorialVentas() {
 
             {/* Filtros: rango de fechas + búsqueda */}
             <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                {/* Selector de rango de fechas */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <Filter size={16} style={{ color: 'var(--primary-light)' }} />
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Período:</span>
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {/* Selector de rango de fechas (Dropdown) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '180px' }}>
+                    <Filter size={16} style={{ color: 'var(--primary-light)', flexShrink: 0 }} />
+                    <select
+                        value={dateRangeOption}
+                        onChange={e => setDateRangeOption(e.target.value as DateRangeOption)}
+                        style={{
+                            marginBottom: 0,
+                            cursor: 'pointer',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                            color: 'var(--text-main, #ffffff)',
+                            fontSize: '0.85rem',
+                            fontWeight: 500,
+                            outline: 'none',
+                        }}
+                    >
                         {DATE_RANGE_OPTIONS.map(opt => (
-                            <button
+                            <option
                                 key={opt}
-                                onClick={() => setDateRangeOption(opt)}
-                                style={{
-                                    padding: '6px 14px',
-                                    borderRadius: '20px',
-                                    border: dateRangeOption === opt
-                                        ? '1px solid var(--primary-light)'
-                                        : '1px solid rgba(255,255,255,0.1)',
-                                    background: dateRangeOption === opt
-                                        ? 'rgba(76,175,80,0.2)'
-                                        : 'transparent',
-                                    color: dateRangeOption === opt ? 'var(--primary-light)' : 'var(--text-muted)',
-                                    fontSize: '0.8rem',
-                                    cursor: 'pointer',
-                                    fontWeight: dateRangeOption === opt ? 'bold' : 'normal',
-                                    transition: 'all 0.2s ease',
-                                    whiteSpace: 'nowrap',
-                                }}
+                                value={opt}
+                                style={{ background: '#1e293b', color: '#ffffff' }}
                             >
                                 {DATE_RANGE_LABELS[opt]}
-                            </button>
+                            </option>
                         ))}
-                    </div>
+                    </select>
                 </div>
 
                 {/* Búsqueda por texto */}
