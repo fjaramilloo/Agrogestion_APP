@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useState, useMemo, Fragment } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -94,9 +94,6 @@ export default function Dashboard() {
         ubicacion: '',
         municipio: ''
     });
-    const [evolucionGmp, setEvolucionGmp] = useState<EvolucionItem[]>([]);
-    const [evolucionPorPesaje, setEvolucionPorPesaje] = useState<any[]>([]);
-    const [evolucionPorRango, setEvolucionPorRango] = useState<any[]>([]);
     const [vistaGrafica, setVistaGrafica] = useState<'mensual' | 'pesaje' | 'rango'>('mensual');
     const [evolucionLluvia, setEvolucionLluvia] = useState<LluviaItem[]>([]);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -105,10 +102,6 @@ export default function Dashboard() {
         etapa: string,
         items: GmpDetailItem[]
     } | null>(null);
-    const [detallesGmpAgrupados, setDetallesGmpAgrupados] = useState<{
-        levante: Record<number, GmpDetailItem[]>,
-        ceba: Record<number, GmpDetailItem[]>
-    }>({ levante: {}, ceba: {} });
     const [sortCol, setSortCol] = useState<'chapeta' | 'propietario' | 'potrerada' | 'gmp'>('gmp');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [filterTipo, setFilterTipo] = useState<'historico' | 'actual'>('actual');
@@ -474,9 +467,19 @@ export default function Dashboard() {
         fetchDashboardData();
     }, [fincaId]);
 
-    // Efecto para procesar la evolución GMP según el filtro
-    useEffect(() => {
-        if (!rawData) return;
+    // Memo para procesar la evolución GMP según el filtro de forma instantánea sin re-renders adicionales
+    const { evolucionGmp, evolucionPorPesaje, evolucionPorRango, detallesGmpAgrupados } = useMemo(() => {
+        if (!rawData) {
+            return {
+                evolucionGmp: [] as EvolucionItem[],
+                evolucionPorPesaje: [] as any[],
+                evolucionPorRango: [] as any[],
+                detallesGmpAgrupados: { levante: {}, ceba: {} } as {
+                    levante: Record<number, GmpDetailItem[]>;
+                    ceba: Record<number, GmpDetailItem[]>;
+                }
+            };
+        }
 
         const { animales, pesajes } = rawData;
         const animalesFiltrados = filterTipo === 'actual' 
@@ -634,8 +637,6 @@ export default function Dashboard() {
             .filter(d => d.levante !== 0 || d.ceba !== 0)
             .slice(0, 15); // Mostrar máximo 15 pesajes para no saturar 
 
-        setEvolucionPorPesaje(dataPorNum);
-
         // 4. Procesar gráfica de Rangos de Peso
         const dataPorRango = [
             { name: '< 400 kg', ...agrupadoPorRango.rango1 },
@@ -648,15 +649,13 @@ export default function Dashboard() {
             meses: r.count > 0 ? parseFloat(((r.sumDias / r.count) / 30).toFixed(1)) : 0
         }));
 
-        setEvolucionPorRango(dataPorRango);
-
         const sortedKeys = Object.keys(agrupadoPorMes).sort(); // Sorts by YYYY-MM
         
+        let dataEvolucion: EvolucionItem[] = [];
+        let levDetails: Record<number, GmpDetailItem[]> = {};
+        let cebaDetails: Record<number, GmpDetailItem[]> = {};
+
         if (sortedKeys.length > 0) {
-            const dataEvolucion: EvolucionItem[] = [];
-            const levDetails: Record<number, GmpDetailItem[]> = {};
-            const cebaDetails: Record<number, GmpDetailItem[]> = {};
-            
             // Tomar los últimos 15 meses de pesaje maximo para no saturar 
             const recentKeys = sortedKeys.slice(-15);
 
@@ -670,14 +669,16 @@ export default function Dashboard() {
                 levDetails[index] = group.levanteDetalles;
                 cebaDetails[index] = group.cebaDetalles;
             });
-
-            setEvolucionGmp(dataEvolucion);
-            setDetallesGmpAgrupados({ levante: levDetails as any, ceba: cebaDetails as any });
-        } else {
-            setEvolucionGmp([]);
-            setDetallesGmpAgrupados({ levante: {}, ceba: {} });
         }
+
+        return {
+            evolucionGmp: dataEvolucion,
+            evolucionPorPesaje: dataPorNum,
+            evolucionPorRango: dataPorRango,
+            detallesGmpAgrupados: { levante: levDetails, ceba: cebaDetails }
+        };
     }, [filterTipo, rawData]);
+
     return (
         <div className="page-container" style={{ paddingBottom: '40px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>

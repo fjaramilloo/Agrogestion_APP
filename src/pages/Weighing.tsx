@@ -91,7 +91,15 @@ export default function Weighing() {
         const hoy = getLocalIsoDate();
         const { data, error } = await supabase
             .from('registros_pesaje')
-            .select('id, peso, fecha, animales!inner(numero_chapeta, nombre_propietario, id_finca, id_potrerada)')
+            .select(`
+                id, peso, fecha,
+                animales!inner(
+                    numero_chapeta,
+                    nombre_propietario,
+                    id_finca,
+                    potreradas:potreradas!animales_id_potrerada_fkey(nombre)
+                )
+            `)
             .eq('animales.id_finca', fincaId)
             .eq('fecha', hoy)
             .order('id', { ascending: false })
@@ -103,25 +111,13 @@ export default function Weighing() {
         }
 
         if (data) {
-            const potreradasIds = [...new Set(data.map((p: any) => p.animales?.id_potrerada).filter(Boolean))];
-            let potreradasMap: Record<string, string> = {};
-            if (potreradasIds.length > 0) {
-                const { data: pots } = await supabase
-                    .from('potreradas')
-                    .select('id, nombre')
-                    .in('id', potreradasIds);
-                if (pots) {
-                    pots.forEach((pt: any) => potreradasMap[pt.id] = pt.nombre);
-                }
-            }
-
             setPesajesHoy(data.map((p: any) => ({
                 id: p.id,
                 peso: p.peso,
                 fecha: p.fecha,
                 numero_chapeta: p.animales?.numero_chapeta || '-',
                 nombre_propietario: p.animales?.nombre_propietario || '-',
-                potrerada_nombre: p.animales?.id_potrerada ? (potreradasMap[p.animales.id_potrerada] || 'Sin lote') : 'Sin lote'
+                potrerada_nombre: p.animales?.potreradas?.nombre || 'Sin lote'
             })));
         }
     }, [fincaId]);

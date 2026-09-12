@@ -40,7 +40,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         };
     }, [fincaId]);
 
-    // 2. Verificar conteo de cola offline periódicamente
+    // 2. Verificar conteo de cola offline por eventos con intervalo de respaldo (30s)
     const actualizarConteo = async () => {
         if (!fincaId) return;
         const res = await obtenerConteoPendienteOffline(fincaId);
@@ -49,8 +49,16 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
 
     useEffect(() => {
         actualizarConteo();
-        const interval = setInterval(actualizarConteo, 5000);
-        return () => clearInterval(interval);
+        const handleQueueChange = () => {
+            actualizarConteo();
+        };
+
+        window.addEventListener('offline-queue-changed', handleQueueChange);
+        const interval = setInterval(actualizarConteo, 30000);
+        return () => {
+            window.removeEventListener('offline-queue-changed', handleQueueChange);
+            clearInterval(interval);
+        };
     }, [fincaId]);
 
     // 3. Disparar sincronización por lotes a Supabase

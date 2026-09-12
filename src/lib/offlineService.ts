@@ -95,6 +95,12 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
   }
 }
 
+export function notificarCambioColaOffline() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('offline-queue-changed'));
+  }
+}
+
 /**
  * 2. Guarda un pesaje en la cola offline de IndexedDB cuando no hay conexión.
  */
@@ -116,6 +122,7 @@ export async function guardarPesajeOffline(pesaje: {
   };
 
   await localDB.pesajesOfflineQueue.put(item);
+  notificarCambioColaOffline();
   return item;
 }
 
@@ -139,6 +146,7 @@ export async function guardarAforoOffline(aforo: {
   };
 
   await localDB.aforosOfflineQueue.put(item);
+  notificarCambioColaOffline();
   return item;
 }
 
@@ -241,6 +249,7 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{ 
     }
   }
 
+  notificarCambioColaOffline();
   return { procesados, errores };
 }
 
