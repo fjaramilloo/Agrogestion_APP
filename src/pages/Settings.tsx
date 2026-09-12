@@ -1467,58 +1467,35 @@ export default function Settings() {
                                             </div>
                                         </div>
 
-                                        {/* Campo configurable: % participación de utilidad */}
-                                        <div style={{
-                                            background: 'rgba(255,179,0,0.06)',
-                                            border: '1px solid rgba(255,179,0,0.2)',
-                                            borderRadius: '12px',
-                                            padding: '20px',
-                                            marginBottom: '24px'
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                                <Coins size={18} color="#ffb74d" />
-                                                <span style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#ffb74d' }}>Reparto de Utilidad — Ganado a Utilidad</span>
-                                            </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'end' }}>
-                                                <div>
-                                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>
-                                                        % Participación del Tenedor (quien cuida el ganado)
-                                                    </label>
-                                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            max="99"
-                                                            step="1"
-                                                            value={participacionUtilidad}
-                                                            onChange={e => {
-                                                                const v = e.target.value;
-                                                                setParticipacionUtilidad(v);
-                                                            }}
-                                                            style={{ paddingRight: '36px' }}
-                                                        />
-                                                        <span style={{ position: 'absolute', right: '14px', color: 'var(--text-muted)', pointerEvents: 'none', fontWeight: 'bold' }}>%</span>
-                                                    </div>
-                                                </div>
-                                                <div style={{
-                                                    background: 'rgba(255,255,255,0.04)',
-                                                    borderRadius: '10px',
-                                                    padding: '14px 18px',
-                                                    border: '1px solid rgba(255,255,255,0.07)',
-                                                    textAlign: 'center'
-                                                }}>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>% para el Dueño del Ganado</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ffb74d' }}>
-                                                        {Math.max(1, 100 - (parseInt(participacionUtilidad) || 60))}%
-                                                    </div>
-                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                                        Factor almacenado: <strong style={{ color: 'white' }}>{((parseInt(participacionUtilidad) || 60) / 100).toFixed(2)}</strong>
-                                                    </div>
+                                        {/* % Participación de utilidad — dos campos simples en grilla */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                                            <div>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Coins size={16} /> % Utilidad Finca / Tenedor</label>
+                                                <div style={{ position: 'relative' }}>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="99"
+                                                        step="1"
+                                                        value={participacionUtilidad}
+                                                        onChange={e => setParticipacionUtilidad(e.target.value)}
+                                                        style={{ paddingRight: '36px' }}
+                                                    />
+                                                    <span style={{ position: 'absolute', right: '14px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none', fontWeight: 'bold' }}>%</span>
                                                 </div>
                                             </div>
-                                            <p style={{ margin: '12px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                                                ⚠️ Ejemplo: si el acuerdo es <strong style={{ color: 'white' }}>60-40</strong>, el tenedor recibe el <strong style={{ color: 'white' }}>60%</strong> de la utilidad y el dueño el <strong style={{ color: 'white' }}>40%</strong>. Este porcentaje ajusta el cálculo del punto de equilibrio.
-                                            </p>
+                                            <div>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Coins size={16} /> % Utilidad Inversionista (dueño)</label>
+                                                <div style={{ position: 'relative' }}>
+                                                    <input
+                                                        type="number"
+                                                        readOnly
+                                                        value={Math.max(1, 100 - (parseInt(participacionUtilidad) || 60))}
+                                                        style={{ paddingRight: '36px', cursor: 'default', opacity: 0.6 }}
+                                                    />
+                                                    <span style={{ position: 'absolute', right: '14px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none', fontWeight: 'bold' }}>%</span>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* KPI Dinámico de Punto de Equilibrio */}
