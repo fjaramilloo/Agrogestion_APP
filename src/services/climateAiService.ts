@@ -181,21 +181,21 @@ REGLAS ZOOTÉCNICAS ESTRICTAS:
 4. NUTRICIÓN: Recomienda sal con NNP (urea pecuaria 2-3%) o sal proteinada (100-150 g/cab/día) para degradar fibra seca y sostener la GDP.
 
 REGLAS DE FORMATO — MUY IMPORTANTE:
-- Sé telegráfico y ultra conciso. Máximo 1-2 oraciones por campo.
+- Sé directo y accionable. Máximo 2-3 oraciones por campo.
 - Responde ÚNICAMENTE con un objeto JSON válido, sin etiquetas markdown ni texto adicional.
-- Límites estrictos: resumen_ejecutivo ≤180 chars; impacto_pasturas ≤140 chars; cada recomendación ≤120 chars.
+- Límites de longitud: resumen_ejecutivo ≤350 chars; impacto_pasturas ≤220 chars; cada recomendación ≤180 chars.
 
 {
   "estado_hidrico": "Texto corto y contundente del estado real",
   "nivel_alerta": "optima|preAlerta|estres|excesoPreventivo|excesoCritico|transicion|oreo",
   "emoji_estado": "🟡|🔴|✅|💧|🌊|🌾|🌤️",
   "balance_hidrico_15d_mm": 0,
-  "resumen_ejecutivo": "Máx 180 chars con números clave.",
-  "impacto_pasturas": "Máx 140 chars: rebrote, FDN y proteína.",
+  "resumen_ejecutivo": "Máx 350 chars con números clave del balance hídrico y estado real.",
+  "impacto_pasturas": "Máx 220 chars: rebrote, FDN y proteína.",
   "recomendaciones": {
-    "rotacion_pastoreo": "Máx 120 chars: días de descanso y remanente.",
-    "fertilizacion_suelo": "Máx 120 chars: pauta sobre fertilización.",
-    "nutricion_suplementacion": "Máx 120 chars: sal/suplemento para GDP."
+    "rotacion_pastoreo": "Máx 180 chars: días de descanso y remanente.",
+    "fertilizacion_suelo": "Máx 180 chars: pauta sobre fertilización.",
+    "nutricion_suplementacion": "Máx 180 chars: sal/suplemento para GDP."
   }
 }`;
 }
@@ -414,7 +414,7 @@ function withTimeout<T>(promise: Promise<T>, ms = 9000): Promise<T> {
                     model: 'gemini-3.5-flash',
                     systemInstruction: buildSystemPrompt(),
                     generationConfig: {
-                        maxOutputTokens: 600,
+                        maxOutputTokens: 900,
                         temperature: 0.2,
                         topP: 0.8,
                     },
@@ -426,7 +426,7 @@ function withTimeout<T>(promise: Promise<T>, ms = 9000): Promise<T> {
                     model: 'gemini-3.6-flash',
                     systemInstruction: buildSystemPrompt(),
                     generationConfig: {
-                        maxOutputTokens: 600,
+                        maxOutputTokens: 900,
                         temperature: 0.2,
                         topP: 0.8,
                     },
