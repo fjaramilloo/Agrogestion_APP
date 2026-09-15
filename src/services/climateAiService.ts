@@ -262,7 +262,8 @@ function generarDiagnosticoLocal(
         perfil,
         balances.dias_racha_seca,
         balances.lluvia_30d,
-        balances.lluvia_7d
+        balances.lluvia_7d,
+        balances.lluvia_15d
     );
 
     const EMOJI_MAP: Record<string, string> = {
@@ -280,12 +281,15 @@ function generarDiagnosticoLocal(
         optima: 'Condición Hídrica Óptima',
     };
 
-    // Aplicar regla de lluvia aislada: Si BH15 < -30 mm y estado óptima → forzar preAlerta
+    // Aplicar regla de lluvia aislada: Si BH15 < -30 mm o lluvia aislada detectada
     let nivelFinal = rec.tipo;
     let estadoFinal = ESTADO_MAP[rec.tipo] ?? ESTADO_MAP.optima;
-    if (rec.tipo === 'optima' && balances.balance_15d < -30) {
+    let resumenFinal = rec.mensaje;
+
+    if (rec.lluviaAislada || (rec.tipo === 'optima' && balances.balance_15d < -30)) {
         nivelFinal = 'preAlerta';
         estadoFinal = 'Lluvia Aislada – Déficit Hídrico Quincenal Activo';
+        resumenFinal = perfil.recomendaciones.lluviaAislada;
     }
 
     return {
@@ -295,7 +299,7 @@ function generarDiagnosticoLocal(
         emoji_estado: EMOJI_MAP[nivelFinal] ?? '🟡',
         balance_hidrico_15d: balances.balance_15d,
         balance_hidrico_30d: balances.balance_30d,
-        resumen_diagnostico: rec.mensaje.substring(0, 180),
+        resumen_diagnostico: resumenFinal.substring(0, 200),
         impacto_pasturas: `Días secos ${balances.dias_secos_mes}/${balances.dias_transcurridos_mes}. Balance 15d: ${balances.balance_15d} mm vs demanda ET₀.`.substring(0, 140),
         recomendacion_rotacion: nivelFinal === 'preAlerta' || nivelFinal === 'estres'
             ? `Alargar descanso a 30–38 días; dejar remanente mínimo de 12 cm.`
@@ -394,7 +398,16 @@ export async function generarYGuardarAnalisisClimatico(
         try {
             const genAI = new GoogleGenerativeAI(apiKey);
             
-            // Usamos gemini-3.5-flash (igual que AgroBot) con fallback a gemini-3.6-flash
+function withTimeout<T>(promise: Promise<T>, ms = 9000): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(`Timeout de respuesta IA (${ms / 1000}s)`)), ms)
+        ),
+    ]);
+}
+
+            // Usamos gemini-3.5-flash (igual que AgroBot) con fallback a gemini-3.6-flash y timeout estricto
             let resultado;
             try {
                 const model = genAI.getGenerativeModel({
@@ -406,7 +419,7 @@ export async function generarYGuardarAnalisisClimatico(
                         topP: 0.8,
                     },
                 });
-                resultado = await model.generateContent(buildUserPrompt(perfil, municipio, balances));
+                resultado = await withTimeout(model.generateContent(buildUserPrompt(perfil, municipio, balances)), 9000);
             } catch (err35) {
                 console.warn('[climateAiService] Fallback a gemini-3.6-flash por:', err35);
                 const model36 = genAI.getGenerativeModel({
@@ -418,7 +431,7 @@ export async function generarYGuardarAnalisisClimatico(
                         topP: 0.8,
                     },
                 });
-                resultado = await model36.generateContent(buildUserPrompt(perfil, municipio, balances));
+                resultado = await withTimeout(model36.generateContent(buildUserPrompt(perfil, municipio, balances)), 9000);
             }
 
             const texto = resultado.response.text();

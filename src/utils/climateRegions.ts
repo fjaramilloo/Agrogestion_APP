@@ -402,17 +402,8 @@ export function generarRecomendacion(
         };
     }
 
-    // ── Prioridad 6: Transición / Inicio de lluvias
-    if (mmUltimos30Dias < mmMensualReferencia * 0.4 && diasSecosConsecutivos <= 3) {
-        return {
-            ...baseMeta,
-            tipo: 'transicion',
-            mensaje: perfil.recomendaciones.transicion,
-        };
-    }
-
-    // ── Prioridad 7 (NUEVA): Lluvia Aislada – Balance Hídrico Quincenal negativo
-    //    Evita el falso positivo de "Condición Óptima" cuando:
+    // ── Prioridad 6: Lluvia Aislada – Balance Hídrico Quincenal negativo (BH15)
+    //    Evita el falso positivo de "Condición Óptima" o "Transición" cuando:
     //    - Hay lluvia reciente (racha seca corta < diasSecosPreAlerta), PERO
     //    - El BH15 (Precipitación 15d − ET₀ × 15) es < −umbralDeficitBH15
     //    Situación real: una tormenta aislada que no compensa el déficit acumulado.
@@ -428,6 +419,15 @@ export function generarRecomendacion(
                 lluviaAislada: true,
             };
         }
+    }
+
+    // ── Prioridad 7: Transición / Inicio de lluvias
+    if (mmUltimos30Dias < mmMensualReferencia * 0.4 && diasSecosConsecutivos <= 3) {
+        return {
+            ...baseMeta,
+            tipo: 'transicion',
+            mensaje: perfil.recomendaciones.transicion,
+        };
     }
 
     // ── Estado 8: Condiciones óptimas de pastoreo

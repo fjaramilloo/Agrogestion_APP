@@ -774,12 +774,12 @@ export default function Rainfall() {
                         const emojiActivo = diag?.emoji_estado ?? '✅';
 
                         // REGLA DE ORO: el resumen siempre es el texto que corresponde al nivel activo.
-                        // Si la IA lo trajo: usar diag.resumen_diagnostico.
-                        // Si el campo está vacío O no hay diag: usar el mensaje del motor local
-                        // (que ya tiene el texto correcto según la regla BH15: lluviaAislada / preAlerta / etc)
-                        const resumen = (diag?.resumen_diagnostico?.trim())
-                            ? diag.resumen_diagnostico
-                            : (recomLocal?.mensaje ?? '');
+                        // Si el texto de IA o caché habla de 'ideales' u 'óptimas' pero estamos en déficit/preAlerta,
+                        // lo descartamos y usamos la recomendación calibrada real de lluvia aislada.
+                        let resumen = (diag?.resumen_diagnostico?.trim()) ? diag.resumen_diagnostico : (recomLocal?.mensaje ?? '');
+                        if (nivelActivo !== 'optima' && (resumen.toLowerCase().includes('ideales') || resumen.toLowerCase().includes('condición hídrica óptima'))) {
+                            resumen = recomLocal?.mensaje ?? perfil.recomendaciones.lluviaAislada;
+                        }
 
                         const impacto = diag?.impacto_pasturas ?? '';
                         const recRotacion = diag?.recomendacion_rotacion ?? '';
