@@ -299,8 +299,8 @@ function generarDiagnosticoLocal(
         emoji_estado: EMOJI_MAP[nivelFinal] ?? '🟡',
         balance_hidrico_15d: balances.balance_15d,
         balance_hidrico_30d: balances.balance_30d,
-        resumen_diagnostico: resumenFinal.substring(0, 200),
-        impacto_pasturas: `Días secos ${balances.dias_secos_mes}/${balances.dias_transcurridos_mes}. Balance 15d: ${balances.balance_15d} mm vs demanda ET₀.`.substring(0, 140),
+        resumen_diagnostico: resumenFinal,
+        impacto_pasturas: `Días secos ${balances.dias_secos_mes}/${balances.dias_transcurridos_mes}. Balance 15d: ${balances.balance_15d} mm vs demanda ET₀.`,
         recomendacion_rotacion: nivelFinal === 'preAlerta' || nivelFinal === 'estres'
             ? `Alargar descanso a 30–38 días; dejar remanente mínimo de 12 cm.`
             : `Mantener rotación según rebrote activo; evaluar aforo para ajustar carga.`,
@@ -446,11 +446,11 @@ function withTimeout<T>(promise: Promise<T>, ms = 9000): Promise<T> {
                     emoji_estado: String(json.emoji_estado ?? '🟡'),
                     balance_hidrico_15d: Number(json.balance_hidrico_15d_mm ?? balances.balance_15d),
                     balance_hidrico_30d: balances.balance_30d,
-                    resumen_diagnostico: String(json.resumen_ejecutivo ?? '').substring(0, 200),
-                    impacto_pasturas: String(json.impacto_pasturas ?? '').substring(0, 160),
-                    recomendacion_rotacion: String(rec?.rotacion_pastoreo ?? '').substring(0, 140),
-                    recomendacion_fertilizacion: String(rec?.fertilizacion_suelo ?? '').substring(0, 140),
-                    recomendacion_nutricion: String(rec?.nutricion_suplementacion ?? '').substring(0, 140),
+                    resumen_diagnostico: String(json.resumen_ejecutivo ?? '').trim(),
+                    impacto_pasturas: String(json.impacto_pasturas ?? '').trim(),
+                    recomendacion_rotacion: String(rec?.rotacion_pastoreo ?? '').trim(),
+                    recomendacion_fertilizacion: String(rec?.fertilizacion_suelo ?? '').trim(),
+                    recomendacion_nutricion: String(rec?.nutricion_suplementacion ?? '').trim(),
                     metadatos_lluvia: { ...balances, zona: perfil.zona, municipio },
                     fuente: 'ia',
                 };
