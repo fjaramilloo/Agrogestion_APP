@@ -2,9 +2,19 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
     Award, CheckCircle2, ShieldCheck,
-    Building2, Tractor, Calendar, MessageCircle,
-    Clock, Sparkles
+    Building2, Calendar, MessageCircle,
+    Clock, Sparkles, AlertTriangle
 } from 'lucide-react';
+
+const CowIcon = ({ size = 16, color = 'currentColor', style = {} }: { size?: number; color?: string; style?: React.CSSProperties }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+        <path d="M19 5c-.8-1.2-2.2-2-4-2H9C7.2 3 5.8 3.8 5 5" />
+        <path d="M5 5C3.5 5 2 6.5 2 8c0 1.5 1 2.5 2.5 2.5L5 10.5V17c0 1.1.9 2 2 2h1v2a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-2h2v2a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-2h1c1.1 0 2-.9 2-2v-6.5l.5.0c1.5 0 2.5-1 2.5-2.5 0-1.5-1.5-3-3-3" />
+        <path d="M9 10h.01" />
+        <path d="M15 10h.01" />
+        <path d="M10 14c.7.7 3.3.7 4 0" />
+    </svg>
+);
 
 type Periodicidad = 'mensual' | 'semestral' | 'anual';
 
@@ -15,6 +25,10 @@ export default function Suscripcion() {
     const [periodicidad, setPeriodicidad] = useState<Periodicidad>('anual');
 
     const porcentajeUso = Math.min(100, Math.round((totalAnimalesOrganizacion / (limiteAnimales || 1)) * 100));
+
+    const diasRestantesVencimiento = (licencia !== 'demo' && fechaVencimientoLicencia)
+        ? Math.ceil((new Date(fechaVencimientoLicencia).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+        : null;
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return 'Sin fecha';
@@ -204,31 +218,121 @@ export default function Suscripcion() {
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        {/* Inicio de Plan */}
                         <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Clock size={16} color="#a78bfa" />
                             <div>
-                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Inicio de Plan</div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Inicio de Plan</div>
                                 <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'white' }}>{formatDate(fechaInicioLicencia)}</div>
                             </div>
                         </div>
 
-                        {fechaVencimientoLicencia && (
-                            <div style={{ background: 'rgba(244,67,54,0.08)', border: '1px solid rgba(244,67,54,0.2)', borderRadius: '10px', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Calendar size={16} color="#f87171" />
+                        {/* Fin de Vigencia */}
+                        {(licencia === 'demo' || !fechaVencimientoLicencia) ? (
+                            <div style={{ background: 'rgba(76, 175, 80, 0.08)', border: '1px solid rgba(76, 175, 80, 0.25)', borderRadius: '10px', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <CheckCircle2 size={16} color="var(--success)" />
                                 <div>
-                                    <div style={{ fontSize: '0.68rem', color: '#f87171', textTransform: 'uppercase' }}>Vencimiento</div>
-                                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'white' }}>{formatDate(fechaVencimientoLicencia)}</div>
+                                    <div style={{ fontSize: '0.68rem', color: 'var(--success)', textTransform: 'uppercase', fontWeight: 700 }}>Fin de Vigencia</div>
+                                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'white' }}>Indefinida / Sin Límite</div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{
+                                background: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'rgba(244,67,54,0.12)' : 'rgba(14, 165, 233, 0.08)',
+                                border: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '1px solid rgba(244,67,54,0.35)' : '1px solid rgba(14, 165, 233, 0.25)',
+                                borderRadius: '10px',
+                                padding: '10px 16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <Calendar size={16} color={diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '#f87171' : '#38bdf8'} />
+                                <div>
+                                    <div style={{ fontSize: '0.68rem', color: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '#f87171' : '#38bdf8', textTransform: 'uppercase', fontWeight: 700 }}>
+                                        Fin de Vigencia
+                                    </div>
+                                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'white', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        <span>{formatDate(fechaVencimientoLicencia)}</span>
+                                        {diasRestantesVencimiento !== null && (
+                                            <span style={{
+                                                fontSize: '0.7rem',
+                                                padding: '2px 7px',
+                                                borderRadius: '6px',
+                                                fontWeight: 700,
+                                                background: diasRestantesVencimiento < 0 ? 'rgba(244,67,54,0.25)' : diasRestantesVencimiento <= 8 ? 'rgba(255,152,0,0.25)' : 'rgba(76,175,80,0.2)',
+                                                color: diasRestantesVencimiento < 0 ? '#ef5350' : diasRestantesVencimiento <= 8 ? '#ffb74d' : 'var(--success)'
+                                            }}>
+                                                {diasRestantesVencimiento < 0
+                                                    ? 'Vencida'
+                                                    : diasRestantesVencimiento === 0
+                                                        ? 'Vence hoy'
+                                                        : `${diasRestantesVencimiento} días restantes`}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
 
+                {/* Banner de Aviso de Vencimiento Próximo (8 días o menos) */}
+                {diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 && (
+                    <div style={{
+                        background: 'rgba(244, 67, 54, 0.1)',
+                        border: '1px solid rgba(244, 67, 54, 0.3)',
+                        borderRadius: '12px',
+                        padding: '14px 18px',
+                        marginBottom: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <AlertTriangle size={20} color="#f87171" style={{ flexShrink: 0 }} />
+                            <div>
+                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f87171' }}>
+                                    {diasRestantesVencimiento < 0
+                                        ? '¡Tu suscripción se encuentra vencida!'
+                                        : diasRestantesVencimiento === 0
+                                            ? '¡Tu suscripción vence el día de hoy!'
+                                            : `¡Atención! Tu suscripción vence en ${diasRestantesVencimiento} día${diasRestantesVencimiento === 1 ? '' : 's'}`}
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    Renueva tu plan ahora para garantizar la continuidad operativa de tus registros y reportes ganaderos.
+                                </div>
+                            </div>
+                        </div>
+                        <a
+                            href={getWhatsappLink(licencia === 'premium' ? 'Plan Premium' : 'Plan Finca', 'renovar', periodicidad)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                                color: 'white',
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                textDecoration: 'none',
+                                boxShadow: '0 2px 10px rgba(124, 58, 237, 0.4)'
+                            }}
+                        >
+                            <MessageCircle size={15} /> Renovar por WhatsApp
+                        </a>
+                    </div>
+                )}
+
                 {/* Progress bar info */}
                 <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '18px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                         <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Tractor size={18} color="var(--primary-light)" />
+                            <CowIcon size={18} color="var(--primary-light)" />
                             Capacidad utilizada de animales activos:
                         </span>
                         <span style={{ fontSize: '1rem', fontWeight: 800, color: porcentajeUso >= 90 ? '#f87171' : 'white' }}>

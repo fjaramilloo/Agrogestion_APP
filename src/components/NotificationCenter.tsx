@@ -24,7 +24,7 @@ export default function NotificationCenter() {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
-    const { role, fincaId, userFincas } = useAuth();
+    const { role, fincaId, userFincas, licenciaInfo } = useAuth();
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
@@ -269,6 +269,42 @@ export default function NotificationCenter() {
                 }
             }
 
+            // 3. Alerta de Vencimiento de Suscripción (8 días antes para el Administrador)
+            if (licenciaInfo && licenciaInfo.licencia !== 'demo' && licenciaInfo.fechaVencimientoLicencia) {
+                const fechaVenc = new Date(licenciaInfo.fechaVencimientoLicencia);
+                const diasRestantes = differenceInDays(fechaVenc, hoy);
+                const primaryFincaId = fincaId || userFincas[0]?.id_finca || 'global';
+                const primaryFincaName = licenciaInfo.organizacionNombre || 'Suscripción';
+
+                if (diasRestantes <= 8 && diasRestantes >= 0) {
+                    newNotifications.push({
+                        id: `vencimiento-licencia-${licenciaInfo.organizacionId || 'org'}-${format(fechaVenc, 'yyyy-MM-dd')}`,
+                        title: diasRestantes === 0 ? '¡Tu suscripción vence hoy!' : `Suscripción por vencer (${diasRestantes} día${diasRestantes === 1 ? '' : 's'})`,
+                        description: `Tu plan ${licenciaInfo.licencia.toUpperCase()} vence el ${format(fechaVenc, 'dd/MM/yyyy')}. Renueva a tiempo para mantener el acceso y soporte sin interrupciones.`,
+                        type: diasRestantes <= 3 ? 'error' : 'warning',
+                        time: format(hoy, 'HH:mm'),
+                        read: false,
+                        roles: ['administrador'],
+                        target: '/suscripcion',
+                        fincaId: primaryFincaId,
+                        fincaNombre: primaryFincaName
+                    });
+                } else if (diasRestantes < 0) {
+                    newNotifications.push({
+                        id: `vencimiento-licencia-expirada-${licenciaInfo.organizacionId || 'org'}-${format(fechaVenc, 'yyyy-MM-dd')}`,
+                        title: 'Suscripción Vencida',
+                        description: `Tu plan ${licenciaInfo.licencia.toUpperCase()} expiró el ${format(fechaVenc, 'dd/MM/yyyy')}. Renueva tu plan para continuar disfrutando de la plataforma.`,
+                        type: 'error',
+                        time: format(hoy, 'HH:mm'),
+                        read: false,
+                        roles: ['administrador'],
+                        target: '/suscripcion',
+                        fincaId: primaryFincaId,
+                        fincaNombre: primaryFincaName
+                    });
+                }
+            }
+
             const readToday = JSON.parse(localStorage.getItem(`read_notifications_global`) || '{}');
             const hoyStr = format(hoy, 'yyyy-MM-dd');
 
@@ -292,7 +328,7 @@ export default function NotificationCenter() {
         // Recargar cada 30 minutos
         const interval = setInterval(fetchAlerts, 30 * 60 * 1000);
         return () => clearInterval(interval);
-    }, [userFincas]);
+    }, [userFincas, licenciaInfo]);
 
     // Filtrar por rol
     const filteredNotifications = useMemo(() => {
