@@ -78,6 +78,7 @@ export default function Rainfall() {
     // ── Diagnóstico IA climático ───────────────────────────────────────
     const [diagnosticoIA, setDiagnosticoIA] = useState<DiagnosticoClimatico | null>(null);
     const [analysisLoading, setAnalysisLoading] = useState(false);
+    const [analysisError, setAnalysisError] = useState<string | null>(null);
 
     // Formulario
     const [fecha, setFecha] = useState(getLocalIsoDate());
@@ -423,6 +424,7 @@ export default function Rainfall() {
     const dispararAnalisisIA = useCallback(async (regs: RegistroLluvia[], ubicacion: string | null, municipio: string | null) => {
         if (!fincaId || esDemo) return;
         setAnalysisLoading(true);
+        setAnalysisError(null);
         try {
             const diag = await generarYGuardarAnalisisClimatico(
                 fincaId,
@@ -431,8 +433,10 @@ export default function Rainfall() {
                 municipio
             );
             setDiagnosticoIA(diag);
-        } catch {
-            // falla silenciosa; la UI sigue mostrando el diagnóstico anterior
+        } catch (err: any) {
+            const msg = err?.message || 'Error al analizar. Verifica tu conexión.';
+            setAnalysisError(msg);
+            console.error('[climateAI] Error:', msg, err);
         } finally {
             setAnalysisLoading(false);
         }
@@ -743,10 +747,11 @@ export default function Rainfall() {
                             </div>
                         </div>
                     ) : (() => {
-                        // ── Fuente de datos: IA persistida o fallback local ────────────────
+                        // ── Fuente: IA persistida. El texto siempre viene del campo correcto:
+                        // Si diag.resumen_diagnostico está vacío (e.g. caché antiguo), cae al mensaje
+                        // del motor local que ya es el texto calibrado para el nivel activo.
                         const diag = diagnosticoIA;
-                        // Fallback al motor local si no hay diagnóstico IA todavía
-                        const recomLocal = recomendacion;
+                        const recomLocal = recomendacion;  // motor local con BH15
 
                         const COLOR_MAP: Record<string, { bg: string; border: string; text: string; badge: string }> = {
                             estres:           { bg: 'rgba(244,67,54,0.08)',   border: 'rgba(244,67,54,0.28)',   text: '#f44336', badge: 'rgba(244,67,54,0.20)' },
@@ -763,17 +768,29 @@ export default function Rainfall() {
                             oreo: 'OREO ACTIVO', transicion: 'TRANSICIÓN', optima: 'CONDICIÓN ÓPTIMA',
                         };
 
+                        // El nivel activo viene de IA si existe, si no del motor local (que ya aplica BH15)
                         const nivelActivo = diag?.nivel_alerta ?? recomLocal?.tipo ?? 'optima';
                         const c = COLOR_MAP[nivelActivo] ?? COLOR_MAP.optima;
                         const emojiActivo = diag?.emoji_estado ?? '✅';
-                        const resumen = diag?.resumen_diagnostico ?? recomLocal?.mensaje ?? '';
+
+                        // REGLA DE ORO: el resumen siempre es el texto que corresponde al nivel activo.
+                        // Si la IA lo trajo: usar diag.resumen_diagnostico.
+                        // Si el campo está vacío O no hay diag: usar el mensaje del motor local
+                        // (que ya tiene el texto correcto según la regla BH15: lluviaAislada / preAlerta / etc)
+                        const resumen = (diag?.resumen_diagnostico?.trim())
+                            ? diag.resumen_diagnostico
+                            : (recomLocal?.mensaje ?? '');
+
                         const impacto = diag?.impacto_pasturas ?? '';
                         const recRotacion = diag?.recomendacion_rotacion ?? '';
                         const recFertilizacion = diag?.recomendacion_fertilizacion ?? '';
                         const recNutricion = diag?.recomendacion_nutricion ?? '';
-                        const estadoHidrico = diag?.estado_hidrico ?? LABEL_MAP[nivelActivo];
-                        const bh15 = diag?.balance_hidrico_15d ?? (kpis ? kpis.mm15dias - 15 * perfil.et0DiariaNumerica : null);
-                        const fuenteLabel = diag?.fuente === 'ia' ? '✨ IA' : '⚡ Local';
+                        const estadoHidrico = diag?.estado_hidrico
+                            ? diag.estado_hidrico
+                            : (recomLocal?.lluviaAislada ? 'Lluvia Aislada – Déficit Hídrico Quincenal Activo' : LABEL_MAP[nivelActivo]);
+                        const bh15 = diag?.balance_hidrico_15d
+                            ?? (kpis ? parseFloat((kpis.mm15dias - 15 * perfil.et0DiariaNumerica).toFixed(1)) : null);
+                        const fuenteLabel = diag?.fuente === 'ia' ? '✨ IA' : '⚡ Motor Local';
 
                         return (
                             <div style={{
@@ -801,22 +818,29 @@ export default function Rainfall() {
                                             </p>
                                         )}
                                     </div>
-                                    {/* Botón reanalizar */}
-                                    <button
-                                        onClick={() => dispararAnalisisIA(registros, ubicacionFinca, municipioFinca)}
-                                        disabled={analysisLoading}
-                                        title="Reanalizar con IA"
-                                        style={{
-                                            background: 'transparent', border: `1px solid ${c.border}`,
-                                            borderRadius: '8px', padding: '5px 8px', cursor: 'pointer',
-                                            color: c.text, display: 'flex', alignItems: 'center', gap: '4px',
-                                            fontSize: '0.7rem', opacity: analysisLoading ? 0.5 : 1,
-                                            transition: 'opacity 0.2s',
-                                        }}
-                                    >
-                                        <RefreshCw size={11} style={{ animation: analysisLoading ? 'spin 1s linear infinite' : 'none' }} />
-                                        {analysisLoading ? 'Analizando…' : 'Reanalizar'}
-                                    </button>
+                                    {/* Botón reanalizar + error */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                        <button
+                                            onClick={() => dispararAnalisisIA(registros, ubicacionFinca, municipioFinca)}
+                                            disabled={analysisLoading}
+                                            title="Solicitar análisis completo a la IA"
+                                            style={{
+                                                background: 'transparent', border: `1px solid ${c.border}`,
+                                                borderRadius: '8px', padding: '5px 8px', cursor: 'pointer',
+                                                color: c.text, display: 'flex', alignItems: 'center', gap: '4px',
+                                                fontSize: '0.7rem', opacity: analysisLoading ? 0.5 : 1,
+                                                transition: 'opacity 0.2s',
+                                            }}
+                                        >
+                                            <RefreshCw size={11} style={{ animation: analysisLoading ? 'spin 1s linear infinite' : 'none' }} />
+                                            {analysisLoading ? 'Analizando…' : 'Reanalizar'}
+                                        </button>
+                                        {analysisError && (
+                                            <span style={{ fontSize: '0.62rem', color: '#f87171', maxWidth: '160px', textAlign: 'right', lineHeight: 1.3 }}>
+                                                ⚠️ {analysisError}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Resumen e impacto */}
