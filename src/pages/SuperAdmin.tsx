@@ -5,11 +5,38 @@ import { getLocalIsoDate } from '../utils/dateUtils';
 import './SuperAdmin.css';
 import {
     Building2, UserPlus, ShieldCheck, MapPin, Users,
-    ChevronDown, ChevronUp, BarChart3, Tractor,
+    ChevronDown, ChevronUp, BarChart3,
     Eye, Wrench, Globe, Trash2, AlertTriangle,
     Award, Calendar, Edit3, Clock, TrendingUp,
     Upload, Download, FileText, CheckCircle2
 } from 'lucide-react';
+
+// Icono silueta de toro/vaca para métricas de ganado
+const CowIcon = ({ size = 20, color = 'currentColor', style, className }: { size?: number; color?: string; style?: React.CSSProperties; className?: string }) => (
+    <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={style}
+        className={className}
+    >
+        <path d="M4.5 4.5C3 4.5 2 6 2.5 8" />
+        <path d="M19.5 4.5C21 4.5 22 6 21.5 8" />
+        <path d="M3.5 8.5C2 9 1.5 10.5 2.5 11.5c1.5 0 2.5-.8 3-1.8" />
+        <path d="M20.5 8.5C22 9 22.5 10.5 21.5 11.5c-1.5 0-2.5-.8-3-1.8" />
+        <path d="M5.5 7.5c1.5-.8 4-1 6.5-1s5 .2 6.5 1c.8 2.5.5 5.5 0 8-.8 1-2.2 1.5-4 1.5h-5c-1.8 0-3.2-.5-4-1.5-.5-2.5-.8-5.5 0-8z" />
+        <rect x="7.5" y="14" width="9" height="5.5" rx="2.5" />
+        <circle cx="10" cy="16.5" r="0.8" fill={color} />
+        <circle cx="14" cy="16.5" r="0.8" fill={color} />
+        <circle cx="8.5" cy="11" r="1" fill={color} />
+        <circle cx="15.5" cy="11" r="1" fill={color} />
+    </svg>
+);
 
 type TipoLicencia = 'demo' | 'finca' | 'premium';
 
@@ -572,7 +599,7 @@ export default function SuperAdmin() {
     const statCards = [
         { label: 'Organizaciones', value: globalStats.totalOrgs, Icon: Globe, color: '#a78bfa', bg: 'rgba(124, 58, 237, 0.12)', border: 'rgba(124, 58, 237, 0.3)' },
         { label: 'Fincas Registradas', value: globalStats.totalFincas, Icon: MapPin, color: '#38bdf8', bg: 'rgba(14, 165, 233, 0.12)', border: 'rgba(14, 165, 233, 0.3)' },
-        { label: 'Animales Activos', value: globalStats.totalAnimales.toLocaleString('es-CO'), Icon: Tractor, color: 'var(--primary-light)', bg: 'rgba(96, 173, 94, 0.12)', border: 'rgba(96, 173, 94, 0.3)' },
+        { label: 'Animales Activos', value: globalStats.totalAnimales.toLocaleString('es-CO'), Icon: CowIcon, color: 'var(--primary-light)', bg: 'rgba(96, 173, 94, 0.12)', border: 'rgba(96, 173, 94, 0.3)' },
         { label: 'Usuarios', value: globalStats.totalUsuarios, Icon: Users, color: 'var(--secondary)', bg: 'rgba(255, 179, 0, 0.12)', border: 'rgba(255, 179, 0, 0.3)' }
     ];
 
@@ -716,7 +743,7 @@ export default function SuperAdmin() {
                                                 </div>
 
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <Tractor size={14} color="var(--primary-light)" />
+                                                    <CowIcon size={15} color="var(--primary-light)" />
                                                     <span style={{ fontWeight: 600 }}>{cuenta.totalAnimales.toLocaleString('es-CO')}</span>
                                                 </div>
 
@@ -761,7 +788,7 @@ export default function SuperAdmin() {
                                                                         <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{f.nombre}</span>
                                                                     </div>
                                                                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                        <Tractor size={12} />
+                                                                        <CowIcon size={13} color="var(--primary-light)" />
                                                                         {f.animalesActivos} animales activos
                                                                     </div>
                                                                 </div>
@@ -865,7 +892,7 @@ export default function SuperAdmin() {
                                                 </div>
                                                 <div className="superadmin-metric-chip">
                                                     <div className="superadmin-metric-chip-val" style={{ color: 'var(--primary-light)' }}>
-                                                        <Tractor size={12} /> {cuenta.totalAnimales.toLocaleString('es-CO')}
+                                                        <CowIcon size={14} color="var(--primary-light)" /> {cuenta.totalAnimales.toLocaleString('es-CO')}
                                                     </div>
                                                     <div className="superadmin-metric-chip-lbl">Animales</div>
                                                 </div>
@@ -941,7 +968,7 @@ export default function SuperAdmin() {
                                                                 </div>
 
                                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                    <Tractor size={12} color="var(--primary-light)" />
+                                                                    <CowIcon size={13} color="var(--primary-light)" />
                                                                     <strong style={{ color: 'white' }}>{f.animalesActivos}</strong> animales activos
                                                                 </div>
 
