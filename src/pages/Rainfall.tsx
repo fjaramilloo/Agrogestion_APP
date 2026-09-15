@@ -1,11 +1,11 @@
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
     CloudRain, Plus, Trash2, Calendar, Droplets,
-    ChevronDown, ChevronUp, Lock, TrendingUp, Sun, AlertTriangle, BarChart2
+    ChevronDown, ChevronUp, Lock, TrendingUp, Sun, AlertTriangle, BarChart2, RefreshCw
 } from 'lucide-react';
 import { format, subDays, parseISO, differenceInDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -15,6 +15,12 @@ import {
 } from 'recharts';
 import { detectarRegionClimatica, generarRecomendacion } from '../utils/climateRegions';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import {
+    type DiagnosticoClimatico,
+    obtenerUltimoAnalisisClimatico,
+    generarYGuardarAnalisisClimatico,
+    leerCacheLocal,
+} from '../services/climateAiService';
 
 interface RegistroLluvia {
     id: string;
@@ -68,6 +74,10 @@ export default function Rainfall() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [tabGrafica, setTabGrafica] = useState<string>(TAB_MENSUAL);
+
+    // ── Diagnóstico IA climático ───────────────────────────────────────
+    const [diagnosticoIA, setDiagnosticoIA] = useState<DiagnosticoClimatico | null>(null);
+    const [analysisLoading, setAnalysisLoading] = useState(false);
 
     // Formulario
     const [fecha, setFecha] = useState(getLocalIsoDate());
@@ -140,6 +150,12 @@ export default function Rainfall() {
             .filter(r => parseISO(r.fecha + 'T12:00:00') >= hace30 && r.milimetros >= perfil.umbralRegistroMm)
             .reduce((s, r) => s + r.milimetros, 0);
 
+        // mm últimos 15 días – Balance Hídrico Quincenal (BH15)
+        const hace15 = subDays(hoy, 15);
+        const mm15dias = registros
+            .filter(r => parseISO(r.fecha + 'T12:00:00') >= hace15 && r.milimetros >= perfil.umbralRegistroMm)
+            .reduce((s, r) => s + r.milimetros, 0);
+
         // mm últimos 7 días – ventana crítica de exceso hídrico a corto plazo
         // (choque concentrado: anoxia radicular + daño por pisoteo)
         const hace7 = subDays(hoy, 7);
@@ -170,6 +186,7 @@ export default function Rainfall() {
             diasSecos,
             mmAnual: parseFloat(mmAnual.toFixed(1)),
             mm30dias,
+            mm15dias: parseFloat(mm15dias.toFixed(1)),
             mm7dias: parseFloat(mm7dias.toFixed(1)),
             lluviaHoy: parseFloat(lluviaHoy.toFixed(1)),
             diasSecosMes,
@@ -262,8 +279,13 @@ export default function Rainfall() {
     const fetchTodo = async () => {
         if (!fincaId) return;
         setLoading(true);
+
+        // Carga instantánea del diagnóstico desde caché local (0 ms, modo offline)
+        const cacheLocal = leerCacheLocal(fincaId);
+        if (cacheLocal) setDiagnosticoIA(cacheLocal);
+
         try {
-            const [lluviasRes, fincaRes] = await Promise.all([
+            const [lluviasRes, fincaRes, diagRes] = await Promise.all([
                 supabase
                     .from('registros_lluvia')
                     .select('*')
@@ -274,11 +296,23 @@ export default function Rainfall() {
                     .select('ubicacion, municipio')
                     .eq('id', fincaId)
                     .single(),
+                // Cargar último diagnóstico persistido desde Supabase
+                obtenerUltimoAnalisisClimatico(fincaId),
             ]);
             if (lluviasRes.error) throw lluviasRes.error;
-            setRegistros(lluviasRes.data || []);
-            setUbicacionFinca(fincaRes.data?.ubicacion || null);
-            setMunicipioFinca(fincaRes.data?.municipio || null);
+            const regs = lluviasRes.data || [];
+            const ubicacion = fincaRes.data?.ubicacion || null;
+            const municipio = fincaRes.data?.municipio || null;
+            setRegistros(regs);
+            setUbicacionFinca(ubicacion);
+            setMunicipioFinca(municipio);
+            // Preferir diagnóstico de Supabase sobre caché local
+            if (diagRes) {
+                setDiagnosticoIA(diagRes);
+            } else if (regs.length > 0 && !cacheLocal) {
+                // Sin diagnóstico previo: generar uno de arranque
+                dispararAnalisisIA(regs, ubicacion, municipio);
+            }
         } catch (err: any) {
             console.error('Error fetching rainfall:', err);
         } finally {
@@ -304,14 +338,11 @@ export default function Rainfall() {
             let lecturaAcumuladaFinal: number | null = null;
 
             if (modoEntrada === 'diaria') {
-                // Pluviómetro manual / probeta: Se ingresa directamente la lámina caída hoy
                 milimetrosDia = valorNum;
-                // Si el registro anterior tenía acumulado, sumamos para dar continuidad histórica
                 if (ultimoRegistro && ultimoRegistro.lectura_acumulada !== undefined && ultimoRegistro.lectura_acumulada !== null) {
                     lecturaAcumuladaFinal = parseFloat((ultimoRegistro.lectura_acumulada + milimetrosDia).toFixed(1));
                 }
             } else {
-                // Pluviómetro digital / estación: Se ingresa la lectura total acumulada
                 const nuevaLectura = valorNum;
                 let lecturaAnterior = 0;
                 if (ultimoRegistro && ultimoRegistro.lectura_acumulada !== undefined && ultimoRegistro.lectura_acumulada !== null) {
@@ -319,7 +350,6 @@ export default function Rainfall() {
                 } else if (registrosAnteriores.length > 0) {
                     lecturaAnterior = registrosAnteriores.reduce((s, r) => s + r.milimetros, 0);
                 }
-
                 milimetrosDia = nuevaLectura - lecturaAnterior;
                 if (milimetrosDia < 0) {
                     throw new Error(`La lectura ingresada (${nuevaLectura} mm) no puede ser menor a la lectura anterior (${lecturaAnterior} mm).`);
@@ -340,7 +370,16 @@ export default function Rainfall() {
             setShowModal(false);
             setValorEntrada('');
             setNotas('');
-            fetchTodo();
+            // Recargar datos y disparar análisis IA en background
+            await fetchTodo();
+            const regsActualizados = await supabase
+                .from('registros_lluvia')
+                .select('fecha, milimetros')
+                .eq('id_finca', fincaId)
+                .order('fecha', { ascending: false });
+            if (regsActualizados.data) {
+                dispararAnalisisIA(regsActualizados.data as any, ubicacionFinca, municipioFinca);
+            }
         } catch (err: any) {
             setError(err.message || 'Error al guardar el registro');
         } finally {
@@ -353,7 +392,16 @@ export default function Rainfall() {
         try {
             const { error } = await supabase.from('registros_lluvia').delete().eq('id', id);
             if (error) throw error;
-            fetchTodo();
+            await fetchTodo();
+            // Disparar análisis IA actualizado tras eliminar
+            const regsActualizados = await supabase
+                .from('registros_lluvia')
+                .select('fecha, milimetros')
+                .eq('id_finca', fincaId)
+                .order('fecha', { ascending: false });
+            if (regsActualizados.data) {
+                dispararAnalisisIA(regsActualizados.data as any, ubicacionFinca, municipioFinca);
+            }
         } catch (err: any) {
             alert('Error al eliminar: ' + err.message);
         }
@@ -365,11 +413,30 @@ export default function Rainfall() {
         return Array.from(set).sort((a, b) => b - a);
     }, [registros]);
 
-    // ── Recomendación ─────────────────────────────────────────────────
+    // ── Recomendación (motor local calibrado con BH15) ─────────────────
     const recomendacion = useMemo(() => {
         if (!kpis) return null;
-        return generarRecomendacion(perfil, kpis.diasSecos, kpis.mm30dias, kpis.mm7dias);
+        return generarRecomendacion(perfil, kpis.diasSecos, kpis.mm30dias, kpis.mm7dias, kpis.mm15dias);
     }, [perfil, kpis]);
+
+    // ── Disparo asíncrono del análisis IA ─────────────────────────────
+    const dispararAnalisisIA = useCallback(async (regs: RegistroLluvia[], ubicacion: string | null, municipio: string | null) => {
+        if (!fincaId || esDemo) return;
+        setAnalysisLoading(true);
+        try {
+            const diag = await generarYGuardarAnalisisClimatico(
+                fincaId,
+                regs.map(r => ({ fecha: r.fecha, milimetros: r.milimetros })),
+                ubicacion,
+                municipio
+            );
+            setDiagnosticoIA(diag);
+        } catch {
+            // falla silenciosa; la UI sigue mostrando el diagnóstico anterior
+        } finally {
+            setAnalysisLoading(false);
+        }
+    }, [fincaId, esDemo]);
 
     const colorSemaforoSecos = (dias: number) => {
         if (dias >= perfil.diasSecosAlerta) return '#f44336';
@@ -403,6 +470,10 @@ export default function Rainfall() {
                     .rainfall-kpi-grid {
                         grid-template-columns: 1fr;
                     }
+                }
+                @keyframes spin {
+                    0%   { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
                 }
             `}</style>
             {/* ── HEADER ── */}
@@ -671,7 +742,130 @@ export default function Rainfall() {
                                 </button>
                             </div>
                         </div>
-                    ) : recomendacion && (() => {
+                    ) : (() => {
+                        // ── Fuente de datos: IA persistida o fallback local ────────────────
+                        const diag = diagnosticoIA;
+                        // Fallback al motor local si no hay diagnóstico IA todavía
+                        const recomLocal = recomendacion;
+
+                        const COLOR_MAP: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+                            estres:           { bg: 'rgba(244,67,54,0.08)',   border: 'rgba(244,67,54,0.28)',   text: '#f44336', badge: 'rgba(244,67,54,0.20)' },
+                            excesoCritico:    { bg: 'rgba(30,100,200,0.10)',  border: 'rgba(59,130,246,0.35)',  text: '#3b82f6', badge: 'rgba(59,130,246,0.22)' },
+                            preAlerta:        { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.30)',  text: '#f59e0b', badge: 'rgba(245,158,11,0.20)' },
+                            excesoPreventivo: { bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.28)',   text: '#06b6d4', badge: 'rgba(6,182,212,0.20)' },
+                            oreo:             { bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.30)',  text: '#10b981', badge: 'rgba(16,185,129,0.20)' },
+                            transicion:       { bg: 'rgba(255,179,0,0.07)',   border: 'rgba(255,179,0,0.25)',   text: '#ffb300', badge: 'rgba(255,179,0,0.18)' },
+                            optima:           { bg: 'rgba(76,175,80,0.08)',   border: 'rgba(76,175,80,0.25)',   text: '#4caf50', badge: 'rgba(76,175,80,0.18)' },
+                        };
+                        const LABEL_MAP: Record<string, string> = {
+                            estres: 'ALERTA ROJA – SEQUÍA', excesoCritico: 'ANEGAMIENTO CRÍTICO',
+                            preAlerta: 'PRE-ALERTA SEQUÍA', excesoPreventivo: 'ENCHARCAMIENTO PREVENTIVO',
+                            oreo: 'OREO ACTIVO', transicion: 'TRANSICIÓN', optima: 'CONDICIÓN ÓPTIMA',
+                        };
+
+                        const nivelActivo = diag?.nivel_alerta ?? recomLocal?.tipo ?? 'optima';
+                        const c = COLOR_MAP[nivelActivo] ?? COLOR_MAP.optima;
+                        const emojiActivo = diag?.emoji_estado ?? '✅';
+                        const resumen = diag?.resumen_diagnostico ?? recomLocal?.mensaje ?? '';
+                        const impacto = diag?.impacto_pasturas ?? '';
+                        const recRotacion = diag?.recomendacion_rotacion ?? '';
+                        const recFertilizacion = diag?.recomendacion_fertilizacion ?? '';
+                        const recNutricion = diag?.recomendacion_nutricion ?? '';
+                        const estadoHidrico = diag?.estado_hidrico ?? LABEL_MAP[nivelActivo];
+                        const bh15 = diag?.balance_hidrico_15d ?? (kpis ? kpis.mm15dias - 15 * perfil.et0DiariaNumerica : null);
+                        const fuenteLabel = diag?.fuente === 'ia' ? '✨ IA' : '⚡ Local';
+
+                        return (
+                            <div style={{
+                                borderRadius: '12px', marginBottom: '28px',
+                                background: c.bg, border: `1px solid ${c.border}`,
+                                overflow: 'hidden',
+                            }}>
+                                {/* Cabecera compacta */}
+                                <div style={{ padding: '14px 18px 10px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', borderBottom: `1px solid ${c.border}` }}>
+                                    <span style={{ fontSize: '1.3rem', lineHeight: 1 }}>{emojiActivo}</span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'white', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
+                                                Asistente Zootécnico – {perfil.emoji} {perfil.zona}
+                                            </p>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: c.badge, color: c.text, whiteSpace: 'nowrap' }}>
+                                                {LABEL_MAP[nivelActivo]}
+                                            </span>
+                                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>{fuenteLabel}</span>
+                                        </div>
+                                        {bh15 !== null && (
+                                            <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                                {estadoHidrico} · Balance 15d: <span style={{ color: bh15 < 0 ? '#f59e0b' : '#4caf50', fontWeight: 600 }}>{bh15 > 0 ? '+' : ''}{bh15.toFixed(1)} mm</span>
+                                                {kpis && <> · {kpis.diasSecosMes}/{kpis.diasTranscurridos} días secos</>}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {/* Botón reanalizar */}
+                                    <button
+                                        onClick={() => dispararAnalisisIA(registros, ubicacionFinca, municipioFinca)}
+                                        disabled={analysisLoading}
+                                        title="Reanalizar con IA"
+                                        style={{
+                                            background: 'transparent', border: `1px solid ${c.border}`,
+                                            borderRadius: '8px', padding: '5px 8px', cursor: 'pointer',
+                                            color: c.text, display: 'flex', alignItems: 'center', gap: '4px',
+                                            fontSize: '0.7rem', opacity: analysisLoading ? 0.5 : 1,
+                                            transition: 'opacity 0.2s',
+                                        }}
+                                    >
+                                        <RefreshCw size={11} style={{ animation: analysisLoading ? 'spin 1s linear infinite' : 'none' }} />
+                                        {analysisLoading ? 'Analizando…' : 'Reanalizar'}
+                                    </button>
+                                </div>
+
+                                {/* Resumen e impacto */}
+                                <div style={{ padding: '10px 18px 8px' }}>
+                                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.55 }}>
+                                        {resumen}
+                                    </p>
+                                    {impacto && (
+                                        <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.76rem', lineHeight: 1.4 }}>
+                                            {impacto}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Píldoras de acción */}
+                                {(recRotacion || recFertilizacion || recNutricion) && (
+                                    <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                        {recRotacion && (
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: 'rgba(255,255,255,0.04)', borderRadius: '7px', padding: '7px 10px' }}>
+                                                <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>🌾</span>
+                                                <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                                                    <strong style={{ color: 'white', fontWeight: 600 }}>Rotación:</strong> {recRotacion}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {recFertilizacion && (
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: 'rgba(255,255,255,0.04)', borderRadius: '7px', padding: '7px 10px' }}>
+                                                <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>⛔</span>
+                                                <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                                                    <strong style={{ color: 'white', fontWeight: 600 }}>Fertilización:</strong> {recFertilizacion}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {recNutricion && (
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: 'rgba(255,255,255,0.04)', borderRadius: '7px', padding: '7px 10px' }}>
+                                                <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>🧂</span>
+                                                <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                                                    <strong style={{ color: 'white', fontWeight: 600 }}>Nutrición:</strong> {recNutricion}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+
+                    {/* ── Fallback: render del motor local cuando no hay diagnóstico IA todavía ── */}
+                    {!diagnosticoIA && !esDemo && recomendacion && (() => {
                         // ── Paleta de color por estado (7 estados) ───────────────────────────
                         const colorMap: Record<string, { bg: string; border: string; text: string; badge: string; emoji: string; label: string }> = {
                             estres:           { bg: 'rgba(244,67,54,0.08)',   border: 'rgba(244,67,54,0.28)',   text: '#f44336', badge: 'rgba(244,67,54,0.20)',   emoji: '🔴', label: 'ALERTA ROJA – SEQUÍA' },

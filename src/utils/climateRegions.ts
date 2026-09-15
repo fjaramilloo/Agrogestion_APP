@@ -46,7 +46,8 @@ export type TipoEstadoHidrico =
 export interface PerfilClimatico {
     zona: string;
     descripcion: string;
-    et0Diaria: string;              // Rango de ET₀ de referencia FAO Penman-Monteith
+    et0Diaria: string;              // Rango de ET₀ de referencia FAO Penman-Monteith (texto)
+    et0DiariaNumerica: number;      // ET₀ media numérica en mm/día (para BH cálculo)
     forrajesDominantes: string;     // Especies forrajeras representativas
     sueloDrenaje: string;           // Textura de suelo y tipo de drenaje natural
 
@@ -62,12 +63,16 @@ export interface PerfilClimatico {
     exceso30d: number;              // mm/30d → Alerta Roja: Saturación de Perfil
     diasBufferPostExceso: number;   // Días de amortiguación hídrica tras saturación
 
+    // Balance hídrico quincenal: umbral de Lluvia Aislada (BH15 < este valor → preAlerta forzada)
+    umbralDeficitBH15: number;      // mm: si BH15 < -umbralDeficitBH15 → no puede ser 'optima'
+
     mmAnualReferencia: number;
     emoji: string;
 
     recomendaciones: {
         lluviaOptima: string;
         preAlerta: string;
+        lluviaAislada: string;      // 🟡 Lluvia Aislada / Déficit Hídrico Quincenal Activo
         excesoPreventivo: string;   // ⚠️ Alerta Amarilla de Exceso – Encharcamiento
         excesoCritico: string;      // 🌊 Alerta Roja de Exceso – Anegamiento Crítico
         estresHidrico: string;
@@ -94,6 +99,7 @@ const PERFILES_CLIMATICOS: { keywords: string[]; perfil: PerfilClimatico }[] = [
             zona: 'Costa Caribe',
             descripcion: 'Trópico Bajo Seco – Bimodal con verano largo e intenso',
             et0Diaria: '5.5 – 7.0 mm/día',
+            et0DiariaNumerica: 6.2,
             forrajesDominantes: 'Guinea (Mombaza/Tanzania), Angleton, Colosuana, Estrella Africana',
             sueloDrenaje: 'Franco-arcillosos / Vertisoles pesados – Drenaje lento a muy lento',
             umbralRegistroMm: 1.0,
@@ -104,11 +110,13 @@ const PERFILES_CLIMATICOS: { keywords: string[]; perfil: PerfilClimatico }[] = [
             exceso7dRoja: 150,
             exceso30d: 220,
             diasBufferPostExceso: 4,
+            umbralDeficitBH15: 30,
             mmAnualReferencia: 1200,
             emoji: '🌴',
             recomendaciones: {
                 lluviaOptima: 'Condiciones de humedad favorables para las pasturas. Es el momento de optimizar la rotación cada 21–28 días para aprovechar el pico de proteína foliar antes de la lignificación. Aprovecha para aplicar correctivos al suelo y resembrar claros. Monitorea el aforo para ajustar la carga (UGG/ha) y no comprometer el rebrote.',
                 preAlerta: '⚠️ Pre-Alerta Hídrica: llevas varios días sin lluvia efectiva. En la Costa Caribe la evapotranspiración supera los 6 mm/día y el suelo está comenzando a secar. Alarga los períodos de descanso de los potreros a 30–35 días para no pelar el rebrote. Deja un remanente de 10–15 cm para proteger el suelo del sol directo y evitar que la temperatura radicular supere los 45°C. Revisa las reservas de agua para el ganado.',
+                lluviaAislada: '🟡 Lluvia Aislada – Déficit Quincenal Activo: el aguacero reciente solo humectó los primeros 3–5 cm del suelo; a >32°C se evaporará en 48–72 h. El balance hídrico de la quincena sigue siendo marcadamente negativo. Alarga el descanso a 30–35 días, suspende la fertilización nitrogenada al voleo y suministra sal proteinada (100–150 g/cab/día) para que el hato aproveche la fibra seca y sostenga la GDP.',
                 excesoPreventivo: '💧 Alerta Amarilla – Encharcamiento Preventivo: has acumulado lluvia suficiente para saturar los primeros 10–15 cm del perfil en los Vertisoles y Planicies del Caribe, cuyo drenaje natural es lento a muy lento. Mueve el ganado de los bajos y vegas hacia zonas más altas o con mejor pendiente. Reduce la velocidad de rotación para no pelar el rebrote en potreros con lodo. Monitorea la incidencia de pododermatitis (pie podrido / gabarro) en el hato, especialmente en bovinos pesados. Si tienes drenajes o zanjas, revisa que estén descongestionados.',
                 excesoCritico: '🌊 Alerta Roja – Anegamiento Crítico: el volumen de lluvia concentrado ha superado el umbral de anegamiento para los suelos de la Costa Caribe. Los Vertisoles están en colapso de macroporosidad: sin oxígeno en la rizosfera las pasturas (Guinea, Angleton) sufren anoxia radicular y detienen completamente su crecimiento. El ganado pierde hasta un 25% de eficiencia energética caminando en el lodo, la pododermatitis se dispara y las pérdidas de aforo por pisoteo pueden superar el 35%. Acción inmediata: 1) Saca los animales de los potreros inundados y concentra en zonas altas con acceso a sombra. 2) Activa el plan sanitario preventivo (vacunación, antisépticos en pezuñas). 3) Evalúa suplementación estratégica con sal mineralizada y proteína para compensar la caída en oferta forrajera. 4) No rotes hasta que el suelo tenga capacidad de carga sin dejar huellas profundas.',
                 estresHidrico: '🔴 Alerta Crítica: el déficit hídrico supera el umbral de estrés severo para las pasturas costeras. El Guinea y el Angleton entran en floración prematura con drástica caída de digestibilidad. Activa inmediatamente el protocolo de verano: abre los bancos de forraje (corte/silo de sorgo o maíz), suministra sal mineralizada con 30–40% de proteína digestible (harina de algodón, palmiste o urea) y evalúa venta estratégica de lotes rezagados o terminados para reducir la carga.',
@@ -135,6 +143,7 @@ const PERFILES_CLIMATICOS: { keywords: string[]; perfil: PerfilClimatico }[] = [
             zona: 'Magdalena Medio',
             descripcion: 'Trópico Bajo Húmedo – Bimodal con buen régimen hídrico',
             et0Diaria: '4.5 – 5.5 mm/día',
+            et0DiariaNumerica: 5.0,
             forrajesDominantes: 'B. decumbens, B. humidicola, B. brizantha (Toledo/Marandú), Mulato II',
             sueloDrenaje: 'Franco-arcillosos a arcillosos ácidos (oxisoles/ultisoles) – Moderado en loma, muy lento en vegas',
             umbralRegistroMm: 1.0,
@@ -145,11 +154,13 @@ const PERFILES_CLIMATICOS: { keywords: string[]; perfil: PerfilClimatico }[] = [
             exceso7dRoja: 160,
             exceso30d: 300,
             diasBufferPostExceso: 5,
+            umbralDeficitBH15: 30,
             mmAnualReferencia: 2400,
             emoji: '🌧️',
             recomendaciones: {
                 lluviaOptima: 'Condiciones hídricas ideales para las Brachiarias. Rota agresivo cada 18–25 días para aprovechar el pico de rebrote antes de la lignificación. Excelente momento para aplicar fertilización nitrogenada post-lluvia y realizar aforos de los potreros que guíen el ajuste de la carga (UGG/ha).',
                 preAlerta: '⚠️ Pre-Alerta Hídrica: llevas varios días sin lluvia efectiva. El rebrote de la Brachiaria está desacelerando: la tasa de crecimiento puede estar cayendo hasta un 40%, la proteína cruda (PC) baja y la fibra neutro detergente (FDN) sube. Ajusta la rotación pasando de 21–25 días a 28–32 días de descanso para no castigar el meristemo de crecimiento. Evalúa ofrecer sal proteinada (100–150 g/cab/día) para mantener la eficiencia ruminal y sostener la GDP.',
+                lluviaAislada: '🟡 Lluvia Aislada – Déficit Quincenal Activo en el Magdalena Medio: el aguacero reciente mojó los primeros cm del suelo pero el balance hídrico de la quincena sigue siendo negativo. A 32–35°C la evaporación consumirá esa humedad superficial en 48–72 h. Alarga el descanso de los potreros a 30–35 días, no apliques urea sin lluvia continua y suministra sal proteinada para sostener la GDP de las Brachiarias.',
                 excesoPreventivo: '💧 Alerta Amarilla – Encharcamiento Preventivo: has acumulado lluvia suficiente para saturar los perfiles bajos y de vega en el Magdalena Medio. Los suelos franco-arcillosos de las riberas y terrazas bajas tienen drenaje muy lento y el agua está comenzando a acumularse en los primeros horizontes. Retira el ganado pesado de las vegas y bajos para evitar daño al sward (dosel forrajero). Alarga el período de descanso de los potreros afectados a 35–40 días para recuperar estructura del suelo. Revisa el plan sanitario y registra el estado de las pezuñas del hato.',
                 excesoCritico: '🌊 Alerta Roja – Anegamiento Crítico: el Magdalena Medio ha superado el umbral de anegamiento severo. En las vegas y bajíos, las Brachiarias (decumbens, Toledo, humidicola) están experimentando anoxia radicular: sin oxígeno en el perfil, la raíz no absorbe nutrientes y el pasto entra en parálisis fisiológica. El ganado pierde GDP por el estrés de caminata en barro (hasta 25% de energía neta) y la pododermatitis se puede disparar a tasas de 15–20% del hato. Acción inmediata: 1) Concentra el ganado en las áreas más altas de la finca o en corrales con acceso a suplemento. 2) Activa el protocolo sanitario de pododermatitis (baños de pezuña con sulfato de zinc o formol diluido). 3) Ofrece sal mineralizada enriquecida y suplemento proteico/energético para compensar la caída del aforo. 4) No ingreses al potrero hasta que el suelo soporte el paso sin dejar huellas mayores a 3 cm.',
                 estresHidrico: '🔴 Alerta Crítica: el estrés hídrico supera el umbral de alerta para la región. El crecimiento de las Brachiarias se frena abruptamente y la oferta forrajera caerá en los próximos días. Ajusta la carga animal, prolonga los períodos de descanso de los potreros a 35–40 días y activa el plan de suplementación estratégica (sal proteinada + energética). Identifica los potreros con acceso a agua o ribera para concentrar el ganado.',
@@ -176,6 +187,7 @@ const PERFILES_CLIMATICOS: { keywords: string[]; perfil: PerfilClimatico }[] = [
             zona: 'Llanos Orientales / Orinoquía',
             descripcion: 'Trópico Bajo – Monomodal con invierno intenso y verano marcado',
             et0Diaria: '5.0 – 6.0 mm/día',
+            et0DiariaNumerica: 5.5,
             forrajesDominantes: 'B. humidicola (Dictyoneura), B. decumbens, Paspalum (Llanero), Sabanas nativas',
             sueloDrenaje: 'Oxisoles franco-arenosos (altillanura) / Planicie inundable – Rápido en sabana alta, nulo en bajos',
             umbralRegistroMm: 1.0,
@@ -186,11 +198,13 @@ const PERFILES_CLIMATICOS: { keywords: string[]; perfil: PerfilClimatico }[] = [
             exceso7dRoja: 180,
             exceso30d: 380,
             diasBufferPostExceso: 4,
+            umbralDeficitBH15: 30,
             mmAnualReferencia: 2800,
             emoji: '🌾',
             recomendaciones: {
                 lluviaOptima: 'Período de invierno activo con buena oferta forrajera. Aprovecha para acumular reservas forrajeras (ensilaje de gramíneas nativas o sorgo) que soporten el verano monomodal llanero. Aplica suplementación mineral azufrada para compensar los suelos ácidos y lixiviados de la Altillanura y mantener la GDP.',
                 preAlerta: '⚠️ Pre-Alerta Hídrica: llevas varios días sin lluvia efectiva. Las pasturas de sabana y la Humidicola retienen volumen pero su proteína cruda puede estar cayendo a niveles críticos (< 4%), frenando la celulólisis ruminal y comprometiendo la conversión. Inicia suministro de sal mineralizada enriquecida con azufre y nitrógeno no proteico (urea 2–3%) para mantener la flora ruminal activa y que el ganado pueda degradar la fibra seca. Monitorea el estado corporal del hato.',
+                lluviaAislada: '🟡 Lluvia Aislada – Déficit Hídrico Activo en los Llanos: la tormenta reciente fue insuficiente frente a la demanda de evapotranspiración acumulada. El balance hídrico quincenal sigue negativo. Alarga los descansos de sabana a 32–38 días, suministra sal con azufre y NNP para compensar la caída de proteína cruda en los pastizales nativos.',
                 excesoPreventivo: '💧 Alerta Amarilla – Encharcamiento Preventivo: el invierno llanero está acumulando volúmenes que comienzan a anegar los bajos y esteros de la sabana. Aunque la Altillanura drena bien, las planicies inundables y los bancos bajos ya están saturados. Concentra el ganado en los bancos y zonas altas de la sabana. Monitorea el estado de los accesos (callejones y caminos internos) para evitar el deterioro de infraestructura. Mantén el plan de mineralización activo: los suelos lixiviados de los Llanos pierden Ca, P y S rápidamente con lluvias intensas.',
                 excesoCritico: '🌊 Alerta Roja – Anegamiento Crítico: el invierno llanero ha superado el umbral de anegamiento severo. Los bajos y esteros están completamente saturados o inundados. Las pasturas en las zonas bajas están bajo anoxia radicular: B. humidicola tolera algo de inundación temporal, pero períodos prolongados afectan la fijación de raíces y la absorción de nutrientes. Riesgo crítico de enfermedades vectoriales (anaplasmosis, babesiosis, carbón sintomático) transmitidas por ectoparásitos que proliferan en aguas estancadas. Acción inmediata: 1) Reubica todo el ganado en bancos de sabana alta y potreros con elevación. 2) Aplica el protocolo sanitario preventivo completo (garrapaticida, baños). 3) Activa las reservas forrajeras acumuladas (ensilaje de invierno). 4) Si tienes hato de cría, prioriza las hembras gestantes o en lactancia en las mejores zonas de acceso.',
                 estresHidrico: '🔴 Alerta Crítica: el verano llanero está impactando la oferta forrajera activamente. Los pastos nativos pierden calidad rápidamente: fibra lignificada y proteína por el suelo. Garantiza fuentes de agua permanente, activa el inventario de reservas forrajeras acumuladas en invierno. Prioriza animales de mayor GDP y evalúa venta estratégica de rezagados y lotes terminados para reducir la carga soportada.',
@@ -218,6 +232,7 @@ const PERFILES_CLIMATICOS: { keywords: string[]; perfil: PerfilClimatico }[] = [
             zona: 'Zona Andina / Trópico Alto',
             descripcion: 'Trópico de Altura – Bimodal frío con riesgo de heladas nocturnas',
             et0Diaria: '2.5 – 3.5 mm/día',
+            et0DiariaNumerica: 3.0,
             forrajesDominantes: 'Kikuyo (P. clandestinum), Rye-grass (Lolium perenne), Trébol blanco/rojo, Falsa Poa',
             sueloDrenaje: 'Andisoles de alta retención (ceniza volcánica) – Rápido a moderado, riesgo de erosión en pendientes',
             umbralRegistroMm: 1.0,
@@ -228,11 +243,13 @@ const PERFILES_CLIMATICOS: { keywords: string[]; perfil: PerfilClimatico }[] = [
             exceso7dRoja: 120,
             exceso30d: 200,
             diasBufferPostExceso: 6,
+            umbralDeficitBH15: 25,
             mmAnualReferencia: 1600,
             emoji: '🏔️',
             recomendaciones: {
                 lluviaOptima: 'Condiciones favorables para Kikuyo y Rye-grass. Ajusta la densidad de siembra y aplica nitrógeno (urea) fraccionado para estimular el macollamiento. Revisa el pH del suelo: el encalado es crítico para la disponibilidad de nutrientes en trópico alto. Períodos de descanso de 35–45 días para una producción sostenida.',
                 preAlerta: '⚠️ Pre-Alerta: llevas varios días sin lluvia efectiva. En trópico alto esto eleva significativamente el riesgo de heladas nocturnas por radiación: los días despejados y secos permiten que la temperatura de las praderas caiga por debajo de 0°C en la madrugada, quemando la lámina foliar del Kikuyo. Evita fertilizar con urea al voleo sin humedad (pérdidas por volatilización > 50%). Alarga los períodos de descanso a 40–50 días y monitorea diariamente el pronóstico de temperatura mínima. Si hay riesgo de helada, activa aspersores de riego nocturno si cuentas con el sistema.',
+                lluviaAislada: '🟡 Lluvia Aislada en Trópico Alto: el aguacero no compensó la demanda hídrica acumulada de la quincena. Los Andisoles retienen algo de humedad pero el saldo hídrico sigue negativo. Alarga los descansos a 40–50 días, suspende urea al voleo y monitorea el pronóstico nocturno de temperatura para prevenir heladas en potreros expuestos.',
                 excesoPreventivo: '💧 Alerta Amarilla – Exceso de Humedad Preventivo: los Andisoles de trópico alto tienen alta retención de agua, pero en pendientes pronunciadas el exceso de lluvia genera escurrimiento superficial que arrastra los horizontes más ricos en materia orgánica. El nivel de humedad actual favorece condiciones para el desarrollo de Fasciola hepatica (duela del hígado) a través de la proliferación del caracol Lymnaea en zonas húmedas. Implementa control preventivo de caracoles en los bordes de bebederos, cañadas y zonas con agua estancada. Evita el pisoteo en suelos saturados para no destruir la estructura porosa del andisol. Reduce la velocidad de rotación y no apliques urea hasta que el suelo esté en capacidad de campo normal.',
                 excesoCritico: '🌊 Alerta Roja – Exceso Crítico de Humedad: el volumen de lluvia supera la capacidad de retención y drenaje de los Andisoles en trópico alto. El principal riesgo no es el anegamiento (el drenaje es rápido), sino la erosión laminar y la pérdida de nutrientes por lixiviación en ladera. Adicionalmente, la saturación de zonas planas y quebradas crea el ambiente perfecto para una infestación masiva de Fasciola hepatica (duela del hígado): el caracol vector prolifera explosivamente. Acción inmediata: 1) Cierra los potreros en pendiente para prevenir erosión y compactación. 2) Aplica protocolo antiparasitario de fasciola (triclabendazol o closantel) preventivo en el hato completo. 3) Revisa y limpia zanjas, cunetas y caminos internos para evitar erosión y derrumbes. 4) Retrasa cualquier fertilización hasta que cese el exceso de humedad.',
                 estresHidrico: '🔴 Alerta Crítica: el período seco se extiende y los riesgos de helada aumentan noche a noche. Si hay helada prevista o confirmada, no rotar al día siguiente: deja que el pasto se recupere antes de pastorear para evitar daño al meristemo. Prepara reservas de forraje (heno de Rye-grass o silo de avena). En lechería especializada, ajusta la ración de balanceado y aplica sales buffer para prevenir acidosis si el ganado consume fibra lignificada o quemada.',
@@ -247,6 +264,7 @@ const PERFIL_DEFAULT: PerfilClimatico = {
     zona: 'Trópico Bajo',
     descripcion: 'Zona tropical – Parámetros estándar',
     et0Diaria: '4.5 – 5.5 mm/día',
+    et0DiariaNumerica: 5.0,
     forrajesDominantes: 'Gramíneas tropicales mixtas (Brachiaria spp., Guinea)',
     sueloDrenaje: 'Mixtos aluviales / Francos – Drenaje moderado',
     umbralRegistroMm: 1.0,
@@ -257,11 +275,13 @@ const PERFIL_DEFAULT: PerfilClimatico = {
     exceso7dRoja: 150,
     exceso30d: 260,
     diasBufferPostExceso: 4,
+    umbralDeficitBH15: 30,
     mmAnualReferencia: 2000,
     emoji: '🌿',
     recomendaciones: {
         lluviaOptima: 'Las condiciones de humedad son favorables para el crecimiento de los pastos. Optimiza la rotación de potreros para aprovechar el período de rebrote activo y ajusta la carga animal según el aforo disponible.',
         preAlerta: '⚠️ Pre-Alerta Hídrica: llevas varios días sin lluvia efectiva y el crecimiento del forraje comienza a desacelerarse. Alarga los períodos de descanso de los potreros, reduce la presión de pastoreo y evalúa la suplementación mineral/proteica para mantener la GDP del hato.',
+        lluviaAislada: '🟡 Lluvia Aislada – Déficit Quincenal Activo: el aguacero reciente solo humectó los primeros cm del perfil y se evaporará rápidamente. El balance hídrico de la quincena sigue siendo negativo. Alarga el descanso de los potreros, suspende la fertilización nitrogenada al voleo y suministra sal proteinada para sostener la GDP.',
         excesoPreventivo: '💧 Alerta Amarilla – Encharcamiento Preventivo: la lluvia acumulada en los últimos 7 días comienza a superar la capacidad de drenaje de los suelos de la zona. Mueve el ganado de las zonas bajas y saturadas, reduce la velocidad de rotación para proteger el sward y monitorea el estado de las pezuñas del hato. Revisa los drenajes internos de la finca.',
         excesoCritico: '🌊 Alerta Roja – Anegamiento Crítico: el exceso de precipitación ha superado el umbral de anegamiento severo para los suelos de la zona. Las pasturas están bajo riesgo de anoxia radicular y la presión de pisoteo en el lodo puede destruir el sward. Activa inmediatamente el protocolo de contingencia: retira el ganado de los potreros afectados, activa el plan sanitario (pododermatitis) y suministra suplemento proteico-energético para compensar la caída de la oferta forrajera.',
         estresHidrico: '🔴 Alerta Crítica: la racha seca supera el umbral de estrés hídrico. El crecimiento del pasto se detiene. Amplía los períodos de descanso, reduce la carga animal y activa el plan de suplementación estratégica para mantener la GDP y el estado corporal del ganado.',
@@ -304,7 +324,8 @@ export function generarRecomendacion(
     perfil: PerfilClimatico,
     diasSecosConsecutivos: number,
     mmUltimos30Dias: number,
-    mmUltimos7Dias: number
+    mmUltimos7Dias: number,
+    mmUltimos15Dias?: number,   // ← NUEVO: Balance Hídrico Quincenal
 ): {
     tipo: TipoEstadoHidrico;
     mensaje: string;
@@ -313,6 +334,7 @@ export function generarRecomendacion(
     diasBuffer: number;
     vieneDeExceso: boolean;
     triggeredBy7d?: boolean;
+    lluviaAislada?: boolean;    // ← NUEVO: indica un falso óptimo detectado
 } {
     const mmMensualReferencia = perfil.mmAnualReferencia / 12;
     const vieneDeExceso = mmUltimos7Dias >= perfil.exceso7dAmarilla || mmUltimos30Dias >= perfil.exceso30d;
@@ -389,7 +411,26 @@ export function generarRecomendacion(
         };
     }
 
-    // ── Estado 7: Condiciones óptimas de pastoreo
+    // ── Prioridad 7 (NUEVA): Lluvia Aislada – Balance Hídrico Quincenal negativo
+    //    Evita el falso positivo de "Condición Óptima" cuando:
+    //    - Hay lluvia reciente (racha seca corta < diasSecosPreAlerta), PERO
+    //    - El BH15 (Precipitación 15d − ET₀ × 15) es < −umbralDeficitBH15
+    //    Situación real: una tormenta aislada que no compensa el déficit acumulado.
+    if (mmUltimos15Dias !== undefined) {
+        const et0 = perfil.et0DiariaNumerica;
+        const bh15 = mmUltimos15Dias - (15 * et0);
+        const umbral = perfil.umbralDeficitBH15 ?? 30;
+        if (bh15 < -umbral && !vieneDeExceso) {
+            return {
+                ...baseMeta,
+                tipo: 'preAlerta',
+                mensaje: perfil.recomendaciones.lluviaAislada,
+                lluviaAislada: true,
+            };
+        }
+    }
+
+    // ── Estado 8: Condiciones óptimas de pastoreo
     return {
         ...baseMeta,
         tipo: 'optima',
