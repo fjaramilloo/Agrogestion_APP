@@ -5,7 +5,7 @@ import { InteractiveFarmMap } from '../components/InteractiveFarmMap';
 import { MultiFarmMap, type FarmSummaryData } from '../components/MultiFarmMap';
 import { KmzUploaderModal } from '../components/KmzUploaderModal';
 import { localDB } from '../lib/db';
-import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles } from 'lucide-react';
+import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles, WifiOff } from 'lucide-react';
 
 // Hook para saber si estamos en pantalla móvil
 function useIsMobile(breakpoint = 640) {
@@ -31,6 +31,8 @@ export const FarmMapPage: React.FC = () => {
   const [uploaderOpen, setUploaderOpen] = useState(false);
   const [mapMeta, setMapMeta] = useState<{ lat?: number; lng?: number } | null>(null);
   const [zonasAdicionales, setZonasAdicionales] = useState<any[]>([]);
+  const [isOfflineData, setIsOfflineData] = useState(false);
+  const [offlineUpdatedTime, setOfflineUpdatedTime] = useState<string | null>(null);
 
   // Modal para traslado rápido de ganado a potrero desde el mapa
   const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -38,6 +40,17 @@ export const FarmMapPage: React.FC = () => {
   const [potreradas, setPotreradas] = useState<{ id: string; nombre: string }[]>([]);
   const [selectedPotreradaId, setSelectedPotreradaId] = useState('');
   const [transferring, setTransferring] = useState(false);
+
+  // Escuchar cuando vuelva el internet para recargar
+  useEffect(() => {
+    const handleOnline = () => {
+      if (fincaId) {
+        loadFarmMapData();
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [fincaId]);
 
   // Cargar datos de la finca activa
   useEffect(() => {
@@ -52,9 +65,63 @@ export const FarmMapPage: React.FC = () => {
     }
   }, [userFincas]);
 
+  const loadOfflineMapData = async (targetFincaId: string) => {
+    try {
+      // 1. Intentar desde snapshot consolidado
+      const snapshot = await localDB.mapaSnapshotCache.get(targetFincaId);
+      if (snapshot && snapshot.potreros && snapshot.potreros.length > 0) {
+        setPotreros(snapshot.potreros);
+        if (snapshot.map_meta) {
+          setMapMeta(snapshot.map_meta);
+        }
+        setZonasAdicionales(snapshot.zonas_adicionales || []);
+        setIsOfflineData(true);
+        if (snapshot.actualizado_en) {
+          const d = new Date(snapshot.actualizado_en);
+          setOfflineUpdatedTime(`Guardado local: ${d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+        }
+        return true;
+      }
+
+      // 2. Fallback a potrerosCache y mapasFincaCache individuales
+      const cachedMap = await localDB.mapasFincaCache.get(targetFincaId);
+      if (cachedMap) {
+        setMapMeta({ lat: cachedMap.centro_latitud, lng: cachedMap.centro_longitud });
+        setZonasAdicionales(cachedMap.zonas_adicionales || []);
+      }
+
+      const cachedPotreros = await localDB.potrerosCache.where('id_finca').equals(targetFincaId).toArray();
+      if (cachedPotreros.length > 0) {
+        setPotreros(cachedPotreros.map(p => ({
+          id: p.id,
+          nombre: p.nombre,
+          area_hectareas: p.area_ha || 0,
+          geojson_geometry: p.geojson_geometry,
+          color_mapa: p.color_mapa,
+          potrerada_actual: null,
+        })));
+        setIsOfflineData(true);
+        setOfflineUpdatedTime('Datos básicos en memoria local');
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.error('Error al cargar datos de mapa offline:', err);
+      return false;
+    }
+  };
+
   const loadFarmMapData = async () => {
     if (!fincaId) return;
     setLoading(true);
+
+    // Si no hay conexión de red, cargar directamente de la memoria local
+    if (!navigator.onLine) {
+      await loadOfflineMapData(fincaId);
+      setLoading(false);
+      return;
+    }
 
     try {
       // 1. Cargar metadatos del mapa de la finca
@@ -64,12 +131,15 @@ export const FarmMapPage: React.FC = () => {
         .eq('id_finca', fincaId)
         .maybeSingle();
 
+      const currentZonas = mapData?.zonas_adicionales || [];
+      const currentMeta = mapData ? {
+        lat: mapData.centro_latitud,
+        lng: mapData.centro_longitud,
+      } : null;
+
       if (mapData) {
-        setMapMeta({
-          lat: mapData.centro_latitud,
-          lng: mapData.centro_longitud,
-        });
-        setZonasAdicionales(mapData.zonas_adicionales || []);
+        setMapMeta(currentMeta);
+        setZonasAdicionales(currentZonas);
       } else {
         setZonasAdicionales([]);
       }
@@ -212,6 +282,17 @@ export const FarmMapPage: React.FC = () => {
       }));
 
       setPotreros(processedPotreros);
+      setIsOfflineData(false);
+      setOfflineUpdatedTime(null);
+
+      // Guardar snapshot local en IndexedDB para disponibilidad offline
+      localDB.mapaSnapshotCache.put({
+        id_finca: fincaId,
+        actualizado_en: new Date().toISOString(),
+        potreros: processedPotreros,
+        map_meta: currentMeta,
+        zonas_adicionales: currentZonas,
+      }).catch(err => console.warn('[OfflineMap] Error guardando snapshot local:', err));
 
       // Cargar lista de potreradas para el modal de traslado
       const { data: potsList } = await supabase
@@ -221,7 +302,8 @@ export const FarmMapPage: React.FC = () => {
 
       setPotreradas(potsList || []);
     } catch (e) {
-      console.error('Error cargando mapa de finca:', e);
+      console.warn('Error cargando mapa en línea, activando respaldo offline:', e);
+      await loadOfflineMapData(fincaId);
     } finally {
       setLoading(false);
     }
@@ -550,6 +632,29 @@ export const FarmMapPage: React.FC = () => {
           >
             Ver Planes de Suscripción →
           </button>
+        </div>
+      )}
+
+      {/* Banner Informativo de Modo Sin Conexión */}
+      {isOfflineData && (
+        <div style={{
+          backgroundColor: 'rgba(234, 179, 8, 0.12)',
+          border: '1px solid rgba(234, 179, 8, 0.35)',
+          borderRadius: '12px',
+          padding: '12px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          color: '#FEF08A',
+          fontSize: '0.85rem',
+        }}>
+          <WifiOff size={20} color="#EAB308" style={{ flexShrink: 0 }} />
+          <div>
+            <strong>Modo Sin Conexión activo:</strong> Estás navegando con el plano, potreros y distribución de ganado guardados en la memoria local {offlineUpdatedTime ? `(${offlineUpdatedTime})` : ''}.
+            <div style={{ fontSize: '0.8rem', color: '#FDE047', marginTop: '2px' }}>
+              Tu posición GPS por satélite sigue activa en tiempo real para orientarte durante la vuelta a los potreros.
+            </div>
+          </div>
         </div>
       )}
 

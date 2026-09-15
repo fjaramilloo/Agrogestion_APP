@@ -16,7 +16,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
   if (!fincaId || !navigator.onLine) return;
 
   try {
-    const [animalesRes, potrerosRes, potreradasRes] = await Promise.all([
+    const [animalesRes, potrerosRes, potreradasRes, mapRes, preciosRes] = await Promise.all([
       supabase
         .from('animales')
         .select(`
@@ -32,7 +32,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
 
       supabase
         .from('potreros')
-        .select('id, nombre, area_hectareas')
+        .select('id, nombre, area_hectareas, geojson_geometry, color_mapa, kml_name')
         .eq('id_finca', fincaId)
         .limit(10000),
 
@@ -40,7 +40,18 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         .from('potreradas')
         .select('id, nombre')
         .eq('id_finca', fincaId)
-        .limit(10000)
+        .limit(10000),
+
+      supabase
+        .from('mapas_finca')
+        .select('*')
+        .eq('id_finca', fincaId)
+        .maybeSingle(),
+
+      supabase
+        .from('vista_precios_mercado')
+        .select('*')
+        .order('fecha_boletin', { ascending: true })
     ]);
 
     if (animalesRes.data) {
@@ -72,8 +83,11 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         id: p.id,
         id_finca: fincaId,
         nombre: p.nombre,
-        area_ha: p.area_hectareas,        // columna real en BD es area_hectareas
-        capacidad_maxima: undefined       // columna no existe en BD, se omite
+        area_ha: p.area_hectareas,
+        geojson_geometry: p.geojson_geometry,
+        color_mapa: p.color_mapa,
+        kml_name: p.kml_name,
+        capacidad_maxima: undefined
       }));
 
       await localDB.potrerosCache.where('id_finca').equals(fincaId).delete();
@@ -89,6 +103,26 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
 
       await localDB.potreradasCache.where('id_finca').equals(fincaId).delete();
       await localDB.potreradasCache.bulkPut(potreradasCache);
+    }
+
+    if (mapRes.data) {
+      await localDB.mapasFincaCache.put({
+        id_finca: fincaId,
+        nombre_archivo: mapRes.data.nombre_archivo || 'plano.kmz',
+        centro_latitud: mapRes.data.centro_latitud,
+        centro_longitud: mapRes.data.centro_longitud,
+        zoom_inicial: mapRes.data.zoom_inicial || 16,
+        zonas_adicionales: mapRes.data.zonas_adicionales || [],
+        actualizado_en: new Date().toISOString()
+      });
+    }
+
+    if (preciosRes.data && preciosRes.data.length > 0) {
+      await localDB.mercadoCache.put({
+        id: 'mercado_general',
+        precios: preciosRes.data,
+        actualizado_en: new Date().toISOString()
+      });
     }
   } catch (error) {
     console.warn('[OfflineService] Error al sincronizar caché local:', error);

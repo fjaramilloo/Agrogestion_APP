@@ -84,6 +84,21 @@ export interface AforoOfflineQueueItem {
   error_msg?: string;
 }
 
+export interface PotreroMapSnapshotItem {
+  id_finca: string;
+  actualizado_en: string;
+  potreros: any[];
+  map_meta?: { lat?: number; lng?: number } | null;
+  zonas_adicionales?: ZonaAdicionalItem[];
+}
+
+export interface MercadoCacheItem {
+  id: string; // 'mercado_general'
+  precios: any[];
+  animales?: any[];
+  actualizado_en: string;
+}
+
 export class AgrogestionDB extends Dexie {
   animalesCache!: Table<AnimalCacheItem, string>;
   potrerosCache!: Table<PotreroCacheItem, string>;
@@ -91,6 +106,8 @@ export class AgrogestionDB extends Dexie {
   pesajesOfflineQueue!: Table<PesajeOfflineQueueItem, string>;
   aforosOfflineQueue!: Table<AforoOfflineQueueItem, string>;
   mapasFincaCache!: Table<MapaFincaCacheItem, string>;
+  mapaSnapshotCache!: Table<PotreroMapSnapshotItem, string>;
+  mercadoCache!: Table<MercadoCacheItem, string>;
 
   constructor() {
     super('AgrogestionLocalDB');
@@ -113,7 +130,20 @@ export class AgrogestionDB extends Dexie {
       aforosOfflineQueue: 'id, id_finca, id_potrero, status_sync, fecha',
       mapasFincaCache: 'id_finca'
     });
+
+    // Esquema v3 con snapshot de potreros para mapa offline y caché de mercado
+    this.version(3).stores({
+      animalesCache: 'id, id_finca, numero_chapeta, etapa',
+      potrerosCache: 'id, id_finca, nombre',
+      potreradasCache: 'id, id_finca, nombre',
+      pesajesOfflineQueue: 'id, id_finca, id_animal, status_sync, fecha',
+      aforosOfflineQueue: 'id, id_finca, id_potrero, status_sync, fecha',
+      mapasFincaCache: 'id_finca',
+      mapaSnapshotCache: 'id_finca',
+      mercadoCache: 'id'
+    });
   }
 }
 
 export const localDB = new AgrogestionDB();
+

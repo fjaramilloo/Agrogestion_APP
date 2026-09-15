@@ -14,8 +14,10 @@ import {
     ChevronRight,
     MessageCircle,
     ArrowUpRight,
-    Award
+    Award,
+    WifiOff
 } from 'lucide-react';
+import { localDB } from '../lib/db';
 import {
     LineChart,
     Line,
@@ -98,13 +100,58 @@ export default function MercadoGanado() {
     const [selectedRegion, setSelectedRegion] = useState('nacional');
     const [activeTabChart, setActiveTabChart] = useState<'semanal' | 'mensual'>('semanal');
     const [selectedCategoryChart, setSelectedCategoryChart] = useState<string>('ML');
+    const [isOfflineData, setIsOfflineData] = useState(false);
+    const [offlineSyncDate, setOfflineSyncDate] = useState<string | null>(null);
     
     // Modal de bloqueo
     const [showUpsell, setShowUpsell] = useState(false);
     const [upsellTargetPlan, setUpsellTargetPlan] = useState<'finca' | 'premium'>('finca');
 
+    const loadOfflineMercadoData = async () => {
+        try {
+            const cached = await localDB.mercadoCache.get('mercado_general');
+            if (cached && cached.precios && cached.precios.length > 0) {
+                setPrecios(cached.precios);
+                setIsOfflineData(true);
+                if (cached.actualizado_en) {
+                    const d = new Date(cached.actualizado_en);
+                    setOfflineSyncDate(`Guardado: ${d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+                }
+            }
+
+            // Si hay animales en memoria local, recuperar su peso para el cálculo patrimonial
+            if (fincaId) {
+                const animsCached = await localDB.animalesCache.where('id_finca').equals(fincaId).toArray();
+                if (animsCached && animsCached.length > 0) {
+                    const processed: AnimalCategorizado[] = animsCached.map((a: any) => {
+                        const weight = Number(a.ultimo_peso ?? (a.peso_compra ?? a.peso_ingreso ?? 0));
+                        let category = 'ML';
+                        if (a.etapa === 'levante' || a.etapa === 'cria') {
+                            category = 'ML';
+                        } else {
+                            category = weight >= 440 ? 'MG' : 'MC';
+                        }
+                        return { id: a.id, category, weight };
+                    });
+                    setAnimales(processed);
+                } else if (cached?.animales && cached.animales.length > 0) {
+                    setAnimales(cached.animales);
+                }
+            }
+        } catch (err) {
+            console.error('[OfflineMercado] Error cargando datos locales:', err);
+        }
+    };
+
     const fetchDatos = async () => {
         setLoading(true);
+
+        if (!navigator.onLine) {
+            await loadOfflineMercadoData();
+            setLoading(false);
+            return;
+        }
+
         try {
             // 1. Fetch precios de mercado
             const { data: preciosData, error: errPrecios } = await supabase
@@ -116,6 +163,7 @@ export default function MercadoGanado() {
             if (preciosData) setPrecios(preciosData);
 
             // 2. Fetch animales para valoración patrimonial (si es premium)
+            let processedAnimals: AnimalCategorizado[] = [];
             if (fincaId) {
                 const { data: animData } = await supabase
                     .from('animales')
@@ -127,7 +175,7 @@ export default function MercadoGanado() {
                     .eq('estado', 'activo');
 
                 if (animData) {
-                    const processed = animData.map((a: any) => {
+                    processedAnimals = animData.map((a: any) => {
                         const registros = (a.registros_pesaje || []).sort((x: any, y: any) =>
                             new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                         );
@@ -158,15 +206,38 @@ export default function MercadoGanado() {
                         }
                         return { id: a.id, category, weight: Number(weight) };
                     });
-                    setAnimales(processed);
+                    setAnimales(processedAnimals);
                 }
             }
+
+            setIsOfflineData(false);
+            setOfflineSyncDate(null);
+
+            // Guardar en la base de datos local para consulta offline
+            if (preciosData && preciosData.length > 0) {
+                localDB.mercadoCache.put({
+                    id: 'mercado_general',
+                    precios: preciosData,
+                    animales: processedAnimals,
+                    actualizado_en: new Date().toISOString()
+                }).catch(err => console.warn('[OfflineMercado] Error guardando caché local:', err));
+            }
         } catch (err: any) {
-            console.error('Error cargando datos de mercado:', err.message);
+            console.warn('[OfflineMercado] Error conectando con el servidor, activando respaldo offline:', err.message);
+            await loadOfflineMercadoData();
         } finally {
             setLoading(false);
         }
     };
+
+    // Escuchar cuando vuelva la conexión
+    useEffect(() => {
+        const handleOnline = () => {
+            fetchDatos();
+        };
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [fincaId]);
 
     useEffect(() => {
         fetchDatos();
@@ -348,6 +419,30 @@ export default function MercadoGanado() {
                     </div>
                 )}
             </div>
+
+            {/* Banner Informativo de Modo Sin Conexión */}
+            {isOfflineData && (
+                <div style={{
+                    backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                    border: '1px solid rgba(234, 179, 8, 0.35)',
+                    borderRadius: '12px',
+                    padding: '12px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    color: '#FEF08A',
+                    fontSize: '0.85rem',
+                    marginBottom: '24px'
+                }}>
+                    <WifiOff size={20} color="#EAB308" style={{ flexShrink: 0 }} />
+                    <div>
+                        <strong>Modo Sin Conexión activo:</strong> Estás consultando los precios del último boletín guardado en tu dispositivo {offlineSyncDate ? `(${offlineSyncDate})` : ''}.
+                        <div style={{ fontSize: '0.8rem', color: '#FDE047', marginTop: '2px' }}>
+                            Las comparativas, relaciones de reposición y la estimación del valor de tu hato se calcularon con estos datos almacenados.
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Selector de Plazas / Regiones */}
             <div style={{ marginBottom: '28px', display: 'flex', alignItems: 'center', gap: '12px' }}>

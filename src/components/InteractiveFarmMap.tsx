@@ -633,7 +633,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   return (
     <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
       {/* Contenedor del Mapa Leaflet */}
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1 }} />
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1, backgroundColor: '#0f1715' }} />
 
       {/* Banner de Estado GPS / Ubicación Actual (Solo Premium) */}
       {tipoLicencia === 'premium' && currentPaddock && (
