@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import './SuperAdmin.css';
 import {
     Building2, UserPlus, ShieldCheck, MapPin, Users,
     ChevronDown, ChevronUp, BarChart3, Tractor,
@@ -576,34 +577,30 @@ export default function SuperAdmin() {
     ];
 
     return (
-        <div className="page-container">
+        <div className="page-container superadmin-container">
             {/* Header */}
-            <div style={{ marginBottom: '32px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
-                    <div style={{ background: 'rgba(124, 58, 237, 0.15)', border: '1px solid rgba(124, 58, 237, 0.4)', borderRadius: '12px', padding: '10px', display: 'flex' }}>
-                        <ShieldCheck size={28} color="#a78bfa" />
-                    </div>
-                    <div>
-                        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, background: 'linear-gradient(135deg, #a78bfa, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                            Consola de Administración
-                        </h1>
-                        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                            Gestión global de cuentas, licencias, fincas y usuarios de la plataforma
-                        </p>
-                    </div>
+            <div className="superadmin-header">
+                <div className="superadmin-header-icon">
+                    <ShieldCheck size={26} color="#a78bfa" />
+                </div>
+                <div>
+                    <h1 className="superadmin-title">
+                        Consola de Administración
+                    </h1>
+                    <p className="superadmin-subtitle">
+                        Gestión global de cuentas, licencias, fincas y usuarios de la plataforma
+                    </p>
                 </div>
             </div>
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '28px', background: 'rgba(255,255,255,0.04)', padding: '4px', borderRadius: '10px', width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="superadmin-tabs">
                 {([['dashboard', BarChart3, 'Visión General'], ['crear', UserPlus, 'Nueva Cuenta'], ['precios', TrendingUp, 'Precios de Mercado']] as [string, any, string][]).map(([tab, Icon, label]) => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab as 'dashboard' | 'crear' | 'precios')}
+                        className="superadmin-tab-btn"
                         style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                            fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.2s ease',
                             background: activeTab === tab ? 'rgba(124, 58, 237, 0.25)' : 'transparent',
                             color: activeTab === tab ? '#a78bfa' : 'var(--text-muted)',
                             boxShadow: activeTab === tab ? '0 0 0 1px rgba(124, 58, 237, 0.4)' : 'none'
@@ -618,208 +615,366 @@ export default function SuperAdmin() {
             {activeTab === 'dashboard' && (
                 <>
                     {/* KPI Cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+                    <div className="superadmin-stats-grid">
                         {statCards.map((card) => (
-                            <div key={card.label} style={{ background: card.bg, border: `1px solid ${card.border}`, borderRadius: '12px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                <div style={{ background: card.bg, border: `1px solid ${card.border}`, borderRadius: '10px', padding: '10px', display: 'flex' }}>
-                                    <card.Icon size={22} color={card.color} />
+                            <div key={card.label} className="superadmin-stat-card" style={{ background: card.bg, border: `1px solid ${card.border}` }}>
+                                <div className="superadmin-stat-icon" style={{ background: card.bg, border: `1px solid ${card.border}` }}>
+                                    <card.Icon size={20} color={card.color} />
                                 </div>
                                 <div>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 800, color: card.color, lineHeight: 1 }}>{card.value}</div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{card.label}</div>
+                                    <div className="superadmin-stat-value" style={{ color: card.color }}>{card.value}</div>
+                                    <div className="superadmin-stat-label">{card.label}</div>
                                 </div>
                             </div>
                         ))}
                     </div>
 
-                    {/* Accounts Table */}
+                    {/* Accounts Table / Container */}
                     <div style={{ background: 'rgba(30,30,30,0.7)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', overflow: 'hidden' }}>
-                        <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Building2 size={18} color="#a78bfa" />
-                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Cuentas Registradas y Licencias</h3>
+                            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 600 }}>Cuentas Registradas y Licencias</h3>
                             <span style={{ marginLeft: 'auto', background: 'rgba(124, 58, 237, 0.2)', color: '#a78bfa', padding: '3px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700 }}>
-                                {cuentas.length} organizaciones
+                                {cuentas.length} orgs
                             </span>
                         </div>
 
                         {loading ? (
                             <div style={{ padding: '60px', textAlign: 'center', color: '#a78bfa' }}>Cargando datos de la plataforma...</div>
+                        ) : cuentas.length === 0 ? (
+                            <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                No hay organizaciones registradas.
+                            </div>
                         ) : (
-                            <div>
-                                {/* Table Header */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.1fr 1.2fr 60px 80px 80px 80px 40px', gap: '8px', padding: '10px 24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                    {['ORGANIZACIÓN', 'ADMIN', 'LICENCIA', 'VIGENCIA', 'FINCAS', 'VAQ.', 'VISUAL.', 'ANIMALES', ''].map(h => (
-                                        <div key={h} style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.8px' }}>{h}</div>
+                            <>
+                                {/* Desktop Table View */}
+                                <div className="superadmin-desktop-view">
+                                    {/* Table Header */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.1fr 1.2fr 60px 80px 80px 80px 40px', gap: '8px', padding: '10px 24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                        {['ORGANIZACIÓN', 'ADMIN', 'LICENCIA', 'VIGENCIA', 'FINCAS', 'VAQ.', 'VISUAL.', 'ANIMALES', ''].map(h => (
+                                            <div key={h} style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.8px' }}>{h}</div>
+                                        ))}
+                                    </div>
+
+                                    {cuentas.map((cuenta) => (
+                                        <div key={cuenta.orgId}>
+                                            {/* Main Row */}
+                                            <div
+                                                style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.1fr 1.2fr 60px 80px 80px 80px 40px', gap: '8px', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
+                                                onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                                                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                onClick={() => setExpandedOrg(expandedOrg === cuenta.orgId ? null : cuenta.orgId)}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(124, 58, 237, 0.15)', border: '1px solid rgba(124, 58, 237, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <Building2 size={16} color="#a78bfa" />
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{cuenta.orgNombre}</div>
+                                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+                                                            Activa
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>{cuenta.adminNombre}</div>
+
+                                                {/* Licencia Badge */}
+                                                <div>
+                                                    {renderLicenciaBadge(cuenta)}
+                                                </div>
+
+                                                {/* Vigencia / Fechas */}
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Clock size={11} color="#a78bfa" />
+                                                        <span>Desde: {formatDate(cuenta.fechaInicioLicencia)}</span>
+                                                    </div>
+                                                    {cuenta.fechaVencimientoLicencia && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', color: '#f87171' }}>
+                                                            <Calendar size={11} />
+                                                            <span>Vence: {formatDate(cuenta.fechaVencimientoLicencia)}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <span style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#38bdf8', padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700 }}>
+                                                        {cuenta.totalFincas}
+                                                    </span>
+                                                </div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <Wrench size={14} color="var(--warning)" />
+                                                    <span style={{ fontWeight: 600 }}>{cuenta.totalVaqueros}</span>
+                                                </div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <Eye size={14} color="#60a5fa" />
+                                                    <span style={{ fontWeight: 600 }}>{cuenta.totalObservadores}</span>
+                                                </div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <Tractor size={14} color="var(--primary-light)" />
+                                                    <span style={{ fontWeight: 600 }}>{cuenta.totalAnimales.toLocaleString('es-CO')}</span>
+                                                </div>
+
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+                                                    <button
+                                                        onClick={e => { e.stopPropagation(); setConfirmDelete({ type: 'org', id: cuenta.orgId, nombre: cuenta.orgNombre }); }}
+                                                        style={{ background: 'rgba(244, 67, 54, 0.1)', border: '1px solid rgba(244, 67, 54, 0.25)', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--error)', fontSize: '0.7rem', fontWeight: 600 }}
+                                                        title="Eliminar organización"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                    {expandedOrg === cuenta.orgId
+                                                        ? <ChevronUp size={18} color="#a78bfa" />
+                                                        : <ChevronDown size={18} color="var(--text-muted)" />
+                                                    }
+                                                </div>
+                                            </div>
+
+                                            {/* Expanded Detail */}
+                                            {expandedOrg === cuenta.orgId && (
+                                                <div style={{ background: 'rgba(124, 58, 237, 0.04)', borderBottom: '1px solid rgba(124, 58, 237, 0.15)', padding: '16px 24px 20px 72px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                        <div style={{ fontSize: '0.68rem', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700 }}>
+                                                            Detalle por Finca y Control de Licencia
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleOpenEditLicencia(cuenta)}
+                                                            style={{ background: 'rgba(124, 58, 237, 0.2)', border: '1px solid rgba(124, 58, 237, 0.4)', color: '#c084fc', padding: '5px 12px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                                        >
+                                                            <Edit3 size={13} /> Cambiar Licencia / Límites
+                                                        </button>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                        {cuenta.fincas.length === 0 ? (
+                                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>Sin fincas registradas.</p>
+                                                        ) : cuenta.fincas.map(f => (
+                                                            <div key={f.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: '24px', flexWrap: 'wrap' }}>
+                                                                <div style={{ minWidth: '180px' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <MapPin size={14} color="#38bdf8" />
+                                                                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{f.nombre}</span>
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        <Tractor size={12} />
+                                                                        {f.animalesActivos} animales activos
+                                                                    </div>
+                                                                </div>
+
+                                                                {f.vaqueros.length > 0 && (
+                                                                    <div>
+                                                                        <div style={{ fontSize: '0.62rem', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', fontWeight: 700 }}>
+                                                                            Vaqueros
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                                            {f.vaqueros.map(v => (
+                                                                                <span key={v.id} style={{ background: 'rgba(255, 179, 0, 0.1)', color: 'var(--secondary)', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', border: '1px solid rgba(255, 179, 0, 0.2)' }}>
+                                                                                    {v.nombre}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {f.observadores.length > 0 && (
+                                                                    <div>
+                                                                        <div style={{ fontSize: '0.62rem', color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', fontWeight: 700 }}>
+                                                                            Visualizadores
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                                            {f.observadores.map(ob => (
+                                                                                <span key={ob.id} style={{ background: 'rgba(96, 165, 250, 0.1)', color: '#93c5fd', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
+                                                                                    {ob.nombre}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {f.vaqueros.length === 0 && f.observadores.length === 0 && (
+                                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', alignSelf: 'center' }}>Sin usuarios adicionales asignados</span>
+                                                                )}
+
+                                                                {/* Delete finca button */}
+                                                                <div style={{ marginLeft: 'auto', alignSelf: 'center' }}>
+                                                                    <button
+                                                                        onClick={() => setConfirmDelete({ type: 'finca', id: f.id, nombre: f.nombre })}
+                                                                        style={{ background: 'rgba(244, 67, 54, 0.1)', border: '1px solid rgba(244, 67, 54, 0.25)', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--error)', fontSize: '0.72rem', fontWeight: 600 }}
+                                                                    >
+                                                                        <Trash2 size={13} /> Eliminar finca
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
 
-                                {cuentas.map((cuenta) => (
-                                    <div key={cuenta.orgId}>
-                                        {/* Main Row */}
-                                        <div
-                                            style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.1fr 1.2fr 60px 80px 80px 80px 40px', gap: '8px', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
-                                            onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
-                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                            onClick={() => setExpandedOrg(expandedOrg === cuenta.orgId ? null : cuenta.orgId)}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(124, 58, 237, 0.15)', border: '1px solid rgba(124, 58, 237, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                    <Building2 size={16} color="#a78bfa" />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{cuenta.orgNombre}</div>
-                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
-                                                        Activa
+                                {/* Mobile Cards View */}
+                                <div className="superadmin-mobile-view" style={{ padding: '14px' }}>
+                                    {cuentas.map((cuenta) => (
+                                        <div key={cuenta.orgId} className="superadmin-card">
+                                            {/* Header */}
+                                            <div className="superadmin-card-header">
+                                                <div className="superadmin-card-title-box">
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(124, 58, 237, 0.15)', border: '1px solid rgba(124, 58, 237, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <Building2 size={16} color="#a78bfa" />
+                                                    </div>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <div className="superadmin-card-title">{cuenta.orgNombre}</div>
+                                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+                                                            {cuenta.adminNombre}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-
-                                            <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>{cuenta.adminNombre}</div>
-
-                                            {/* Licencia Badge */}
-                                            <div>
-                                                {renderLicenciaBadge(cuenta)}
+                                                <div>
+                                                    {renderLicenciaBadge(cuenta)}
+                                                </div>
                                             </div>
 
                                             {/* Vigencia / Fechas */}
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <Clock size={11} color="#a78bfa" />
                                                     <span>Desde: {formatDate(cuenta.fechaInicioLicencia)}</span>
                                                 </div>
                                                 {cuenta.fechaVencimientoLicencia && (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', color: '#f87171' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f87171' }}>
                                                         <Calendar size={11} />
                                                         <span>Vence: {formatDate(cuenta.fechaVencimientoLicencia)}</span>
                                                     </div>
                                                 )}
                                             </div>
 
-                                            <div>
-                                                <span style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#38bdf8', padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700 }}>
-                                                    {cuenta.totalFincas}
-                                                </span>
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Wrench size={14} color="var(--warning)" />
-                                                <span style={{ fontWeight: 600 }}>{cuenta.totalVaqueros}</span>
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Eye size={14} color="#60a5fa" />
-                                                <span style={{ fontWeight: 600 }}>{cuenta.totalObservadores}</span>
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Tractor size={14} color="var(--primary-light)" />
-                                                <span style={{ fontWeight: 600 }}>{cuenta.totalAnimales.toLocaleString('es-CO')}</span>
-                                            </div>
-
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-                                                <button
-                                                    onClick={e => { e.stopPropagation(); setConfirmDelete({ type: 'org', id: cuenta.orgId, nombre: cuenta.orgNombre }); }}
-                                                    style={{ background: 'rgba(244, 67, 54, 0.1)', border: '1px solid rgba(244, 67, 54, 0.25)', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--error)', fontSize: '0.7rem', fontWeight: 600 }}
-                                                    title="Eliminar organización"
-                                                >
-                                                    <Trash2 size={13} />
-                                                </button>
-                                                {expandedOrg === cuenta.orgId
-                                                    ? <ChevronUp size={18} color="#a78bfa" />
-                                                    : <ChevronDown size={18} color="var(--text-muted)" />
-                                                }
-                                            </div>
-                                        </div>
-
-                                        {/* Expanded Detail */}
-                                        {expandedOrg === cuenta.orgId && (
-                                            <div style={{ background: 'rgba(124, 58, 237, 0.04)', borderBottom: '1px solid rgba(124, 58, 237, 0.15)', padding: '16px 24px 20px 72px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                                    <div style={{ fontSize: '0.68rem', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700 }}>
-                                                        Detalle por Finca y Control de Licencia
+                                            {/* Metrics Mini-Grid */}
+                                            <div className="superadmin-metrics-grid">
+                                                <div className="superadmin-metric-chip">
+                                                    <div className="superadmin-metric-chip-val" style={{ color: '#38bdf8' }}>
+                                                        <MapPin size={12} /> {cuenta.totalFincas}
                                                     </div>
-                                                    <button
-                                                        onClick={() => handleOpenEditLicencia(cuenta)}
-                                                        style={{ background: 'rgba(124, 58, 237, 0.2)', border: '1px solid rgba(124, 58, 237, 0.4)', color: '#c084fc', padding: '5px 12px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                                                    >
-                                                        <Edit3 size={13} /> Cambiar Licencia / Límites
-                                                    </button>
+                                                    <div className="superadmin-metric-chip-lbl">Fincas</div>
                                                 </div>
+                                                <div className="superadmin-metric-chip">
+                                                    <div className="superadmin-metric-chip-val" style={{ color: 'var(--primary-light)' }}>
+                                                        <Tractor size={12} /> {cuenta.totalAnimales.toLocaleString('es-CO')}
+                                                    </div>
+                                                    <div className="superadmin-metric-chip-lbl">Animales</div>
+                                                </div>
+                                                <div className="superadmin-metric-chip">
+                                                    <div className="superadmin-metric-chip-val" style={{ color: 'var(--warning)' }}>
+                                                        <Wrench size={12} /> {cuenta.totalVaqueros}
+                                                    </div>
+                                                    <div className="superadmin-metric-chip-lbl">Vaqueros</div>
+                                                </div>
+                                                <div className="superadmin-metric-chip">
+                                                    <div className="superadmin-metric-chip-val" style={{ color: '#60a5fa' }}>
+                                                        <Eye size={12} /> {cuenta.totalObservadores}
+                                                    </div>
+                                                    <div className="superadmin-metric-chip-lbl">Visores</div>
+                                                </div>
+                                            </div>
 
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {/* Actions */}
+                                            <div className="superadmin-card-actions">
+                                                <button
+                                                    onClick={() => handleOpenEditLicencia(cuenta)}
+                                                    className="superadmin-btn-action"
+                                                    style={{ background: 'rgba(124, 58, 237, 0.15)', color: '#c084fc', border: '1px solid rgba(124, 58, 237, 0.3)' }}
+                                                >
+                                                    <Edit3 size={12} /> Licencia
+                                                </button>
+
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <button
+                                                        onClick={() => setConfirmDelete({ type: 'org', id: cuenta.orgId, nombre: cuenta.orgNombre })}
+                                                        className="superadmin-btn-action"
+                                                        style={{ background: 'rgba(244, 67, 54, 0.1)', color: 'var(--error)', border: '1px solid rgba(244, 67, 54, 0.25)', padding: '6px 10px' }}
+                                                        title="Eliminar organización"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
+
+                                                    {cuenta.fincas.length > 0 && (
+                                                        <button
+                                                            onClick={() => setExpandedOrg(expandedOrg === cuenta.orgId ? null : cuenta.orgId)}
+                                                            className="superadmin-btn-action"
+                                                            style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                        >
+                                                            <span>{expandedOrg === cuenta.orgId ? 'Ocultar' : `Fincas (${cuenta.fincas.length})`}</span>
+                                                            {expandedOrg === cuenta.orgId ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Accordion Detail in Mobile */}
+                                            {expandedOrg === cuenta.orgId && (
+                                                <div className="superadmin-fincas-accordion">
+                                                    <div style={{ fontSize: '0.68rem', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700, marginBottom: '4px' }}>
+                                                        Fincas Registradas ({cuenta.fincas.length})
+                                                    </div>
                                                     {cuenta.fincas.length === 0 ? (
-                                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>Sin fincas registradas.</p>
-                                                    ) : cuenta.fincas.map(f => (
-                                                        <div key={f.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: '24px', flexWrap: 'wrap' }}>
-                                                            <div style={{ minWidth: '180px' }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <MapPin size={14} color="#38bdf8" />
-                                                                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{f.nombre}</span>
-                                                                </div>
-                                                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                    <Tractor size={12} />
-                                                                    {f.animalesActivos} animales activos
-                                                                </div>
-                                                            </div>
-
-                                                            {f.vaqueros.length > 0 && (
-                                                                <div>
-                                                                    <div style={{ fontSize: '0.62rem', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', fontWeight: 700 }}>
-                                                                        Vaqueros
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin fincas registradas.</div>
+                                                    ) : (
+                                                        cuenta.fincas.map(f => (
+                                                            <div key={f.id} className="superadmin-finca-item">
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <MapPin size={13} color="#38bdf8" />
+                                                                        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'white' }}>{f.nombre}</span>
                                                                     </div>
-                                                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                                    <button
+                                                                        onClick={() => setConfirmDelete({ type: 'finca', id: f.id, nombre: f.nombre })}
+                                                                        style={{ background: 'transparent', border: 'none', color: 'var(--error)', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                                    >
+                                                                        <Trash2 size={12} />
+                                                                    </button>
+                                                                </div>
+
+                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <Tractor size={12} color="var(--primary-light)" />
+                                                                    <strong style={{ color: 'white' }}>{f.animalesActivos}</strong> animales activos
+                                                                </div>
+
+                                                                {f.vaqueros.length > 0 && (
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                                                        <span style={{ fontSize: '0.62rem', color: 'var(--warning)', fontWeight: 700, textTransform: 'uppercase' }}>Vaq:</span>
                                                                         {f.vaqueros.map(v => (
-                                                                            <span key={v.id} style={{ background: 'rgba(255, 179, 0, 0.1)', color: 'var(--secondary)', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', border: '1px solid rgba(255, 179, 0, 0.2)' }}>
+                                                                            <span key={v.id} style={{ background: 'rgba(255, 179, 0, 0.1)', color: 'var(--secondary)', padding: '2px 6px', borderRadius: '8px', fontSize: '0.7rem', border: '1px solid rgba(255, 179, 0, 0.2)' }}>
                                                                                 {v.nombre}
                                                                             </span>
                                                                         ))}
                                                                     </div>
-                                                                </div>
-                                                            )}
+                                                                )}
 
-                                                            {f.observadores.length > 0 && (
-                                                                <div>
-                                                                    <div style={{ fontSize: '0.62rem', color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', fontWeight: 700 }}>
-                                                                        Visualizadores
-                                                                    </div>
-                                                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                                {f.observadores.length > 0 && (
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                                                        <span style={{ fontSize: '0.62rem', color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase' }}>Vis:</span>
                                                                         {f.observadores.map(ob => (
-                                                                            <span key={ob.id} style={{ background: 'rgba(96, 165, 250, 0.1)', color: '#93c5fd', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
+                                                                            <span key={ob.id} style={{ background: 'rgba(96, 165, 250, 0.1)', color: '#93c5fd', padding: '2px 6px', borderRadius: '8px', fontSize: '0.7rem', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
                                                                                 {ob.nombre}
                                                                             </span>
                                                                         ))}
                                                                     </div>
-                                                                </div>
-                                                            )}
-
-                                                            {f.vaqueros.length === 0 && f.observadores.length === 0 && (
-                                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', alignSelf: 'center' }}>Sin usuarios adicionales asignados</span>
-                                                            )}
-
-                                                            {/* Delete finca button */}
-                                                            <div style={{ marginLeft: 'auto', alignSelf: 'center' }}>
-                                                                <button
-                                                                    onClick={() => setConfirmDelete({ type: 'finca', id: f.id, nombre: f.nombre })}
-                                                                    style={{ background: 'rgba(244, 67, 54, 0.1)', border: '1px solid rgba(244, 67, 54, 0.25)', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--error)', fontSize: '0.72rem', fontWeight: 600 }}
-                                                                >
-                                                                    <Trash2 size={13} /> Eliminar finca
-                                                                </button>
+                                                                )}
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        ))
+                                                    )}
                                                 </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-
-                                {cuentas.length === 0 && !loading && (
-                                    <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                        No hay organizaciones registradas.
-                                    </div>
-                                )}
-                            </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
                         )}
                     </div>
                 </>
@@ -967,7 +1122,7 @@ export default function SuperAdmin() {
                             )}
 
                             <form onSubmit={crearAdministrador}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
+                                <div className="superadmin-form-grid">
                                     <div>
                                         <h4 style={{ color: '#a78bfa', marginBottom: '16px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                             <UserPlus size={15} /> Datos del Usuario
@@ -977,7 +1132,7 @@ export default function SuperAdmin() {
                                         <label>Contraseña Temporal</label>
                                         <input type="text" placeholder="Mínimo 6 caracteres" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} disabled={loadingForm} />
                                     </div>
-                                    <div style={{ borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '24px' }}>
+                                    <div className="superadmin-form-right-col">
                                         <h4 style={{ color: '#a78bfa', marginBottom: '16px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                             <Building2 size={15} /> Datos de la Empresa y Licencia
                                         </h4>
@@ -1032,7 +1187,7 @@ export default function SuperAdmin() {
                         </div>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                    <div className="superadmin-precios-grid">
                         {/* Formulario Manual */}
                         <div style={{ background: 'rgba(30,30,30,0.7)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', overflow: 'hidden' }}>
                             <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1040,7 +1195,7 @@ export default function SuperAdmin() {
                                 <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Registro Semanal de Precios</h3>
                             </div>
                             <form onSubmit={handleSaveManualPrecios} style={{ padding: '20px 24px' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                                <div className="superadmin-precios-header-inputs">
                                     <div>
                                         <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Fecha Boletín</label>
                                         <input
@@ -1198,7 +1353,7 @@ export default function SuperAdmin() {
                         ) : preciosRegistrados.length === 0 ? (
                             <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No hay precios registrados en la base de datos. Utiliza el formulario o la carga masiva.</div>
                         ) : (
-                            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                            <div className="table-container" style={{ maxHeight: '400px', overflowY: 'auto', margin: 0, borderRadius: 0 }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                                     <thead>
                                         <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)', textTransform: 'uppercase' }}>

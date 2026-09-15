@@ -1,0 +1,378 @@
+/* SuperAdmin Mobile & Responsive Styles */
+
+.superadmin-container {
+    padding-bottom: 90px;
+}
+
+/* Header */
+.superadmin-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.superadmin-header-icon {
+    background: rgba(124, 58, 237, 0.15);
+    border: 1px solid rgba(124, 58, 237, 0.4);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-shrink: 0;
+}
+
+.superadmin-title {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.2;
+}
+
+.superadmin-subtitle {
+    margin: 4px 0 0 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+    .superadmin-header {
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+    .superadmin-header-icon {
+        padding: 8px;
+    }
+    .superadmin-title {
+        font-size: 1.35rem;
+    }
+    .superadmin-subtitle {
+        font-size: 0.8rem;
+    }
+}
+
+/* Tabs Bar */
+.superadmin-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 24px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    width: fit-content;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.superadmin-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.superadmin-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    width: auto;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+@media (max-width: 600px) {
+    .superadmin-tabs {
+        width: 100%;
+        margin-bottom: 18px;
+    }
+    .superadmin-tab-btn {
+        padding: 7px 12px;
+        font-size: 0.8rem;
+    }
+}
+
+/* Stats KPI Grid */
+.superadmin-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.superadmin-stat-card {
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: transform 0.2s ease;
+}
+
+.superadmin-stat-icon {
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-shrink: 0;
+}
+
+.superadmin-stat-value {
+    font-size: 1.7rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.superadmin-stat-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+@media (max-width: 900px) {
+    .superadmin-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .superadmin-stat-card {
+        padding: 12px 14px;
+        gap: 10px;
+    }
+    .superadmin-stat-icon {
+        padding: 8px;
+    }
+    .superadmin-stat-value {
+        font-size: 1.35rem;
+    }
+    .superadmin-stat-label {
+        font-size: 0.65rem;
+    }
+}
+
+@media (max-width: 400px) {
+    .superadmin-stat-card {
+        padding: 10px 12px;
+    }
+    .superadmin-stat-value {
+        font-size: 1.2rem;
+    }
+}
+
+/* Desktop Table View */
+.superadmin-desktop-view {
+    display: block;
+}
+
+/* Mobile Cards View */
+.superadmin-mobile-view {
+    display: none;
+}
+
+@media (max-width: 899px) {
+    .superadmin-desktop-view {
+        display: none !important;
+    }
+    .superadmin-mobile-view {
+        display: flex !important;
+        flex-direction: column;
+        gap: 14px;
+    }
+}
+
+/* Mobile Account Card */
+.superadmin-card {
+    background: rgba(30, 30, 30, 0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+
+.superadmin-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.superadmin-card-title-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.superadmin-card-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.superadmin-card-subinfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Metrics Mini Grid / Chips */
+.superadmin-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.superadmin-metric-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4px 2px;
+}
+
+.superadmin-metric-chip-val {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.superadmin-metric-chip-lbl {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 2px;
+}
+
+/* Mobile Actions Row */
+.superadmin-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.superadmin-btn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: auto;
+    text-transform: none;
+    letter-spacing: 0;
+    border: none;
+}
+
+/* Fincas Accordion on Mobile */
+.superadmin-fincas-accordion {
+    background: rgba(124, 58, 237, 0.04);
+    border: 1px solid rgba(124, 58, 237, 0.15);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.superadmin-finca-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Crear Cuenta Tab Grid */
+.superadmin-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+}
+
+.superadmin-form-right-col {
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    padding-left: 24px;
+}
+
+@media (max-width: 768px) {
+    .superadmin-form-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    .superadmin-form-right-col {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding-top: 20px;
+    }
+}
+
+/* Precios Tab Grid */
+.superadmin-precios-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.superadmin-precios-header-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 900px) {
+    .superadmin-precios-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+@media (max-width: 600px) {
+    .superadmin-precios-header-inputs {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
