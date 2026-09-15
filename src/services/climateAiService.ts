@@ -393,17 +393,34 @@ export async function generarYGuardarAnalisisClimatico(
     if (apiKey && estaOnline) {
         try {
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({
-                model: 'gemini-2.5-flash',
-                systemInstruction: buildSystemPrompt(),
-                generationConfig: {
-                    maxOutputTokens: 400,
-                    temperature: 0.2,   // Respuestas consistentes y técnicas
-                    topP: 0.8,
-                },
-            });
+            
+            // Usamos gemini-3.5-flash (igual que AgroBot) con fallback a gemini-3.6-flash
+            let resultado;
+            try {
+                const model = genAI.getGenerativeModel({
+                    model: 'gemini-3.5-flash',
+                    systemInstruction: buildSystemPrompt(),
+                    generationConfig: {
+                        maxOutputTokens: 600,
+                        temperature: 0.2,
+                        topP: 0.8,
+                    },
+                });
+                resultado = await model.generateContent(buildUserPrompt(perfil, municipio, balances));
+            } catch (err35) {
+                console.warn('[climateAiService] Fallback a gemini-3.6-flash por:', err35);
+                const model36 = genAI.getGenerativeModel({
+                    model: 'gemini-3.6-flash',
+                    systemInstruction: buildSystemPrompt(),
+                    generationConfig: {
+                        maxOutputTokens: 600,
+                        temperature: 0.2,
+                        topP: 0.8,
+                    },
+                });
+                resultado = await model36.generateContent(buildUserPrompt(perfil, municipio, balances));
+            }
 
-            const resultado = await model.generateContent(buildUserPrompt(perfil, municipio, balances));
             const texto = resultado.response.text();
             const json = parseRespuestaIA(texto);
 
@@ -425,10 +442,11 @@ export async function generarYGuardarAnalisisClimatico(
                     fuente: 'ia',
                 };
             } else {
-                // JSON inválido o incompleto → fallback local
+                console.warn('[climateAiService] JSON incompleto o no parseable de IA. Usando motor local.');
                 diagnostico = generarDiagnosticoLocal(perfil, balances);
             }
-        } catch {
+        } catch (error) {
+            console.error('[climateAiService] Error al llamar a la API de Gemini:', error);
             // Error en API (cuota, timeout, 503) → fallback local
             diagnostico = generarDiagnosticoLocal(perfil, balances);
         }
