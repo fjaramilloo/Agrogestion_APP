@@ -96,13 +96,13 @@ export default function ModalUpsell({ isOpen, onClose, licenciaInfo }: ModalUpse
 
                 {/* Feature highlight */}
                 <div style={{
-                    background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)',
+                    background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.25)',
                     borderRadius: '12px', padding: '16px', marginBottom: '28px',
                     display: 'flex', alignItems: 'center', gap: '14px'
                 }}>
-                    <Sparkles size={24} color="#34d399" style={{ flexShrink: 0 }} />
+                    <Sparkles size={24} color="#a78bfa" style={{ flexShrink: 0 }} />
                     <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', lineHeight: 1.4 }}>
-                        Actualiza a <strong>Plan Finca (hasta 500 animales)</strong> o <strong>Plan Hacienda (sin límites)</strong> para continuar midiendo la rentabilidad y pesaje de tu ganado.
+                        Actualiza a <strong>Plan Finca (hasta 500 animales)</strong> o <strong>Plan Premium (sin límites)</strong> para continuar midiendo la rentabilidad y pesaje de tu ganado.
                     </div>
                 </div>
 
@@ -112,10 +112,10 @@ export default function ModalUpsell({ isOpen, onClose, licenciaInfo }: ModalUpse
                         onClick={handleGoToBilling}
                         style={{
                             width: '100%', padding: '14px', borderRadius: '10px', border: 'none',
-                            background: 'linear-gradient(135deg, #10b981, #059669)',
+                            background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
                             color: 'white', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+                            boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)'
                         }}
                     >
                         <span>Ver Opciones de Actualización</span>

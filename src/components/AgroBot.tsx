@@ -182,16 +182,16 @@ export default function AgroBot() {
                                 AgroBot es Exclusivo
                             </h4>
                             <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                AgroBot (nuestra IA Mentora Ganadera) está disponible únicamente para usuarios con <strong style={{ color: '#10b981' }}>Plan Finca</strong> o <strong style={{ color: '#f59e0b' }}>Plan Hacienda</strong>.
+                                AgroBot (nuestra IA Mentora Ganadera) está disponible únicamente para usuarios con <strong style={{ color: '#ffb74d' }}>Plan Finca</strong> o <strong style={{ color: '#c084fc' }}>Plan Premium</strong>.
                             </p>
                             <button
                                 onClick={() => { setIsOpen(false); navigate('/suscripcion'); }}
                                 style={{
                                     width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
-                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                    background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
                                     color: 'white', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+                                    boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)'
                                 }}
                             >
                                 <span>Ver Planes de Suscripción</span>
