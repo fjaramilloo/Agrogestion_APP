@@ -5,7 +5,8 @@ import { InteractiveFarmMap } from '../components/InteractiveFarmMap';
 import { MultiFarmMap, type FarmSummaryData } from '../components/MultiFarmMap';
 import { KmzUploaderModal } from '../components/KmzUploaderModal';
 import { localDB } from '../lib/db';
-import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles, WifiOff } from 'lucide-react';
+import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles, WifiOff, AlertOctagon } from 'lucide-react';
+import ModalUpsell from '../components/ModalUpsell';
 
 // Hook para saber si estamos en pantalla móvil
 function useIsMobile(breakpoint = 640) {
@@ -20,6 +21,10 @@ function useIsMobile(breakpoint = 640) {
 
 export const FarmMapPage: React.FC = () => {
   const { fincaId, userFincas, role, licenciaInfo, setFincaId } = useAuth();
+  const isVencida = Boolean(licenciaInfo?.isVencida);
+  const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
+  const isBloqueado = isVencida || isSobrecupo;
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const isMobile = useIsMobile();
 
   const currentFincaName = userFincas.find((f) => f.id_finca === fincaId)?.nombre_finca || 'Mi Finca';
@@ -347,6 +352,10 @@ export const FarmMapPage: React.FC = () => {
   };
 
   const handleOpenTransferModal = (potreroId: string, potreroNombre: string) => {
+    if (isBloqueado) {
+      setShowUpsellModal(true);
+      return;
+    }
     setTargetPotrero({ id: potreroId, nombre: potreroNombre });
     setSelectedPotreradaId('');
     setTransferModalOpen(true);
@@ -573,7 +582,13 @@ export const FarmMapPage: React.FC = () => {
               )}
 
               <button
-                onClick={() => setUploaderOpen(true)}
+                onClick={() => {
+                  if (isBloqueado) {
+                    setShowUpsellModal(true);
+                  } else {
+                    setUploaderOpen(true);
+                  }
+                }}
                 style={{
                   backgroundColor: '#10B981',
                   color: 'white',
@@ -595,8 +610,54 @@ export const FarmMapPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Banner Informativo para Plan Demo */}
-      {licenciaInfo?.licencia === 'demo' && (
+      {/* Banner Informativo para Licencia Vencida o Sobrecupo */}
+      {isBloqueado ? (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
+          border: '1px solid rgba(239, 68, 68, 0.4)',
+          borderRadius: '12px',
+          padding: '14px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          color: '#FCA5A5',
+          fontSize: '0.85rem',
+          flexWrap: 'wrap',
+          marginBottom: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertOctagon size={20} color="#F87171" style={{ flexShrink: 0 }} />
+            <span>
+              {isVencida ? (
+                <>
+                  <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción ha vencido. Puedes explorar tus potreros y plano de finca en modo visualización, pero los traslados y el seguimiento GPS en campo se encuentran pausados hasta la renovación.
+                </>
+              ) : (
+                <>
+                  <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> registrados (límite de plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Los traslados interactivos se encuentran pausados en modo lectura.
+                </>
+              )}
+            </span>
+          </div>
+          <button
+            onClick={() => setShowUpsellModal(true)}
+            style={{
+              backgroundColor: '#EF4444',
+              color: 'white',
+              border: 'none',
+              padding: '7px 16px',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {isVencida ? 'Renovar Plan' : 'Ver Planes'}
+          </button>
+        </div>
+      ) : licenciaInfo?.licencia === 'demo' ? (
         <div style={{
           backgroundColor: 'rgba(59, 130, 246, 0.12)',
           border: '1px solid rgba(59, 130, 246, 0.35)',
@@ -609,6 +670,7 @@ export const FarmMapPage: React.FC = () => {
           color: '#93C5FD',
           fontSize: '0.85rem',
           flexWrap: 'wrap',
+          marginBottom: '16px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Sparkles size={18} color="#60A5FA" style={{ flexShrink: 0 }} />
@@ -633,7 +695,7 @@ export const FarmMapPage: React.FC = () => {
             Ver Planes de Suscripción →
           </button>
         </div>
-      )}
+      ) : null}
 
       {/* Banner Informativo de Modo Sin Conexión */}
       {isOfflineData && (
@@ -705,7 +767,13 @@ export const FarmMapPage: React.FC = () => {
               </div>
             ) : (
               <button
-                onClick={() => setUploaderOpen(true)}
+                onClick={() => {
+                  if (isBloqueado) {
+                    setShowUpsellModal(true);
+                  } else {
+                    setUploaderOpen(true);
+                  }
+                }}
                 style={{
                   backgroundColor: '#3B82F6',
                   color: 'white',
@@ -734,11 +802,17 @@ export const FarmMapPage: React.FC = () => {
           potreros={potreros}
           zonasAdicionales={zonasAdicionales}
           userRole={role as any}
-          tipoLicencia={licenciaInfo?.licencia || 'demo'}
+          tipoLicencia={isBloqueado ? 'demo' : (licenciaInfo?.licencia || 'demo')}
           centerLat={mapMeta?.lat || 4.5709}
           centerLng={mapMeta?.lng || -74.2973}
-          onOpenUploader={() => setUploaderOpen(true)}
-          onMoveCattleToPotrero={handleOpenTransferModal}
+          onOpenUploader={() => {
+            if (isBloqueado) {
+              setShowUpsellModal(true);
+            } else {
+              setUploaderOpen(true);
+            }
+          }}
+          onMoveCattleToPotrero={isBloqueado ? undefined : handleOpenTransferModal}
         />
       )}
 
@@ -842,6 +916,14 @@ export const FarmMapPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {licenciaInfo && (
+        <ModalUpsell
+          isOpen={showUpsellModal}
+          onClose={() => setShowUpsellModal(false)}
+          licenciaInfo={licenciaInfo}
+        />
       )}
     </div>
   );

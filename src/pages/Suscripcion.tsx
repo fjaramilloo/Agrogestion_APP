@@ -328,6 +328,34 @@ export default function Suscripcion() {
                     </div>
                 )}
 
+                {/* Banner de Sobrecupo si totalAnimalesOrganizacion > limiteAnimales */}
+                {(totalAnimalesOrganizacion > limiteAnimales) && (
+                    <div style={{
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                        borderRadius: '12px',
+                        padding: '14px 18px',
+                        marginBottom: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <AlertTriangle size={20} color="#f87171" style={{ flexShrink: 0 }} />
+                            <div>
+                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f87171' }}>
+                                    ¡Capacidad Excedida - Modo Solo Lectura Activo!
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.85)', marginTop: '2px' }}>
+                                    Tienes {totalAnimalesOrganizacion} animales registrados, lo cual supera el límite de {limiteAnimales} de tu plan actual. Para reanudar el registro de pesajes, compras y traslados, adquiere un plan con mayor capacidad.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Progress bar info */}
                 <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '18px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>

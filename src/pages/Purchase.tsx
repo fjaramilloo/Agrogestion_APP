@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import ModalUpsell from '../components/ModalUpsell';
-import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X } from 'lucide-react';
+import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X, AlertOctagon } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { getLocalIsoDate } from '../utils/dateUtils';
@@ -15,17 +15,25 @@ interface OfflinePurchasePayload {
     observaciones: string;
     incluirPesoCompra: boolean;
     pesoCompraTotal: string;
-    selectedPotrerada?: string;
+    selectedPotrerada: string;
 }
 
 interface AnimalCompra {
     numero_chapeta: string;
     peso_ingreso: string;
+    peso_compra?: string;
     propietario: string;
+    id_potrerada?: string;
+    sexo?: string;
+    tipo_macho?: 'novillo' | 'toro';
+    etapa?: string;
 }
 
 export default function Purchase() {
     const { fincaId, role, userFincas, licenciaInfo, refreshLicencia } = useAuth();
+    const isVencida = Boolean(licenciaInfo?.isVencida);
+    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales));
+    const isBloqueado = isVencida || isSobrecupo;
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [cantidad, setCantidad] = useState('1');
     const [fechaIngreso, setFechaIngreso] = useState(getLocalIsoDate());
@@ -185,7 +193,7 @@ export default function Purchase() {
     const handleIngresarCompra = async () => {
         if (!fincaId || animales.length === 0) return;
 
-        if (licenciaInfo && (licenciaInfo.totalAnimalesOrganizacion + animales.length) > licenciaInfo.limiteAnimales) {
+        if (isBloqueado || (licenciaInfo && (licenciaInfo.totalAnimalesOrganizacion + animales.length) > licenciaInfo.limiteAnimales)) {
             setShowUpsellModal(true);
             return;
         }
@@ -499,7 +507,7 @@ export default function Purchase() {
                 </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                     <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                         <ShoppingCart size={32} /> Registrar Compra
@@ -579,6 +587,54 @@ export default function Purchase() {
                     )}
                 </div>
             </div>
+
+            {isBloqueado && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    flexWrap: 'wrap'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
+                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                            {isVencida ? (
+                                <>
+                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Para registrar nuevas compras e ingresar ganado al hato, renueva tu suscripción.
+                                </>
+                            ) : (
+                                <>
+                                    <strong>Capacidad del Plan Superada:</strong> Tu hato actual cuenta con <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar nuevas compras e ingresar ganado al hato, actualiza tu suscripción.
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowUpsellModal(true)}
+                        style={{
+                            width: 'auto',
+                            padding: '8px 16px',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
+                    </button>
+                </div>
+            )}
 
             {/* MODAL COMPRA RÁPIDA (completamente volátil, no guarda en DB) */}
             {showQuickModal && (() => {

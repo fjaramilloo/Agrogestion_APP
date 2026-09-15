@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { differenceInDays } from 'date-fns';
-import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud } from 'lucide-react';
+import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud, AlertOctagon } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
+import ModalUpsell from '../components/ModalUpsell';
 import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface OfflineSalesPayload {
@@ -35,7 +36,11 @@ interface AnimalVenta {
 }
 
 export default function Sales() {
-    const { fincaId, role, userFincas, modoGanancia } = useAuth();
+    const { fincaId, role, userFincas, modoGanancia, licenciaInfo } = useAuth();
+    const isVencida = Boolean(licenciaInfo?.isVencida);
+    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
+    const isBloqueado = isVencida || isSobrecupo;
+    const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [cantidad, setCantidad] = useState('1');
     const [fechaVenta, setFechaVenta] = useState(getLocalIsoDate());
     const [animales, setAnimales] = useState<AnimalVenta[]>([]);
@@ -287,6 +292,10 @@ export default function Sales() {
     };
 
     const handlePreconfirmar = async () => {
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            return;
+        }
         if (!fincaId || animales.length === 0) return;
 
         setLoading(true);
@@ -582,6 +591,54 @@ export default function Sales() {
                 </div>
             </div>
 
+            {isBloqueado && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    flexWrap: 'wrap'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
+                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                            {isVencida ? (
+                                <>
+                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción ha vencido. Puedes consultar tu historial y reportes de ventas, pero el registro de nuevas ventas de ganado se encuentra pausado hasta la renovación.
+                                </>
+                            ) : (
+                                <>
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar operaciones, actualiza tu suscripción.
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowUpsellModal(true)}
+                        style={{
+                            width: 'auto',
+                            padding: '8px 16px',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
+                    </button>
+                </div>
+            )}
+
             {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
             {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
 
@@ -783,6 +840,14 @@ export default function Sales() {
                     umbralMedio={umbralMedio}
                     modoGanancia={modoGanancia}
                     onClose={() => setShowReport(false)}
+                />
+            )}
+
+            {licenciaInfo && (
+                <ModalUpsell
+                    isOpen={showUpsellModal}
+                    onClose={() => setShowUpsellModal(false)}
+                    licenciaInfo={licenciaInfo}
                 />
             )}
         </div>

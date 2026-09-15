@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeftRight, Save, Search, ChevronDown, Check } from 'lucide-react';
+import ModalUpsell from '../components/ModalUpsell';
+import { ArrowLeftRight, Save, Search, ChevronDown, Check, AlertOctagon } from 'lucide-react';
 import { getLocalIsoDate } from '../utils/dateUtils';
 
 export default function Movements() {
-    const { fincaId, role } = useAuth();
+    const { fincaId, role, licenciaInfo } = useAuth();
     const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
+    const isVencida = Boolean(licenciaInfo?.isVencida);
+    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
+    const isBloqueado = isVencida || isSobrecupo;
+    const [showUpsellModal, setShowUpsellModal] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [msjExito, setMsjExito] = useState('');
@@ -123,6 +128,16 @@ export default function Movements() {
         setMsjExito('');
         setMsjError('');
 
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            if (isVencida) {
+                setMsjError(`Tu suscripción al Plan ${licenciaInfo?.licencia?.toUpperCase()} está vencida. Renueva tu suscripción para registrar rotaciones.`);
+            } else {
+                setMsjError(`Tu cuenta tiene ${licenciaInfo?.totalAnimalesOrganizacion} animales y supera el cupo de ${licenciaInfo?.limiteAnimales} del Plan ${licenciaInfo?.licencia?.toUpperCase()}. Actualiza tu suscripción para registrar rotaciones.`);
+            }
+            return;
+        }
+
         if (!fincaId || !selectedPotreradaId || !selectedTargetPotreroId || !fechaMovimiento) {
             setMsjError('Por favor complete todos los campos obligatorios.');
             return;
@@ -186,6 +201,54 @@ export default function Movements() {
             <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'left', marginBottom: '32px' }}>
                 <ArrowLeftRight size={32} /> Rotación de Lotes
             </h1>
+
+            {isBloqueado && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    flexWrap: 'wrap'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
+                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                            {isVencida ? (
+                                <>
+                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Para registrar rotaciones y movimientos de potrero, renueva tu suscripción.
+                                </>
+                            ) : (
+                                <>
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu hato cuenta con <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite del plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar rotaciones de potrero, actualiza tu suscripción.
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowUpsellModal(true)}
+                        style={{
+                            width: 'auto',
+                            padding: '8px 16px',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
+                    </button>
+                </div>
+            )}
 
             {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
             {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
@@ -413,6 +476,14 @@ export default function Movements() {
                     )}
                 </form>
             </div>
+
+            {licenciaInfo && (
+                <ModalUpsell
+                    isOpen={showUpsellModal}
+                    onClose={() => setShowUpsellModal(false)}
+                    licenciaInfo={licenciaInfo}
+                />
+            )}
         </div>
     );
 }

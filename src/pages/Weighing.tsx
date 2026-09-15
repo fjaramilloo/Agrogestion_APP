@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import ModalUpsell from '../components/ModalUpsell';
-import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check } from 'lucide-react';
+import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check, AlertOctagon } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 import { localDB } from '../lib/db';
@@ -29,6 +29,9 @@ interface AnimalPreview {
 
 export default function Weighing() {
     const { fincaId, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
+    const isVencida = Boolean(licenciaInfo?.isVencida);
+    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
+    const isBloqueado = isVencida || isSobrecupo;
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [chapeta, setChapeta] = useState('');
     const [animal, setAnimal] = useState<AnimalPreview | null>(null);
@@ -311,6 +314,17 @@ export default function Weighing() {
 
     const guardarPesaje = async () => {
         if (!animal || !fincaId || !nuevoPeso) return;
+
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            if (isVencida) {
+                setMsjError(`Tu suscripción al Plan ${licenciaInfo?.licencia?.toUpperCase()} está vencida. Renueva tu suscripción para registrar nuevos pesajes.`);
+            } else {
+                setMsjError(`Tu cuenta tiene ${licenciaInfo?.totalAnimalesOrganizacion} animales y supera el cupo de ${licenciaInfo?.limiteAnimales} del Plan ${licenciaInfo?.licencia?.toUpperCase()}. Actualiza tu plan para registrar pesajes.`);
+            }
+            return;
+        }
+
         setLoading(true);
         setMsjError('');
         setMarcadoCeba(false);
@@ -470,9 +484,57 @@ export default function Weighing() {
         <div className="page-container" style={{ maxWidth: '600px' }}>
             <h1 className="title text-center" style={{ fontSize: '2.5rem', marginBottom: '8px' }}>Control de Pesaje</h1>
             <p className="text-center" style={{ color: 'var(--text-muted)', marginBottom: '8px' }}>Busque al animal para registrar el peso actual.</p>
-            <p className="text-center" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '32px' }}>
+            <p className="text-center" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px' }}>
                 Umbral entrada a ceba: <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>
             </p>
+
+            {isBloqueado && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    flexWrap: 'wrap'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
+                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                            {isVencida ? (
+                                <>
+                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Tu información histórica está disponible, pero el registro de nuevos pesajes y cálculos de GDP está pausado.
+                                </>
+                            ) : (
+                                <>
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu hato cuenta con <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite del plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar nuevos pesajes y GDP, actualiza tu suscripción.
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowUpsellModal(true)}
+                        style={{
+                            width: 'auto',
+                            padding: '8px 16px',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
+                    </button>
+                </div>
+            )}
 
             {msjExito && (
                 <div style={{
@@ -520,7 +582,7 @@ export default function Weighing() {
                         <button
                             type="button"
                             onClick={() => {
-                                if (licenciaInfo && licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales) {
+                                if (isBloqueado || (licenciaInfo && licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales)) {
                                     setShowUpsellModal(true);
                                 } else {
                                     setShowCrearAnimal(true);

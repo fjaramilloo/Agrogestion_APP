@@ -5,12 +5,13 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend, BarChart, Bar, ReferenceLine
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, AlertOctagon } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 import { useNavigate } from 'react-router-dom';
 import ReporteInventarioExcel from '../components/ReporteInventarioExcel';
+import ModalUpsell from '../components/ModalUpsell';
 
 // Hook para detectar pantalla móvil (<= 768px)
 function useIsMobile() {
@@ -64,7 +65,11 @@ interface LluviaItem {
 }
 
 export default function Dashboard() {
-    const { fincaId, modoGanancia } = useAuth();
+    const { fincaId, modoGanancia, licenciaInfo } = useAuth();
+    const isVencida = Boolean(licenciaInfo?.isVencida);
+    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
+    const isBloqueado = isVencida || isSobrecupo;
+    const [showUpsellModal, setShowUpsellModal] = useState(false);
     const navigate = useNavigate();
     const isMobile = useIsMobile();
     const [loading, setLoading] = useState(true);
@@ -688,7 +693,13 @@ export default function Dashboard() {
                 </div>
 
                 <button
-                    onClick={() => setShowReporteExcel(true)}
+                    onClick={() => {
+                        if (licenciaInfo?.licencia === 'demo' || isBloqueado) {
+                            setShowUpsellModal(true);
+                        } else {
+                            setShowReporteExcel(true);
+                        }
+                    }}
                     className="btn-secondary"
                     style={{ 
                         width: 'auto', 
@@ -703,6 +714,54 @@ export default function Dashboard() {
                     <FileSpreadsheet size={20} /> Generar Informe Inventario
                 </button>
             </div>
+
+            {isBloqueado && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    flexWrap: 'wrap'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
+                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                            {isVencida ? (
+                                <>
+                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción a AgroGestión ha vencido. Tus métricas, reportes históricos e inventario están protegidos y visibles, pero la exportación de informes a Excel y el registro de nuevas operaciones se encuentran bloqueados hasta renovar el plan.
+                                </>
+                            ) : (
+                                <>
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). La exportación de datos y la gestión operativa se encuentran bloqueadas hasta actualizar tu plan.
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowUpsellModal(true)}
+                        style={{
+                            width: 'auto',
+                            padding: '8px 16px',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
+                    </button>
+                </div>
+            )}
 
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--primary)' }}>Cargando métricas...</div>
@@ -1658,6 +1717,18 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {licenciaInfo && (
+                        <ModalUpsell
+                            isOpen={showUpsellModal}
+                            onClose={() => setShowUpsellModal(false)}
+                            licenciaInfo={licenciaInfo}
+                            customTitle={!isBloqueado && licenciaInfo.licencia === 'demo' ? 'Exportación a Excel / CSV' : undefined}
+                            customMessage={!isBloqueado && licenciaInfo.licencia === 'demo' 
+                                ? 'La generación y exportación de informes consolidados de inventario en Excel/PDF es una funcionalidad exclusiva para cuentas en Plan Finca o Plan Hacienda.'
+                                : undefined}
+                        />
                     )}
                 </>
             )}

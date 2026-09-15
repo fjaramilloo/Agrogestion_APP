@@ -6,6 +6,12 @@ import type { ModoGanancia } from '../utils/ganancia';
 export type UserRole = 'administrador' | 'vaquero' | 'observador' | null;
 export type TipoLicencia = 'demo' | 'finca' | 'premium';
 
+export const isLicenciaExpirada = (licencia: TipoLicencia, fechaVencimiento: string | null): boolean => {
+    if (licencia === 'demo' || !fechaVencimiento) return false;
+    const vencTimestamp = new Date(fechaVencimiento.includes('T') ? fechaVencimiento : fechaVencimiento + 'T23:59:59').getTime();
+    return !isNaN(vencTimestamp) && vencTimestamp < Date.now();
+};
+
 export interface LicenciaInfo {
     licencia: TipoLicencia;
     limiteAnimales: number;
@@ -14,6 +20,9 @@ export interface LicenciaInfo {
     fechaVencimientoLicencia: string | null;
     organizacionNombre: string | null;
     organizacionId: string | null;
+    isVencida: boolean;
+    isSobrecupo: boolean;
+    isBloqueada: boolean;
 }
 
 interface UserFinca {
@@ -52,7 +61,10 @@ const defaultLicenciaInfo: LicenciaInfo = {
     fechaInicioLicencia: null,
     fechaVencimientoLicencia: null,
     organizacionNombre: null,
-    organizacionId: null
+    organizacionId: null,
+    isVencida: false,
+    isSobrecupo: false,
+    isBloqueada: false
 };
 
 const AuthContext = createContext<AuthState>({
@@ -147,14 +159,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     animalCount = count || 0;
                 }
 
+                const lic = (org.licencia as TipoLicencia) || 'demo';
+                const limite = org.limite_animales ?? 40;
+                const fechaVenc = org.fecha_vencimiento_licencia || null;
+                const isVencida = isLicenciaExpirada(lic, fechaVenc);
+                const isSobrecupo = animalCount > limite;
+                const isBloqueada = isVencida || isSobrecupo;
+
                 setLicenciaInfo({
-                    licencia: (org.licencia as TipoLicencia) || 'demo',
-                    limiteAnimales: org.limite_animales ?? 40,
+                    licencia: lic,
+                    limiteAnimales: limite,
                     totalAnimalesOrganizacion: animalCount,
                     fechaInicioLicencia: org.fecha_inicio_licencia || null,
-                    fechaVencimientoLicencia: org.fecha_vencimiento_licencia || null,
+                    fechaVencimientoLicencia: fechaVenc,
                     organizacionNombre: org.nombre || null,
-                    organizacionId: orgId || null
+                    organizacionId: orgId || null,
+                    isVencida,
+                    isSobrecupo,
+                    isBloqueada
                 });
             }
         } catch (err) {

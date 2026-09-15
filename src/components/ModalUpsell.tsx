@@ -1,38 +1,51 @@
 import { useNavigate } from 'react-router-dom';
-import { Award, Sparkles, ArrowRight, X } from 'lucide-react';
+import { Award, Sparkles, ArrowRight, X, AlertOctagon } from 'lucide-react';
 import type { LicenciaInfo } from '../contexts/AuthContext';
 
 interface ModalUpsellProps {
     isOpen: boolean;
     onClose: () => void;
     licenciaInfo: LicenciaInfo;
+    customTitle?: string;
+    customMessage?: string;
 }
 
-export default function ModalUpsell({ isOpen, onClose, licenciaInfo }: ModalUpsellProps) {
+export default function ModalUpsell({ isOpen, onClose, licenciaInfo, customTitle, customMessage }: ModalUpsellProps) {
     const navigate = useNavigate();
 
     if (!isOpen) return null;
 
-    const { licencia, limiteAnimales, totalAnimalesOrganizacion } = licenciaInfo;
+    const { licencia, limiteAnimales, totalAnimalesOrganizacion, isVencida, isSobrecupo, fechaVencimientoLicencia } = licenciaInfo;
+    const isOverQuota = isSobrecupo || (totalAnimalesOrganizacion > limiteAnimales);
 
     const handleGoToBilling = () => {
         onClose();
         navigate('/suscripcion');
     };
 
-    const porcentajeUso = Math.min(100, Math.round((totalAnimalesOrganizacion / (limiteAnimales || 1)) * 100));
+    const formatDate = (dateStr: string | null) => {
+        if (!dateStr) return 'Fecha no especificada';
+        try {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
+        } catch {
+            return dateStr;
+        }
+    };
+
+    const porcentajeUso = Math.round((totalAnimalesOrganizacion / (limiteAnimales || 1)) * 100);
 
     return (
         <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
-            backdropFilter: 'blur(6px)', zIndex: 99999,
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)', zIndex: 99999,
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
         }}>
             <div style={{
                 background: 'linear-gradient(145deg, #1e1e2f, #141423)',
-                border: '1px solid rgba(255, 179, 0, 0.4)',
+                border: (isVencida || isOverQuota) ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255, 179, 0, 0.4)',
                 borderRadius: '20px', padding: '32px', maxWidth: '520px', width: '100%',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.6)', position: 'relative'
+                boxShadow: (isVencida || isOverQuota) ? '0 20px 50px rgba(239, 68, 68, 0.2)' : '0 20px 50px rgba(0,0,0,0.6)', position: 'relative'
             }}>
                 {/* Botón cerrar */}
                 <button
@@ -50,59 +63,90 @@ export default function ModalUpsell({ isOpen, onClose, licenciaInfo }: ModalUpse
                 {/* Header Icon */}
                 <div style={{
                     width: '64px', height: '64px', borderRadius: '50%',
-                    background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.2), rgba(255, 152, 0, 0.1))',
-                    border: '1px solid rgba(255, 179, 0, 0.5)',
+                    background: (isVencida || isOverQuota) 
+                        ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))' 
+                        : 'linear-gradient(135deg, rgba(255, 179, 0, 0.2), rgba(255, 152, 0, 0.1))',
+                    border: (isVencida || isOverQuota) ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255, 179, 0, 0.5)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'
                 }}>
-                    <Award size={32} color="#ffb74d" />
+                    {(isVencida || isOverQuota) ? (
+                        <AlertOctagon size={32} color="#f87171" />
+                    ) : (
+                        <Award size={32} color="#ffb74d" />
+                    )}
                 </div>
 
                 <h2 style={{
                     margin: '0 0 8px', textAlign: 'center', color: 'white',
-                    fontSize: '1.4rem', fontWeight: 800
+                    fontSize: '1.35rem', fontWeight: 800
                 }}>
-                    ¡Límite del Plan Alcanzado!
+                    {customTitle || (
+                        isVencida
+                            ? 'Suscripción Vencida (Modo Solo Lectura)'
+                            : isOverQuota
+                                ? 'Modo Solo Lectura (Sobrecupo Activo)'
+                                : '¡Límite del Plan Alcanzado!'
+                    )}
                 </h2>
 
                 <p style={{
-                    color: 'var(--text-muted)', textAlign: 'center', margin: '0 0 24px',
-                    fontSize: '0.92rem', lineHeight: 1.5
+                    color: 'var(--text-muted)', textAlign: 'center', margin: '0 0 20px',
+                    fontSize: '0.9rem', lineHeight: 1.5
                 }}>
-                    Tu plan actual <strong style={{ color: '#ffb74d', textTransform: 'uppercase' }}>{licencia}</strong> le permite registrar hasta <strong style={{ color: 'white' }}>{limiteAnimales}</strong> animales activos.
+                    {customMessage || (
+                        isVencida ? (
+                            <>
+                                Tu suscripción al <strong style={{ color: '#f87171', textTransform: 'uppercase' }}>Plan {licencia}</strong> venció el <strong style={{ color: 'white' }}>{formatDate(fechaVencimientoLicencia)}</strong>. Tu información zootécnica e inventario están 100% seguros y disponibles para consulta. Para reactivar pesajes, compras y movimientos, renueva tu suscripción.
+                            </>
+                        ) : isOverQuota ? (
+                            <>
+                                Tu organización tiene <strong style={{ color: '#f87171' }}>{totalAnimalesOrganizacion} animales</strong>, superando el cupo del <strong style={{ color: '#ffb74d', textTransform: 'uppercase' }}>{licencia}</strong> ({limiteAnimales} animales). Tus datos están 100% a salvo, pero las operaciones de pesaje, movimientos y nuevos ingresos están pausadas.
+                            </>
+                        ) : (
+                            <>
+                                Tu plan actual <strong style={{ color: '#ffb74d', textTransform: 'uppercase' }}>{licencia}</strong> te permite registrar hasta <strong style={{ color: 'white' }}>{limiteAnimales}</strong> animales activos.
+                            </>
+                        )
+                    )}
                 </p>
 
-                {/* Progress bar */}
-                <div style={{
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '12px', padding: '16px', marginBottom: '24px'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '8px' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Uso actual de tu hato:</span>
-                        <span style={{ color: '#f87171', fontWeight: 700 }}>
-                            {totalAnimalesOrganizacion} de {limiteAnimales} animales ({porcentajeUso}%)
-                        </span>
-                    </div>
+                {/* Progress bar (solo si no es vencimiento) */}
+                {!isVencida && (
                     <div style={{
-                        width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)',
-                        borderRadius: '4px', overflow: 'hidden'
+                        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '12px', padding: '16px', marginBottom: '20px'
                     }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '8px' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Uso actual de tu hato:</span>
+                            <span style={{ color: isOverQuota ? '#f87171' : '#ffb74d', fontWeight: 700 }}>
+                                {totalAnimalesOrganizacion} de {limiteAnimales} animales ({porcentajeUso}%)
+                            </span>
+                        </div>
                         <div style={{
-                            width: `${porcentajeUso}%`, height: '100%',
-                            background: 'linear-gradient(90deg, #ffb74d, #f44336)',
-                            borderRadius: '4px'
-                        }} />
+                            width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)',
+                            borderRadius: '4px', overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                width: `${Math.min(100, porcentajeUso)}%`, height: '100%',
+                                background: isOverQuota ? '#ef4444' : 'linear-gradient(90deg, #ffb74d, #f44336)',
+                                borderRadius: '4px'
+                            }} />
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Feature highlight */}
                 <div style={{
                     background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.25)',
-                    borderRadius: '12px', padding: '16px', marginBottom: '28px',
-                    display: 'flex', alignItems: 'center', gap: '14px'
+                    borderRadius: '12px', padding: '14px 16px', marginBottom: '24px',
+                    display: 'flex', alignItems: 'center', gap: '12px'
                 }}>
-                    <Sparkles size={24} color="#a78bfa" style={{ flexShrink: 0 }} />
-                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', lineHeight: 1.4 }}>
-                        Actualiza a <strong>Plan Finca (hasta 500 animales)</strong> o <strong>Plan Premium (sin límites)</strong> para continuar midiendo la rentabilidad y pesaje de tu ganado.
+                    <Sparkles size={22} color="#a78bfa" style={{ flexShrink: 0 }} />
+                    <div style={{ fontSize: '0.84rem', color: 'rgba(255,255,255,0.9)', lineHeight: 1.4 }}>
+                        {isVencida
+                            ? <>Renueva tu suscripción para desbloquear de inmediato el registro de pesajes, control de pastoreo y reportes zootécnicos.</>
+                            : <>Actualiza a <strong>Plan Finca (hasta 500 animales)</strong> o <strong>Plan Hacienda (ilimitado)</strong> para continuar pesando, rotando y operando tu finca con normalidad.</>
+                        }
                     </div>
                 </div>
 
@@ -112,13 +156,17 @@ export default function ModalUpsell({ isOpen, onClose, licenciaInfo }: ModalUpse
                         onClick={handleGoToBilling}
                         style={{
                             width: '100%', padding: '14px', borderRadius: '10px', border: 'none',
-                            background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                            background: isVencida 
+                                ? 'linear-gradient(135deg, #ef4444, #dc2626)' 
+                                : 'linear-gradient(135deg, #7c3aed, #a78bfa)',
                             color: 'white', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                            boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)'
+                            boxShadow: isVencida 
+                                ? '0 4px 14px rgba(239, 68, 68, 0.4)' 
+                                : '0 4px 14px rgba(124, 58, 237, 0.4)'
                         }}
                     >
-                        <span>Ver Opciones de Actualización</span>
+                        <span>{isVencida ? 'Renovar Suscripción Ahora' : 'Actualizar Suscripción'}</span>
                         <ArrowRight size={18} />
                     </button>
 
@@ -130,7 +178,7 @@ export default function ModalUpsell({ isOpen, onClose, licenciaInfo }: ModalUpse
                             color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.88rem', cursor: 'pointer'
                         }}
                     >
-                        Entendido
+                        Continuar en Solo Lectura
                     </button>
                 </div>
             </div>

@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale, Activity, AlertTriangle } from 'lucide-react';
+import ModalUpsell from '../components/ModalUpsell';
+import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale, Activity, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -59,7 +60,11 @@ interface ChartData {
 }
 
 export default function Potreradas() {
-    const { fincaId, role, modoGanancia } = useAuth();
+    const { fincaId, role, modoGanancia, licenciaInfo } = useAuth();
+    const isVencida = Boolean(licenciaInfo?.isVencida);
+    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
+    const isBloqueado = isVencida || isSobrecupo;
+    const [showUpsellModal, setShowUpsellModal] = useState(false);
     const location = useLocation();
     const [potreradas, setPotreradas] = useState<Potrerada[]>([]);
     const [loading, setLoading] = useState(true);
@@ -383,6 +388,10 @@ export default function Potreradas() {
 
     const handleAddPotrerada = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            return;
+        }
         if (!fincaId || !nuevaPotreradaNombre.trim()) return;
 
         setLoading(true);
@@ -478,6 +487,10 @@ export default function Potreradas() {
     };
 
     const handleAddAnimal = async (animalId: string) => {
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            return;
+        }
         if (!managingPotrerada) return;
         setUpdatingAnimal(animalId);
         try {
@@ -496,6 +509,10 @@ export default function Potreradas() {
     };
 
     const handleRemoveAnimal = async (animalId: string) => {
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            return;
+        }
         setUpdatingAnimal(animalId);
         try {
             const { error } = await supabase
@@ -513,6 +530,10 @@ export default function Potreradas() {
     };
 
     const handleLimpiarPotrerada = async (potreradaId: string) => {
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            return;
+        }
         const confirmed = window.confirm('¿Estás seguro de que deseas limpiar esta potrerada? Los animales vendidos quedarán sin asignación de lote pero el historial se conserva.');
         if (!confirmed) return;
         try {
@@ -847,6 +868,10 @@ export default function Potreradas() {
     }, [detailData?.animales, sortConfig]);
 
     const handleOpenWeighingForm = () => {
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            return;
+        }
         if (!detailData) return;
         // Precargar con chapeta de cada animal, peso en blanco
         const initial: { [id: string]: string } = {};
@@ -1187,6 +1212,10 @@ export default function Potreradas() {
 
     // Mover animales de potrerada
     const handleOpenMoveModal = () => {
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            return;
+        }
         setSelectedAnimalsToMove(new Set());
         setTargetPotreradaId('');
         setSearchMoveAnimals('');
@@ -1224,6 +1253,10 @@ export default function Potreradas() {
     };
 
     const handleConfirmMoveAnimals = async () => {
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            return;
+        }
         if (!detailData || selectedAnimalsToMove.size === 0 || !targetPotreradaId) return;
         setMovingAnimals(true);
         try {
@@ -1319,6 +1352,11 @@ export default function Potreradas() {
             return;
         }
 
+        if (isBloqueado) {
+            setShowUpsellModal(true);
+            return;
+        }
+
         setSavingWeighings(true);
         try {
             const { error } = await supabase
@@ -1349,20 +1387,74 @@ export default function Potreradas() {
 
     return (
         <div className="page-container">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                     <h1 className="title">Gestión de Lotes</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Métricas y administración de grupos de animales.</p>
                 </div>
                 {role !== 'observador' && (
                     <button 
-                        onClick={() => setShowAddModal(true)}
+                        onClick={() => {
+                            if (isBloqueado) {
+                                setShowUpsellModal(true);
+                            } else {
+                                setShowAddModal(true);
+                            }
+                        }}
                         style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
                     >
                         <Plus size={20} /> Nuevo Lote
                     </button>
                 )}
             </div>
+
+            {isBloqueado && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    flexWrap: 'wrap'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
+                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                            {isVencida ? (
+                                <>
+                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción ha vencido. Puedes consultar los lotes, métricas e historial de pesajes, pero la creación de nuevos lotes, pesajes grupales y traslados se encuentran pausados hasta la renovación.
+                                </>
+                            ) : (
+                                <>
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar pesajes grupales y crear nuevos lotes, actualiza tu suscripción.
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowUpsellModal(true)}
+                        style={{
+                            width: 'auto',
+                            padding: '8px 16px',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
+                    </button>
+                </div>
+            )}
 
             <div style={{ marginBottom: '24px', position: 'relative', maxWidth: '400px' }}>
                 <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -2652,6 +2744,14 @@ export default function Potreradas() {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {licenciaInfo && (
+                <ModalUpsell
+                    isOpen={showUpsellModal}
+                    onClose={() => setShowUpsellModal(false)}
+                    licenciaInfo={licenciaInfo}
+                />
             )}
         </div>
     );
