@@ -346,25 +346,18 @@ export default function Suscripcion() {
                 </div>
             </div>
 
-            {/* Comparison Cards Header & Billing Period Selector */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '16px',
-                marginBottom: '26px'
-            }}>
-                <div>
-                    <h3 style={{ margin: '0 0 6px', fontSize: '1.3rem', fontWeight: 700, color: 'white' }}>
-                        Planes Disponibles
-                    </h3>
-                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                        Selecciona el nivel y la periodicidad que mejor se adapte a las necesidades de tu hato ganadero
-                    </p>
-                </div>
+            {/* Header de Planes Disponibles */}
+            <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+                <h3 style={{ margin: '0 0 6px', fontSize: '1.35rem', fontWeight: 800, color: 'white' }}>
+                    Planes Disponibles
+                </h3>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                    Selecciona el nivel y la periodicidad que mejor se adapte a las necesidades de tu hato ganadero
+                </p>
+            </div>
 
-                {/* Selector con 3 posiciones: Mensual, Semestral, Anual */}
+            {/* Selector con 3 posiciones: Mensual, Semestral, Anual (Centrado) */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '32px' }}>
                 <div style={{
                     display: 'inline-flex',
                     background: 'rgba(20, 20, 32, 0.85)',
