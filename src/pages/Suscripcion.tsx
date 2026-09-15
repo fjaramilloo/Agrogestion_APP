@@ -126,9 +126,9 @@ export default function Suscripcion() {
             nombre: 'Plan Demo',
             badge: 'Gratuito',
             limite: 'Hasta 40 animales',
-            color: '#ffb74d',
-            border: 'rgba(255, 183, 77, 0.3)',
-            bg: 'rgba(255, 183, 77, 0.05)',
+            color: '#34d399',
+            border: 'rgba(52, 211, 153, 0.35)',
+            bg: 'rgba(52, 211, 153, 0.05)',
             caracteristicas: [
                 'Hasta 40 animales activos',
                 '1 finca autorizada',
@@ -143,9 +143,9 @@ export default function Suscripcion() {
             nombre: 'Plan Finca',
             badge: 'Más Popular',
             limite: 'Hasta 500 animales',
-            color: '#38bdf8',
-            border: 'rgba(56, 189, 248, 0.4)',
-            bg: 'rgba(56, 189, 248, 0.08)',
+            color: '#10b981',
+            border: 'rgba(16, 185, 129, 0.45)',
+            bg: 'rgba(16, 185, 129, 0.08)',
             popular: true,
             caracteristicas: [
                 'Acceso a AgroBot (IA Mentora)',
@@ -164,9 +164,9 @@ export default function Suscripcion() {
             nombre: 'Plan Hacienda (Premium)',
             badge: 'Empresarial',
             limite: 'Animales Ilimitados',
-            color: '#c084fc',
-            border: 'rgba(192, 132, 252, 0.4)',
-            bg: 'rgba(192, 132, 252, 0.08)',
+            color: '#f59e0b',
+            border: 'rgba(245, 158, 11, 0.45)',
+            bg: 'rgba(245, 158, 11, 0.08)',
             caracteristicas: [
                 'Animales activos ilimitados',
                 'Geolocalización GPS en campo en tiempo real sobre el plano de la finca',
@@ -188,11 +188,11 @@ export default function Suscripcion() {
             {/* Header */}
             <div style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
-                    <div style={{ background: 'rgba(124, 58, 237, 0.15)', border: '1px solid rgba(124, 58, 237, 0.4)', borderRadius: '12px', padding: '10px', display: 'flex' }}>
-                        <Award size={28} color="#a78bfa" />
+                    <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '12px', padding: '10px', display: 'flex' }}>
+                        <Award size={28} color="#10b981" />
                     </div>
                     <div>
-                        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, background: 'linear-gradient(135deg, #a78bfa, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, background: 'linear-gradient(135deg, #34d399, #10b981)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                             Estado de Suscripción y Licencia
                         </h1>
                         <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
@@ -203,24 +203,24 @@ export default function Suscripcion() {
             </div>
 
             {/* Current Plan Status Card */}
-            <div style={{ background: 'linear-gradient(145deg, rgba(30,30,45,0.8), rgba(20,20,35,0.9))', border: '1px solid rgba(124, 58, 237, 0.3)', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+            <div style={{ background: 'linear-gradient(145deg, rgba(20,30,24,0.8), rgba(20,20,20,0.95))', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <Building2 size={18} color="#a78bfa" />
+                            <Building2 size={18} color="#34d399" />
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700 }}>
                                 {organizacionNombre || 'Tu Organización'}
                             </span>
                         </div>
                         <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            Plan Actual: <span style={{ color: '#a78bfa', textTransform: 'uppercase' }}>{licencia}</span>
+                            Plan Actual: <span style={{ color: '#34d399', textTransform: 'uppercase' }}>{licencia}</span>
                         </h2>
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                         {/* Inicio de Plan */}
                         <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Clock size={16} color="#a78bfa" />
+                            <Clock size={16} color="#34d399" />
                             <div>
                                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Inicio de Plan</div>
                                 <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'white' }}>{formatDate(fechaInicioLicencia)}</div>
@@ -313,14 +313,14 @@ export default function Suscripcion() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                                background: 'linear-gradient(135deg, #10b981, #059669)',
                                 color: 'white',
                                 padding: '8px 16px',
                                 borderRadius: '8px',
                                 fontSize: '0.82rem',
                                 fontWeight: 700,
                                 textDecoration: 'none',
-                                boxShadow: '0 2px 10px rgba(124, 58, 237, 0.4)'
+                                boxShadow: '0 2px 10px rgba(16, 185, 129, 0.4)'
                             }}
                         >
                             <MessageCircle size={15} /> Renovar por WhatsApp
@@ -360,7 +360,7 @@ export default function Suscripcion() {
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '32px' }}>
                 <div style={{
                     display: 'inline-flex',
-                    background: 'rgba(20, 20, 32, 0.85)',
+                    background: 'rgba(20, 20, 20, 0.85)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     borderRadius: '14px',
                     padding: '4px',
@@ -383,9 +383,9 @@ export default function Suscripcion() {
                             fontWeight: periodicidad === 'mensual' ? 700 : 500,
                             color: periodicidad === 'mensual' ? '#ffffff' : 'var(--text-muted)',
                             background: periodicidad === 'mensual'
-                                ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
+                                ? 'linear-gradient(135deg, #10b981, #059669)'
                                 : 'transparent',
-                            boxShadow: periodicidad === 'mensual' ? '0 2px 10px rgba(124, 58, 237, 0.4)' : 'none',
+                            boxShadow: periodicidad === 'mensual' ? '0 2px 10px rgba(16, 185, 129, 0.4)' : 'none',
                             transition: 'all 0.2s ease',
                             outline: 'none'
                         }}
@@ -408,9 +408,9 @@ export default function Suscripcion() {
                             fontWeight: periodicidad === 'semestral' ? 700 : 500,
                             color: periodicidad === 'semestral' ? '#ffffff' : 'var(--text-muted)',
                             background: periodicidad === 'semestral'
-                                ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
+                                ? 'linear-gradient(135deg, #10b981, #059669)'
                                 : 'transparent',
-                            boxShadow: periodicidad === 'semestral' ? '0 2px 10px rgba(124, 58, 237, 0.4)' : 'none',
+                            boxShadow: periodicidad === 'semestral' ? '0 2px 10px rgba(16, 185, 129, 0.4)' : 'none',
                             transition: 'all 0.2s ease',
                             outline: 'none'
                         }}
@@ -444,9 +444,9 @@ export default function Suscripcion() {
                             fontWeight: periodicidad === 'anual' ? 700 : 500,
                             color: periodicidad === 'anual' ? '#ffffff' : 'var(--text-muted)',
                             background: periodicidad === 'anual'
-                                ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
+                                ? 'linear-gradient(135deg, #10b981, #059669)'
                                 : 'transparent',
-                            boxShadow: periodicidad === 'anual' ? '0 2px 10px rgba(124, 58, 237, 0.4)' : 'none',
+                            boxShadow: periodicidad === 'anual' ? '0 2px 10px rgba(16, 185, 129, 0.4)' : 'none',
                             transition: 'all 0.2s ease',
                             outline: 'none'
                         }}
@@ -495,14 +495,14 @@ export default function Suscripcion() {
                             key={plan.id}
                             style={{
                                 background: plan.bg,
-                                border: `1.5px solid ${esPlanActual ? '#a78bfa' : plan.border}`,
+                                border: `1.5px solid ${esPlanActual ? '#10b981' : plan.border}`,
                                 borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column',
-                                position: 'relative', boxShadow: esPlanActual ? '0 0 25px rgba(167, 139, 250, 0.2)' : 'none',
+                                position: 'relative', boxShadow: esPlanActual ? '0 0 25px rgba(16, 185, 129, 0.25)' : 'none',
                                 transition: 'transform 0.2s ease, border-color 0.2s ease'
                             }}
                         >
                             {esPlanActual && (
-                                <div style={{ position: 'absolute', top: '-12px', right: '20px', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: 'white', padding: '3px 12px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                <div style={{ position: 'absolute', top: '-12px', right: '20px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', padding: '3px 12px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                     Tu Plan Actual
                                 </div>
                             )}
@@ -569,7 +569,7 @@ export default function Suscripcion() {
                                     background: esPlanActual
                                         ? 'rgba(255,255,255,0.08)'
                                         : actionType === 'mejora'
-                                            ? `linear-gradient(135deg, ${plan.color}, #7c3aed)`
+                                            ? `linear-gradient(135deg, ${plan.color}, #059669)`
                                             : 'rgba(255,255,255,0.04)',
                                     color: actionType === 'disminucion' ? 'var(--text-muted)' : 'white',
                                     border: esPlanActual
@@ -590,7 +590,7 @@ export default function Suscripcion() {
             {/* Manual Payment Section */}
             <div style={{ background: 'rgba(30,30,30,0.7)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '28px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                    <ShieldCheck size={22} color="#a78bfa" />
+                    <ShieldCheck size={22} color="#10b981" />
                     <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'white' }}>
                         ¿Cómo realizar la activación de tu plan?
                     </h3>
@@ -602,19 +602,19 @@ export default function Suscripcion() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                     <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '16px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(124, 58, 237, 0.2)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', marginBottom: '10px' }}>1</div>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', marginBottom: '10px' }}>1</div>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white', marginBottom: '4px' }}>Selecciona tu plan</div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Elige entre el Plan Finca (500 animales) o Hacienda/Premium (Ilimitado), en modalidad mensual, semestral o anual.</div>
                     </div>
 
                     <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '16px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(124, 58, 237, 0.2)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', marginBottom: '10px' }}>2</div>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', marginBottom: '10px' }}>2</div>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white', marginBottom: '4px' }}>Realiza la transferencia</div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Realiza el pago a nuestras cuentas bancarias autorizadas.</div>
                     </div>
 
                     <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '16px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(124, 58, 237, 0.2)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', marginBottom: '10px' }}>3</div>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', marginBottom: '10px' }}>3</div>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white', marginBottom: '4px' }}>Envía el comprobante</div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Envíanos el soporte por WhatsApp indicando el nombre de tu empresa.</div>
                     </div>

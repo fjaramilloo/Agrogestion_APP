@@ -1,16 +1,28 @@
 :root {
-  --primary: #2e7d32;
-  --primary-light: #60ad5e;
-  --primary-dark: #005005;
-  --secondary: #ffb300;
+  /* 1. Primario: Verde Esmeralda (Forraje, GDP+, Vitalidad) */
+  --primary: #10b981;
+  --primary-light: #34d399;
+  --primary-dark: #059669;
+
+  /* 2. Secundario: Ámbar Dorado (Tierra, Ganado, Comercio, Finanzas) */
+  --secondary: #f59e0b;
+  --secondary-light: #fbbf24;
+  --secondary-dark: #d97706;
+
+  /* 3. Complementario Hídrico: Azul Lluvia (Pluviometría y Aguas) */
+  --accent-rain: #0284c7;
+  --accent-rain-light: #38bdf8;
+
+  /* Fondos Oscuros de Alto Contraste */
   --bg-dark: #121212;
   --bg-dark-paper: #1e1e1e;
   --text-light: #ffffff;
-  --text-muted: #aaaaaa;
+  --text-muted: #9ca3af;
 
-  --error: #f44336;
-  --warning: #ff9800;
-  --success: #4caf50;
+  /* Semáforos Operativos */
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --success: #10b981;
 
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -74,7 +86,7 @@ select:focus {
   outline: none;
   border-color: var(--primary);
   background: rgba(0, 0, 0, 0.4);
-  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
 }
 
 label {
@@ -109,7 +121,7 @@ button {
 button:hover:not(:disabled) {
   background-color: var(--primary-light);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.4);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 button:active:not(:disabled) {
