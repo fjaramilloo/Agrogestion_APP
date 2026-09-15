@@ -39,6 +39,29 @@ const CowIcon = ({ size = 20, color = 'currentColor', style, className }: { size
 );
 
 type TipoLicencia = 'demo' | 'finca' | 'premium';
+type PeriodoLicencia = 'mensual' | 'semestral' | 'anual' | 'indefinido' | 'personalizado';
+
+// Calcula la fecha de vencimiento sumando el periodo a la fecha de inicio
+const calculateVencimiento = (startDateStr: string, periodo: PeriodoLicencia): string => {
+    if (periodo === 'indefinido') return '';
+    if (!startDateStr) startDateStr = getLocalIsoDate();
+
+    const [y, m, d] = startDateStr.split('-').map(Number);
+    const date = new Date(y, (m || 1) - 1, d || 1);
+
+    if (periodo === 'mensual') {
+        date.setMonth(date.getMonth() + 1);
+    } else if (periodo === 'semestral') {
+        date.setMonth(date.getMonth() + 6);
+    } else if (periodo === 'anual') {
+        date.setFullYear(date.getFullYear() + 1);
+    }
+
+    const resY = date.getFullYear();
+    const resM = String(date.getMonth() + 1).padStart(2, '0');
+    const resD = String(date.getDate()).padStart(2, '0');
+    return `${resY}-${resM}-${resD}`;
+};
 
 interface FincaInfo {
     id: string;
@@ -87,6 +110,8 @@ export default function SuperAdmin() {
     const [editingLicenciaOrg, setEditingLicenciaOrg] = useState<CuentaAdmin | null>(null);
     const [formLicencia, setFormLicencia] = useState<TipoLicencia>('demo');
     const [formLimite, setFormLimite] = useState<number>(40);
+    const [formFechaInicio, setFormFechaInicio] = useState<string>('');
+    const [formPeriodo, setFormPeriodo] = useState<PeriodoLicencia>('anual');
     const [formVencimiento, setFormVencimiento] = useState<string>('');
     const [savingLicencia, setSavingLicencia] = useState(false);
 
@@ -407,14 +432,55 @@ export default function SuperAdmin() {
         setEditingLicenciaOrg(cuenta);
         setFormLicencia(cuenta.licencia);
         setFormLimite(cuenta.limiteAnimales);
-        setFormVencimiento(cuenta.fechaVencimientoLicencia ? cuenta.fechaVencimientoLicencia.substring(0, 10) : '');
+
+        const inicioStr = cuenta.fechaInicioLicencia ? cuenta.fechaInicioLicencia.substring(0, 10) : getLocalIsoDate();
+        setFormFechaInicio(inicioStr);
+
+        if (cuenta.licencia === 'demo' || !cuenta.fechaVencimientoLicencia) {
+            setFormPeriodo('indefinido');
+            setFormVencimiento('');
+        } else {
+            const vencStr = cuenta.fechaVencimientoLicencia.substring(0, 10);
+            setFormVencimiento(vencStr);
+            setFormPeriodo('anual');
+        }
+    };
+
+    const handlePeriodoChange = (newPeriodo: PeriodoLicencia) => {
+        setFormPeriodo(newPeriodo);
+        if (newPeriodo !== 'personalizado') {
+            const calculated = calculateVencimiento(formFechaInicio, newPeriodo);
+            setFormVencimiento(calculated);
+        }
+    };
+
+    const handleFechaInicioChange = (newInicio: string) => {
+        setFormFechaInicio(newInicio);
+        if (formLicencia !== 'demo' && formPeriodo !== 'personalizado' && formPeriodo !== 'indefinido') {
+            const calculated = calculateVencimiento(newInicio, formPeriodo);
+            setFormVencimiento(calculated);
+        }
     };
 
     const handleSelectLicenciaChange = (newLic: TipoLicencia) => {
         setFormLicencia(newLic);
-        if (newLic === 'demo') setFormLimite(40);
-        else if (newLic === 'finca') setFormLimite(500);
-        else if (newLic === 'premium') setFormLimite(999999);
+        if (newLic === 'demo') {
+            setFormLimite(40);
+            setFormPeriodo('indefinido');
+            setFormVencimiento('');
+        } else if (newLic === 'finca') {
+            setFormLimite(500);
+            if (formPeriodo === 'indefinido') {
+                setFormPeriodo('anual');
+                setFormVencimiento(calculateVencimiento(formFechaInicio, 'anual'));
+            }
+        } else if (newLic === 'premium') {
+            setFormLimite(999999);
+            if (formPeriodo === 'indefinido') {
+                setFormPeriodo('anual');
+                setFormVencimiento(calculateVencimiento(formFechaInicio, 'anual'));
+            }
+        }
     };
 
     const handleSaveLicencia = async (e: React.FormEvent) => {
@@ -422,10 +488,16 @@ export default function SuperAdmin() {
         if (!editingLicenciaOrg) return;
         setSavingLicencia(true);
         try {
+            const isDemo = formLicencia === 'demo';
+            const isIndefinido = isDemo || formPeriodo === 'indefinido' || !formVencimiento;
+
             const updates: any = {
                 licencia: formLicencia,
                 limite_animales: formLimite,
-                fecha_vencimiento_licencia: formVencimiento ? new Date(formVencimiento).toISOString() : null
+                fecha_inicio_licencia: formFechaInicio ? new Date(formFechaInicio + 'T00:00:00').toISOString() : null,
+                fecha_vencimiento_licencia: isIndefinido
+                    ? null
+                    : new Date(formVencimiento + 'T23:59:59').toISOString()
             };
 
             const { error } = await supabase
@@ -718,10 +790,15 @@ export default function SuperAdmin() {
                                                         <Clock size={11} color="#a78bfa" />
                                                         <span>Desde: {formatDate(cuenta.fechaInicioLicencia)}</span>
                                                     </div>
-                                                    {cuenta.fechaVencimientoLicencia && (
+                                                    {cuenta.licencia !== 'demo' && cuenta.fechaVencimientoLicencia ? (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', color: '#f87171' }}>
                                                             <Calendar size={11} />
                                                             <span>Vence: {formatDate(cuenta.fechaVencimientoLicencia)}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', color: 'var(--success)' }}>
+                                                            <CheckCircle2 size={11} />
+                                                            <span>Vigencia: Indefinida</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -874,10 +951,15 @@ export default function SuperAdmin() {
                                                     <Clock size={11} color="#a78bfa" />
                                                     <span>Desde: {formatDate(cuenta.fechaInicioLicencia)}</span>
                                                 </div>
-                                                {cuenta.fechaVencimientoLicencia && (
+                                                {cuenta.licencia !== 'demo' && cuenta.fechaVencimientoLicencia ? (
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f87171' }}>
                                                         <Calendar size={11} />
                                                         <span>Vence: {formatDate(cuenta.fechaVencimientoLicencia)}</span>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--success)' }}>
+                                                        <CheckCircle2 size={11} />
+                                                        <span>Indefinido</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -1052,20 +1134,73 @@ export default function SuperAdmin() {
                                 </span>
                             </div>
 
-                            <div style={{ marginBottom: '24px' }}>
+                            {/* Fecha de Inicio de Vigencia */}
+                            <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
-                                    Fecha de Vencimiento del Plan (Opcional)
+                                    Fecha de Inicio de Vigencia
                                 </label>
                                 <input
                                     type="date"
-                                    value={formVencimiento}
-                                    onChange={e => setFormVencimiento(e.target.value)}
+                                    value={formFechaInicio}
+                                    onChange={e => handleFechaInicioChange(e.target.value)}
+                                    required
                                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', fontSize: '0.9rem' }}
                                 />
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                                    Déjelo en blanco si el plan no vence automáticamente.
-                                </span>
                             </div>
+
+                            {/* Periodo de Licencia Droplist */}
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
+                                    Periodo de Licencia
+                                </label>
+                                <select
+                                    value={formLicencia === 'demo' ? 'indefinido' : formPeriodo}
+                                    onChange={e => handlePeriodoChange(e.target.value as PeriodoLicencia)}
+                                    disabled={formLicencia === 'demo'}
+                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: formLicencia === 'demo' ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: formLicencia === 'demo' ? 'var(--text-muted)' : 'white', fontSize: '0.9rem', cursor: formLicencia === 'demo' ? 'not-allowed' : 'pointer' }}
+                                >
+                                    <option value="indefinido">Sin vencimiento (Ilimitado / Vitalicio)</option>
+                                    <option value="mensual">Mensual (+1 Mes)</option>
+                                    <option value="semestral">Semestral (+6 Meses)</option>
+                                    <option value="anual">Anual (+1 Año)</option>
+                                    <option value="personalizado">Personalizado (Fecha manual)</option>
+                                </select>
+                                {formLicencia === 'demo' && (
+                                    <span style={{ fontSize: '0.72rem', color: '#ffb74d', marginTop: '4px', display: 'block' }}>
+                                        ℹ️ Las cuentas Demo siempre tienen vigencia indefinida (sin fecha de vencimiento).
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Preview / Input de Fecha de Vencimiento */}
+                            {formLicencia !== 'demo' && formPeriodo === 'personalizado' ? (
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
+                                        Fecha de Vencimiento Manual
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={formVencimiento}
+                                        onChange={e => setFormVencimiento(e.target.value)}
+                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', fontSize: '0.9rem' }}
+                                    />
+                                </div>
+                            ) : (formLicencia === 'demo' || formPeriodo === 'indefinido') ? (
+                                <div style={{ marginBottom: '24px', background: 'rgba(76, 175, 80, 0.1)', border: '1px solid rgba(76, 175, 80, 0.25)', padding: '12px 14px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--success)', fontSize: '0.82rem', fontWeight: 600 }}>
+                                    <CheckCircle2 size={16} />
+                                    <span>Plan activo sin fecha límite de expiración (Vigencia Indefinida).</span>
+                                </div>
+                            ) : (
+                                <div style={{ marginBottom: '24px', background: 'rgba(124, 58, 237, 0.1)', border: '1px solid rgba(124, 58, 237, 0.3)', padding: '12px 14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#c084fc' }}>
+                                        <Calendar size={16} />
+                                        <span>Fecha de Vencimiento Calculada:</span>
+                                    </div>
+                                    <strong style={{ color: 'white', fontSize: '0.9rem' }}>
+                                        {formatDate(formVencimiento)}
+                                    </strong>
+                                </div>
+                            )}
 
                             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                                 <button
