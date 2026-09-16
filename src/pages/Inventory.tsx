@@ -2,18 +2,20 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2, AlertOctagon } from 'lucide-react';
+import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2, AlertOctagon, Pencil, Check } from 'lucide-react';
 import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
 import ModalUpsell from '../components/ModalUpsell';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
 import { sincronizarCacheFinca } from '../lib/offlineService';
 import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface Pesaje {
+    id?: string;
     peso: number;
     fecha: string;
     gdp_calculada: number;
@@ -44,7 +46,8 @@ interface Animal {
 }
 
 export default function Inventory() {
-    const { fincaId, role, userFincas, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
+    const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
+    const isAdmin = role === 'administrador' || isSuperAdmin;
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -132,6 +135,7 @@ export default function Inventory() {
                 .eq('id_finca', fincaId)
                 .eq('numero_chapeta', nuevoAnimal.numero_chapeta)
                 .eq('estado', 'activo')
+                .or('is_deleted.is.null,is_deleted.eq.false')
                 .maybeSingle();
             
             setIsChapetaTaken(!!data);
@@ -141,6 +145,289 @@ export default function Inventory() {
         const timeoutId = setTimeout(checkChapeta, 500);
         return () => clearTimeout(timeoutId);
     }, [nuevoAnimal.numero_chapeta, fincaId]);
+
+    // Estados y funciones para Edición de Chapeta (Exclusivo Admin)
+    const [isEditingChapeta, setIsEditingChapeta] = useState(false);
+    const [editChapetaVal, setEditChapetaVal] = useState('');
+    const [editChapetaError, setEditChapetaError] = useState('');
+    const [validatingEditChapeta, setValidatingEditChapeta] = useState(false);
+    const [isEditChapetaTaken, setIsEditChapetaTaken] = useState(false);
+
+    const checkEditChapetaUnica = async (val: string) => {
+        const target = val.trim();
+        if (!target || !fincaId || target === selectedAnimal?.numero_chapeta) {
+            setIsEditChapetaTaken(false);
+            setEditChapetaError('');
+            return;
+        }
+        setValidatingEditChapeta(true);
+        try {
+            const { data } = await supabase
+                .from('animales')
+                .select('id')
+                .eq('id_finca', fincaId)
+                .eq('numero_chapeta', target)
+                .or('is_deleted.is.null,is_deleted.eq.false')
+                .neq('id', selectedAnimal?.id)
+                .maybeSingle();
+
+            if (data) {
+                setIsEditChapetaTaken(true);
+                setEditChapetaError(`La chapeta #${target} ya está en uso por otro animal en la finca.`);
+            } else {
+                setIsEditChapetaTaken(false);
+                setEditChapetaError('');
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setValidatingEditChapeta(false);
+        }
+    };
+
+    const handleGuardarNuevaChapeta = async () => {
+        if (!selectedAnimal || !fincaId) return;
+        const nueva = editChapetaVal.trim();
+        if (!nueva) {
+            setEditChapetaError('El número de chapeta no puede estar vacío.');
+            return;
+        }
+        if (nueva === selectedAnimal.numero_chapeta) {
+            setIsEditingChapeta(false);
+            return;
+        }
+        setLoading(true);
+        try {
+            const { data: existente } = await supabase
+                .from('animales')
+                .select('id')
+                .eq('id_finca', fincaId)
+                .eq('numero_chapeta', nueva)
+                .or('is_deleted.is.null,is_deleted.eq.false')
+                .neq('id', selectedAnimal.id)
+                .maybeSingle();
+
+            if (existente) {
+                setEditChapetaError(`¡Error! Ya existe otro animal con la chapeta #${nueva}.`);
+                setLoading(false);
+                return;
+            }
+
+            const { error: errUpd } = await supabase
+                .from('animales')
+                .update({ numero_chapeta: nueva })
+                .eq('id', selectedAnimal.id);
+
+            if (errUpd) throw errUpd;
+
+            const userResp = await supabase.auth.getUser();
+            await supabase.from('auditoria_cambios').insert({
+                id_finca: fincaId,
+                tabla: 'animales',
+                id_registro: selectedAnimal.id,
+                accion: 'update_chapeta',
+                valores_previos: { numero_chapeta: selectedAnimal.numero_chapeta },
+                valores_nuevos: { numero_chapeta: nueva },
+                usuario_id: userResp.data.user?.id
+            });
+
+            setSelectedAnimal(prev => prev ? { ...prev, numero_chapeta: nueva } : null);
+            setAnimales(prev => prev.map(a => a.id === selectedAnimal.id ? { ...a, numero_chapeta: nueva } : a));
+
+            try {
+                if (localDB?.animalesCache) {
+                    await localDB.animalesCache.update(selectedAnimal.id, { numero_chapeta: nueva });
+                }
+            } catch (eCache) {}
+
+            setIsEditingChapeta(false);
+            setEditChapetaError('');
+        } catch (err: any) {
+            setEditChapetaError('Error al guardar: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEliminarAnimalPorError = async () => {
+        if (!selectedAnimal || !fincaId) return;
+        if (!confirm(`¿Está seguro de eliminar permanentemente el animal #${selectedAnimal.numero_chapeta} del inventario?\n\n⚠️ Esta acción es para corregir errores de digitación. Si el animal murió o se vendió, use las opciones correspondientes.`)) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const userResp = await supabase.auth.getUser();
+            const userId = userResp.data.user?.id;
+
+            const { error: errAnim } = await supabase
+                .from('animales')
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString(),
+                    deleted_by: userId
+                })
+                .eq('id', selectedAnimal.id);
+
+            if (errAnim) throw errAnim;
+
+            await supabase
+                .from('registros_pesaje')
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString(),
+                    deleted_by: userId
+                })
+                .eq('id_animal', selectedAnimal.id);
+
+            await supabase.from('auditoria_cambios').insert({
+                id_finca: fincaId,
+                tabla: 'animales',
+                id_registro: selectedAnimal.id,
+                accion: 'delete_animal_error',
+                valores_previos: { numero_chapeta: selectedAnimal.numero_chapeta },
+                usuario_id: userId
+            });
+
+            try {
+                if (localDB?.animalesCache) {
+                    await localDB.animalesCache.delete(selectedAnimal.id);
+                }
+            } catch (eCache) {}
+
+            setAnimales(prev => prev.filter(a => a.id !== selectedAnimal.id));
+            setSelectedAnimal(null);
+            await refreshLicencia();
+        } catch (err: any) {
+            alert('Error al eliminar animal: ' + (err.message || err));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Estados y funciones para Edición de Pesajes del Animal
+    const [editingPesaje, setEditingPesaje] = useState<{ id: string; fecha: string; peso: string } | null>(null);
+
+    const recargarHistorialAnimal = async (animalId: string) => {
+        const { data: historial } = await supabase
+            .from('registros_pesaje')
+            .select('id, peso, fecha, gdp_calculada, gmp_calculada, potreros(nombre)')
+            .eq('id_animal', animalId)
+            .or('is_deleted.is.null,is_deleted.eq.false')
+            .order('fecha', { ascending: false });
+
+        if (historial) {
+            const unique = new Set<string>();
+            const dedup: Pesaje[] = historial
+                .filter((p: any) => {
+                    const d = p.fecha.split('T')[0];
+                    if (unique.has(d)) return false;
+                    unique.add(d); return true;
+                })
+                .map((p: any) => ({
+                    id: p.id,
+                    peso: p.peso,
+                    fecha: p.fecha,
+                    gdp_calculada: p.gdp_calculada,
+                    gmp_calculada: p.gmp_calculada,
+                    potreros: Array.isArray(p.potreros) ? (p.potreros[0] || null) : p.potreros
+                }));
+
+            setSelectedAnimal(prev => prev ? { ...prev, registros_pesaje: dedup } : null);
+            setAnimales(prev => prev.map(a => a.id === animalId ? { ...a, registros_pesaje: dedup } : a));
+        }
+    };
+
+    const handleGuardarEdicionPesaje = async () => {
+        if (!editingPesaje || !selectedAnimal) return;
+        const pesoNum = parseFloat(editingPesaje.peso);
+        if (isNaN(pesoNum) || pesoNum <= 0) {
+            alert('Por favor ingrese un peso numérico válido mayor a cero.');
+            return;
+        }
+        if (!editingPesaje.fecha) {
+            alert('Por favor ingrese una fecha válida.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const userResp = await supabase.auth.getUser();
+
+            const { error: errUpd } = await supabase
+                .from('registros_pesaje')
+                .update({
+                    peso: pesoNum,
+                    fecha: editingPesaje.fecha,
+                    modificado_by: userResp.data.user?.id,
+                    fecha_modificacion: new Date().toISOString()
+                })
+                .eq('id', editingPesaje.id);
+
+            if (errUpd) throw errUpd;
+
+            await supabase.from('auditoria_cambios').insert({
+                id_finca: fincaId,
+                tabla: 'registros_pesaje',
+                id_registro: editingPesaje.id,
+                accion: 'update_pesaje',
+                valores_nuevos: { peso: pesoNum, fecha: editingPesaje.fecha },
+                usuario_id: userResp.data.user?.id
+            });
+
+            // Recalcular en cascada el siguiente pesaje y todos los posteriores
+            await recalcularHistorialPesajesAnimal(selectedAnimal.id, supabase);
+
+            // Recargar historial del animal
+            await recargarHistorialAnimal(selectedAnimal.id);
+            setEditingPesaje(null);
+        } catch (err: any) {
+            alert('Error al guardar pesaje: ' + (err.message || err));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEliminarPesaje = async (pesajeId: string, fechaPesaje: string) => {
+        if (!selectedAnimal) return;
+        if (!confirm(`¿Está seguro de eliminar el pesaje del ${fechaPesaje}? Las ganancias del siguiente pesaje y todos los posteriores se recalcularán automáticamente.`)) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const userResp = await supabase.auth.getUser();
+
+            const { error: errDel } = await supabase
+                .from('registros_pesaje')
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString(),
+                    deleted_by: userResp.data.user?.id
+                })
+                .eq('id', pesajeId);
+
+            if (errDel) throw errDel;
+
+            await supabase.from('auditoria_cambios').insert({
+                id_finca: fincaId,
+                tabla: 'registros_pesaje',
+                id_registro: pesajeId,
+                accion: 'delete_pesaje',
+                usuario_id: userResp.data.user?.id
+            });
+
+            // Recalcular en cascada
+            await recalcularHistorialPesajesAnimal(selectedAnimal.id, supabase);
+
+            // Recargar historial
+            await recargarHistorialAnimal(selectedAnimal.id);
+        } catch (err: any) {
+            alert('Error al eliminar pesaje: ' + (err.message || err));
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchAnimales = async () => {
         if (!fincaId) return;
@@ -166,6 +453,7 @@ export default function Inventory() {
                         `)
                         .eq('id_finca', fincaId)
                         .eq('estado', 'activo')
+                        .or('is_deleted.is.null,is_deleted.eq.false')
                         .order('creado_en', { ascending: false })
                         .limit(50000),
                     supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000),
@@ -742,10 +1030,13 @@ export default function Inventory() {
                                     <tr key={animal.id} 
                                         onClick={async () => {
                                             setSelectedAnimal(animal);
+                                            setIsEditingChapeta(false);
+                                            setEditingPesaje(null);
                                             const { data: historial } = await supabase
                                                 .from('registros_pesaje')
-                                                .select('peso, fecha, gdp_calculada, gmp_calculada, potreros(nombre)')
+                                                .select('id, peso, fecha, gdp_calculada, gmp_calculada, potreros(nombre)')
                                                 .eq('id_animal', animal.id)
+                                                .or('is_deleted.is.null,is_deleted.eq.false')
                                                 .order('fecha', { ascending: false });
                                             if (historial) {
                                                 const unique = new Set<string>();
@@ -756,9 +1047,11 @@ export default function Inventory() {
                                                         unique.add(d); return true;
                                                     })
                                                     .map((p: any) => ({
+                                                        id: p.id,
                                                         peso: p.peso,
                                                         fecha: p.fecha,
                                                         gdp_calculada: p.gdp_calculada,
+                                                        gmp_calculada: p.gmp_calculada,
                                                         potreros: Array.isArray(p.potreros) ? (p.potreros[0] || null) : p.potreros
                                                     }));
                                                 setSelectedAnimal(prev => prev ? { ...prev, registros_pesaje: dedup } : null);
@@ -909,18 +1202,29 @@ export default function Inventory() {
 
                 const estimadoHoy = pesoU + (diasHoy * (gmpIndiv / 30));
 
-                const timeline = [
+                interface TimelineItem {
+                    id: string;
+                    pesajeId?: string;
+                    fecha: string;
+                    peso: number;
+                    gmp: number;
+                    gdp: number;
+                    esIngreso: boolean;
+                }
+
+                const timeline: TimelineItem[] = [
                     ...(selectedAnimal.registros_pesaje || []).map((p, i, arr) => {
                         const ant = arr[i + 1] || { peso: pesoBaseModal, fecha: fechaInicioModal };
                         const d = differenceInDays(new Date(p.fecha), new Date(ant.fecha)) || 1;
                         const ganancia = p.peso - ant.peso;
-                        const gmp = (ganancia / d) * 30;
+                        const gmp = (p.gmp_calculada !== null && p.gmp_calculada !== undefined) ? Number(p.gmp_calculada) : ((ganancia / d) * 30);
                         let gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined) ? Number(p.gdp_calculada) : (ganancia / d);
                         if (gdp === 0 && ganancia !== 0) {
                             gdp = ganancia / d;
                         }
                         return {
-                            id: p.fecha,
+                            id: p.id || p.fecha,
+                            pesajeId: p.id,
                             fecha: p.fecha,
                             peso: p.peso,
                             gmp: gmp,
@@ -930,6 +1234,7 @@ export default function Inventory() {
                     }),
                     {
                         id: selectedAnimal.fecha_ingreso,
+                        pesajeId: undefined,
                         fecha: selectedAnimal.fecha_ingreso,
                         peso: pesoBaseModal,
                         gmp: 0,
@@ -953,14 +1258,141 @@ export default function Inventory() {
                                 <X size={24} />
                             </button>
 
-                            <div style={{ paddingRight: '40px', marginBottom: '24px' }}>
-                                <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>
-                                    <span style={{ color: 'var(--primary)', marginRight: '8px' }}>#</span>
-                                    {selectedAnimal.numero_chapeta}
-                                </h2>
-                                 <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.5px' }}>
-                                    {selectedAnimal.etapa} • {selectedAnimal.nombre_propietario}
-                                </p>
+                            <div style={{ paddingRight: '40px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                                <div>
+                                    {!isEditingChapeta ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem', display: 'flex', alignItems: 'center' }}>
+                                                <span style={{ color: 'var(--primary)', marginRight: '6px' }}>#</span>
+                                                {selectedAnimal.numero_chapeta}
+                                            </h2>
+                                            {isAdmin && (
+                                                <button
+                                                    onClick={() => {
+                                                        setIsEditingChapeta(true);
+                                                        setEditChapetaVal(selectedAnimal.numero_chapeta);
+                                                        setEditChapetaError('');
+                                                        setIsEditChapetaTaken(false);
+                                                    }}
+                                                    title="Editar número de chapeta"
+                                                    style={{
+                                                        background: 'rgba(255,255,255,0.06)',
+                                                        border: '1px solid rgba(255,255,255,0.15)',
+                                                        borderRadius: '6px',
+                                                        color: 'var(--primary-light)',
+                                                        cursor: 'pointer',
+                                                        padding: '5px 8px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 500
+                                                    }}
+                                                >
+                                                    <Pencil size={13} />
+                                                    <span>Editar Chapeta</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '1.4rem' }}>#</span>
+                                                <input
+                                                    type="text"
+                                                    value={editChapetaVal}
+                                                    onChange={e => {
+                                                        setEditChapetaVal(e.target.value);
+                                                        checkEditChapetaUnica(e.target.value);
+                                                    }}
+                                                    placeholder="Nueva chapeta"
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: '6px',
+                                                        border: isEditChapetaTaken ? '1px solid #ef4444' : '1px solid var(--primary)',
+                                                        backgroundColor: 'rgba(255,255,255,0.08)',
+                                                        color: 'white',
+                                                        fontSize: '1.1rem',
+                                                        fontWeight: 'bold',
+                                                        width: '140px'
+                                                    }}
+                                                    autoFocus
+                                                />
+                                                <button
+                                                    onClick={handleGuardarNuevaChapeta}
+                                                    disabled={loading || validatingEditChapeta || isEditChapetaTaken || !editChapetaVal.trim()}
+                                                    style={{
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        backgroundColor: 'var(--primary)',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        cursor: (loading || validatingEditChapeta || isEditChapetaTaken || !editChapetaVal.trim()) ? 'not-allowed' : 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontSize: '0.8rem',
+                                                        fontWeight: 600
+                                                    }}
+                                                >
+                                                    <Check size={14} />
+                                                    <span>Guardar</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => { setIsEditingChapeta(false); setEditChapetaError(''); }}
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: '6px',
+                                                        backgroundColor: 'transparent',
+                                                        color: 'var(--text-muted)',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.8rem'
+                                                    }}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                            {validatingEditChapeta && (
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                                    Validando si la chapeta ya existe...
+                                                </div>
+                                            )}
+                                            {editChapetaError && (
+                                                <div style={{ fontSize: '0.8rem', color: '#f87171', marginTop: '4px', fontWeight: 500 }}>
+                                                    {editChapetaError}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <p style={{ color: 'var(--text-muted)', margin: '6px 0 0 0', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.5px' }}>
+                                        {selectedAnimal.etapa} • {selectedAnimal.nombre_propietario}
+                                    </p>
+                                </div>
+
+                                {isAdmin && (
+                                    <button
+                                        onClick={handleEliminarAnimalPorError}
+                                        title="Eliminar animal por error de digitación"
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '8px',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                                            color: '#f87171',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 500
+                                        }}
+                                    >
+                                        <Trash2 size={14} />
+                                        <span>Eliminar Registro (Error)</span>
+                                    </button>
+                                )}
                             </div>
 
                             <div style={{ 
@@ -1031,36 +1463,112 @@ export default function Inventory() {
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Ganancia Mensual</th>
+                                            {isAdmin && <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'right' }}>Acciones</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {timeline.map((item, index) => (
-                                            <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                <td style={{ padding: '12px 16px' }}>
-                                                    <div style={{ fontWeight: '500' }}>{format(new Date(item.fecha), 'dd/MM/yyyy')}</div>
-                                                    {item.esIngreso && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 'bold' }}>INGRESO</div>}
-                                                </td>
-                                                <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
-                                                    {item.peso}
-                                                </td>
-                                                <td style={{ padding: '12px 16px' }}>
-                                                    {item.esIngreso ? (
-                                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
-                                                    ) : (
-                                                        <>
-                                                            <div style={{ 
-                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedioGmp ? 'var(--warning)' : (item.gmp <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)')), 
-                                                                fontWeight: 'bold',
-                                                                textShadow: (item.gmp > umbralMedioGmp && item.gmp <= umbralAltoGmp) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
-                                                            }}>
-                                                                {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
+                                        {timeline.map((item, index) => {
+                                            const isEditingThis = Boolean(editingPesaje && item.pesajeId && editingPesaje.id === item.pesajeId);
+                                            if (isEditingThis && editingPesaje) {
+                                                return (
+                                                    <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(16, 185, 129, 0.06)' }}>
+                                                        <td colSpan={4} style={{ padding: '14px 16px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Fecha Pesaje</label>
+                                                                    <input
+                                                                        type="date"
+                                                                        value={editingPesaje.fecha}
+                                                                        onChange={e => setEditingPesaje(prev => prev ? { ...prev, fecha: e.target.value } : null)}
+                                                                        style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.85rem' }}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Peso (kg)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.1"
+                                                                        value={editingPesaje.peso}
+                                                                        onChange={e => setEditingPesaje(prev => prev ? { ...prev, peso: e.target.value } : null)}
+                                                                        style={{ width: '100px', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.85rem' }}
+                                                                    />
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                                    <button
+                                                                        onClick={handleGuardarEdicionPesaje}
+                                                                        disabled={loading}
+                                                                        style={{ padding: '7px 14px', borderRadius: '6px', backgroundColor: 'var(--primary)', border: 'none', color: 'white', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                                    >
+                                                                        <Check size={14} /> Guardar
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setEditingPesaje(null)}
+                                                                        style={{ padding: '7px 12px', borderRadius: '6px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer' }}
+                                                                    >
+                                                                        Cancelar
+                                                                    </button>
+                                                                </div>
                                                             </div>
-                                                            <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>GDP: {item.gdp > 0 ? '+' : ''}{item.gdp.toFixed(3)} kg/día</div>
-                                                        </>
+                                                            <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', marginTop: '8px' }}>
+                                                                ℹ️ Al guardar, se recalculará automáticamente la GDP del pesaje siguiente y todos los posteriores.
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }
+
+                                            return (
+                                                <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <td style={{ padding: '12px 16px' }}>
+                                                        <div style={{ fontWeight: '500' }}>{format(new Date(item.fecha), 'dd/MM/yyyy')}</div>
+                                                        {item.esIngreso && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 'bold' }}>INGRESO</div>}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
+                                                        {item.peso}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px' }}>
+                                                        {item.esIngreso ? (
+                                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
+                                                        ) : (
+                                                            <>
+                                                                <div style={{ 
+                                                                    color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedioGmp ? 'var(--warning)' : (item.gmp <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)')), 
+                                                                    fontWeight: 'bold',
+                                                                    textShadow: (item.gmp > umbralMedioGmp && item.gmp <= umbralAltoGmp) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
+                                                                }}>
+                                                                    {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>GDP: {item.gdp > 0 ? '+' : ''}{item.gdp.toFixed(3)} kg/día</div>
+                                                            </>
+                                                        )}
+                                                    </td>
+                                                    {isAdmin && (
+                                                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                                            {item.esIngreso || !item.pesajeId ? (
+                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic' }}>Base</span>
+                                                            ) : (
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                                                    <button
+                                                                        onClick={() => setEditingPesaje({ id: item.pesajeId!, fecha: item.fecha.split('T')[0], peso: item.peso.toString() })}
+                                                                        title="Editar este pesaje"
+                                                                        style={{ padding: '5px 7px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--primary-light)', cursor: 'pointer' }}
+                                                                    >
+                                                                        <Pencil size={13} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleEliminarPesaje(item.pesajeId!, format(new Date(item.fecha), 'dd/MM/yyyy'))}
+                                                                        title="Eliminar este pesaje"
+                                                                        style={{ padding: '5px 7px', borderRadius: '4px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#f87171', cursor: 'pointer' }}
+                                                                    >
+                                                                        <Trash2 size={13} />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </td>
                                                     )}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

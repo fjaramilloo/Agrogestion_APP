@@ -4,9 +4,20 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award } from 'lucide-react';
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
+import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 // @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
 import { getLocalIsoDate } from '../utils/dateUtils';
+
+interface CargaMasivaItem {
+    id: string;
+    tipo: 'animales' | 'pesajes';
+    nombre_archivo: string;
+    total_registros: number;
+    fecha_carga: string;
+    creado_en: string;
+    estado: string;
+}
 
 const parseFechaCol = (fechaStr: string) => {
     if (!fechaStr) return null;
@@ -59,7 +70,7 @@ const cleanNumber = (val: any): number => {
 
 export default function Settings() {
     const navigate = useNavigate();
-    const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, setModoGanancia, licenciaInfo } = useAuth();
+    const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, setModoGanancia, licenciaInfo, refreshLicencia } = useAuth();
     const [umbral, setUmbral] = useState('0.434');
     const [participacionUtilidad, setParticipacionUtilidad] = useState('60');
     // Umbrales: siempre en la unidad seleccionada para display; se convierten a kg/mes al guardar
@@ -79,6 +90,7 @@ export default function Settings() {
         omitidosList: string[];
     } | null>(null);
     const [importProgress, setImportProgress] = useState<{ current: number, total: number } | null>(null);
+    const [cargasMasivasHoy, setCargasMasivasHoy] = useState<CargaMasivaItem[]>([]);
 
     // Estados para Cambio de Contraseña
     const [newPassword, setNewPassword] = useState('');
@@ -102,14 +114,18 @@ export default function Settings() {
     });
 
     const toggleSection = (section: keyof typeof collapsed) => {
-        setCollapsed(prev => ({
+        const nextState = !collapsed[section];
+        setCollapsed({
             seguridad: true,
             datosTecnicos: true,
             usuarios: true,
             contactosNegocio: true,
             cargasMasivas: true,
-            [section]: !prev[section]
-        }));
+            [section]: nextState
+        });
+        if (section === 'cargasMasivas' && nextState) {
+            fetchCargasMasivasHoy();
+        }
     };
 
     // Estados para creación de usuario
@@ -212,6 +228,119 @@ export default function Settings() {
         if (!error && data) setCompradores(data);
     };
 
+    const fetchCargasMasivasHoy = async () => {
+        if (!fincaId) return;
+        const hoy = getLocalIsoDate();
+        const { data, error } = await supabase
+            .from('cargas_masivas')
+            .select('id, tipo, nombre_archivo, total_registros, fecha_carga, creado_en, estado')
+            .eq('id_finca', fincaId)
+            .eq('fecha_carga', hoy)
+            .eq('estado', 'activa')
+            .order('creado_en', { ascending: false });
+
+        if (!error && data) {
+            setCargasMasivasHoy(data as CargaMasivaItem[]);
+        }
+    };
+
+    const handleRevertirCargaMasiva = async (carga: CargaMasivaItem) => {
+        const tipoLabel = carga.tipo === 'animales' ? 'animales' : 'pesajes';
+        if (!confirm(`¿Está seguro de revertir la carga masiva de ${tipoLabel} "${carga.nombre_archivo || 'archivo CSV'}" (${carga.total_registros} registros)? Esta acción eliminará los datos cargados en esta importación.`)) {
+            return;
+        }
+
+        setLoading(true);
+        setMsjError('');
+        setMsjExito('');
+
+        try {
+            if (carga.tipo === 'animales') {
+                // 1. Validar que ninguno de los animales importados tenga ventas
+                const { data: animalesCarga, error: errCheck } = await supabase
+                    .from('animales')
+                    .select('id, numero_chapeta, fecha_venta')
+                    .eq('id_carga_masiva', carga.id);
+
+                if (errCheck) throw errCheck;
+
+                const conVenta = animalesCarga?.filter(a => a.fecha_venta) || [];
+                if (conVenta.length > 0) {
+                    throw new Error(`No se puede deshacer la carga: ${conVenta.length} animal(es) ya tienen ventas registradas (ej. #${conVenta[0].numero_chapeta}).`);
+                }
+
+                const animalIds = animalesCarga?.map(a => a.id) || [];
+                if (animalIds.length > 0) {
+                    // Eliminar pesajes asociados a estos animales
+                    await supabase
+                        .from('registros_pesaje')
+                        .delete()
+                        .in('id_animal', animalIds);
+
+                    // Eliminar animales cargados en esta sesión
+                    await supabase
+                        .from('animales')
+                        .delete()
+                        .eq('id_carga_masiva', carga.id);
+                }
+
+                // Marcar carga como revertida
+                await supabase
+                    .from('cargas_masivas')
+                    .update({ estado: 'revertida' })
+                    .eq('id', carga.id);
+
+                await refreshLicencia();
+                setMsjExito(`Carga de animales "${carga.nombre_archivo}" revertida con éxito.`);
+                setShowExitoModal(true);
+            } else if (carga.tipo === 'pesajes') {
+                // 1. Obtener los pesajes para identificar qué animales se ven afectados
+                const { data: pesajesABorrar, error: errGetP } = await supabase
+                    .from('registros_pesaje')
+                    .select('id, id_animal')
+                    .eq('id_carga_masiva', carga.id);
+
+                if (errGetP) throw errGetP;
+
+                const animalesAfectados = Array.from(new Set(pesajesABorrar?.map(p => p.id_animal).filter(Boolean))) as string[];
+
+                // 2. Eliminar los pesajes cargados
+                const { error: errDel } = await supabase
+                    .from('registros_pesaje')
+                    .delete()
+                    .eq('id_carga_masiva', carga.id);
+
+                if (errDel) throw errDel;
+
+                // 3. Marcar carga como revertida
+                await supabase
+                    .from('cargas_masivas')
+                    .update({ estado: 'revertida' })
+                    .eq('id', carga.id);
+
+                // 4. Recalcular en cascada las ganancias de cada animal afectado (Ultra rápido en PostgreSQL)
+                if (animalesAfectados.length > 0) {
+                    const { error: rpcErr } = await supabase.rpc('recalcular_historial_pesajes_animales', { p_id_animales: animalesAfectados });
+                    if (rpcErr) {
+                        for (const aId of animalesAfectados) {
+                            await recalcularHistorialPesajesAnimal(aId, supabase);
+                        }
+                    }
+                }
+
+                setMsjExito(`Carga de pesajes "${carga.nombre_archivo}" revertida y ganancias recalculadas con éxito.`);
+                setShowExitoModal(true);
+            }
+
+            await fetchCargasMasivasHoy();
+        } catch (err: any) {
+            setMsjError('Error al revertir la carga: ' + (err.message || err));
+            setShowErrorModal(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // fetchPotreradas movido a Potreradas.tsx
 
 
@@ -258,6 +387,7 @@ export default function Settings() {
         fetchProveedores();
         fetchCompradores();
         fetchFincaInfo();
+        fetchCargasMasivasHoy();
 
         if (fincaId && selectedFincas.length === 0) {
             setSelectedFincas([fincaId]);
@@ -697,6 +827,36 @@ export default function Settings() {
                     // 5. Insertar animales nuevos
                     let insertados = 0;
                     if (rowsNuevos.length > 0) {
+                        // Crear registro de carga masiva
+                        let idCargaMasiva: string | null = null;
+                        try {
+                            const userResp = await supabase.auth.getUser();
+                            const { data: cargaReg, error: errCarga } = await supabase
+                                .from('cargas_masivas')
+                                .insert({
+                                    id_finca: fincaId,
+                                    usuario_id: userResp.data.user?.id,
+                                    tipo: 'animales',
+                                    nombre_archivo: file.name,
+                                    total_registros: rowsNuevos.length,
+                                    fecha_carga: getLocalIsoDate(),
+                                    estado: 'activa'
+                                })
+                                .select('id')
+                                .single();
+                            if (!errCarga && cargaReg) {
+                                idCargaMasiva = cargaReg.id;
+                            }
+                        } catch (eCarga) {
+                            console.warn("No se pudo registrar en cargas_masivas:", eCarga);
+                        }
+
+                        if (idCargaMasiva) {
+                            rowsNuevos.forEach((r: any) => {
+                                r.id_carga_masiva = idCargaMasiva;
+                            });
+                        }
+
                         const { data: nuevosAnimales, error: errIns } = await supabase
                             .from('animales')
                             .insert(rowsNuevos)
@@ -712,7 +872,8 @@ export default function Settings() {
                                 fecha: animal.fecha_ingreso,
                                 etapa: animal.etapa,
                                 id_potrero: animal.id_potrero_actual,
-                                gdp_calculada: 0
+                                gdp_calculada: 0,
+                                id_carga_masiva: idCargaMasiva
                             }));
 
                             const { error: errPesajesInit } = await supabase
@@ -723,6 +884,8 @@ export default function Settings() {
                                 console.error("Error al crear pesajes iniciales para animales nuevos:", errPesajesInit);
                             }
                         }
+
+                        await fetchCargasMasivasHoy();
                     }
 
                     // 6. Preparar reporte detallado
@@ -975,6 +1138,35 @@ export default function Settings() {
                     // 5. Insertar los nuevos pesajes - MEJORA: AHORA EN BATCH DE 200
                     let pesajesInsertados = 0;
                     if (recordsInsert.length > 0) {
+                        let idCargaMasiva: string | null = null;
+                        try {
+                            const userResp = await supabase.auth.getUser();
+                            const { data: cargaReg, error: errCarga } = await supabase
+                                .from('cargas_masivas')
+                                .insert({
+                                    id_finca: fincaId,
+                                    usuario_id: userResp.data.user?.id,
+                                    tipo: 'pesajes',
+                                    nombre_archivo: file.name,
+                                    total_registros: recordsInsert.length,
+                                    fecha_carga: getLocalIsoDate(),
+                                    estado: 'activa'
+                                })
+                                .select('id')
+                                .single();
+                            if (!errCarga && cargaReg) {
+                                idCargaMasiva = cargaReg.id;
+                            }
+                        } catch (eCarga) {
+                            console.warn("No se pudo registrar en cargas_masivas:", eCarga);
+                        }
+
+                        if (idCargaMasiva) {
+                            recordsInsert.forEach((r: any) => {
+                                r.id_carga_masiva = idCargaMasiva;
+                            });
+                        }
+
                         for (let i = 0; i < recordsInsert.length; i += 200) {
                             const batch = recordsInsert.slice(i, i + 200);
                             const { error: insertError } = await supabase.from('registros_pesaje').insert(batch);
@@ -982,6 +1174,19 @@ export default function Settings() {
                             pesajesInsertados += batch.length;
                             setImportProgress({ current: i + batch.length, total: recordsInsert.length });
                         }
+
+                        // Recalcular en cascada las ganancias para los animales pesados (Ultra rápido en PostgreSQL)
+                        const animalesPesados = Array.from(new Set(recordsInsert.map((r: any) => r.id_animal).filter(Boolean))) as string[];
+                        if (animalesPesados.length > 0) {
+                            const { error: rpcErr } = await supabase.rpc('recalcular_historial_pesajes_animales', { p_id_animales: animalesPesados });
+                            if (rpcErr) {
+                                for (const aId of animalesPesados) {
+                                    await recalcularHistorialPesajesAnimal(aId, supabase);
+                                }
+                            }
+                        }
+
+                        await fetchCargasMasivasHoy();
                     }
 
                     // 6. Mensaje de éxito detallado
@@ -1717,6 +1922,85 @@ export default function Settings() {
                                             <a href="/plantilla_rotaciones_potreros.csv" download style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>Plantilla</a>
                                             <input type="file" id="bulkRotacionSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkRotacionesUpload} />
                                         </div>
+                                    </div>
+
+                                    {/* Tabla de Cargas Masivas de Hoy */}
+                                    <div style={{ marginTop: '28px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '20px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                            <h4 style={{ fontSize: '1rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                                                <span>Cargas Masivas Realizadas Hoy</span>
+                                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>
+                                                    {cargasMasivasHoy.length}
+                                                </span>
+                                            </h4>
+                                        </div>
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                                            Si cometiste un error al cargar datos hoy, puedes revertir la carga haciendo clic en la papelera. Esta opción de deshacer está disponible únicamente durante el día de la carga (a medianoche se cierra automáticamente por seguridad).
+                                        </p>
+                                        {cargasMasivasHoy.length === 0 ? (
+                                            <div style={{ padding: '18px', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.08)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                No se han realizado cargas masivas el día de hoy.
+                                            </div>
+                                        ) : (
+                                            <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                                                    <thead style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                                        <tr>
+                                                            <th style={{ padding: '10px 14px' }}>Tipo</th>
+                                                            <th style={{ padding: '10px 14px' }}>Archivo</th>
+                                                            <th style={{ padding: '10px 14px' }}>Registros</th>
+                                                            <th style={{ padding: '10px 14px' }}>Hora</th>
+                                                            <th style={{ padding: '10px 14px', textAlign: 'right' }}>Deshacer</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {cargasMasivasHoy.map(c => (
+                                                            <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                                <td style={{ padding: '10px 14px' }}>
+                                                                    <span style={{
+                                                                        padding: '3px 8px',
+                                                                        borderRadius: '6px',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: 'bold',
+                                                                        backgroundColor: c.tipo === 'animales' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                                                                        color: c.tipo === 'animales' ? '#4ade80' : '#60a5fa'
+                                                                    }}>
+                                                                        {c.tipo === 'animales' ? 'Inventario' : 'Pesajes'}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ padding: '10px 14px', fontWeight: '500' }}>{c.nombre_archivo || 'Archivo CSV'}</td>
+                                                                <td style={{ padding: '10px 14px' }}>{c.total_registros}</td>
+                                                                <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
+                                                                    {new Date(c.creado_en).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </td>
+                                                                <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                                                                    <button
+                                                                        onClick={() => handleRevertirCargaMasiva(c)}
+                                                                        title="Deshacer esta carga masiva"
+                                                                        style={{
+                                                                            padding: '6px 10px',
+                                                                            borderRadius: '6px',
+                                                                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                            color: '#f87171',
+                                                                            cursor: 'pointer',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '6px',
+                                                                            fontSize: '0.8rem',
+                                                                            fontWeight: 500
+                                                                        }}
+                                                                    >
+                                                                        <Trash2 size={15} />
+                                                                        <span>Deshacer</span>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

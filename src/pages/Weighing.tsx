@@ -105,6 +105,7 @@ export default function Weighing() {
             `)
             .eq('animales.id_finca', fincaId)
             .eq('fecha', hoy)
+            .or('is_deleted.is.null,is_deleted.eq.false')
             .order('id', { ascending: false })
             .limit(50);
 
@@ -154,7 +155,8 @@ export default function Weighing() {
                     .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada')
                     .eq('id_finca', fincaId)
                     .eq('numero_chapeta', targetChapeta)
-                    .single();
+                    .or('is_deleted.is.null,is_deleted.eq.false')
+                    .maybeSingle();
                 data = res.data;
             } catch (e) {
                 data = null;

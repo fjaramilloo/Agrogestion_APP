@@ -28,6 +28,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         `)
         .eq('id_finca', fincaId)
         .eq('estado', 'activo')
+        .or('is_deleted.is.null,is_deleted.eq.false')
         .limit(50000),
 
       supabase

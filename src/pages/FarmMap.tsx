@@ -181,7 +181,8 @@ export const FarmMapPage: React.FC = () => {
           )
         `)
         .eq('id_finca', fincaId)
-        .eq('estado', 'activo');
+        .eq('estado', 'activo')
+        .or('is_deleted.is.null,is_deleted.eq.false');
 
       const calculateDaysDiff = (dateStr: string) => {
         if (!dateStr) return 0;
