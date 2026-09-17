@@ -4,7 +4,11 @@ CREATE OR REPLACE FUNCTION crear_trabajador_finca(
     p_password TEXT,
     p_finca_id UUID,
     p_rol rol_finca
-) RETURNS JSON AS $$
+) RETURNS JSON 
+LANGUAGE plpgsql 
+SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
+AS $$
 DECLARE
     v_caller_id UUID;
     v_is_superadmin BOOLEAN;
@@ -41,7 +45,7 @@ BEGIN
     END IF;
 
     -- 5. Crear usuario en auth.users (ID manual para control)
-    v_user_id := uuid_generate_v4();
+    v_user_id := gen_random_uuid();
     
     INSERT INTO auth.users (
       instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -49,7 +53,7 @@ BEGIN
       created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
     ) VALUES (
       '00000000-0000-0000-0000-000000000000', v_user_id, 'authenticated', 'authenticated', p_email,
-      crypt(p_password, gen_salt('bf')), current_timestamp, current_timestamp, current_timestamp,
+      extensions.crypt(p_password, extensions.gen_salt('bf')), current_timestamp, current_timestamp, current_timestamp,
       '{"provider":"email","providers":["email"]}', '{}', current_timestamp, current_timestamp, '', '', '', ''
     );
 
@@ -57,7 +61,7 @@ BEGIN
     INSERT INTO auth.identities (
       id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
     ) VALUES (
-      uuid_generate_v4(), v_user_id, v_user_id::text,
+      gen_random_uuid(), v_user_id, v_user_id::text,
       format('{"sub":"%s","email":"%s"}', v_user_id::text, p_email)::jsonb,
       'email', current_timestamp, current_timestamp, current_timestamp
     );
@@ -68,4 +72,4 @@ BEGIN
 
     RETURN json_build_object('success', true, 'user_id', v_user_id);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
