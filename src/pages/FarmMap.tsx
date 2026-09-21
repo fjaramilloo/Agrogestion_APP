@@ -219,7 +219,7 @@ export const FarmMapPage: React.FC = () => {
         let validCount = 0;
         let latestPesajeDate: string | null = null;
 
-        animales.forEach((a: any) => {
+        for (const a of animales) {
           const registros = (a.registros_pesaje || []).sort(
             (x: any, y: any) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
           );
@@ -252,13 +252,14 @@ export const FarmMapPage: React.FC = () => {
           } else {
             sumPesoEstimado += pesoActual;
           }
-        });
+        }
 
         // Formato legible de fecha de pesaje (ej. 15 Ago o hace X días)
         let formattedPesajeDate: string | null = null;
-        if (latestPesajeDate) {
-          const d = new Date(latestPesajeDate.split('T')[0] + 'T00:00:00');
-          const dias = calculateDaysDiff(latestPesajeDate);
+        const targetPesajeDate: string | null = latestPesajeDate;
+        if (targetPesajeDate) {
+          const d = new Date(targetPesajeDate.split('T')[0] + 'T00:00:00');
+          const dias = calculateDaysDiff(targetPesajeDate);
           const dateStr = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
           formattedPesajeDate = dias === 0 ? 'Hoy' : dias === 1 ? 'Ayer' : `${dateStr} (hace ${dias}d)`;
         }

@@ -26,3 +26,6 @@ dist-ssr
 # Backups
 backups/
 *.sql
+
+# Documentos internos / prompts IA
+DOSSIER_AGROGESTION_PARA_IA.md
