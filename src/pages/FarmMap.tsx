@@ -170,6 +170,7 @@ export const FarmMapPage: React.FC = () => {
         .select(`
           id,
           id_potrerada,
+          nombre_propietario,
           peso_ingreso,
           peso_compra,
           fecha_ingreso,
@@ -198,6 +199,8 @@ export const FarmMapPage: React.FC = () => {
         total_animales: number;
         peso_promedio: number;
         peso_promedio_estimado: number;
+        marcas: string[];
+        fecha_ultimo_pesaje?: string | null;
       }>();
 
       const animalesPorPotrerada = new Map<string, any[]>();
@@ -214,6 +217,7 @@ export const FarmMapPage: React.FC = () => {
         let sumPeso = 0;
         let sumPesoEstimado = 0;
         let validCount = 0;
+        let latestPesajeDate: string | null = null;
 
         animales.forEach((a: any) => {
           const registros = (a.registros_pesaje || []).sort(
@@ -223,6 +227,12 @@ export const FarmMapPage: React.FC = () => {
           const lastP = registros[0];
           const pesoBase = Number(a.peso_compra ?? a.peso_ingreso ?? 0);
           const pesoActual = lastP ? Number(lastP.peso) : pesoBase;
+
+          if (lastP?.fecha) {
+            if (!latestPesajeDate || new Date(lastP.fecha).getTime() > new Date(latestPesajeDate).getTime()) {
+              latestPesajeDate = lastP.fecha;
+            }
+          }
 
           sumPeso += pesoActual;
           validCount++;
@@ -244,10 +254,27 @@ export const FarmMapPage: React.FC = () => {
           }
         });
 
+        // Formato legible de fecha de pesaje (ej. 15 Ago o hace X días)
+        let formattedPesajeDate: string | null = null;
+        if (latestPesajeDate) {
+          const d = new Date(latestPesajeDate.split('T')[0] + 'T00:00:00');
+          const dias = calculateDaysDiff(latestPesajeDate);
+          const dateStr = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+          formattedPesajeDate = dias === 0 ? 'Hoy' : dias === 1 ? 'Ayer' : `${dateStr} (hace ${dias}d)`;
+        }
+
+        // Calcular marcas (propietarios únicos) de esta potrerada
+        const marcasSet = new Set<string>();
+        animales.forEach((a: any) => {
+          if (a.nombre_propietario) marcasSet.add(a.nombre_propietario);
+        });
+
         potreradaMetricsMap.set(potreradaId, {
           total_animales: validCount,
           peso_promedio: validCount > 0 ? Math.round(sumPeso / validCount) : 0,
           peso_promedio_estimado: validCount > 0 ? Math.round(sumPesoEstimado / validCount) : 0,
+          marcas: Array.from(marcasSet).sort(),
+          fecha_ultimo_pesaje: formattedPesajeDate,
         });
       });
 
@@ -259,6 +286,8 @@ export const FarmMapPage: React.FC = () => {
         peso_promedio_estimado: number;
         dias_en_potrero: number;
         fecha_entrada?: string;
+        marcas: string[];
+        fecha_ultimo_pesaje?: string | null;
       }>();
 
       (movsData || []).forEach((m: any) => {
@@ -267,6 +296,7 @@ export const FarmMapPage: React.FC = () => {
             total_animales: 0,
             peso_promedio: 0,
             peso_promedio_estimado: 0,
+            marcas: [] as string[],
           };
           const diasOcupacion = m.fecha_entrada ? calculateDaysDiff(m.fecha_entrada) : 0;
 
@@ -278,6 +308,8 @@ export const FarmMapPage: React.FC = () => {
             peso_promedio_estimado: metrics.peso_promedio_estimado,
             dias_en_potrero: diasOcupacion,
             fecha_entrada: m.fecha_entrada,
+            marcas: metrics.marcas,
+            fecha_ultimo_pesaje: metrics.fecha_ultimo_pesaje,
           });
         }
       });

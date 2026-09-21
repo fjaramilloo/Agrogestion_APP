@@ -18,6 +18,8 @@ interface PotreroMapData {
     peso_promedio_estimado: number;
     dias_en_potrero: number;
     fecha_entrada?: string;
+    marcas: string[];
+    fecha_ultimo_pesaje?: string | null;
   } | null;
 }
 
@@ -637,7 +639,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
       {/* Banner de Estado GPS / Ubicación Actual (Solo Premium) */}
       {tipoLicencia === 'premium' && currentPaddock && (
-        <div style={{
+      <div style={{
           position: 'absolute',
           top: '16px',
           left: '50%',
@@ -645,28 +647,49 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           backgroundColor: 'rgba(15, 23, 42, 0.95)',
           backdropFilter: 'blur(10px)',
           border: '1px solid #3B82F6',
-          borderRadius: '20px',
-          padding: '10px 22px',
+          borderRadius: '16px',
+          padding: '10px 18px',
           color: '#F8FAFC',
-          fontSize: '0.85rem',
+          fontSize: '0.82rem',
           zIndex: 1000,
           boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          gap: '4px',
+          alignItems: 'flex-start',
+          gap: '5px',
           maxWidth: '90%',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3B82F6' }} />
-            📍 Estás en: <span style={{ color: '#60A5FA' }}>{currentPaddock.nombre}</span> ({currentPaddock.area_hectareas} Ha)
+          {/* Fila 1: dónde estás */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.88rem' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3B82F6', flexShrink: 0 }} />
+            📍 Estás en: <span style={{ color: '#60A5FA' }}>{currentPaddock.nombre}</span>
+            <span style={{ color: '#94A3B8', fontWeight: 400, fontSize: '0.78rem' }}>{currentPaddock.area_hectareas} Ha</span>
           </div>
           {currentPaddock.potrerada_actual && (
-            <div style={{ fontSize: '0.78rem', color: '#94A3B8', display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <span>🐮 <strong>{currentPaddock.potrerada_actual.nombre}</strong> ({currentPaddock.potrerada_actual.total_animales} cbs)</span>
-              <span>⏱️ <strong>{currentPaddock.potrerada_actual.dias_en_potrero} días</strong></span>
-              <span>⚖️ Prom: <strong>{currentPaddock.potrerada_actual.peso_promedio} kg</strong></span>
-              <span>📈 Est: <strong>{currentPaddock.potrerada_actual.peso_promedio_estimado} kg</strong></span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '18px' }}>
+              {/* Fila 2: animales */}
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', color: '#CBD5E1', fontSize: '0.78rem' }}>
+                <span>🐄 <strong style={{ color: '#F8FAFC' }}>{currentPaddock.potrerada_actual.total_animales} animales</strong></span>
+                <span>⏱️ <strong>{currentPaddock.potrerada_actual.dias_en_potrero} días</strong></span>
+                <span>⚖️ Prom: <strong>{currentPaddock.potrerada_actual.peso_promedio} kg</strong></span>
+                <span>📈 Est: <strong>{currentPaddock.potrerada_actual.peso_promedio_estimado} kg</strong></span>
+              </div>
+              {/* Fila 3: marcas / propietarios */}
+              {currentPaddock.potrerada_actual.marcas && currentPaddock.potrerada_actual.marcas.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '0.75rem', color: '#94A3B8' }}>
+                  <span>🏷️ Marca{currentPaddock.potrerada_actual.marcas.length > 1 ? 's' : ''}:</span>
+                  {currentPaddock.potrerada_actual.marcas.map((m, i) => (
+                    <span key={i} style={{
+                      backgroundColor: '#1E3A5F',
+                      color: '#93C5FD',
+                      padding: '1px 7px',
+                      borderRadius: '99px',
+                      fontWeight: 600,
+                      fontSize: '0.72rem',
+                    }}>{m}</span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -903,14 +926,20 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', borderBottom: '1px solid #334155', paddingBottom: '8px' }}>
                 <Users size={18} color="#94A3B8" />
                 <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#F1F5F9' }}>
-                  {selectedPotrero.potrerada_actual.nombre}
+                  Lote de Ganado
                 </span>
+                {/* Mostrar nombre del lote solo si difiere del nombre del potrero */}
+                {selectedPotrero.potrerada_actual.nombre !== selectedPotrero.nombre && (
+                  <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 400 }}>
+                    · {selectedPotrero.potrerada_actual.nombre}
+                  </span>
+                )}
               </div>
 
               {/* Grid de 4 Métricas Clave */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '4px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                 <div style={{ backgroundColor: '#0F172A', padding: '8px', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>🐮 Animales</div>
+                  <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>🐄 Animales</div>
                   <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#F8FAFC' }}>
                     {selectedPotrero.potrerada_actual.total_animales} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#94A3B8' }}>cabezas</span>
                   </div>
@@ -928,6 +957,11 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                   <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#38BDF8' }}>
                     {selectedPotrero.potrerada_actual.peso_promedio} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#94A3B8' }}>kg</span>
                   </div>
+                  {selectedPotrero.potrerada_actual.fecha_ultimo_pesaje && (
+                    <div style={{ fontSize: '0.65rem', color: '#64748B', marginTop: '2px', fontWeight: 500 }}>
+                      📅 {selectedPotrero.potrerada_actual.fecha_ultimo_pesaje}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ backgroundColor: '#0F172A', padding: '8px', borderRadius: '8px' }}>
@@ -937,6 +971,25 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Marcas / Propietarios */}
+              {selectedPotrero.potrerada_actual.marcas && selectedPotrero.potrerada_actual.marcas.length > 0 && (
+                <div style={{ backgroundColor: '#0F172A', padding: '10px 12px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginBottom: '6px' }}>🏷️ Marca / Propietario</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {selectedPotrero.potrerada_actual.marcas.map((m, i) => (
+                      <span key={i} style={{
+                        backgroundColor: '#1E3A5F',
+                        color: '#93C5FD',
+                        padding: '3px 10px',
+                        borderRadius: '99px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                      }}>{m}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ fontSize: '0.85rem', color: '#94A3B8', marginBottom: '16px', fontStyle: 'italic', backgroundColor: '#1E293B50', padding: '12px', borderRadius: '10px' }}>
