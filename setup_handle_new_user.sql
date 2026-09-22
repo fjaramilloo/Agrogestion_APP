@@ -1,6 +1,7 @@
 -- Actualización del trigger handle_new_user para soporte de Auto-registro y creación automática de Cuenta Demo
 -- FIX: Añadido SET LOCAL row_security = off para que el SECURITY DEFINER pueda bypassear RLS
 --      (las políticas RLS usan auth.uid() que es NULL durante el trigger de registro)
+-- v2: Añadida notificación automática al admin via pg_net + Edge Function notify-new-user
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
@@ -55,6 +56,30 @@ BEGIN
     INSERT INTO public.configuracion_kpi (id_finca, umbral_bajo_gdp)
     VALUES (v_finca_id, 0.434)
     ON CONFLICT (id_finca) DO NOTHING;
+
+    -- 5. Notificar al administrador por correo (llamada asíncrona via pg_net)
+    --    NO bloquea el registro del usuario aunque falle el envío del correo
+    BEGIN
+      PERFORM net.http_post(
+        url := 'https://attusafghupkdkjkmxkd.supabase.co/functions/v1/notify-new-user',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'x-function-secret', 'agrogestion_notify_2026'
+        ),
+        body := jsonb_build_object(
+          'nombre',              COALESCE(v_nombre, ''),
+          'apellido',            COALESCE(v_apellido, ''),
+          'email',               new.email,
+          'nombre_organizacion', COALESCE(v_nombre_org, ''),
+          'nombre_finca',        COALESCE(v_nombre_finca, ''),
+          'created_at',          new.created_at::text
+        )
+      );
+    EXCEPTION WHEN OTHERS THEN
+      -- Si falla la notificación, NO se interrumpe el registro del usuario
+      RAISE WARNING '[handle_new_user] No se pudo enviar notificacion al admin: %', SQLERRM;
+    END;
+
   END IF;
 
   RETURN new;
