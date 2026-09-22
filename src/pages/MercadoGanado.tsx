@@ -382,7 +382,7 @@ export default function MercadoGanado() {
     };    const whatsappMessage = encodeURIComponent(
         `Hola, deseo actualizar mi plan en AgroGestión para desbloquear el monitor completo de mercado regional y la valoración de inventario.`
     );
-    const whatsappLink = `https://wa.me/573117424489?text=${whatsappMessage}`;
+    const whatsappLink = `https://wa.me/fedejaramilloo?text=${whatsappMessage}`;
 
     if (loading) {
         return (

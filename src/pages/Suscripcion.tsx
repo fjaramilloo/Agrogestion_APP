@@ -56,7 +56,7 @@ export default function Suscripcion() {
             : `Periodicidad: ${periodoStr}${totalTexto ? ` (${totalTexto})` : ''}`;
 
         const msg = `Hola, deseo solicitar la ${textAction} de mi licencia en AgroGestión.\nOrganización: ${organizacionNombre || 'Mi Empresa'}\nPlan solicitado: ${planNombre}\n${detallePeriodo}`;
-        return `https://wa.me/573117424489?text=${encodeURIComponent(msg)}`;
+        return `https://wa.me/fedejaramilloo?text=${encodeURIComponent(msg)}`;
     };
 
     const generalWhatsappLink = getWhatsappLink(
