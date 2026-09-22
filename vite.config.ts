@@ -40,6 +40,9 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Excluir PDFs del navegateFallback para que no sean interceptados por el SW
+        // cuando el usuario tiene la app abierta (evita que redirija al login)
+        navigateFallbackDenylist: [/\.pdf$/i, /\/manual-de-usuario\.pdf/, /\/guia-inicio-rapido\.pdf/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,

@@ -55,7 +55,7 @@ serve(async (req: Request) => {
       <table width="560" cellpadding="0" cellspacing="0" style="background:#162030;border-radius:12px;border:1px solid #1e3a2f;">
         <tr>
           <td style="background:linear-gradient(135deg,#1a4731,#0f2d1e);padding:28px 32px;text-align:center;border-radius:12px 12px 0 0;">
-            <img src="https://app-ganadera-plum.vercel.app/pwa-192x192.png" width="56" height="56" alt="AgroGestión" style="display:block;margin:0 auto 10px;border-radius:14px;border:0;outline:none;" />
+            <img src="https://www.appagrogestion.com/pwa-192x192.png" width="56" height="56" alt="AgroGestión" style="display:block;margin:0 auto 10px;border-radius:14px;border:0;outline:none;" />
             <h1 style="color:#60ad5e;margin:0;font-size:22px;font-weight:700;">AgroGestión</h1>
             <p style="color:#8bc34a;margin:6px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Nuevo Registro de Cuenta Demo</p>
           </td>
@@ -95,7 +95,7 @@ serve(async (req: Request) => {
               </td></tr>
             </table>
             <div style="text-align:center;">
-              <a href="https://app-ganadera.vercel.app" style="display:inline-block;background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;">
+              <a href="https://www.appagrogestion.com/superadmin" style="display:inline-block;background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;">
                 Ver Panel SuperAdmin &rarr;
               </a>
             </div>
