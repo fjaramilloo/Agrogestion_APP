@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Leaf, Check, X, Eye, EyeOff, Sparkles, ArrowLeft } from 'lucide-react';
+import { Leaf, Check, X, Eye, EyeOff, Sparkles, ArrowLeft, Mail, RefreshCw, ExternalLink } from 'lucide-react';
 
-type AuthMode = 'login' | 'register' | 'forgot';
+type AuthMode = 'login' | 'register' | 'forgot' | 'awaiting_confirmation';
 
 export default function Login() {
     const [mode, setMode] = useState<AuthMode>('login');
@@ -21,6 +21,12 @@ export default function Login() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+
+    // Estados para reenvío de confirmación
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendMessage, setResendMessage] = useState<string | null>(null);
+    const [resendError, setResendError] = useState<string | null>(null);
+
     const { user } = useAuth();
 
     if (user) {
@@ -44,6 +50,33 @@ export default function Login() {
     const resetFormStatus = () => {
         setError(null);
         setMessage(null);
+        setResendMessage(null);
+        setResendError(null);
+    };
+
+    const handleResendConfirmation = async () => {
+        if (!email.trim()) return;
+        setResendLoading(true);
+        setResendMessage(null);
+        setResendError(null);
+        try {
+            const { error: resendErr } = await supabase.auth.resend({
+                type: 'signup',
+                email: email.trim(),
+                options: {
+                    emailRedirectTo: `${window.location.origin}`,
+                }
+            });
+            if (resendErr) {
+                setResendError(resendErr.message || 'Error al reenviar el correo de activación.');
+            } else {
+                setResendMessage(`¡Enlace reenviado! Revisa tu bandeja de entrada o spam en ${email.trim()}.`);
+            }
+        } catch (err: any) {
+            setResendError(err.message || 'Error de conexión al reenviar el correo.');
+        } finally {
+            setResendLoading(false);
+        }
     };
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -56,7 +89,17 @@ export default function Login() {
                 password,
             });
             if (signInError) {
-                setError(signInError.message);
+                const msgLower = signInError.message.toLowerCase();
+                if (msgLower.includes('email not confirmed') || msgLower.includes('not confirmed') || msgLower.includes('no confirmado')) {
+                    setMode('awaiting_confirmation');
+                    setError(null);
+                    return;
+                }
+                if (msgLower.includes('invalid login credentials')) {
+                    setError('Correo o contraseña incorrectos.');
+                } else {
+                    setError(signInError.message);
+                }
             }
         } catch (err: any) {
             setError(err.message || "Ocurrió un error al intentar iniciar sesión");
@@ -110,8 +153,8 @@ export default function Login() {
             } else if (data.session) {
                 setMessage('¡Cuenta demo creada con éxito! Ingresando a tu panel...');
             } else if (data.user) {
-                setMessage(`¡Cuenta demo creada con éxito! Hemos enviado un enlace de confirmación a ${email.trim()}. Por favor revisa tu bandeja de entrada o spam para activar tu cuenta.`);
-                setMode('login');
+                setMode('awaiting_confirmation');
+                resetFormStatus();
             }
         } catch (err: any) {
             setError(err.message || "Ocurrió un error al crear la cuenta demo.");
@@ -145,7 +188,7 @@ export default function Login() {
             <div 
                 className="auth-box glass-panel" 
                 style={{ 
-                    maxWidth: mode === 'register' ? '480px' : '400px', 
+                    maxWidth: mode === 'register' ? '480px' : mode === 'awaiting_confirmation' ? '450px' : '400px', 
                     transition: 'all 0.3s ease',
                     boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
                     border: '1px solid rgba(255, 255, 255, 0.12)'
@@ -184,6 +227,23 @@ export default function Login() {
                         }}>
                             <Sparkles size={14} />
                             <span>Crear Cuenta Demo (Gratis)</span>
+                        </div>
+                    ) : mode === 'awaiting_confirmation' ? (
+                        <div style={{ 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '6px',
+                            background: 'rgba(74, 222, 128, 0.15)', 
+                            border: '1px solid rgba(74, 222, 128, 0.4)',
+                            color: '#4ade80', 
+                            padding: '4px 12px', 
+                            borderRadius: '20px', 
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            marginTop: '6px'
+                        }}>
+                            <Mail size={14} />
+                            <span>Activación de Cuenta</span>
                         </div>
                     ) : (
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', margin: 0 }}>
@@ -573,6 +633,228 @@ export default function Login() {
                             </button>
                         </div>
                     </form>
+                )}
+
+                {/* ==================================================== */}
+                {/* 4. MODO ESPERANDO CONFIRMACIÓN DE CORREO */}
+                {/* ==================================================== */}
+                {mode === 'awaiting_confirmation' && (
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '50%',
+                            background: 'rgba(74, 222, 128, 0.12)',
+                            border: '2px solid rgba(74, 222, 128, 0.35)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 16px',
+                            boxShadow: '0 0 24px rgba(74, 222, 128, 0.2)'
+                        }}>
+                            <Mail size={32} color="#4ade80" />
+                        </div>
+
+                        <h3 style={{ color: '#ffffff', fontSize: '1.2rem', fontWeight: 700, margin: '0 0 8px' }}>
+                            ¡Revisa tu correo para activar tu cuenta!
+                        </h3>
+
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.5, margin: '0 0 14px' }}>
+                            Para garantizar la seguridad de tu ganadería, enviamos un enlace de activación a:
+                        </p>
+
+                        <div style={{
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(74, 222, 128, 0.3)',
+                            borderRadius: '10px',
+                            padding: '10px 14px',
+                            marginBottom: '18px',
+                            color: '#4ade80',
+                            fontWeight: 600,
+                            fontSize: '0.95rem',
+                            wordBreak: 'break-all'
+                        }}>
+                            {email || 'tu correo registrado'}
+                        </div>
+
+                        {/* Pasos / Instrucciones */}
+                        <div style={{
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '10px',
+                            padding: '14px',
+                            textAlign: 'left',
+                            fontSize: '0.82rem',
+                            color: '#cbd5e1',
+                            lineHeight: 1.5,
+                            marginBottom: '18px'
+                        }}>
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                                <span>1️⃣</span>
+                                <span>Abre el correo de <strong>AgroGestión</strong> (asunto <em>Confirm your signup</em>).</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                                <span>2️⃣</span>
+                                <span>Toca el botón verde para activar tu cuenta y entrar de una vez a tu finca.</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', color: '#fbbf24', fontSize: '0.8rem' }}>
+                                <span>💡</span>
+                                <span>¿No lo ves en Recibidos? Revisa tu carpeta de <strong>Spam o Correo no deseado</strong>.</span>
+                            </div>
+                        </div>
+
+                        {/* Botón directo a proveedor de correo */}
+                        {email.toLowerCase().includes('@gmail') && (
+                            <a
+                                href="https://mail.google.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    background: '#ffffff',
+                                    color: '#0f172a',
+                                    padding: '12px 18px',
+                                    borderRadius: '10px',
+                                    fontWeight: 700,
+                                    fontSize: '0.88rem',
+                                    textDecoration: 'none',
+                                    marginBottom: '12px',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                                }}
+                            >
+                                <Mail size={16} />
+                                <span>Abrir mi Gmail</span>
+                                <ExternalLink size={14} />
+                            </a>
+                        )}
+
+                        {(email.toLowerCase().includes('@hotmail') || email.toLowerCase().includes('@outlook')) && (
+                            <a
+                                href="https://outlook.live.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    background: '#0078d4',
+                                    color: '#ffffff',
+                                    padding: '12px 18px',
+                                    borderRadius: '10px',
+                                    fontWeight: 700,
+                                    fontSize: '0.88rem',
+                                    textDecoration: 'none',
+                                    marginBottom: '12px',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                                }}
+                            >
+                                <Mail size={16} />
+                                <span>Abrir mi Outlook / Hotmail</span>
+                                <ExternalLink size={14} />
+                            </a>
+                        )}
+
+                        {/* Mensaje de feedback al reenviar */}
+                        {resendMessage && (
+                            <div style={{
+                                color: '#4ade80',
+                                background: 'rgba(74, 222, 128, 0.12)',
+                                border: '1px solid rgba(74, 222, 128, 0.3)',
+                                padding: '10px',
+                                borderRadius: '8px',
+                                fontSize: '0.82rem',
+                                marginBottom: '12px'
+                            }}>
+                                {resendMessage}
+                            </div>
+                        )}
+
+                        {resendError && (
+                            <div style={{
+                                color: '#f87171',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                padding: '10px',
+                                borderRadius: '8px',
+                                fontSize: '0.82rem',
+                                marginBottom: '12px'
+                            }}>
+                                {resendError}
+                            </div>
+                        )}
+
+                        {/* Botón Reenviar Correo */}
+                        <button
+                            type="button"
+                            onClick={handleResendConfirmation}
+                            disabled={resendLoading}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                background: 'rgba(46, 125, 50, 0.25)',
+                                border: '1px solid #4ade80',
+                                color: '#4ade80',
+                                width: '100%',
+                                padding: '11px',
+                                borderRadius: '10px',
+                                fontWeight: 600,
+                                fontSize: '0.86rem',
+                                cursor: 'pointer',
+                                marginBottom: '14px',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <RefreshCw size={15} className={resendLoading ? 'animate-spin' : ''} />
+                            <span>{resendLoading ? 'Reenviando correo...' : '¿No te llegó? Reenviar enlace de activación'}</span>
+                        </button>
+
+                        {/* Opciones de retorno */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMode('login');
+                                    resetFormStatus();
+                                }}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--primary-light)',
+                                    fontSize: '0.86rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    padding: '4px'
+                                }}
+                            >
+                                ← Ya lo confirmé, ir a Iniciar Sesión
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMode('register');
+                                    resetFormStatus();
+                                }}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-muted)',
+                                    fontSize: '0.8rem',
+                                    textDecoration: 'underline',
+                                    cursor: 'pointer',
+                                    padding: '4px'
+                                }}
+                            >
+                                ¿Escribiste mal tu correo? Volver a registrarte
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
