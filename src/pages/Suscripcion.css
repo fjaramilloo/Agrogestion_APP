@@ -1,0 +1,776 @@
+/* Suscripcion.css - Estilos responsivos optimizados para móvil y escritorio */
+
+.suscripcion-page {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+/* Header */
+.suscripcion-header {
+    margin-bottom: 28px;
+}
+
+.suscripcion-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.suscripcion-header-icon {
+    background: rgba(124, 58, 237, 0.15);
+    border: 1px solid rgba(124, 58, 237, 0.4);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.suscripcion-title {
+    margin: 0 0 4px;
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.suscripcion-subtitle {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* Current Plan Card */
+.suscripcion-current-card {
+    background: linear-gradient(145deg, rgba(30, 30, 48, 0.9), rgba(18, 18, 32, 0.95));
+    border: 1px solid rgba(124, 58, 237, 0.35);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 32px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    box-sizing: border-box;
+    position: relative;
+}
+
+.suscripcion-current-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.suscripcion-org-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.suscripcion-org-name {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 700;
+}
+
+.suscripcion-current-plan-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.suscripcion-current-plan-badge {
+    color: #a78bfa;
+    text-transform: uppercase;
+}
+
+/* Status chips (dates) */
+.suscripcion-status-chips {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.suscripcion-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 140px;
+}
+
+.suscripcion-chip-label {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.suscripcion-chip-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* Warning & Expiry Banners */
+.suscripcion-alert-banner {
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.suscripcion-alert-banner.expiry {
+    background: rgba(244, 67, 54, 0.12);
+    border: 1px solid rgba(244, 67, 54, 0.35);
+}
+
+.suscripcion-alert-banner.overflow {
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.suscripcion-alert-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex: 1;
+    min-width: 240px;
+}
+
+.suscripcion-alert-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #f87171;
+}
+
+.suscripcion-alert-desc {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.85);
+    margin-top: 3px;
+    line-height: 1.4;
+}
+
+.suscripcion-alert-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    color: #ffffff;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 2px 10px rgba(124, 58, 237, 0.4);
+    white-space: nowrap;
+}
+
+/* Usage Progress Box */
+.suscripcion-usage-box {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    padding: 16px 18px;
+}
+
+.suscripcion-usage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.suscripcion-usage-label {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.suscripcion-usage-stat {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.suscripcion-usage-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.suscripcion-progress-track {
+    width: 100%;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.suscripcion-progress-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.4s ease;
+}
+
+/* Section Header */
+.suscripcion-section-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 0 8px;
+}
+
+.suscripcion-section-title {
+    margin: 0 0 6px;
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.3px;
+}
+
+.suscripcion-section-subtitle {
+    margin: 0 auto;
+    max-width: 580px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+/* Period Selector (3 pills grid) */
+.suscripcion-periodo-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 32px;
+    width: 100%;
+}
+
+.suscripcion-periodo-pills {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    width: 100%;
+    max-width: 480px;
+    background: rgba(20, 20, 32, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 4px;
+    gap: 4px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+}
+
+.suscripcion-periodo-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    transition: all 0.2s ease;
+    outline: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.suscripcion-periodo-btn.active {
+    color: #ffffff;
+    font-weight: 700;
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    box-shadow: 0 3px 12px rgba(124, 58, 237, 0.45);
+}
+
+.suscripcion-periodo-btn:hover:not(.active) {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.suscripcion-periodo-badge {
+    font-size: 0.66rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+.suscripcion-periodo-badge.semestral {
+    background: rgba(56, 189, 248, 0.18);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.suscripcion-periodo-btn.active .suscripcion-periodo-badge.semestral {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    border: none;
+}
+
+.suscripcion-periodo-badge.anual {
+    background: rgba(16, 185, 129, 0.18);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.suscripcion-periodo-btn.active .suscripcion-periodo-badge.anual {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    border: none;
+}
+
+/* Plans Grid */
+.suscripcion-planes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 40px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.suscripcion-plan-card {
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-sizing: border-box;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.suscripcion-plan-card.actual {
+    border-width: 2px !important;
+    border-color: #a78bfa !important;
+    box-shadow: 0 0 28px rgba(167, 139, 250, 0.22);
+}
+
+.suscripcion-plan-actual-tag {
+    position: absolute;
+    top: -12px;
+    right: 20px;
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    color: #ffffff;
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+}
+
+.suscripcion-plan-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.suscripcion-plan-name {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+}
+
+.suscripcion-plan-badge {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.suscripcion-plan-pricing {
+    margin-bottom: 18px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.suscripcion-plan-price-main {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+}
+
+.suscripcion-plan-subprice {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+    font-weight: 500;
+}
+
+.suscripcion-plan-ahorro {
+    margin-top: 6px;
+}
+
+.suscripcion-plan-ahorro-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    border-radius: 6px;
+    padding: 2px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.suscripcion-plan-capacity-tag {
+    font-size: 0.88rem;
+    font-weight: 700;
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Feature list */
+.suscripcion-feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 24px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.suscripcion-feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.suscripcion-feature-icon {
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+.suscripcion-feature-text {
+    flex: 1;
+}
+
+/* Card CTA button */
+.suscripcion-plan-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.92rem;
+    min-height: 48px;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.suscripcion-plan-btn:active {
+    transform: scale(0.98);
+}
+
+/* Manual Payment / Activation Section */
+.suscripcion-activacion-card {
+    background: rgba(25, 25, 38, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 28px;
+    box-sizing: border-box;
+}
+
+.suscripcion-activacion-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.suscripcion-activacion-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.suscripcion-activacion-desc {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 0 0 20px;
+}
+
+.suscripcion-steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.suscripcion-step-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.suscripcion-step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(124, 58, 237, 0.2);
+    color: #a78bfa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+}
+
+.suscripcion-step-title {
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: #ffffff;
+    margin-bottom: 4px;
+}
+
+.suscripcion-step-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.suscripcion-activacion-btn {
+    background: #25D366;
+    color: #ffffff;
+    padding: 13px 24px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.92rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    box-shadow: 0 4px 14px rgba(37, 211, 102, 0.3);
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.suscripcion-activacion-btn:active {
+    transform: scale(0.98);
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN (TABLETS & MOBILE PHONES)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .suscripcion-page {
+        padding: 12px 4px 90px; /* Safe padding for bottom AgroBot on mobile */
+    }
+
+    .suscripcion-header {
+        margin-bottom: 20px;
+    }
+
+    .suscripcion-title {
+        font-size: 1.35rem;
+    }
+
+    .suscripcion-subtitle {
+        font-size: 0.84rem;
+    }
+
+    .suscripcion-current-card {
+        padding: 18px 14px;
+        margin-bottom: 24px;
+    }
+
+    .suscripcion-current-plan-title {
+        font-size: 1.2rem;
+    }
+
+    .suscripcion-status-chips {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .suscripcion-chip {
+        min-width: 0;
+        padding: 8px 10px;
+    }
+
+    .suscripcion-chip-value {
+        font-size: 0.78rem;
+    }
+
+    .suscripcion-alert-banner {
+        padding: 12px 14px;
+    }
+
+    .suscripcion-alert-btn {
+        width: 100%;
+        min-height: 42px;
+    }
+
+    .suscripcion-usage-box {
+        padding: 14px;
+    }
+
+    .suscripcion-usage-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .suscripcion-usage-label {
+        font-size: 0.82rem;
+    }
+
+    .suscripcion-usage-stat {
+        font-size: 0.98rem;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .suscripcion-section-title {
+        font-size: 1.25rem;
+    }
+
+    .suscripcion-section-subtitle {
+        font-size: 0.84rem;
+    }
+
+    /* Periodicidad selector on mobile: perfect 3-column pill layout */
+    .suscripcion-periodo-wrapper {
+        margin-bottom: 24px;
+        padding: 0 4px;
+    }
+
+    .suscripcion-periodo-pills {
+        gap: 3px;
+        padding: 3px;
+        max-width: 100%;
+    }
+
+    .suscripcion-periodo-btn {
+        flex-direction: column;
+        gap: 2px;
+        padding: 8px 4px;
+        font-size: 0.82rem;
+        min-height: 48px;
+    }
+
+    .suscripcion-periodo-badge {
+        font-size: 0.62rem;
+        padding: 1px 4px;
+    }
+
+    /* Cards grid: single column with full breathing room */
+    .suscripcion-planes-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+        margin-bottom: 30px;
+    }
+
+    .suscripcion-plan-card {
+        padding: 20px 16px;
+    }
+
+    .suscripcion-plan-name {
+        font-size: 1.2rem;
+    }
+
+    .suscripcion-plan-price-main {
+        font-size: 1.45rem;
+    }
+
+    .suscripcion-feature-item {
+        font-size: 0.85rem;
+    }
+
+    .suscripcion-steps-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .suscripcion-activacion-card {
+        padding: 20px 16px;
+    }
+
+    .suscripcion-activacion-btn {
+        width: 100%;
+    }
+}
+
+/* Extra small mobile phones (< 380px, e.g. iPhone SE, iPhone 5/SE/Mini) */
+@media (max-width: 380px) {
+    .suscripcion-status-chips {
+        grid-template-columns: 1fr;
+    }
+
+    .suscripcion-periodo-btn {
+        font-size: 0.78rem;
+    }
+
+    .suscripcion-periodo-badge {
+        font-size: 0.58rem;
+    }
+}

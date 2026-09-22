@@ -5,6 +5,7 @@ import {
     Building2, Calendar, MessageCircle,
     Clock, Sparkles, AlertTriangle
 } from 'lucide-react';
+import './Suscripcion.css';
 
 const CowIcon = ({ size = 16, color = 'currentColor', style = {} }: { size?: number; color?: string; style?: React.CSSProperties }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
@@ -184,80 +185,81 @@ export default function Suscripcion() {
     ];
 
     return (
-        <div className="page-container">
+        <div className="suscripcion-page">
             {/* Header */}
-            <div style={{ marginBottom: '32px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
-                    <div style={{ background: 'rgba(124, 58, 237, 0.15)', border: '1px solid rgba(124, 58, 237, 0.4)', borderRadius: '12px', padding: '10px', display: 'flex' }}>
-                        <Award size={28} color="#a78bfa" />
+            <div className="suscripcion-header">
+                <div className="suscripcion-header-inner">
+                    <div className="suscripcion-header-icon">
+                        <Award size={26} color="#a78bfa" />
                     </div>
                     <div>
-                        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, background: 'linear-gradient(135deg, #a78bfa, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                        <h1 className="suscripcion-title">
                             Estado de Suscripción y Licencia
                         </h1>
-                        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                            Consulta los límites de tu plan actual y las opciones para extender tu hato
+                        <p className="suscripcion-subtitle">
+                            Consulta los límites de tu plan actual y las opciones para extender tu hato ganadero
                         </p>
                     </div>
                 </div>
             </div>
 
             {/* Current Plan Status Card */}
-            <div style={{ background: 'linear-gradient(145deg, rgba(30,30,45,0.8), rgba(20,20,35,0.9))', border: '1px solid rgba(124, 58, 237, 0.3)', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+            <div className="suscripcion-current-card">
+                <div className="suscripcion-current-header">
                     <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <Building2 size={18} color="#a78bfa" />
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700 }}>
+                        <div className="suscripcion-org-meta">
+                            <Building2 size={16} color="#a78bfa" />
+                            <span className="suscripcion-org-name">
                                 {organizacionNombre || 'Tu Organización'}
                             </span>
                         </div>
-                        <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            Plan Actual: <span style={{ color: '#a78bfa', textTransform: 'uppercase' }}>{licencia}</span>
+                        <h2 className="suscripcion-current-plan-title">
+                            Plan Actual: <span className="suscripcion-current-plan-badge">{licencia}</span>
                         </h2>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div className="suscripcion-status-chips">
                         {/* Inicio de Plan */}
-                        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Clock size={16} color="#a78bfa" />
+                        <div className="suscripcion-chip">
+                            <Clock size={16} color="#a78bfa" style={{ flexShrink: 0 }} />
                             <div>
-                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Inicio de Plan</div>
-                                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'white' }}>{formatDate(fechaInicioLicencia)}</div>
+                                <div className="suscripcion-chip-label">Inicio de Plan</div>
+                                <div className="suscripcion-chip-value">{formatDate(fechaInicioLicencia)}</div>
                             </div>
                         </div>
 
                         {/* Fin de Vigencia */}
                         {(licencia === 'demo' || !fechaVencimientoLicencia) ? (
-                            <div style={{ background: 'rgba(76, 175, 80, 0.08)', border: '1px solid rgba(76, 175, 80, 0.25)', borderRadius: '10px', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <CheckCircle2 size={16} color="var(--success)" />
+                            <div className="suscripcion-chip" style={{ background: 'rgba(76, 175, 80, 0.08)', borderColor: 'rgba(76, 175, 80, 0.25)' }}>
+                                <CheckCircle2 size={16} color="var(--success)" style={{ flexShrink: 0 }} />
                                 <div>
-                                    <div style={{ fontSize: '0.68rem', color: 'var(--success)', textTransform: 'uppercase', fontWeight: 700 }}>Fin de Vigencia</div>
-                                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'white' }}>Indefinida / Sin Límite</div>
+                                    <div className="suscripcion-chip-label" style={{ color: 'var(--success)' }}>Fin de Vigencia</div>
+                                    <div className="suscripcion-chip-value">Indefinida / Sin Límite</div>
                                 </div>
                             </div>
                         ) : (
-                            <div style={{
-                                background: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'rgba(244,67,54,0.12)' : 'rgba(14, 165, 233, 0.08)',
-                                border: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '1px solid rgba(244,67,54,0.35)' : '1px solid rgba(14, 165, 233, 0.25)',
-                                borderRadius: '10px',
-                                padding: '10px 16px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}>
-                                <Calendar size={16} color={diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '#f87171' : '#38bdf8'} />
+                            <div
+                                className="suscripcion-chip"
+                                style={{
+                                    background: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'rgba(244,67,54,0.12)' : 'rgba(14, 165, 233, 0.08)',
+                                    borderColor: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'rgba(244,67,54,0.35)' : 'rgba(14, 165, 233, 0.25)',
+                                }}
+                            >
+                                <Calendar size={16} color={diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '#f87171' : '#38bdf8'} style={{ flexShrink: 0 }} />
                                 <div>
-                                    <div style={{ fontSize: '0.68rem', color: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '#f87171' : '#38bdf8', textTransform: 'uppercase', fontWeight: 700 }}>
+                                    <div
+                                        className="suscripcion-chip-label"
+                                        style={{ color: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '#f87171' : '#38bdf8' }}
+                                    >
                                         Fin de Vigencia
                                     </div>
-                                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'white', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                    <div className="suscripcion-chip-value">
                                         <span>{formatDate(fechaVencimientoLicencia)}</span>
                                         {diasRestantesVencimiento !== null && (
                                             <span style={{
-                                                fontSize: '0.7rem',
-                                                padding: '2px 7px',
-                                                borderRadius: '6px',
+                                                fontSize: '0.68rem',
+                                                padding: '2px 6px',
+                                                borderRadius: '5px',
                                                 fontWeight: 700,
                                                 background: diasRestantesVencimiento < 0 ? 'rgba(244,67,54,0.25)' : diasRestantesVencimiento <= 8 ? 'rgba(255,152,0,0.25)' : 'rgba(76,175,80,0.2)',
                                                 color: diasRestantesVencimiento < 0 ? '#ef5350' : diasRestantesVencimiento <= 8 ? '#ffb74d' : 'var(--success)'
@@ -266,7 +268,7 @@ export default function Suscripcion() {
                                                     ? 'Vencida'
                                                     : diasRestantesVencimiento === 0
                                                         ? 'Vence hoy'
-                                                        : `${diasRestantesVencimiento} días restantes`}
+                                                        : `${diasRestantesVencimiento} días`}
                                             </span>
                                         )}
                                     </div>
@@ -278,29 +280,18 @@ export default function Suscripcion() {
 
                 {/* Banner de Aviso de Vencimiento Próximo (8 días o menos) */}
                 {diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 && (
-                    <div style={{
-                        background: 'rgba(244, 67, 54, 0.1)',
-                        border: '1px solid rgba(244, 67, 54, 0.3)',
-                        borderRadius: '12px',
-                        padding: '14px 18px',
-                        marginBottom: '18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '12px'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <AlertTriangle size={20} color="#f87171" style={{ flexShrink: 0 }} />
+                    <div className="suscripcion-alert-banner expiry">
+                        <div className="suscripcion-alert-content">
+                            <AlertTriangle size={20} color="#f87171" style={{ flexShrink: 0, marginTop: '2px' }} />
                             <div>
-                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f87171' }}>
+                                <div className="suscripcion-alert-title">
                                     {diasRestantesVencimiento < 0
                                         ? '¡Tu suscripción se encuentra vencida!'
                                         : diasRestantesVencimiento === 0
                                             ? '¡Tu suscripción vence el día de hoy!'
                                             : `¡Atención! Tu suscripción vence en ${diasRestantesVencimiento} día${diasRestantesVencimiento === 1 ? '' : 's'}`}
                                 </div>
-                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                <div className="suscripcion-alert-desc">
                                     Renueva tu plan ahora para garantizar la continuidad operativa de tus registros y reportes ganaderos.
                                 </div>
                             </div>
@@ -309,19 +300,7 @@ export default function Suscripcion() {
                             href={getWhatsappLink(licencia === 'premium' ? 'Plan Premium' : 'Plan Finca', 'renovar', periodicidad)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
-                                color: 'white',
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                fontSize: '0.82rem',
-                                fontWeight: 700,
-                                textDecoration: 'none',
-                                boxShadow: '0 2px 10px rgba(124, 58, 237, 0.4)'
-                            }}
+                            className="suscripcion-alert-btn"
                         >
                             <MessageCircle size={15} /> Renovar por WhatsApp
                         </a>
@@ -330,26 +309,15 @@ export default function Suscripcion() {
 
                 {/* Banner de Sobrecupo si totalAnimalesOrganizacion > limiteAnimales */}
                 {(totalAnimalesOrganizacion > limiteAnimales) && (
-                    <div style={{
-                        background: 'rgba(239, 68, 68, 0.12)',
-                        border: '1px solid rgba(239, 68, 68, 0.35)',
-                        borderRadius: '12px',
-                        padding: '14px 18px',
-                        marginBottom: '18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '12px'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <AlertTriangle size={20} color="#f87171" style={{ flexShrink: 0 }} />
+                    <div className="suscripcion-alert-banner overflow">
+                        <div className="suscripcion-alert-content">
+                            <AlertTriangle size={20} color="#f87171" style={{ flexShrink: 0, marginTop: '2px' }} />
                             <div>
-                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f87171' }}>
+                                <div className="suscripcion-alert-title">
                                     ¡Capacidad Excedida - Modo Solo Lectura Activo!
                                 </div>
-                                <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.85)', marginTop: '2px' }}>
-                                    Tienes {totalAnimalesOrganizacion} animales registrados, lo cual supera el límite de {limiteAnimales} de tu plan actual. Para reanudar el registro de pesajes, compras y traslados, adquiere un plan con mayor capacidad.
+                                <div className="suscripcion-alert-desc">
+                                    Tienes {totalAnimalesOrganizacion.toLocaleString('es-CO')} animales registrados, lo cual supera el límite de {limiteAnimales.toLocaleString('es-CO')} de tu plan actual. Para reanudar el registro de pesajes, compras y traslados, adquiere un plan con mayor capacidad.
                                 </div>
                             </div>
                         </div>
@@ -357,66 +325,58 @@ export default function Suscripcion() {
                 )}
 
                 {/* Progress bar info */}
-                <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '18px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="suscripcion-usage-box">
+                    <div className="suscripcion-usage-header">
+                        <span className="suscripcion-usage-label">
                             <CowIcon size={18} color="var(--primary-light)" />
                             Capacidad utilizada de animales activos:
                         </span>
-                        <span style={{ fontSize: '1rem', fontWeight: 800, color: porcentajeUso >= 90 ? '#f87171' : 'white' }}>
-                            {totalAnimalesOrganizacion} / {limiteAnimales >= 999999 ? '∞ (Ilimitado)' : limiteAnimales} animales ({porcentajeUso}%)
-                        </span>
+                        <div className="suscripcion-usage-stat">
+                            <span style={{ color: porcentajeUso >= 90 ? '#f87171' : '#ffffff' }}>
+                                {totalAnimalesOrganizacion.toLocaleString('es-CO')} / {limiteAnimales >= 999999 ? '∞ (Ilimitado)' : limiteAnimales.toLocaleString('es-CO')}
+                            </span>
+                            <span
+                                className="suscripcion-usage-badge"
+                                style={{
+                                    color: porcentajeUso >= 90 ? '#f87171' : porcentajeUso >= 75 ? '#ffb74d' : '#34d399',
+                                    background: porcentajeUso >= 90 ? 'rgba(239, 68, 68, 0.15)' : porcentajeUso >= 75 ? 'rgba(255, 152, 0, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                    border: `1px solid ${porcentajeUso >= 90 ? 'rgba(239,68,68,0.3)' : porcentajeUso >= 75 ? 'rgba(255,152,0,0.3)' : 'rgba(16,185,129,0.3)'}`
+                                }}
+                            >
+                                {porcentajeUso}% usado
+                            </span>
+                        </div>
                     </div>
 
-                    <div style={{ width: '100%', height: '10px', background: 'rgba(255,255,255,0.08)', borderRadius: '5px', overflow: 'hidden' }}>
-                        <div style={{ width: `${porcentajeUso}%`, height: '100%', background: getProgressColor(), borderRadius: '5px', transition: 'width 0.4s ease' }} />
+                    <div className="suscripcion-progress-track">
+                        <div
+                            className="suscripcion-progress-fill"
+                            style={{
+                                width: `${porcentajeUso}%`,
+                                background: getProgressColor()
+                            }}
+                        />
                     </div>
                 </div>
             </div>
 
             {/* Header de Planes Disponibles */}
-            <div style={{ textAlign: 'center', marginBottom: '18px' }}>
-                <h3 style={{ margin: '0 0 6px', fontSize: '1.35rem', fontWeight: 800, color: 'white' }}>
+            <div className="suscripcion-section-header">
+                <h3 className="suscripcion-section-title">
                     Planes Disponibles
                 </h3>
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                <p className="suscripcion-section-subtitle">
                     Selecciona el nivel y la periodicidad que mejor se adapte a las necesidades de tu hato ganadero
                 </p>
             </div>
 
-            {/* Selector con 3 posiciones: Mensual, Semestral, Anual (Centrado) */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '32px' }}>
-                <div style={{
-                    display: 'inline-flex',
-                    background: 'rgba(20, 20, 32, 0.85)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '14px',
-                    padding: '4px',
-                    gap: '4px',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35)',
-                    backdropFilter: 'blur(10px)'
-                }}>
+            {/* Selector de Periodicidad: 3 columnas responsivas sin desbordamiento */}
+            <div className="suscripcion-periodo-wrapper">
+                <div className="suscripcion-periodo-pills">
                     <button
                         type="button"
                         onClick={() => setPeriodicidad('mensual')}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '8px 16px',
-                            borderRadius: '10px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: periodicidad === 'mensual' ? 700 : 500,
-                            color: periodicidad === 'mensual' ? '#ffffff' : 'var(--text-muted)',
-                            background: periodicidad === 'mensual'
-                                ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
-                                : 'transparent',
-                            boxShadow: periodicidad === 'mensual' ? '0 2px 10px rgba(124, 58, 237, 0.4)' : 'none',
-                            transition: 'all 0.2s ease',
-                            outline: 'none'
-                        }}
+                        className={`suscripcion-periodo-btn ${periodicidad === 'mensual' ? 'active' : ''}`}
                     >
                         <span>Mensual</span>
                     </button>
@@ -424,35 +384,10 @@ export default function Suscripcion() {
                     <button
                         type="button"
                         onClick={() => setPeriodicidad('semestral')}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '8px 16px',
-                            borderRadius: '10px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: periodicidad === 'semestral' ? 700 : 500,
-                            color: periodicidad === 'semestral' ? '#ffffff' : 'var(--text-muted)',
-                            background: periodicidad === 'semestral'
-                                ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
-                                : 'transparent',
-                            boxShadow: periodicidad === 'semestral' ? '0 2px 10px rgba(124, 58, 237, 0.4)' : 'none',
-                            transition: 'all 0.2s ease',
-                            outline: 'none'
-                        }}
+                        className={`suscripcion-periodo-btn ${periodicidad === 'semestral' ? 'active' : ''}`}
                     >
                         <span>Semestral</span>
-                        <span style={{
-                            fontSize: '0.68rem',
-                            padding: '2px 6px',
-                            borderRadius: '6px',
-                            fontWeight: 800,
-                            background: periodicidad === 'semestral' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(56, 189, 248, 0.15)',
-                            color: periodicidad === 'semestral' ? '#ffffff' : '#38bdf8',
-                            border: periodicidad === 'semestral' ? 'none' : '1px solid rgba(56, 189, 248, 0.3)',
-                        }}>
+                        <span className="suscripcion-periodo-badge semestral">
                             Ahorro
                         </span>
                     </button>
@@ -460,43 +395,18 @@ export default function Suscripcion() {
                     <button
                         type="button"
                         onClick={() => setPeriodicidad('anual')}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '8px 16px',
-                            borderRadius: '10px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: periodicidad === 'anual' ? 700 : 500,
-                            color: periodicidad === 'anual' ? '#ffffff' : 'var(--text-muted)',
-                            background: periodicidad === 'anual'
-                                ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
-                                : 'transparent',
-                            boxShadow: periodicidad === 'anual' ? '0 2px 10px rgba(124, 58, 237, 0.4)' : 'none',
-                            transition: 'all 0.2s ease',
-                            outline: 'none'
-                        }}
+                        className={`suscripcion-periodo-btn ${periodicidad === 'anual' ? 'active' : ''}`}
                     >
                         <span>Anual</span>
-                        <span style={{
-                            fontSize: '0.68rem',
-                            padding: '2px 6px',
-                            borderRadius: '6px',
-                            fontWeight: 800,
-                            background: periodicidad === 'anual' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(16, 185, 129, 0.15)',
-                            color: periodicidad === 'anual' ? '#ffffff' : '#34d399',
-                            border: periodicidad === 'anual' ? 'none' : '1px solid rgba(16, 185, 129, 0.3)',
-                        }}>
+                        <span className="suscripcion-periodo-badge anual">
                             Hasta 25% OFF
                         </span>
                     </button>
                 </div>
             </div>
 
-            {/* Plans Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '40px' }}>
+            {/* Grid de Planes */}
+            <div className="suscripcion-planes-grid">
                 {planes.map(plan => {
                     const esPlanActual = licencia === plan.id;
                     const currentPricing = pricingData[plan.id]?.[periodicidad] || { precio: '', subprecio: '', totalTexto: '' };
@@ -521,67 +431,64 @@ export default function Suscripcion() {
                     return (
                         <div
                             key={plan.id}
+                            className={`suscripcion-plan-card ${esPlanActual ? 'actual' : ''}`}
                             style={{
                                 background: plan.bg,
                                 border: `1.5px solid ${esPlanActual ? '#a78bfa' : plan.border}`,
-                                borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column',
-                                position: 'relative', boxShadow: esPlanActual ? '0 0 25px rgba(167, 139, 250, 0.2)' : 'none',
-                                transition: 'transform 0.2s ease, border-color 0.2s ease'
                             }}
                         >
                             {esPlanActual && (
-                                <div style={{ position: 'absolute', top: '-12px', right: '20px', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: 'white', padding: '3px 12px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                <div className="suscripcion-plan-actual-tag">
                                     Tu Plan Actual
                                 </div>
                             )}
 
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                <h4 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: plan.color }}>
+                            <div className="suscripcion-plan-top">
+                                <h4 className="suscripcion-plan-name" style={{ color: plan.color }}>
                                     {plan.nombre}
                                 </h4>
-                                <span style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${plan.border}`, color: plan.color, padding: '3px 10px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>
+                                <span
+                                    className="suscripcion-plan-badge"
+                                    style={{
+                                        border: `1px solid ${plan.border}`,
+                                        color: plan.color
+                                    }}
+                                >
                                     {plan.badge}
                                 </span>
                             </div>
 
-                            <div style={{ marginBottom: '18px' }}>
-                                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'white' }}>
+                            <div className="suscripcion-plan-pricing">
+                                <div className="suscripcion-plan-price-main">
                                     {currentPricing.precio}
                                 </div>
                                 {currentPricing.subprecio && (
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
+                                    <div className="suscripcion-plan-subprice">
                                         {currentPricing.subprecio}
                                     </div>
                                 )}
                                 {currentPricing.ahorroTag && (
-                                    <div style={{ marginTop: '6px' }}>
-                                        <span style={{
-                                            fontSize: '0.72rem',
-                                            fontWeight: 700,
-                                            color: '#34d399',
-                                            background: 'rgba(16, 185, 129, 0.12)',
-                                            border: '1px solid rgba(16, 185, 129, 0.28)',
-                                            borderRadius: '6px',
-                                            padding: '2px 8px',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
-                                        }}>
-                                            <Sparkles size={11} />
+                                    <div className="suscripcion-plan-ahorro">
+                                        <span className="suscripcion-plan-ahorro-tag">
+                                            <Sparkles size={12} />
                                             {currentPricing.ahorroTag}
                                         </span>
                                     </div>
                                 )}
-                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: plan.color, marginTop: '8px' }}>
-                                    {plan.limite}
+                                <div
+                                    className="suscripcion-plan-capacity-tag"
+                                    style={{ color: plan.color }}
+                                >
+                                    <CowIcon size={16} color={plan.color} />
+                                    <span>{plan.limite}</span>
                                 </div>
                             </div>
 
-                            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <ul className="suscripcion-feature-list">
                                 {plan.caracteristicas.map((carac, idx) => (
-                                    <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.85)' }}>
-                                        <CheckCircle2 size={16} color={plan.color} style={{ flexShrink: 0 }} />
-                                        <span>{carac}</span>
+                                    <li key={idx} className="suscripcion-feature-item">
+                                        <CheckCircle2 size={16} color={plan.color} className="suscripcion-feature-icon" />
+                                        <span className="suscripcion-feature-text">{carac}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -590,16 +497,14 @@ export default function Suscripcion() {
                                 href={planWhatsappLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                className="suscripcion-plan-btn"
                                 style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                    padding: '12px', borderRadius: '10px', textDecoration: 'none', fontWeight: 700,
-                                    fontSize: '0.9rem', transition: 'all 0.2s',
                                     background: esPlanActual
                                         ? 'rgba(255,255,255,0.08)'
                                         : actionType === 'mejora'
                                             ? `linear-gradient(135deg, ${plan.color}, #7c3aed)`
-                                            : 'rgba(255,255,255,0.04)',
-                                    color: actionType === 'disminucion' ? 'var(--text-muted)' : 'white',
+                                            : 'rgba(255,255,255,0.05)',
+                                    color: actionType === 'disminucion' ? 'var(--text-muted)' : '#ffffff',
                                     border: esPlanActual
                                         ? '1px solid rgba(255,255,255,0.2)'
                                         : actionType === 'disminucion'
@@ -608,7 +513,7 @@ export default function Suscripcion() {
                                 }}
                             >
                                 <MessageCircle size={18} />
-                                {buttonText}
+                                <span>{buttonText}</span>
                             </a>
                         </div>
                     );
@@ -616,51 +521,47 @@ export default function Suscripcion() {
             </div>
 
             {/* Manual Payment Section */}
-            <div style={{ background: 'rgba(30,30,30,0.7)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '28px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+            <div className="suscripcion-activacion-card">
+                <div className="suscripcion-activacion-header">
                     <ShieldCheck size={22} color="#a78bfa" />
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'white' }}>
+                    <h3 className="suscripcion-activacion-title">
                         ¿Cómo realizar la activación de tu plan?
                     </h3>
                 </div>
 
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '20px' }}>
-                    Actualmente gestionamos la activación de licencias mediante **transferencia bancaria directa**. Sigue estos 3 sencillos pasos:
+                <p className="suscripcion-activacion-desc">
+                    Actualmente gestionamos la activación de licencias mediante <strong>transferencia bancaria directa</strong>. Sigue estos 3 sencillos pasos:
                 </p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '16px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(124, 58, 237, 0.2)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', marginBottom: '10px' }}>1</div>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white', marginBottom: '4px' }}>Selecciona tu plan</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Elige entre el Plan Finca (500 animales) o Hacienda/Premium (Ilimitado), en modalidad mensual, semestral o anual.</div>
+                <div className="suscripcion-steps-grid">
+                    <div className="suscripcion-step-item">
+                        <div className="suscripcion-step-num">1</div>
+                        <div className="suscripcion-step-title">Selecciona tu plan</div>
+                        <div className="suscripcion-step-desc">Elige entre el Plan Finca (500 animales) o Hacienda/Premium (Ilimitado), en modalidad mensual, semestral o anual.</div>
                     </div>
 
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '16px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(124, 58, 237, 0.2)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', marginBottom: '10px' }}>2</div>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white', marginBottom: '4px' }}>Realiza la transferencia</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Realiza el pago a nuestras cuentas bancarias autorizadas.</div>
+                    <div className="suscripcion-step-item">
+                        <div className="suscripcion-step-num">2</div>
+                        <div className="suscripcion-step-title">Realiza la transferencia</div>
+                        <div className="suscripcion-step-desc">Realiza el pago a nuestras cuentas bancarias autorizadas.</div>
                     </div>
 
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '16px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(124, 58, 237, 0.2)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', marginBottom: '10px' }}>3</div>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white', marginBottom: '4px' }}>Envía el comprobante</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Envíanos el soporte por WhatsApp indicando el nombre de tu empresa.</div>
+                    <div className="suscripcion-step-item">
+                        <div className="suscripcion-step-num">3</div>
+                        <div className="suscripcion-step-title">Envía el comprobante</div>
+                        <div className="suscripcion-step-desc">Envíanos el soporte por WhatsApp indicando el nombre de tu empresa u organización.</div>
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div>
                     <a
                         href={generalWhatsappLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{
-                            background: '#25D366', color: 'white', padding: '12px 24px', borderRadius: '10px',
-                            textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px',
-                            boxShadow: '0 4px 14px rgba(37, 211, 102, 0.3)'
-                        }}
+                        className="suscripcion-activacion-btn"
                     >
                         <MessageCircle size={18} />
-                        Contactar por WhatsApp para Activar
+                        <span>Contactar por WhatsApp para Activar</span>
                     </a>
                 </div>
             </div>
