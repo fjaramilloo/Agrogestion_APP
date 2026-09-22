@@ -163,14 +163,158 @@
     }
 }
 
-@media (max-width: 400px) {
-    .superadmin-stat-card {
-        padding: 10px 12px;
-    }
-    .superadmin-stat-value {
-        font-size: 1.2rem;
-    }
+/* Search and Filter Controls */
+.superadmin-controls-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
 }
+
+.superadmin-search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.superadmin-search-icon {
+    position: absolute;
+    left: 14px;
+    pointer-events: none;
+}
+
+.superadmin-search-input {
+    width: 100%;
+    padding: 10px 38px 10px 40px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    color: white;
+    font-size: 0.88rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.superadmin-search-input:focus {
+    border-color: #a78bfa;
+    background: rgba(124, 58, 237, 0.08);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+.superadmin-search-clear {
+    position: absolute;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Horizontal Scrollable Filter Chips */
+.superadmin-filter-chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.superadmin-filter-chips::-webkit-scrollbar {
+    display: none;
+}
+
+.superadmin-chip {
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    width: auto;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.superadmin-chip:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+}
+
+.superadmin-chip.active {
+    background: rgba(124, 58, 237, 0.25);
+    border-color: #a78bfa;
+    color: #c4b5fd;
+    box-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
+}
+
+.superadmin-chip.chip-danger.active {
+    background: rgba(248, 113, 113, 0.2);
+    border-color: #f87171;
+    color: #fca5a5;
+    box-shadow: 0 0 10px rgba(248, 113, 113, 0.3);
+}
+
+.superadmin-chip.chip-warning.active {
+    background: rgba(251, 146, 60, 0.2);
+    border-color: #fb923c;
+    color: #fdba74;
+    box-shadow: 0 0 10px rgba(251, 146, 60, 0.3);
+}
+
+.superadmin-chip.chip-success.active {
+    background: rgba(74, 222, 128, 0.2);
+    border-color: #4ade80;
+    color: #86efac;
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
+}
+
+.superadmin-chip.chip-amber.active {
+    background: rgba(250, 204, 21, 0.2);
+    border-color: #facc15;
+    color: #fef08a;
+    box-shadow: 0 0 10px rgba(250, 204, 21, 0.3);
+}
+
+.superadmin-chip.chip-purple.active {
+    background: rgba(168, 85, 247, 0.2);
+    border-color: #c084fc;
+    color: #e9d5ff;
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+/* Semáforo badge */
+.semaforo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.superadmin-card-user-row {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
 
 /* Desktop Table View */
 .superadmin-desktop-view {
