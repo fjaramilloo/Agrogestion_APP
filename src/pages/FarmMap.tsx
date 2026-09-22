@@ -41,8 +41,8 @@ export const FarmMapPage: React.FC = () => {
 
   // Modal para traslado rápido de ganado a potrero desde el mapa
   const [transferModalOpen, setTransferModalOpen] = useState(false);
-  const [targetPotrero, setTargetPotrero] = useState<{ id: string; nombre: string } | null>(null);
-  const [potreradas, setPotreradas] = useState<{ id: string; nombre: string }[]>([]);
+  const [targetPotrero, setTargetPotrero] = useState<{ id: string; nombre: string; id_rotacion: string | null } | null>(null);
+  const [potreradas, setPotreradas] = useState<{ id: string; nombre: string; id_rotacion: string | null; en_potrero: boolean }[]>([]);
   const [selectedPotreradaId, setSelectedPotreradaId] = useState('');
   const [transferring, setTransferring] = useState(false);
 
@@ -149,13 +149,18 @@ export const FarmMapPage: React.FC = () => {
         setZonasAdicionales([]);
       }
 
-      // 2. Cargar potreros con geometrías
+      // 2. Cargar potreros con geometrías (incluye id_rotacion para filtro inteligente de traslado)
       const { data: potsData, error: potErr } = await supabase
         .from('potreros')
-        .select('id, nombre, area_hectareas, geojson_geometry, color_mapa')
+        .select('id, nombre, area_hectareas, geojson_geometry, color_mapa, id_rotacion')
         .eq('id_finca', fincaId);
 
       if (potErr) throw potErr;
+
+      // Mapa id_potrero -> id_rotacion para consultas rápidas
+      const potreroRotacionMap = new Map<string, string | null>(
+        (potsData || []).map((p: any) => [p.id, p.id_rotacion ?? null])
+      );
 
       // 3. Cargar movimientos activos de potreradas para saber qué ganado está en qué potrero
       const { data: movsData } = await supabase
@@ -320,7 +325,6 @@ export const FarmMapPage: React.FC = () => {
         potrerada_actual: potreroAssignmentMap.get(p.id) || null,
       }));
 
-      setPotreros(processedPotreros);
       setIsOfflineData(false);
       setOfflineUpdatedTime(null);
 
@@ -333,13 +337,33 @@ export const FarmMapPage: React.FC = () => {
         zonas_adicionales: currentZonas,
       }).catch(err => console.warn('[OfflineMap] Error guardando snapshot local:', err));
 
-      // Cargar lista de potreradas para el modal de traslado
+      // Cargar lista de potreradas para el modal de traslado (con id_rotacion de la propia potrerada)
       const { data: potsList } = await supabase
         .from('potreradas')
-        .select('id, nombre')
+        .select('id, nombre, id_rotacion')
         .eq('id_finca', fincaId);
 
-      setPotreradas(potsList || []);
+      // Determinar qué potreradas están actualmente asignadas a un potrero (para filtrarlas)
+      const potreradasEnPotrero = new Set<string>(
+        (movsData || []).map((m: any) => m.id_potrerada).filter(Boolean)
+      );
+
+      setPotreradas(
+        (potsList || []).map((p: any) => ({
+          id: p.id,
+          nombre: p.nombre,
+          id_rotacion: p.id_rotacion ?? null,
+          en_potrero: potreradasEnPotrero.has(p.id),
+        }))
+      );
+
+      // Persistir id_rotacion en los potreros procesados para el mapa
+      setPotreros(
+        processedPotreros.map((p: any) => ({
+          ...p,
+          id_rotacion: potreroRotacionMap.get(p.id) ?? null,
+        }))
+      );
     } catch (e) {
       console.warn('Error cargando mapa en línea, activando respaldo offline:', e);
       await loadOfflineMapData(fincaId);
@@ -390,7 +414,8 @@ export const FarmMapPage: React.FC = () => {
       setShowUpsellModal(true);
       return;
     }
-    setTargetPotrero({ id: potreroId, nombre: potreroNombre });
+    const pot = potreros.find((p: any) => p.id === potreroId);
+    setTargetPotrero({ id: potreroId, nombre: potreroNombre, id_rotacion: pot?.id_rotacion ?? null });
     setSelectedPotreradaId('');
     setTransferModalOpen(true);
   };
@@ -862,95 +887,180 @@ export const FarmMapPage: React.FC = () => {
       )}
 
       {/* Modal Rápido de Traslado de Ganado */}
-      {transferModalOpen && targetPotrero && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          padding: '16px',
-        }}>
+      {transferModalOpen && targetPotrero && (() => {
+        const rotDestino = targetPotrero.id_rotacion;
+
+        // Separar en sugeridos (misma rotación, disponibles) y otros (sin rotación o diferente, disponibles)
+        const sugeridos = potreradas.filter(p =>
+          !p.en_potrero && rotDestino && p.id_rotacion === rotDestino
+        );
+        const otros = potreradas.filter(p =>
+          !p.en_potrero && !(rotDestino && p.id_rotacion === rotDestino)
+        );
+        const haySugeridos = sugeridos.length > 0;
+        const hayOtros = otros.length > 0;
+        const hayDisponibles = haySugeridos || hayOtros;
+
+        return (
           <div style={{
-            backgroundColor: '#1E293B',
-            borderRadius: '16px',
-            padding: '24px',
-            width: '100%',
-            maxWidth: '440px',
-            color: '#F8FAFC',
-            border: '1px solid #334155',
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '16px',
           }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.15rem', fontWeight: 700 }}>
-              Mover Ganado a: <span style={{ color: '#3B82F6' }}>{targetPotrero.nombre}</span>
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: '#94A3B8', marginBottom: '20px' }}>
-              Selecciona la potrerada / lote que vas a trasladar a este potrero:
-            </p>
+            <div style={{
+              backgroundColor: '#1E293B',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '460px',
+              color: '#F8FAFC',
+              border: '1px solid #334155',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '1.15rem', fontWeight: 700 }}>
+                Mover Ganado a: <span style={{ color: '#3B82F6' }}>{targetPotrero.nombre}</span>
+              </h3>
+              {rotDestino && (
+                <p style={{ fontSize: '0.78rem', color: '#64748B', margin: '0 0 16px 0' }}>
+                  🔄 Este potrero pertenece a una rotación. Se sugieren los lotes de la misma rotación.
+                </p>
+              )}
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: '#CBD5E1', marginBottom: '6px' }}>
-                Potrerada / Lote de Ganado:
-              </label>
-              <select
-                value={selectedPotreradaId}
-                onChange={(e) => setSelectedPotreradaId(e.target.value)}
-                style={{
-                  width: '100%',
+              {!hayDisponibles ? (
+                <div style={{
                   backgroundColor: '#0F172A',
-                  color: '#F8FAFC',
                   border: '1px solid #475569',
-                  padding: '10px 14px',
                   borderRadius: '10px',
-                  outline: 'none',
-                }}
-              >
-                <option value="">-- Seleccionar Lote --</option>
-                {potreradas.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    🐮 {p.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+                  padding: '16px',
+                  textAlign: 'center',
+                  color: '#94A3B8',
+                  fontSize: '0.85rem',
+                  marginBottom: '20px',
+                }}>
+                  ⚠️ No hay lotes de ganado disponibles para trasladar. Todos los lotes activos ya están asignados a un potrero.
+                </div>
+              ) : (
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#CBD5E1', marginBottom: '8px' }}>
+                    Selecciona el lote a trasladar:
+                  </label>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={() => setTransferModalOpen(false)}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #475569',
-                  color: '#CBD5E1',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleExecuteTransfer}
-                disabled={!selectedPotreradaId || transferring}
-                style={{
-                  backgroundColor: '#10B981',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 18px',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  cursor: (!selectedPotreradaId || transferring) ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {transferring ? 'Trasladando...' : 'Confirmar Traslado'}
-              </button>
+                  {/* Lotes Sugeridos (misma rotación) */}
+                  {haySugeridos && (
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#10B981', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                        ⭐ Lotes de esta rotación (Sugeridos)
+                      </div>
+                      {sugeridos.map((p) => (
+                        <label key={p.id} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '10px 14px',
+                          backgroundColor: selectedPotreradaId === p.id ? '#064E3B' : '#0F172A',
+                          border: `1px solid ${selectedPotreradaId === p.id ? '#10B981' : '#1E3A5F'}`,
+                          borderRadius: '8px',
+                          marginBottom: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                        }}>
+                          <input
+                            type="radio"
+                            name="potrerada"
+                            value={p.id}
+                            checked={selectedPotreradaId === p.id}
+                            onChange={() => setSelectedPotreradaId(p.id)}
+                            style={{ accentColor: '#10B981' }}
+                          />
+                          <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>🐄 {p.nombre}</span>
+                          <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: '#10B981', fontWeight: 600, backgroundColor: '#064E3B', padding: '2px 8px', borderRadius: '99px' }}>
+                            Sugerido
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Lotes de otras rotaciones o sin rotación */}
+                  {hayOtros && (
+                    <div>
+                      {haySugeridos && (
+                        <div style={{ fontSize: '0.72rem', color: '#F59E0B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '12px 0 6px 0' }}>
+                          ⚠️ Otros lotes (Cambio de rotación o sin rotación)
+                        </div>
+                      )}
+                      {otros.map((p) => (
+                        <label key={p.id} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '10px 14px',
+                          backgroundColor: selectedPotreradaId === p.id ? '#1C1A09' : '#0F172A',
+                          border: `1px solid ${selectedPotreradaId === p.id ? '#F59E0B' : '#334155'}`,
+                          borderRadius: '8px',
+                          marginBottom: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                        }}>
+                          <input
+                            type="radio"
+                            name="potrerada"
+                            value={p.id}
+                            checked={selectedPotreradaId === p.id}
+                            onChange={() => setSelectedPotreradaId(p.id)}
+                            style={{ accentColor: '#F59E0B' }}
+                          />
+                          <span style={{ fontSize: '0.9rem' }}>🐮 {p.nombre}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button
+                  onClick={() => setTransferModalOpen(false)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid #475569',
+                    color: '#CBD5E1',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                {hayDisponibles && (
+                  <button
+                    onClick={handleExecuteTransfer}
+                    disabled={!selectedPotreradaId || transferring}
+                    style={{
+                      backgroundColor: !selectedPotreradaId || transferring ? '#1E293B' : '#10B981',
+                      color: !selectedPotreradaId || transferring ? '#475569' : 'white',
+                      border: `1px solid ${!selectedPotreradaId || transferring ? '#475569' : '#10B981'}`,
+                      padding: '8px 18px',
+                      borderRadius: '8px',
+                      fontWeight: 600,
+                      cursor: (!selectedPotreradaId || transferring) ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {transferring ? '⏳ Trasladando...' : '✓ Confirmar Traslado'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {licenciaInfo && (
         <ModalUpsell

@@ -997,8 +997,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             </div>
           )}
 
-          {/* Acciones del Potrero (Solo para Administradores) */}
-          {tipoLicencia !== 'demo' && userRole === 'administrador' && onMoveCattleToPotrero && (
+          {/* Acción: Mover Ganado (Solo disponible y solo para Administradores) */}
+          {tipoLicencia !== 'demo' && userRole === 'administrador' && onMoveCattleToPotrero && !selectedPotrero.potrerada_actual && (
             <button
               onClick={() => {
                 onMoveCattleToPotrero(selectedPotrero.id, selectedPotrero.nombre);
@@ -1020,7 +1020,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                 gap: '8px',
               }}
             >
-              <ArrowRightLeft size={16} /> Mover Ganado a este Potrero
+              <ArrowRightLeft size={16} /> Ingresar Ganado a este Potrero
             </button>
           )}
         </div>
