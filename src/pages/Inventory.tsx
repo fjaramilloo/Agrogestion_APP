@@ -1256,49 +1256,19 @@ export default function Inventory() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
                                 <div style={{ minWidth: 0, flex: 1 }}>
                                     {!isEditingChapeta ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                                            <h2 style={{ 
-                                                color: 'white', 
-                                                margin: 0, 
-                                                fontSize: '1.75rem', 
-                                                fontWeight: 700, 
-                                                display: 'inline-flex', 
-                                                alignItems: 'center', 
-                                                whiteSpace: 'nowrap',
-                                                letterSpacing: '-0.5px'
-                                            }}>
-                                                <span style={{ color: 'var(--primary)', marginRight: '4px', fontWeight: 800 }}>#</span>
-                                                <span style={{ whiteSpace: 'nowrap' }}>{selectedAnimal.numero_chapeta}</span>
-                                            </h2>
-                                            {isAdmin && (
-                                                <button
-                                                    onClick={() => {
-                                                        setIsEditingChapeta(true);
-                                                        setEditChapetaVal(selectedAnimal.numero_chapeta);
-                                                        setEditChapetaError('');
-                                                        setIsEditChapetaTaken(false);
-                                                    }}
-                                                    title="Editar número de chapeta"
-                                                    style={{
-                                                        background: 'rgba(255,255,255,0.06)',
-                                                        border: '1px solid rgba(255,255,255,0.12)',
-                                                        borderRadius: '6px',
-                                                        color: 'var(--primary-light)',
-                                                        cursor: 'pointer',
-                                                        padding: '4px 8px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 500,
-                                                        transition: 'all 0.15s ease'
-                                                    }}
-                                                >
-                                                    <Pencil size={12} />
-                                                    <span>Editar</span>
-                                                </button>
-                                            )}
-                                        </div>
+                                        <h2 style={{ 
+                                            color: 'white', 
+                                            margin: 0, 
+                                            fontSize: '1.75rem', 
+                                            fontWeight: 700, 
+                                            display: 'inline-flex', 
+                                            alignItems: 'center', 
+                                            whiteSpace: 'nowrap',
+                                            letterSpacing: '-0.5px'
+                                        }}>
+                                            <span style={{ color: 'var(--primary)', marginRight: '4px', fontWeight: 800 }}>#</span>
+                                            <span style={{ whiteSpace: 'nowrap' }}>{selectedAnimal.numero_chapeta}</span>
+                                        </h2>
                                     ) : (
                                         <div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -1404,8 +1374,41 @@ export default function Inventory() {
                                     </div>
                                 </div>
 
-                                {/* Right action buttons: Subtle Trash + Close */}
+                                {/* Right action buttons: Subtle Edit + Subtle Trash + Close */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                    {isAdmin && !isEditingChapeta && (
+                                        <button
+                                            onClick={() => {
+                                                setIsEditingChapeta(true);
+                                                setEditChapetaVal(selectedAnimal.numero_chapeta);
+                                                setEditChapetaError('');
+                                                setIsEditChapetaTaken(false);
+                                            }}
+                                            title="Editar número de chapeta"
+                                            style={{
+                                                background: 'rgba(255, 255, 255, 0.05)',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '8px',
+                                                color: 'var(--primary-light)',
+                                                cursor: 'pointer',
+                                                padding: '8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                                e.currentTarget.style.borderColor = 'var(--primary)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                                            }}
+                                        >
+                                            <Pencil size={16} />
+                                        </button>
+                                    )}
                                     {isAdmin && (
                                         <button
                                             onClick={handleEliminarAnimalPorError}
