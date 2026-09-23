@@ -1081,7 +1081,7 @@ export default function Potreradas() {
             activeSortedDates.forEach(fecha => {
                 tableHead[0].push(`Pesaje ${format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}`);
             });
-            tableHead[0].push('GMP Prom. (kg/m)');
+            tableHead[0].push(`${getModoLabel(modoGanancia)} Prom. (${getUnidadLabel(modoGanancia)})`);
 
             const tableBody = sortedAnimals.map((a, idx) => {
                 const row: any[] = [
@@ -1102,7 +1102,7 @@ export default function Potreradas() {
                     row.push(a.pesajesFiltrados?.[fecha] && !isEntryDate ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-');
                 });
                 
-                row.push(a.gmp ? a.gmp.toFixed(1) : '-');
+                row.push(a.gmp ? toDisplayValue(a.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1) : '-');
                 return row;
             });
 
@@ -1479,7 +1479,7 @@ export default function Potreradas() {
                                 <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Marcas</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Animales</th>
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</th>
-                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ganancias (GMP)</th>
+                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ganancias ({getModoLabel(modoGanancia)})</th>
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Días Pesaje</th>
                                 {(role === 'administrador' || role === 'vaquero') && <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>}
                             </tr>
@@ -1593,7 +1593,7 @@ export default function Potreradas() {
                                                     fontWeight: '500',
                                                     textShadow: (p.gmpAcumulado !== null && p.gmpAcumulado > umbralMedio && p.gmpAcumulado <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                 }}>
-                                                    {p.gmpAcumulado === null ? 'N/A' : p.gmpAcumulado.toFixed(1)}
+                                                    {p.gmpAcumulado === null ? 'N/A' : toDisplayValue(p.gmpAcumulado, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                 </span>
                                             </div>
                                         </div>
@@ -2107,7 +2107,7 @@ export default function Potreradas() {
                                                         style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
                                                     >
                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                                                            GMP
+                                                            {getModoLabel(modoGanancia)}
                                                             {sortConfig?.key === 'gmp' && (
                                                                 <span style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
                                                             )}
@@ -2154,7 +2154,7 @@ export default function Potreradas() {
                                                                 fontWeight: 'bold',
                                                                 textShadow: ((a.gmp || 0) > umbralMedio && (a.gmp || 0) <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                             }}>
-                                                                {(a.gmp || 0).toFixed(1)}
+                                                                {toDisplayValue(a.gmp || 0, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                             </span>
                                                         </td>
                                                     </tr>

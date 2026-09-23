@@ -1262,8 +1262,8 @@ export default function Dashboard() {
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                                 <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
                                                 <XAxis dataKey="label" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} unit=" kg" width={42} />
-                                                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '0.8rem' }} />
+                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} width={42} />
+                                                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '0.8rem' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
                                                 {/* En móvil: dots pequeños solo en el último punto, línea suavizada */}
                                                 <Line 
                                                     type="monotone"
@@ -1326,8 +1326,8 @@ export default function Dashboard() {
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                                 <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
                                                 <XAxis dataKey="label" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
-                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} unit=" kg" />
-                                                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }} />
+                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+                                                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
                                                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                                                 <Line 
                                                     type="monotone" 
@@ -1369,7 +1369,7 @@ export default function Dashboard() {
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                                 <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
                                                 <XAxis dataKey="name" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }} />
-                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }} unit=" kg" width={isMobile ? 42 : undefined} />
+                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }} width={isMobile ? 42 : undefined} />
                                                 <Tooltip
                                                     cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                                                     contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: isMobile ? '0.8rem' : '1rem' }}
@@ -1626,7 +1626,7 @@ export default function Dashboard() {
                                                             fontWeight: 'bold', 
                                                             color: item.gmp < 10 ? 'var(--error)' : 'var(--success)' 
                                                         }}>
-                                                            {item.gmp}
+                                                            {toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                         </td>
                                                     </tr>
                                                 ))}

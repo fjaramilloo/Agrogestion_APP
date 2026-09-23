@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2, AlertOctagon, Pencil, Check } from 'lucide-react';
+import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2, AlertOctagon, Pencil, Check, MapPin } from 'lucide-react';
 import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
 import ModalUpsell from '../components/ModalUpsell';
 import { format, differenceInDays } from 'date-fns';
@@ -893,7 +893,7 @@ export default function Inventory() {
                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{statsFiltrados.potreros}</div>
                 </div>
                 <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(244, 67, 54, 0.05)', border: '1px solid rgba(244, 67, 54, 0.1)' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Alertas (GDP Bajo)</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Alertas ({getModoLabel(modoGanancia)} Bajo)</div>
                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--error)' }}>
                         {statsFiltrados.alertas}
                     </div>
@@ -1250,21 +1250,25 @@ export default function Inventory() {
 
                 return (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setSelectedAnimal(null)}>
-                        <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} onClick={e => e.stopPropagation()}>
-                            <button 
-                                onClick={() => setSelectedAnimal(null)}
-                                style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px' }}
-                            >
-                                <X size={24} />
-                            </button>
-
-                            <div style={{ paddingRight: '40px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                                <div>
+                        <div className="card" style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} onClick={e => e.stopPropagation()}>
+                            
+                            {/* Modal Header: Title, badges, subtle actions */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
+                                <div style={{ minWidth: 0, flex: 1 }}>
                                     {!isEditingChapeta ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem', display: 'flex', alignItems: 'center' }}>
-                                                <span style={{ color: 'var(--primary)', marginRight: '6px' }}>#</span>
-                                                {selectedAnimal.numero_chapeta}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                            <h2 style={{ 
+                                                color: 'white', 
+                                                margin: 0, 
+                                                fontSize: '1.75rem', 
+                                                fontWeight: 700, 
+                                                display: 'inline-flex', 
+                                                alignItems: 'center', 
+                                                whiteSpace: 'nowrap',
+                                                letterSpacing: '-0.5px'
+                                            }}>
+                                                <span style={{ color: 'var(--primary)', marginRight: '4px', fontWeight: 800 }}>#</span>
+                                                <span style={{ whiteSpace: 'nowrap' }}>{selectedAnimal.numero_chapeta}</span>
                                             </h2>
                                             {isAdmin && (
                                                 <button
@@ -1277,26 +1281,27 @@ export default function Inventory() {
                                                     title="Editar número de chapeta"
                                                     style={{
                                                         background: 'rgba(255,255,255,0.06)',
-                                                        border: '1px solid rgba(255,255,255,0.15)',
+                                                        border: '1px solid rgba(255,255,255,0.12)',
                                                         borderRadius: '6px',
                                                         color: 'var(--primary-light)',
                                                         cursor: 'pointer',
-                                                        padding: '5px 8px',
+                                                        padding: '4px 8px',
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                         gap: '4px',
                                                         fontSize: '0.75rem',
-                                                        fontWeight: 500
+                                                        fontWeight: 500,
+                                                        transition: 'all 0.15s ease'
                                                     }}
                                                 >
-                                                    <Pencil size={13} />
-                                                    <span>Editar Chapeta</span>
+                                                    <Pencil size={12} />
+                                                    <span>Editar</span>
                                                 </button>
                                             )}
                                         </div>
                                     ) : (
                                         <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                 <span style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '1.4rem' }}>#</span>
                                                 <input
                                                     type="text"
@@ -1366,74 +1371,151 @@ export default function Inventory() {
                                         </div>
                                     )}
 
-                                    <p style={{ color: 'var(--text-muted)', margin: '6px 0 0 0', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.5px' }}>
-                                        {selectedAnimal.etapa} • {selectedAnimal.nombre_propietario}
-                                    </p>
+                                    {/* Metadata Badges / Info */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                                        <span style={{ 
+                                            backgroundColor: 'rgba(16, 185, 129, 0.12)', 
+                                            color: '#34d399', 
+                                            border: '1px solid rgba(16, 185, 129, 0.25)',
+                                            padding: '2px 8px', 
+                                            borderRadius: '6px', 
+                                            fontSize: '0.72rem', 
+                                            fontWeight: 600, 
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px'
+                                        }}>
+                                            {selectedAnimal.etapa}
+                                        </span>
+
+                                        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>•</span>
+
+                                        <span style={{ color: 'var(--text-light)', fontSize: '0.82rem', fontWeight: 500 }}>
+                                            {selectedAnimal.nombre_propietario}
+                                        </span>
+
+                                        {selectedAnimal.especie && (
+                                            <>
+                                                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>•</span>
+                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'capitalize' }}>
+                                                    {selectedAnimal.especie} {selectedAnimal.sexo ? `(${selectedAnimal.sexo})` : ''}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
 
-                                {isAdmin && (
-                                    <button
-                                        onClick={handleEliminarAnimalPorError}
-                                        title="Eliminar animal por error de digitación"
-                                        style={{
-                                            padding: '6px 12px',
+                                {/* Right action buttons: Subtle Trash + Close */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                    {isAdmin && (
+                                        <button
+                                            onClick={handleEliminarAnimalPorError}
+                                            title="Eliminar animal (por error de digitación)"
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.08)',
+                                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                borderRadius: '8px',
+                                                color: '#f87171',
+                                                cursor: 'pointer',
+                                                padding: '8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)';
+                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                                            }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={() => setSelectedAnimal(null)}
+                                        title="Cerrar"
+                                        style={{ 
+                                            background: 'rgba(255, 255, 255, 0.05)', 
+                                            border: '1px solid rgba(255, 255, 255, 0.1)', 
                                             borderRadius: '8px',
-                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                            border: '1px solid rgba(239, 68, 68, 0.25)',
-                                            color: '#f87171',
-                                            cursor: 'pointer',
-                                            display: 'inline-flex',
+                                            color: 'var(--text-muted)', 
+                                            cursor: 'pointer', 
+                                            padding: '8px',
+                                            display: 'flex',
                                             alignItems: 'center',
-                                            gap: '6px',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 500
+                                            justifyContent: 'center',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                            e.currentTarget.style.color = 'white';
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                            e.currentTarget.style.color = 'var(--text-muted)';
                                         }}
                                     >
-                                        <Trash2 size={14} />
-                                        <span>Eliminar Registro (Error)</span>
+                                        <X size={16} />
                                     </button>
-                                )}
+                                </div>
                             </div>
 
+                            {/* Location / Potrerada Bar */}
                             <div style={{ 
-                                backgroundColor: 'rgba(255,255,255,0.03)', 
-                                padding: '16px', 
-                                borderRadius: '12px', 
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                marginBottom: '24px',
+                                backgroundColor: 'rgba(255,255,255,0.02)', 
+                                padding: '10px 14px', 
+                                borderRadius: '10px', 
+                                border: '1px solid rgba(255,255,255,0.06)',
+                                marginBottom: '20px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                gap: '16px'
+                                gap: '12px',
+                                flexWrap: 'wrap'
                             }}>
-                                <div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Potrerada Actual</div>
-                                    <div style={{ fontWeight: '600', color: selectedAnimal.id_potrerada ? 'var(--primary-light)' : 'var(--text-muted)' }}>
-                                        {selectedAnimal.potreradaNombre}
-                                    </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Potrerada Actual:</span>
+                                    <span style={{ fontWeight: '600', color: selectedAnimal.id_potrerada ? 'var(--primary-light)' : 'var(--text-muted)', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                        <MapPin size={13} style={{ opacity: 0.8 }} />
+                                        {selectedAnimal.potreradaNombre || 'Sin potrerada'}
+                                    </span>
                                 </div>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Último Pesaje</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{pesoU} kg</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Llegada: '} {fechaU}</div>
-                                </div>
-                                {selectedAnimal.peso_compra && (
-                                    <div style={{ backgroundColor: 'rgba(255, 193, 7, 0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.2)' }}>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso de Compra (Origen)</div>
-                                        <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#ffc107' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Llegada: {selectedAnimal.peso_ingreso} kg</div>
+                                {selectedAnimal.potreroNombre && (
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                        Potrero: <strong style={{ color: 'white' }}>{selectedAnimal.potreroNombre}</strong>
                                     </div>
                                 )}
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                            </div>
+
+                            {/* Metric Cards */}
+                            <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: selectedAnimal.peso_compra ? 'repeat(auto-fit, minmax(140px, 1fr))' : 'repeat(2, 1fr)', 
+                                gap: '12px', 
+                                marginBottom: '28px' 
+                            }}>
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Último Pesaje</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>{pesoU} kg</div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Llegada: '} {fechaU}</div>
+                                </div>
+                                {selectedAnimal.peso_compra && (
+                                    <div style={{ backgroundColor: 'rgba(255, 193, 7, 0.04)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.18)' }}>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso de Compra</div>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ffc107' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Llegada: {selectedAnimal.peso_ingreso} kg</div>
+                                    </div>
+                                )}
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
                                         {estimadoHoy.toFixed(1)} kg
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                        {diasHoy > 0 ? `+${(estimadoHoy - pesoU).toFixed(1)} kg (${diasHoy} d)` : 'Calculado a la fecha'}
                                     </div>
                                 </div>
                             </div>

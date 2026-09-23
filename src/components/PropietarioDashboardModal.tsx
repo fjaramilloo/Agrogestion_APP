@@ -566,7 +566,7 @@ export default function PropietarioDashboardModal({
                             </div>
                             
                             <div style={{ marginTop: '8px', fontSize: '0.7rem', color: theme.textMuted, fontStyle: 'italic', textAlign: 'center' }}>
-                                * Los pesos estimados se calculan proyectando el GMP del último período hacia hoy. La rentabilidad es sobre la participación del 40% del socio, con base en el capital invertido declarado.
+                                * Los pesos estimados se calculan proyectando la ganancia ({getModoLabel(modoGanancia)}) del último período hacia hoy. La rentabilidad es sobre la participación del 40% del socio, con base en el capital invertido declarado.
                             </div>
                         </>
                     )}

@@ -8,6 +8,7 @@ import { es } from 'date-fns/locale';
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 
 interface AnimalCompraParaReporte {
     numero_chapeta: string;
@@ -47,7 +48,7 @@ interface CompraGrupo {
 }
 
 export default function HistorialCompras() {
-    const { fincaId, userFincas } = useAuth();
+    const { fincaId, userFincas, modoGanancia } = useAuth();
     const [compras, setCompras] = useState<CompraGrupo[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -443,7 +444,7 @@ export default function HistorialCompras() {
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Animales</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Peso Prom. Compra</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Peso Prom. Actual</th>
-                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>GMP Lote</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>{getModoLabel(modoGanancia)} Lote</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Acciones</th>
                                 </tr>
                             </thead>
@@ -478,8 +479,8 @@ export default function HistorialCompras() {
                                                     color: compra.gmpPromedio < 0 ? 'var(--error)' : (compra.gmpPromedio <= umbralMedio ? 'var(--warning)' : (compra.gmpPromedio <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                                     fontWeight: 'bold'
                                                 }}>
-                                                    {compra.gmpPromedio.toFixed(1)}
-                                                    <small style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>kg/m</small>
+                                                    {toDisplayValue(compra.gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                    <small style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>{getUnidadLabel(modoGanancia)}</small>
                                                 </span>
                                             ) : (
                                                 <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>-</span>
@@ -607,9 +608,9 @@ export default function HistorialCompras() {
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                                 <TrendingUp size={14} color="var(--success)" />
-                                                <span>GMP Lote:</span>
+                                                <span>{getModoLabel(modoGanancia)} Lote:</span>
                                                 <strong style={{ color: 'var(--success)' }}>
-                                                    {detalleCompra.gmpPromedio !== null ? `${detalleCompra.gmpPromedio.toFixed(1)} kg/m` : 'N/A'}
+                                                    {detalleCompra.gmpPromedio !== null ? `${toDisplayValue(detalleCompra.gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'N/A'}
                                                 </strong>
                                             </div>
                                         </div>
@@ -803,7 +804,7 @@ export default function HistorialCompras() {
                                                     style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
                                                 >
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                                                        GMP
+                                                        {getModoLabel(modoGanancia)}
                                                         {sortConfig.key === 'gmp' && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
                                                     </div>
                                                 </th>
@@ -859,7 +860,7 @@ export default function HistorialCompras() {
                                                                 fontWeight: 'bold',
                                                                 textShadow: (a.gmp > umbralMedio && a.gmp <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
                                                             }}>
-                                                                {a.gmp.toFixed(1)}
+                                                                {toDisplayValue(a.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                             </span>
                                                         ) : (
                                                             <span style={{ color: 'var(--text-muted)' }}>-</span>
@@ -981,7 +982,7 @@ export default function HistorialCompras() {
                             </button>
 
                             <div style={{ paddingRight: '40px', marginBottom: '24px' }}>
-                                <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>
+                                <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem', whiteSpace: 'nowrap' }}>
                                     <span style={{ color: 'var(--primary)', marginRight: '8px' }}>#</span>
                                     {a.numero_chapeta}
                                 </h2>
@@ -1011,11 +1012,11 @@ export default function HistorialCompras() {
                                     </div>
                                 </div>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>GMP</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>{getModoLabel(modoGanancia)}</div>
                                     <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))) : 'var(--text-muted)' }}>
-                                        {a.gmp !== null ? `${a.gmp.toFixed(1)} kg/m` : '-'}
+                                        {a.gmp !== null ? `${toDisplayValue(a.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : '-'}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ganancia mensual</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ganancia ({getUnidadLabel(modoGanancia)})</div>
                                 </div>
                             </div>
 
@@ -1043,7 +1044,7 @@ export default function HistorialCompras() {
                                         <tr>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Ganancia Mensual</th>
+                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Ganancia ({getModoLabel(modoGanancia)})</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1064,7 +1065,7 @@ export default function HistorialCompras() {
                                                                 fontWeight: 'bold',
                                                                 textShadow: (item.gmp > umbralMedio && item.gmp <= umbralAlto) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
                                                             }}>
-                                                                {item.gmp > 0 ? '+' : ''}{item.gmp.toFixed(1)} kg/mes
+                                                                {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
                                                             </div>
                                                             <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>GDP: {item.gdp > 0 ? '+' : ''}{item.gdp.toFixed(3)} kg/día</div>
                                                         </>
