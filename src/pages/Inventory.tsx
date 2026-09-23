@@ -1547,7 +1547,9 @@ export default function Inventory() {
                                         <tr>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Ganancia Mensual</th>
+                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                {modoGanancia === 'GDP' ? 'Ganancia Diaria' : 'Ganancia Mensual'}
+                                            </th>
                                             {isAdmin && <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'right' }}>Acciones</th>}
                                         </tr>
                                     </thead>

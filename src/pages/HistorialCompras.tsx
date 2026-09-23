@@ -1044,7 +1044,9 @@ export default function HistorialCompras() {
                                         <tr>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Ganancia ({getModoLabel(modoGanancia)})</th>
+                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                {modoGanancia === 'GDP' ? 'Ganancia Diaria' : 'Ganancia Mensual'}
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody>
