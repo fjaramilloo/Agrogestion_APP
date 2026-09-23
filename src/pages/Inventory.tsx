@@ -1623,7 +1623,7 @@ export default function Inventory() {
                                                                 }}>
                                                                     {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
                                                                 </div>
-                                                                <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>GDP: {item.gdp > 0 ? '+' : ''}{item.gdp.toFixed(3)} kg/día</div>
+
                                                             </>
                                                         )}
                                                     </td>
