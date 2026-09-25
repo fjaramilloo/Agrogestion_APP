@@ -528,35 +528,35 @@ export default function Sales() {
                     <p style={{ color: 'var(--text-muted)', margin: '8px 0 0 0' }}>Módulo para dar de baja animales vendidos y registrar su peso final.</p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <div 
                         onClick={toggleModoCampo}
                         title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
                         style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
-                            gap: '8px', 
-                            padding: '8px 16px', 
+                            gap: '6px', 
+                            padding: '6px 12px', 
                             borderRadius: '20px', 
                             backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
                             color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800', 
                             border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
                             fontWeight: 'bold', 
-                            fontSize: '0.9rem',
+                            fontSize: '0.82rem',
                             cursor: 'pointer',
                             userSelect: 'none'
                         }}
                     >
-                        {modoCampo ? <>🚜 Modo Campo (Offline)</> : isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Auto)</>}
+                        {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} /> Online</> : <><WifiOff size={14} /> Offline</>}
                     </div>
                     {offlineQueue.length > 0 && isOnline && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             <button 
                                 onClick={syncOfflineQueue} 
                                 disabled={syncing} 
-                                style={{ backgroundColor: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                style={{ backgroundColor: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.82rem', width: 'auto' }}
                             >
-                                <UploadCloud size={18} /> {syncing ? 'Validando...' : `Sincronizar Ventas (${offlineQueue.length})`}
+                                <UploadCloud size={15} /> {syncing ? 'Validando...' : `Sincronizar (${offlineQueue.length})`}
                             </button>
                             <button 
                                 onClick={() => {

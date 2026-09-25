@@ -512,13 +512,13 @@ export default function Aforos() {
                     <Layers size={32} /> Aforos y Forraje
                 </h1>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span 
                         onClick={toggleModoCampo}
                         title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
                         style={{ 
                             display: 'flex', alignItems: 'center', gap: '6px', 
-                            padding: '6px 12px', borderRadius: '20px', fontSize: '0.9rem', fontWeight: 'bold',
+                            padding: '6px 12px', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 'bold',
                             backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
                             color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800',
                             border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
@@ -526,13 +526,13 @@ export default function Aforos() {
                             userSelect: 'none'
                         }}
                     >
-                        {modoCampo ? <>🚜 Modo Campo (Offline)</> : isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Auto)</>}
+                        {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} /> Online</> : <><WifiOff size={14} /> Offline</>}
                     </span>
 
                     {offlineQueue.length > 0 && isOnline && isAdminOrCowboy && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px' }}>
-                                <UploadCloud size={18} /> {syncing ? 'Sincronizando...' : `Sincronizar (${offlineQueue.length})`}
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', width: 'auto' }}>
+                                <UploadCloud size={15} /> {syncing ? 'Subiendo...' : `Subir (${offlineQueue.length})`}
                             </button>
                             <button 
                                 onClick={() => {

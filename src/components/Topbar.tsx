@@ -72,110 +72,79 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     return (
         <header className="topbar">
             <div className="topbar-brand">
-                <button className="topbar-menu-btn" onClick={onToggleSidebar}>
-                    <Menu size={24} />
+                <button className="topbar-menu-btn" onClick={onToggleSidebar} aria-label="Abrir menú">
+                    <Menu size={22} />
                 </button>
-                <Leaf size={26} className="topbar-icon" />
-                <span className="topbar-title">AgroGestión</span>
+                <div className="topbar-brand-content">
+                    <Leaf size={22} className="topbar-icon" />
+                    <span className="topbar-title">AgroGestión</span>
+                </div>
             </div>
 
             <div className="topbar-right">
-                {/* Botón interactivo global de Modo Campo / Conexión */}
+                {/* Botón interactivo global de Modo Campo */}
                 <button
                     onClick={toggleModoCampo}
+                    className={`topbar-btn-modo-campo ${modoCampo ? 'modo-campo-active' : isOnline ? 'modo-online' : 'modo-offline'}`}
                     title={modoCampo 
                         ? 'Modo Campo activo: La app opera 100% desconectada de forma rápida y estable. Clic para volver a En Línea.'
-                        : 'Clic para activar Modo Campo (trabajar desconectado sin que la señal inestable interrumpa la app)'}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 12px',
-                        borderRadius: '20px',
-                        fontSize: '0.8rem',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        border: modoCampo 
-                            ? '1px solid rgba(245, 158, 11, 0.6)'
-                            : isOnline 
-                                ? '1px solid rgba(76, 175, 80, 0.4)' 
-                                : '1px solid rgba(239, 68, 68, 0.4)',
-                        backgroundColor: modoCampo 
-                            ? 'rgba(245, 158, 11, 0.2)' 
-                            : isOnline 
-                                ? 'rgba(76, 175, 80, 0.15)' 
-                                : 'rgba(239, 68, 68, 0.15)',
-                        color: modoCampo 
-                            ? '#fbbf24' 
-                            : isOnline 
-                                ? '#4ade80' 
-                                : '#f87171',
-                        transition: 'all 0.2s ease',
-                        userSelect: 'none'
-                    }}
+                        : 'Clic para activar Modo Campo (trabajar desconectado en potrero)'}
                 >
                     {modoCampo ? (
-                        <>🚜 Modo Campo (Offline)</>
+                        <>
+                            <span style={{ fontSize: '0.95rem' }}>🚜</span>
+                            <span>Modo Campo</span>
+                            <span className="topbar-btn-subtext">(Offline)</span>
+                        </>
                     ) : isOnline ? (
-                        <><Wifi size={14} /> En Línea</>
+                        <>
+                            <Wifi size={13} />
+                            <span>En Línea</span>
+                        </>
                     ) : (
-                        <><WifiOff size={14} /> Sin Señal (Auto)</>
+                        <>
+                            <WifiOff size={13} />
+                            <span>Sin Señal</span>
+                            <span className="topbar-btn-subtext">(Auto)</span>
+                        </>
                     )}
                 </button>
 
-                {/* Botón para preparar/descargar la finca antes de salir al potrero (solo si hay conexión y no estamos en modo campo) */}
+                {/* Botón para preparar/descargar la finca antes de salir al potrero */}
                 {isOnline && (
                     <button
                         onClick={handlePrepararFinca}
                         disabled={preparando}
+                        className="topbar-btn-action topbar-btn-preparar"
                         title="Descargar todos los datos de la finca en el celular para trabajar en el potrero sin conexión"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            background: 'rgba(59, 130, 246, 0.15)',
-                            color: '#60a5fa',
-                            border: '1px solid rgba(59, 130, 246, 0.35)',
-                            padding: '6px 12px',
-                            borderRadius: '12px',
-                            fontSize: '0.78rem',
-                            cursor: preparando ? 'wait' : 'pointer',
-                            fontWeight: 600
-                        }}
                     >
-                        <DownloadCloud size={14} className={preparando ? 'animate-spin' : ''} />
-                        <span className="hide-on-mobile">{preparando ? 'Preparando...' : 'Guardar para Campo'}</span>
+                        <DownloadCloud size={15} className={preparando ? 'animate-spin' : ''} />
+                        <span className="topbar-btn-label">
+                            {preparando ? 'Preparando...' : 'Guardar Finca'}
+                        </span>
                     </button>
                 )}
 
-                {/* Badge y botón para sincronizar registros pendientes de pesajes, aforos, compras o ventas */}
+                {/* Badge y botón para sincronizar registros pendientes */}
                 {conteoPendienteTotal > 0 && (
                     <button
                         onClick={handleSync}
                         disabled={syncing || !isOnline}
+                        className={`topbar-btn-action topbar-btn-sync ${isOnline ? 'can-sync' : 'cannot-sync'}`}
                         title={isOnline ? 'Clic para subir todos los registros acumulados' : 'Conéctate a internet para sincronizar'}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            background: isOnline ? 'rgba(76, 175, 80, 0.2)' : 'rgba(100, 116, 139, 0.2)',
-                            color: isOnline ? '#81c784' : '#94a3b8',
-                            border: `1px solid ${isOnline ? 'rgba(76, 175, 80, 0.4)' : 'rgba(100, 116, 139, 0.3)'}`,
-                            padding: '6px 12px',
-                            borderRadius: '12px',
-                            fontSize: '0.8rem',
-                            cursor: isOnline ? 'pointer' : 'default',
-                            fontWeight: 'bold'
-                        }}
                     >
-                        <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-                        {conteoPendienteTotal} pendientes {syncing ? '(Subiendo...)' : isOnline ? '(Sincronizar)' : ''}
+                        <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+                        <span className="topbar-sync-badge">{conteoPendienteTotal}</span>
+                        <span className="topbar-btn-label">
+                            {syncing ? 'Subiendo...' : isOnline ? 'Sincronizar' : 'pendientes'}
+                        </span>
                     </button>
                 )}
 
                 <NotificationCenter />
+
                 <div className="topbar-user">
-                    <div className="topbar-avatar">
+                    <div className="topbar-avatar" title={getUserDisplay()}>
                         {getRoleIcon()}
                     </div>
                     <div className="topbar-user-info">
@@ -186,20 +155,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
 
             {/* Notificación flotante de preparación para campo */}
             {msjPreparado && (
-                <div style={{
-                    position: 'absolute',
-                    top: '70px',
-                    right: '24px',
-                    background: '#1e293b',
-                    color: '#f8fafc',
-                    border: '1px solid #3b82f6',
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    fontSize: '0.85rem',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                    zIndex: 9999,
-                    maxWidth: '380px'
-                }}>
+                <div className="topbar-toast">
                     {msjPreparado}
                 </div>
             )}

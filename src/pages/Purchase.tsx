@@ -502,26 +502,26 @@ export default function Purchase() {
                     <p style={{ color: 'var(--text-muted)', margin: '8px 0 0 0' }}>Módulo para el registro masivo de animales nuevos.</p>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <div 
                         onClick={toggleModoCampo}
                         title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
                         style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
-                            gap: '8px', 
-                            padding: '8px 16px', 
+                            gap: '6px', 
+                            padding: '6px 12px', 
                             borderRadius: '20px', 
                             backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
                             color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800', 
                             border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
                             fontWeight: 'bold', 
-                            fontSize: '0.9rem',
+                            fontSize: '0.82rem',
                             cursor: 'pointer',
                             userSelect: 'none'
                         }}
                     >
-                        {modoCampo ? <>🚜 Modo Campo (Offline)</> : isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Auto)</>}
+                        {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} /> Online</> : <><WifiOff size={14} /> Offline</>}
                     </div>
                     
                     <button 
@@ -536,9 +536,9 @@ export default function Purchase() {
                             backgroundColor: 'rgba(52, 152, 219, 0.1)', 
                             color: '#3498db', 
                             border: '1px solid #3498db',
-                            padding: '6px 16px',
+                            padding: '6px 12px',
                             borderRadius: '8px',
-                            fontSize: '0.85rem',
+                            fontSize: '0.82rem',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
@@ -546,17 +546,17 @@ export default function Purchase() {
                             transition: 'all 0.2s ease'
                         }}
                     >
-                        <ShoppingCart size={16} /> Compra Rápida
+                        <ShoppingCart size={15} /> Compra Rápida
                     </button>
 
                     {offlineQueue.length > 0 && isOnline && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             <button 
                                 onClick={syncOfflineQueue} 
                                 disabled={syncing} 
-                                style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.82rem', width: 'auto' }}
                             >
-                                <UploadCloud size={18} /> {syncing ? 'Sincronizando...' : `Subir Pendientes (${offlineQueue.length})`}
+                                <UploadCloud size={15} /> {syncing ? 'Subiendo...' : `Subir (${offlineQueue.length})`}
                             </button>
                             <button 
                                 onClick={() => {

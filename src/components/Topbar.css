@@ -9,16 +9,25 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 24px;
-    background: rgba(18, 18, 18, 0.85);
+    background: rgba(18, 18, 18, 0.88);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .topbar-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.topbar-brand-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .topbar-menu-btn {
@@ -27,44 +36,132 @@
     border: none;
     color: white;
     padding: 8px;
-    margin-left: -10px;
+    margin-left: -6px;
     cursor: pointer;
     align-items: center;
     justify-content: center;
     transition: background 0.2s;
     border-radius: 8px;
+    flex-shrink: 0;
 }
 
+.topbar-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
 
 .topbar-icon {
     color: var(--primary-light);
+    flex-shrink: 0;
 }
 
 .topbar-title {
-    font-size: 1.3rem;
+    font-size: 1.25rem;
     font-weight: 700;
     letter-spacing: -0.5px;
     background: linear-gradient(90deg, var(--primary-light), #a5d6a7);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    white-space: nowrap;
 }
 
 .topbar-right {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* Botón Modo Campo */
+.topbar-btn-modo-campo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+    border: none;
+}
+
+.topbar-btn-modo-campo.modo-campo-active {
+    background: rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.6);
+    color: #fbbf24;
+}
+
+.topbar-btn-modo-campo.modo-online {
+    background: rgba(76, 175, 80, 0.15);
+    border: 1px solid rgba(76, 175, 80, 0.45);
+    color: #4ade80;
+}
+
+.topbar-btn-modo-campo.modo-offline {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #f87171;
+}
+
+/* Botones de acción (Guardar para campo, Sincronizar) */
+.topbar-btn-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.topbar-btn-preparar {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.topbar-btn-preparar:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.25);
+}
+
+.topbar-btn-sync.can-sync {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81c784;
+    border: 1px solid rgba(76, 175, 80, 0.45);
+}
+
+.topbar-btn-sync.cannot-sync {
+    background: rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
+    border: 1px solid rgba(100, 116, 139, 0.3);
+    cursor: default;
+}
+
+.topbar-sync-badge {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
 }
 
 .topbar-user {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .topbar-avatar {
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: var(--primary-dark);
     border: 1px solid var(--primary);
@@ -72,6 +169,7 @@
     align-items: center;
     justify-content: center;
     color: var(--primary-light);
+    flex-shrink: 0;
 }
 
 .topbar-user-info {
@@ -84,28 +182,93 @@
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
-.topbar-logout-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    padding: 8px 14px;
+/* Toast flotante de preparación para campo */
+.topbar-toast {
+    position: absolute;
+    top: 68px;
+    right: 24px;
+    background: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #3b82f6;
+    padding: 10px 16px;
     border-radius: 8px;
-    font-size: 0.88rem;
-    color: var(--text-muted);
-    width: auto;
-    text-transform: none;
-    letter-spacing: 0;
-    transition: all 0.2s;
+    font-size: 0.85rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    z-index: 9999;
+    max-width: 380px;
 }
 
-.topbar-logout-btn:hover {
-    color: white;
-    border-color: rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.06);
-    transform: none;
-    box-shadow: none;
+/* ========================================================
+   RESPONSIVE DESIGN PARA DISPOSITIVOS MÓVILES (SMARTPHONES)
+   ======================================================== */
+@media (max-width: 768px) {
+    .topbar {
+        padding: 0 10px;
+        height: 58px;
+    }
+
+    .topbar-right {
+        gap: 6px;
+    }
+
+    /* En móviles ocultamos el texto de rol del usuario */
+    .topbar-user-info {
+        display: none !important;
+    }
+
+    /* En botones, ocultamos etiquetas largas y dejamos iconos/etiquetas cortas */
+    .topbar-btn-subtext {
+        display: none !important;
+    }
+
+    .topbar-btn-action .topbar-btn-label {
+        display: none !important;
+    }
+
+    .topbar-btn-action {
+        padding: 6px 8px;
+        border-radius: 8px;
+    }
+
+    .topbar-btn-modo-campo {
+        padding: 4px 8px;
+        font-size: 0.72rem;
+        gap: 4px;
+    }
+
+    .topbar-toast {
+        left: 10px;
+        right: 10px;
+        top: 62px;
+        max-width: none;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    /* En teléfonos pequeños, ocultamos la palabra 'AgroGestión' para dar 100% de espacio a los botones */
+    .topbar-title {
+        display: none !important;
+    }
+
+    .topbar-brand {
+        gap: 4px;
+    }
+
+    .topbar-right {
+        gap: 5px;
+    }
+
+    .topbar-avatar {
+        width: 28px;
+        height: 28px;
+    }
+
+    .topbar-btn-modo-campo {
+        padding: 4px 6px;
+        font-size: 0.7rem;
+    }
 }
