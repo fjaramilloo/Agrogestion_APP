@@ -29,6 +29,7 @@ backups/
 
 # Documentos internos / prompts IA
 DOSSIER_AGROGESTION_PARA_IA.md
+INFORME_AUDITORIA_SEGURIDAD_SENTINELA.md
 
 # Plantillas de correo (uso local para Gmail)
 plantilla_*.html
