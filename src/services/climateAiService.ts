@@ -18,7 +18,6 @@
  * ============================================================
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../lib/supabase';
 import { format, subDays, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -391,50 +390,26 @@ export async function generarYGuardarAnalisisClimatico(
 
     let diagnostico: DiagnosticoClimatico;
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     const estaOnline = navigator.onLine;
 
-    if (apiKey && estaOnline) {
+    if (estaOnline) {
         try {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            
-function withTimeout<T>(promise: Promise<T>, ms = 9000): Promise<T> {
-    return Promise.race([
-        promise,
-        new Promise<T>((_, reject) =>
-            setTimeout(() => reject(new Error(`Timeout de respuesta IA (${ms / 1000}s)`)), ms)
-        ),
-    ]);
-}
-
-            // Usamos gemini-3.5-flash (igual que AgroBot) con fallback a gemini-3.6-flash y timeout estricto
-            let resultado;
-            try {
-                const model = genAI.getGenerativeModel({
-                    model: 'gemini-3.5-flash',
+            const { data: fnData, error: fnError } = await supabase.functions.invoke('gemini-ai', {
+                body: {
                     systemInstruction: buildSystemPrompt(),
+                    contents: buildUserPrompt(perfil, municipio, balances),
                     generationConfig: {
                         maxOutputTokens: 900,
                         temperature: 0.2,
                         topP: 0.8,
                     },
-                });
-                resultado = await withTimeout(model.generateContent(buildUserPrompt(perfil, municipio, balances)), 9000);
-            } catch (err35) {
-                console.warn('[climateAiService] Fallback a gemini-3.6-flash por:', err35);
-                const model36 = genAI.getGenerativeModel({
-                    model: 'gemini-3.6-flash',
-                    systemInstruction: buildSystemPrompt(),
-                    generationConfig: {
-                        maxOutputTokens: 900,
-                        temperature: 0.2,
-                        topP: 0.8,
-                    },
-                });
-                resultado = await withTimeout(model36.generateContent(buildUserPrompt(perfil, municipio, balances)), 9000);
-            }
+                    model: 'gemini-3.5-flash-lite',
+                }
+            });
 
-            const texto = resultado.response.text();
+            if (fnError) throw fnError;
+
+            const texto = fnData?.text ?? '';
             const json = parseRespuestaIA(texto);
 
             if (json && json.nivel_alerta && json.estado_hidrico) {
@@ -459,7 +434,7 @@ function withTimeout<T>(promise: Promise<T>, ms = 9000): Promise<T> {
                 diagnostico = generarDiagnosticoLocal(perfil, balances);
             }
         } catch (error) {
-            console.error('[climateAiService] Error al llamar a la API de Gemini:', error);
+            console.error('[climateAiService] Error al llamar a la API de Gemini vía Edge Function:', error);
             // Error en API (cuota, timeout, 503) → fallback local
             diagnostico = generarDiagnosticoLocal(perfil, balances);
         }

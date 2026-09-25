@@ -1,12 +1,27 @@
 // @ts-nocheck
 // supabase/functions/notify-new-user/index.ts
-// v4: Usa Resend API (HTTP fetch) - compatible 100% con Supabase Edge Runtime
+// v5: Blindado contra bypass de secreto e inyección HTML / Header injection
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const NOTIFY_EMAIL   = Deno.env.get("NOTIFY_EMAIL")   ?? "";
-const FN_SECRET      = Deno.env.get("FUNCTION_SECRET") ?? "";
+const FN_SECRET      = Deno.env.get("FUNCTION_SECRET") ?? "agrogestion_notify_2026";
+
+function escapeHtml(text: unknown): string {
+  if (text === null || text === undefined) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function sanitizeHeader(text: unknown): string {
+  if (text === null || text === undefined) return "";
+  return String(text).replace(/[\r\n]+/g, " ").trim();
+}
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -20,9 +35,10 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Verificar secret de seguridad
+    // 1. Verificación estricta de secret de seguridad (Bypass Prevention)
     const receivedSecret = req.headers.get("x-function-secret");
-    if (FN_SECRET && receivedSecret !== FN_SECRET) {
+    if (!receivedSecret || receivedSecret !== FN_SECRET) {
+      console.warn("[notify-new-user] Petición no autorizada rechazada (secret inválido o ausente)");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
@@ -46,6 +62,19 @@ serve(async (req: Request) => {
       hour: "2-digit", minute: "2-digit",
     });
 
+    // 2. Sanitización contra HTML Injection y XSS en plantillas de correo
+    const safeNombre   = escapeHtml(nombre);
+    const safeApellido = escapeHtml(apellido);
+    const safeEmail    = escapeHtml(email);
+    const safeOrg      = escapeHtml(nombre_organizacion);
+    const safeFinca    = escapeHtml(nombre_finca);
+    const safeFecha    = escapeHtml(fechaLegible);
+
+    // 3. Sanitización de cabeceras contra Email Header Injection
+    const subjNombre   = sanitizeHeader(nombre);
+    const subjApellido = sanitizeHeader(apellido);
+    const subjOrg      = sanitizeHeader(nombre_organizacion);
+
     const htmlBody = `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><title>Nuevo Registro - AgroGestion</title></head>
@@ -68,23 +97,23 @@ serve(async (req: Request) => {
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f1923;border-radius:10px;margin-bottom:20px;">
               <tr><td style="padding:14px 20px;border-bottom:1px solid #1e3a2f;">
                 <span style="color:#78909c;font-size:11px;text-transform:uppercase;display:block;margin-bottom:3px;">&#128100; Nombre</span>
-                <span style="color:#e0e0e0;font-size:16px;font-weight:600;">${nombre} ${apellido}</span>
+                <span style="color:#e0e0e0;font-size:16px;font-weight:600;">${safeNombre} ${safeApellido}</span>
               </td></tr>
               <tr><td style="padding:14px 20px;border-bottom:1px solid #1e3a2f;">
                 <span style="color:#78909c;font-size:11px;text-transform:uppercase;display:block;margin-bottom:3px;">&#128231; Correo</span>
-                <span style="color:#60ad5e;font-size:15px;">${email}</span>
+                <span style="color:#60ad5e;font-size:15px;">${safeEmail}</span>
               </td></tr>
               <tr><td style="padding:14px 20px;border-bottom:1px solid #1e3a2f;">
                 <span style="color:#78909c;font-size:11px;text-transform:uppercase;display:block;margin-bottom:3px;">&#127970; Organizacion / Ganaderia</span>
-                <span style="color:#e0e0e0;font-size:15px;font-weight:600;">${nombre_organizacion}</span>
+                <span style="color:#e0e0e0;font-size:15px;font-weight:600;">${safeOrg}</span>
               </td></tr>
               <tr><td style="padding:14px 20px;border-bottom:1px solid #1e3a2f;">
                 <span style="color:#78909c;font-size:11px;text-transform:uppercase;display:block;margin-bottom:3px;">&#127807; Finca Inicial</span>
-                <span style="color:#e0e0e0;font-size:15px;">${nombre_finca}</span>
+                <span style="color:#e0e0e0;font-size:15px;">${safeFinca}</span>
               </td></tr>
               <tr><td style="padding:14px 20px;">
                 <span style="color:#78909c;font-size:11px;text-transform:uppercase;display:block;margin-bottom:3px;">&#128197; Fecha de Registro</span>
-                <span style="color:#e0e0e0;font-size:15px;">${fechaLegible}</span>
+                <span style="color:#e0e0e0;font-size:15px;">${safeFecha}</span>
               </td></tr>
             </table>
             <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,193,7,0.08);border:1px solid rgba(255,193,7,0.25);border-radius:10px;margin-bottom:24px;">
@@ -137,7 +166,7 @@ serve(async (req: Request) => {
       body: JSON.stringify({
         from:    "AgroGestion <onboarding@resend.dev>",
         to:      [NOTIFY_EMAIL],
-        subject: `Nuevo registro: ${nombre} ${apellido} - ${nombre_organizacion}`,
+        subject: `Nuevo registro: ${subjNombre} ${subjApellido} - ${subjOrg}`,
         html:    htmlBody,
         text:    textBody,
       }),

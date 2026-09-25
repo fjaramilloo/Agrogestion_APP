@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Bot, X, Send, Database, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -144,7 +143,6 @@ export default function AgroBot() {
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     const esDemo = licenciaInfo?.licencia === 'demo';
 
     const scrollToBottom = () => {
@@ -154,8 +152,6 @@ export default function AgroBot() {
     useEffect(() => {
         if (isOpen) scrollToBottom();
     }, [messages, isOpen]);
-
-    if (!apiKey) return null;
 
     const handleSend = async () => {
         if (!input.trim()) return;
@@ -170,29 +166,6 @@ export default function AgroBot() {
         setIsLoading(true);
 
         try {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            
-            // Función para obtener modelo con fallback en caso de error de versión
-            const getModel = (modelName: string) => genAI.getGenerativeModel({
-                model: modelName,
-                systemInstruction: SYSTEM_PROMPT,
-            });
-
-            let model;
-            try {
-                model = getModel("gemini-3.5-flash");
-            } catch {
-                model = getModel("gemini-3.6-flash");
-            }
-
-            // Historial de la conversación
-            const history = messages.slice(1).map(m => ({
-                role: m.role,
-                parts: [{ text: m.text }]
-            }));
-
-            let chat = model.startChat({ history });
-
             // Obtener fecha actual en formato local de Colombia (UTC-5)
             const hoy = new Date();
             const fechaActual = hoy.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).split('/').reverse().join('-');
@@ -201,19 +174,27 @@ export default function AgroBot() {
 
             // Paso 1: Enviar el mensaje con el fincaId y la fecha de hoy inyectados
             const contextMsg = `[Sistema: fincaId activo = '${fincaId}'. Fecha actual de hoy: ${fechaActual} (${diaSemana}). Usa este id_finca en los filtros SQL y apóyate en la fecha actual para resolver términos como 'este fin de semana', 'ayer', 'este mes', 'este año', etc.]\n\nPregunta: ${userMsg}`;
-            
-            let step1;
-            try {
-                step1 = await chat.sendMessage(contextMsg);
-            } catch (chatErr: any) {
-                // Fallback secundario si gemini-3.5-flash produce fallo de cuota o modelo
-                console.warn("Reintentando con gemini-3.6-flash:", chatErr);
-                model = getModel("gemini-3.6-flash");
-                chat = model.startChat({ history });
-                step1 = await chat.sendMessage(contextMsg);
-            }
-            
-            const step1Text = step1.response.text();
+
+            // Historial acumulado para el Paso 1
+            const chatContents = [
+                ...messages.slice(1).map(m => ({
+                    role: m.role,
+                    parts: [{ text: m.text }]
+                })),
+                { role: 'user', parts: [{ text: contextMsg }] }
+            ];
+
+            // Invocación segura mediante Supabase Edge Function (API Key protegida en el servidor)
+            const { data: step1Data, error: step1Err } = await supabase.functions.invoke('gemini-ai', {
+                body: {
+                    systemInstruction: SYSTEM_PROMPT,
+                    contents: chatContents,
+                    model: 'gemini-3.5-flash-lite'
+                }
+            });
+
+            if (step1Err) throw new Error(step1Err.message || 'Error al conectar con AgroBot');
+            const step1Text = step1Data?.text ?? '';
 
             // Paso 2: Si la respuesta contiene SQL, ejecutarlo
             const sql = extractSql(step1Text);
@@ -232,10 +213,27 @@ export default function AgroBot() {
                 }
 
                 // Paso 3: Enviar los resultados de vuelta para que la IA los interprete zootécnicamente
-                const step2 = await chat.sendMessage(
-                    `Resultado de la consulta SQL: ${dbResult}\n\nAhora interpreta estos resultados y responde al usuario de manera clara, fluida y útil en español como un mentor ganadero. No menciones el SQL ni el formato técnico de la base de datos.`
-                );
-                const botMsg = step2.response.text();
+                const interpretContents = [
+                    ...chatContents,
+                    { role: 'model', parts: [{ text: step1Text }] },
+                    {
+                        role: 'user',
+                        parts: [{
+                            text: `Resultado de la consulta SQL: ${dbResult}\n\nAhora interpreta estos resultados y responde al usuario de manera clara, fluida y útil en español como un mentor ganadero. No menciones el SQL ni el formato técnico de la base de datos.`
+                        }]
+                    }
+                ];
+
+                const { data: step2Data, error: step2Err } = await supabase.functions.invoke('gemini-ai', {
+                    body: {
+                        systemInstruction: SYSTEM_PROMPT,
+                        contents: interpretContents,
+                        model: 'gemini-3.5-flash-lite'
+                    }
+                });
+
+                if (step2Err) throw new Error(step2Err.message || 'Error al interpretar resultados');
+                const botMsg = step2Data?.text ?? '';
                 setMessages(prev => [...prev, { role: 'model', text: botMsg }]);
             } else {
                 // No necesitaba SQL: respuesta directa
@@ -246,9 +244,9 @@ export default function AgroBot() {
             console.error("Error con AgroBot:", error);
             let errorMsg = `Lo siento, tuve un problema técnico: ${error.message}`;
             
-            if (error.message.includes('429') || error.message.includes('Quota exceeded')) {
+            if (error.message?.includes('429') || error.message?.includes('Quota exceeded')) {
                 errorMsg = '🐄 ¡Ups! He alcanzado mi límite de consultas rápidas por ahora (límite de uso gratuito). Por favor, dame un minuto de descanso e inténtalo de nuevo.';
-            } else if (error.message.includes('503')) {
+            } else if (error.message?.includes('503')) {
                 errorMsg = '🐄 Mis servidores están un poco saturados en este momento. Dame unos segunditos e intenta de nuevo.';
             }
             
