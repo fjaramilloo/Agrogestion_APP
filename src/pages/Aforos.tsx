@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, UploadCloud, TrendingUp, Calendar, Activity } from 'lucide-react';
 import { guardarAforoOffline } from '../lib/offlineService';
 import { localDB } from '../lib/db';
-import { detectarRegionClimatica } from '../utils/climateRegions';
 import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface Potrero {
@@ -47,9 +46,6 @@ export default function Aforos() {
     const [selectedPotreroId, setSelectedPotreroId] = useState('');
     const [potreroSearch, setPotreroSearch] = useState('');
     const [consumoBase, setConsumoBase] = useState(50); // Default, from config
-    
-    // Finca and Climate State
-    const [fincaInfo, setFincaInfo] = useState<{ ubicacion: string; municipio: string } | null>(null);
     const [totalAnimalesFinca, setTotalAnimalesFinca] = useState<number>(0);
     const [activeTab, setActiveTab] = useState<'cuna' | 'historial'>('cuna');
 
@@ -109,13 +105,6 @@ export default function Aforos() {
                     localStorage.setItem(`agrogestion_config_aforo_${fincaId}`, data.consumo_dia_potrero.toString());
                 }
 
-                // Info Finca para Clima
-                const { data: finca } = await supabase.from('fincas').select('ubicacion, municipio').eq('id', fincaId).single();
-                if (finca) {
-                    setFincaInfo(finca);
-                    localStorage.setItem(`agrogestion_finca_info_${fincaId}`, JSON.stringify(finca));
-                }
-
                 // Total Animales Activos de la Finca
                 const { count } = await supabase
                     .from('animales')
@@ -127,9 +116,6 @@ export default function Aforos() {
             } else {
                 const cached = localStorage.getItem(`agrogestion_config_aforo_${fincaId}`);
                 if (cached) setConsumoBase(parseFloat(cached));
-
-                const cachedFinca = localStorage.getItem(`agrogestion_finca_info_${fincaId}`);
-                if (cachedFinca) setFincaInfo(JSON.parse(cachedFinca));
 
                 const cachedAnimales = localStorage.getItem(`agrogestion_total_animales_${fincaId}`);
                 if (cachedAnimales) setTotalAnimalesFinca(parseInt(cachedAnimales));
@@ -521,8 +507,6 @@ export default function Aforos() {
         })
         .sort((a, b) => b.densidad - a.densidad);
 
-    const climaPerfil = detectarRegionClimatica(fincaInfo?.ubicacion || fincaInfo?.municipio || '');
-
     return (
         <div className="page-container" style={{ maxWidth: '1080px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '32px' }}>
@@ -568,45 +552,6 @@ export default function Aforos() {
                     )}
                 </div>
             </div>
-
-            {/* BUBBLE CLIMÁTICA REGIONAL */}
-            {climaPerfil && fincaInfo && (
-                <div style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    marginBottom: '32px',
-                    display: 'flex',
-                    gap: '20px',
-                    alignItems: 'center',
-                    flexWrap: 'wrap'
-                }}>
-                    <div style={{ 
-                        fontSize: '2.5rem', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        width: '64px', 
-                        height: '64px', 
-                        borderRadius: '50%', 
-                        backgroundColor: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.06)'
-                    }}>
-                        {climaPerfil.emoji}
-                    </div>
-                    <div style={{ flex: '1 1 500px' }}>
-                        <h4 style={{ margin: '0 0 6px 0', fontSize: '1.15rem', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            Ubicación Finca: <span style={{ color: 'var(--primary-light)' }}>{fincaInfo.municipio || fincaInfo.ubicacion || 'Registrada'}</span> 
-                            <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-muted)' }}>({climaPerfil.zona})</span>
-                        </h4>
-                        <p style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '500' }}>{climaPerfil.descripcion}</p>
-                        <p style={{ margin: 0, fontSize: '0.9rem', color: 'rgba(255,255,255,0.85)', lineHeight: '1.5' }}>
-                            <strong style={{ color: 'var(--primary-light)' }}>Manejo de Pasturas:</strong> {climaPerfil.recomendaciones.lluviaOptima}
-                        </p>
-                    </div>
-                </div>
-            )}
 
             {/* KPI METRIC CARDS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '32px' }}>
