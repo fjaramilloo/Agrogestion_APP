@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info, Search, CheckSquare, Square } from 'lucide-react';
+import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info, Search, CheckSquare, Square, Calculator, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, RotateCcw } from 'lucide-react';
 
 interface Potrero {
     id: string;
@@ -40,6 +40,14 @@ export default function Rotations() {
     const [nuevoPotForm, setNuevoPotForm] = useState({ nombre: '', area: '' });
     const [isSaving, setIsSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Calculadora Voisin
+    const [showCalculadora, setShowCalculadora] = useState(false);
+    const [calcTarget, setCalcTarget] = useState<'potreros' | 'ocupacion' | 'descanso'>('potreros');
+    const [diasDescanso, setDiasDescanso] = useState<number>(28);
+    const [diasOcupacion, setDiasOcupacion] = useState<number>(2);
+    const [nroPotreros, setNroPotreros] = useState<number>(15);
+    const [gruposPastoreo, setGruposPastoreo] = useState<number>(1);
 
     const isAdmin = role === 'administrador' || role === 'vaquero';
 
@@ -262,24 +270,576 @@ export default function Rotations() {
                         </div>
                     </div>
                 </div>
-                {isAdmin && (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <button 
-                        onClick={() => setShowNuevaRotacion(true)} 
+                        type="button"
+                        onClick={() => setShowCalculadora(!showCalculadora)} 
                         style={{ 
                             width: 'auto', 
-                            padding: '10px 24px', 
+                            padding: '10px 18px', 
                             borderRadius: '100px', 
                             fontSize: '0.9rem',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '10px',
-                            boxShadow: '0 4px 15px rgba(46, 125, 50, 0.3)'
+                            gap: '8px',
+                            backgroundColor: showCalculadora ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                            color: showCalculadora ? 'var(--primary-light)' : 'white',
+                            border: '1px solid ' + (showCalculadora ? 'var(--primary-light)' : 'rgba(255, 255, 255, 0.12)'),
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
                         }}
                     >
-                        <Plus size={20} /> Nueva Rotación
+                        <Calculator size={18} color="var(--primary-light)" />
+                        <span>Calculadora Voisin</span>
+                        {showCalculadora ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
-                )}
+
+                    {isAdmin && (
+                        <button 
+                            onClick={() => setShowNuevaRotacion(true)} 
+                            style={{ 
+                                width: 'auto', 
+                                padding: '10px 24px', 
+                                borderRadius: '100px', 
+                                fontSize: '0.9rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                boxShadow: '0 4px 15px rgba(46, 125, 50, 0.3)'
+                            }}
+                        >
+                            <Plus size={20} /> Nueva Rotación
+                        </button>
+                    )}
+                </div>
             </div>
+
+            {/* CALCULADORA DE ROTACIÓN VOISIN */}
+            {(() => {
+                if (!showCalculadora) return null;
+
+                const potrerosCalculadosExacto = diasOcupacion > 0 ? (diasDescanso / diasOcupacion) + gruposPastoreo : 0;
+                const potrerosCalculadosCeil = Math.ceil(potrerosCalculadosExacto);
+
+                const ocupacionCalculada = nroPotreros > gruposPastoreo 
+                    ? diasDescanso / (nroPotreros - gruposPastoreo)
+                    : 0;
+
+                const descansoCalculado = Math.max(0, (nroPotreros - gruposPastoreo) * diasOcupacion);
+
+                const effectiveD = calcTarget === 'descanso' ? descansoCalculado : diasDescanso;
+                const effectiveO = calcTarget === 'ocupacion' ? ocupacionCalculada : diasOcupacion;
+
+                // Evaluación Zootécnica de Ocupación
+                let ocupacionAlert = {
+                    type: 'success',
+                    title: '✓ Ocupación Óptima (1.5 – 3 días)',
+                    desc: 'Permite un pastoreo eficiente sin que el ganado consuma el rebrote de la pastura.'
+                };
+                if (effectiveO > 3) {
+                    ocupacionAlert = {
+                        type: 'warning',
+                        title: '⚠️ Riesgo de Daño al Rebrote (> 3 días)',
+                        desc: `A partir del día 3 a 4, las Brachiarias y pastos tropicales emiten su primer rebrote tierno. Ocupaciones de ${effectiveO.toFixed(1)} días hacen que el animal se coma ese rebrote tierno, agotando las reservas de la raíz y degradando la pradera.`
+                    };
+                } else if (effectiveO <= 1.5 && effectiveO > 0) {
+                    ocupacionAlert = {
+                        type: 'success',
+                        title: '🌿 Pastoreo Intensivo / Racional (≤ 1.5 días)',
+                        desc: 'Cosecha uniforme y máxima protección del rebrote. Excelente para maximizar la ganancia de peso (GDP) y la persistencia del sward.'
+                    };
+                } else if (effectiveO <= 0) {
+                    ocupacionAlert = {
+                        type: 'danger',
+                        title: '❌ Parámetros Insuficientes',
+                        desc: `Se requieren más de ${gruposPastoreo} potreros para rotar ${gruposPastoreo} lote(s).`
+                    };
+                }
+
+                // Evaluación Zootécnica de Descanso
+                let descansoAlert = {
+                    type: 'success',
+                    title: '✓ Descanso Óptimo en Época Lluviosa (21–32 días)',
+                    desc: 'Pico de proteína foliar antes de que comience el proceso de lignificación de la fibra.'
+                };
+                if (effectiveD < 21) {
+                    descansoAlert = {
+                        type: 'danger',
+                        title: '⚠️ Descanso Crítico (< 21 días)',
+                        desc: 'Muy poco reposo para pasturas tropicales. La planta no alcanza a restituir carbohidratos en la raíz ni a desarrollar volumen foliar, llevando a sobrepastoreo.'
+                    };
+                } else if (effectiveD > 42) {
+                    descansoAlert = {
+                        type: 'warning',
+                        title: '🌾 Riesgo de Lignificación (> 42 días)',
+                        desc: 'A menos que estés en pleno verano/época seca prolongada, con más de 42 días la pastura florece, se endurece (sube FDN) y pierde proteína cruda (<6%), reduciendo la digestibilidad.'
+                    };
+                } else if (effectiveD > 32) {
+                    descansoAlert = {
+                        type: 'info',
+                        title: '☀️ Rango Recomendado para Época Seca (33–42 días)',
+                        desc: 'Adecuado para períodos con menor precipitación, donde la tasa de crecimiento del forraje se desacelera.'
+                    };
+                }
+
+                return (
+                    <div className="card" style={{
+                        marginBottom: '32px',
+                        padding: '24px',
+                        background: 'linear-gradient(145deg, rgba(20, 35, 25, 0.95), rgba(13, 23, 17, 0.98))',
+                        border: '1px solid rgba(76, 175, 80, 0.3)',
+                        borderRadius: '16px',
+                        boxShadow: '0 12px 30px rgba(0, 0, 0, 0.35)'
+                    }}>
+                        {/* Header Calculadora */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ 
+                                        padding: '8px', 
+                                        borderRadius: '10px', 
+                                        backgroundColor: 'rgba(76, 175, 80, 0.15)', 
+                                        color: 'var(--primary-light)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    }}>
+                                        <Calculator size={22} />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ margin: 0, color: 'white', fontSize: '1.25rem', fontWeight: 700 }}>
+                                            Calculadora de Rotación (Leyes de Voisin)
+                                        </h3>
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                            Fórmula universal: <strong>N = (D ÷ O) + G</strong>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setDiasDescanso(28);
+                                        setDiasOcupacion(2);
+                                        setNroPotreros(potreros.length > 0 ? potreros.length : 15);
+                                        setGruposPastoreo(1);
+                                        setCalcTarget('potreros');
+                                    }}
+                                    style={{
+                                        background: 'transparent',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        color: 'var(--text-muted)',
+                                        padding: '6px 12px',
+                                        borderRadius: '8px',
+                                        fontSize: '0.8rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        width: 'auto',
+                                        cursor: 'pointer'
+                                    }}
+                                    title="Restablecer valores estándar"
+                                >
+                                    <RotateCcw size={14} /> Valores estándar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCalculadora(false)}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--text-muted)',
+                                        padding: '6px',
+                                        width: 'auto',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Selector de Incógnita (Pills) */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                ¿QUÉ DESEAS CALCULAR?
+                            </label>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setCalcTarget('potreros')}
+                                    style={{
+                                        flex: '1 1 200px',
+                                        padding: '10px 16px',
+                                        borderRadius: '10px',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 600,
+                                        border: calcTarget === 'potreros' ? '1px solid var(--primary-light)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                        backgroundColor: calcTarget === 'potreros' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                                        color: calcTarget === 'potreros' ? 'white' : 'var(--text-muted)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    1. Nro de Potreros Necesarios (N)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCalcTarget('ocupacion')}
+                                    style={{
+                                        flex: '1 1 200px',
+                                        padding: '10px 16px',
+                                        borderRadius: '10px',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 600,
+                                        border: calcTarget === 'ocupacion' ? '1px solid var(--primary-light)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                        backgroundColor: calcTarget === 'ocupacion' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                                        color: calcTarget === 'ocupacion' ? 'white' : 'var(--text-muted)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    2. Días de Ocupación Máxima (O)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCalcTarget('descanso')}
+                                    style={{
+                                        flex: '1 1 200px',
+                                        padding: '10px 16px',
+                                        borderRadius: '10px',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 600,
+                                        border: calcTarget === 'descanso' ? '1px solid var(--primary-light)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                        backgroundColor: calcTarget === 'descanso' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                                        color: calcTarget === 'descanso' ? 'white' : 'var(--text-muted)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    3. Días de Descanso Resultantes (D)
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Main Grid: Inputs + Output + Semáforo */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', alignItems: 'stretch' }}>
+                            
+                            {/* Columna Izquierda: Parámetros e Inputs */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                                
+                                {/* Días de Descanso (D) */}
+                                {calcTarget !== 'descanso' ? (
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                            <label style={{ margin: 0, fontSize: '0.9rem', color: 'white', fontWeight: 600 }}>
+                                                Días de Descanso del Pasto (D)
+                                            </label>
+                                            <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--primary-light)' }}>
+                                                {diasDescanso} días
+                                            </span>
+                                        </div>
+                                        <input 
+                                            type="range" 
+                                            min="10" 
+                                            max="60" 
+                                            step="1"
+                                            value={diasDescanso} 
+                                            onChange={e => setDiasDescanso(parseInt(e.target.value) || 1)}
+                                            style={{ width: '100%', accentColor: 'var(--primary)', marginBottom: '8px' }}
+                                        />
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDiasDescanso(25)}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '4px 8px',
+                                                    fontSize: '0.75rem',
+                                                    borderRadius: '6px',
+                                                    background: diasDescanso === 25 ? 'rgba(76, 175, 80, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                🌧️ Lluvias (25d)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDiasDescanso(30)}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '4px 8px',
+                                                    fontSize: '0.75rem',
+                                                    borderRadius: '6px',
+                                                    background: diasDescanso === 30 ? 'rgba(76, 175, 80, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                ⛅ Transición (30d)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDiasDescanso(40)}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '4px 8px',
+                                                    fontSize: '0.75rem',
+                                                    borderRadius: '6px',
+                                                    background: diasDescanso === 40 ? 'rgba(76, 175, 80, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                ☀️ Verano (40d)
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {/* Días de Ocupación (O) */}
+                                {calcTarget !== 'ocupacion' ? (
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                            <label style={{ margin: 0, fontSize: '0.9rem', color: 'white', fontWeight: 600 }}>
+                                                Días de Ocupación por Potrero (O)
+                                            </label>
+                                            <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--primary-light)' }}>
+                                                {diasOcupacion} {diasOcupacion === 1 ? 'día' : 'días'}
+                                            </span>
+                                        </div>
+                                        <input 
+                                            type="range" 
+                                            min="0.5" 
+                                            max="7" 
+                                            step="0.5"
+                                            value={diasOcupacion} 
+                                            onChange={e => setDiasOcupacion(parseFloat(e.target.value) || 0.5)}
+                                            style={{ width: '100%', accentColor: 'var(--primary)', marginBottom: '8px' }}
+                                        />
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDiasOcupacion(1)}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '4px 8px',
+                                                    fontSize: '0.75rem',
+                                                    borderRadius: '6px',
+                                                    background: diasOcupacion === 1 ? 'rgba(76, 175, 80, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                1 día (Intensivo)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDiasOcupacion(2)}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '4px 8px',
+                                                    fontSize: '0.75rem',
+                                                    borderRadius: '6px',
+                                                    background: diasOcupacion === 2 ? 'rgba(76, 175, 80, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                2 días (Estándar)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDiasOcupacion(3)}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '4px 8px',
+                                                    fontSize: '0.75rem',
+                                                    borderRadius: '6px',
+                                                    background: diasOcupacion === 3 ? 'rgba(76, 175, 80, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                3 días (Tope rebrote)
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {/* Número de Potreros (N) */}
+                                {calcTarget !== 'potreros' ? (
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                            <label style={{ margin: 0, fontSize: '0.9rem', color: 'white', fontWeight: 600 }}>
+                                                Número de Potreros Disponibles (N)
+                                            </label>
+                                            <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--primary-light)' }}>
+                                                {nroPotreros} potreros
+                                            </span>
+                                        </div>
+                                        <input 
+                                            type="range" 
+                                            min="2" 
+                                            max="50" 
+                                            step="1"
+                                            value={nroPotreros} 
+                                            onChange={e => setNroPotreros(parseInt(e.target.value) || 2)}
+                                            style={{ width: '100%', accentColor: 'var(--primary)', marginBottom: '8px' }}
+                                        />
+                                        {potreros.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setNroPotreros(potreros.length)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '5px 10px',
+                                                    fontSize: '0.75rem',
+                                                    borderRadius: '6px',
+                                                    background: nroPotreros === potreros.length ? 'rgba(76, 175, 80, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    color: 'var(--text-muted)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '6px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Usar mis potreros totales en la finca ({potreros.length} potreros)
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : null}
+
+                                {/* Grupos de Ganado (G) */}
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                        Grupos de Ganado en la Rotación (G)
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGruposPastoreo(1)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px',
+                                                fontSize: '0.8rem',
+                                                borderRadius: '8px',
+                                                fontWeight: 600,
+                                                border: gruposPastoreo === 1 ? '1px solid var(--primary-light)' : '1px solid rgba(255,255,255,0.08)',
+                                                backgroundColor: gruposPastoreo === 1 ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255,255,255,0.03)',
+                                                color: gruposPastoreo === 1 ? 'white' : 'var(--text-muted)',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            1 Lote (Convencional)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGruposPastoreo(2)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px',
+                                                fontSize: '0.8rem',
+                                                borderRadius: '8px',
+                                                fontWeight: 600,
+                                                border: gruposPastoreo === 2 ? '1px solid var(--primary-light)' : '1px solid rgba(255,255,255,0.08)',
+                                                backgroundColor: gruposPastoreo === 2 ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255,255,255,0.03)',
+                                                color: gruposPastoreo === 2 ? 'white' : 'var(--text-muted)',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            2 Lotes (Punta y Cola)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Columna Derecha: Resultado Destacado + Semáforo Zootécnico */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                
+                                {/* Card del Resultado */}
+                                <div style={{ 
+                                    padding: '20px', 
+                                    borderRadius: '14px', 
+                                    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+                                    border: '1px solid rgba(76, 175, 80, 0.3)',
+                                    textAlign: 'center'
+                                }}>
+                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+                                        {calcTarget === 'potreros' && 'Potreros Necesarios'}
+                                        {calcTarget === 'ocupacion' && 'Ocupación Máxima Recomendada'}
+                                        {calcTarget === 'descanso' && 'Días de Descanso Efectivo'}
+                                    </span>
+
+                                    <div style={{ fontSize: '2.6rem', fontWeight: 800, color: 'var(--primary-light)', margin: '6px 0' }}>
+                                        {calcTarget === 'potreros' && `${potrerosCalculadosCeil} potreros`}
+                                        {calcTarget === 'ocupacion' && `${ocupacionCalculada > 0 ? ocupacionCalculada.toFixed(1) : '---'} días`}
+                                        {calcTarget === 'descanso' && `${descansoCalculado} días`}
+                                    </div>
+
+                                    <div style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.85)', backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '6px 12px', borderRadius: '8px', display: 'inline-block' }}>
+                                        {calcTarget === 'potreros' && (
+                                            <>({diasDescanso}d descanso ÷ {diasOcupacion}d ocupación) + {gruposPastoreo} lote = <strong>{potrerosCalculadosExacto.toFixed(1)}</strong> ({potrerosCalculadosCeil} potreros)</>
+                                        )}
+                                        {calcTarget === 'ocupacion' && (
+                                            <>{diasDescanso}d descanso ÷ ({nroPotreros} potreros - {gruposPastoreo} lote) = <strong>{ocupacionCalculada.toFixed(1)} días/potrero</strong></>
+                                        )}
+                                        {calcTarget === 'descanso' && (
+                                            <>({nroPotreros} potreros - {gruposPastoreo} lote) × {diasOcupacion}d ocupación = <strong>{descansoCalculado} días de descanso</strong></>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Semáforo Zootécnico */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {/* Feedback Ocupación */}
+                                    <div style={{
+                                        padding: '12px 14px',
+                                        borderRadius: '10px',
+                                        backgroundColor: ocupacionAlert.type === 'danger' ? 'rgba(244, 67, 54, 0.12)' : ocupacionAlert.type === 'warning' ? 'rgba(255, 152, 0, 0.12)' : 'rgba(76, 175, 80, 0.12)',
+                                        border: `1px solid ${ocupacionAlert.type === 'danger' ? 'rgba(244, 67, 54, 0.3)' : ocupacionAlert.type === 'warning' ? 'rgba(255, 152, 0, 0.3)' : 'rgba(76, 175, 80, 0.3)'}`
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                            {ocupacionAlert.type === 'success' ? <CheckCircle2 size={16} color="var(--primary-light)" /> : <AlertTriangle size={16} color={ocupacionAlert.type === 'danger' ? 'var(--error)' : '#ff9800'} />}
+                                            <strong style={{ fontSize: '0.85rem', color: ocupacionAlert.type === 'danger' ? 'var(--error)' : ocupacionAlert.type === 'warning' ? '#ff9800' : 'var(--primary-light)' }}>
+                                                {ocupacionAlert.title}
+                                            </strong>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.85)', lineHeight: 1.4 }}>
+                                            {ocupacionAlert.desc}
+                                        </p>
+                                    </div>
+
+                                    {/* Feedback Descanso */}
+                                    <div style={{
+                                        padding: '12px 14px',
+                                        borderRadius: '10px',
+                                        backgroundColor: descansoAlert.type === 'danger' ? 'rgba(244, 67, 54, 0.12)' : descansoAlert.type === 'warning' ? 'rgba(255, 152, 0, 0.12)' : descansoAlert.type === 'info' ? 'rgba(33, 150, 243, 0.12)' : 'rgba(76, 175, 80, 0.12)',
+                                        border: `1px solid ${descansoAlert.type === 'danger' ? 'rgba(244, 67, 54, 0.3)' : descansoAlert.type === 'warning' ? 'rgba(255, 152, 0, 0.3)' : descansoAlert.type === 'info' ? 'rgba(33, 150, 243, 0.3)' : 'rgba(76, 175, 80, 0.3)'}`
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                            {descansoAlert.type === 'success' ? <CheckCircle2 size={16} color="var(--primary-light)" /> : <AlertTriangle size={16} color={descansoAlert.type === 'danger' ? 'var(--error)' : descansoAlert.type === 'info' ? '#2196f3' : '#ff9800'} />}
+                                            <strong style={{ fontSize: '0.85rem', color: descansoAlert.type === 'danger' ? 'var(--error)' : descansoAlert.type === 'warning' ? '#ff9800' : descansoAlert.type === 'info' ? '#2196f3' : 'var(--primary-light)' }}>
+                                                {descansoAlert.title}
+                                            </strong>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.85)', lineHeight: 1.4 }}>
+                                            {descansoAlert.desc}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                );
+            })()}
 
             {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>{msjError}</div>}
 
@@ -346,6 +906,32 @@ export default function Rotations() {
                                 <span style={{ fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
                                     {rot.pots.length} potreros • {rot.areaTotal.toFixed(2)} Ha
                                 </span>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setNroPotreros(Math.max(2, rot.pots.length));
+                                        setCalcTarget('ocupacion');
+                                        setShowCalculadora(true);
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    title="Simular rotación de Voisin con los potreros de este grupo"
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '3px 10px',
+                                        fontSize: '0.75rem',
+                                        borderRadius: '100px',
+                                        background: 'rgba(76, 175, 80, 0.12)',
+                                        color: 'var(--primary-light)',
+                                        border: '1px solid rgba(76, 175, 80, 0.25)',
+                                        cursor: 'pointer',
+                                        width: 'auto'
+                                    }}
+                                >
+                                    <Calculator size={12} /> Simular Voisin
+                                </button>
                             </div>
                             {isAdmin && (
                                 <div style={{ display: 'flex', gap: '12px' }}>
