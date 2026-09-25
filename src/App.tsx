@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ConnectionProvider } from './contexts/ConnectionContext';
 import Login from './pages/Login';
 // Importación estática para páginas ligeras y de uso frecuente
 import Inventory from './pages/Inventory';
@@ -231,11 +232,13 @@ const AppRoutes = () => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-        <VersionNotifier />
-        <AgroBot />
-      </Router>
+      <ConnectionProvider>
+        <Router>
+          <AppRoutes />
+          <VersionNotifier />
+          <AgroBot />
+        </Router>
+      </ConnectionProvider>
     </AuthProvider>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useConnection } from '../contexts/ConnectionContext';
 import ModalUpsell from '../components/ModalUpsell';
 import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check, AlertOctagon } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -29,6 +30,7 @@ interface AnimalPreview {
 
 export default function Weighing() {
     const { fincaId, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
+    const { modoCampo, isOnline } = useConnection();
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -148,23 +150,8 @@ export default function Weighing() {
         let data: any = null;
         let isOfflineResult = false;
 
-        if (navigator.onLine) {
-            try {
-                const res = await supabase
-                    .from('animales')
-                    .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada')
-                    .eq('id_finca', fincaId)
-                    .eq('numero_chapeta', targetChapeta)
-                    .or('is_deleted.is.null,is_deleted.eq.false')
-                    .maybeSingle();
-                data = res.data;
-            } catch (e) {
-                data = null;
-            }
-        }
-
-        // Búsqueda en Caché Local (IndexedDB) si no hay red o falló Supabase
-        if (!data) {
+        // Si estamos en Modo Campo o sin conexión, buscar de inmediato en la memoria local (IndexedDB)
+        if (modoCampo || !isOnline) {
             const cached = await localDB.animalesCache
                 .where('id_finca').equals(fincaId)
                 .filter(a => a.numero_chapeta === targetChapeta)
@@ -185,6 +172,43 @@ export default function Weighing() {
                 };
                 isOfflineResult = true;
             }
+        } else {
+            try {
+                const res = await supabase
+                    .from('animales')
+                    .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada')
+                    .eq('id_finca', fincaId)
+                    .eq('numero_chapeta', targetChapeta)
+                    .or('is_deleted.is.null,is_deleted.eq.false')
+                    .maybeSingle();
+                data = res.data;
+            } catch (e) {
+                data = null;
+            }
+
+            // Fallback a Caché Local si falló la consulta o no hubo respuesta
+            if (!data) {
+                const cached = await localDB.animalesCache
+                    .where('id_finca').equals(fincaId)
+                    .filter(a => a.numero_chapeta === targetChapeta)
+                    .first();
+
+                if (cached) {
+                    data = {
+                        id: cached.id,
+                        numero_chapeta: cached.numero_chapeta,
+                        peso_ingreso: cached.peso_ingreso || 0,
+                        peso_compra: cached.peso_compra,
+                        fecha_ingreso: cached.fecha_ingreso,
+                        etapa: cached.etapa,
+                        peso_ingreso_ceba: cached.peso_ingreso_ceba,
+                        fecha_ingreso_ceba: cached.fecha_ingreso_ceba,
+                        nombre_propietario: cached.nombre_propietario,
+                        id_potrerada: cached.id_potrerada
+                    };
+                    isOfflineResult = true;
+                }
+            }
         }
 
         if (!data) {
@@ -192,7 +216,7 @@ export default function Weighing() {
             setMsjError('Animal no encontrado. Puede revisar la chapeta o crear uno nuevo.');
         } else {
             let pesajes: any[] = [];
-            if (navigator.onLine && !isOfflineResult) {
+            if (isOnline && !isOfflineResult) {
                 const { data: psjs } = await supabase
                     .from('registros_pesaje')
                     .select('peso, fecha, gmp_calculada, gdp_calculada')
@@ -206,7 +230,7 @@ export default function Weighing() {
             let potreradaNombre: string | null = null;
 
             if ((data as any).id_potrerada) {
-                if (navigator.onLine) {
+                if (isOnline) {
                     const { data: pot } = await supabase
                         .from('potreradas')
                         .select('etapa, nombre')
@@ -353,8 +377,8 @@ export default function Weighing() {
                 }
             }
 
-            // MODO OFFLINE: Si no hay conexión o si falla la llamada HTTP a Supabase
-            if (!navigator.onLine) {
+            // MODO OFFLINE: Si estamos en Modo Campo o no hay conexión efectiva
+            if (modoCampo || !isOnline) {
                 await guardarPesajeOffline({
                     id_finca: fincaId,
                     id_animal: animal.id,
@@ -366,11 +390,12 @@ export default function Weighing() {
                     gmp_calculada: gdpCalculada * 30
                 });
 
-                setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente (Modo Offline). Se sincronizará al recuperar la señal.`);
+                setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente (Modo Campo / Offline). Se sincronizará al conectar.`);
                 setAnimal(null);
                 setChapeta('');
                 setNuevoPeso('');
                 setFechaPesaje(getLocalIsoDate());
+                setLoading(false);
                 return;
             }
 
@@ -385,7 +410,7 @@ export default function Weighing() {
 
             if (error) {
                 // Si ocurre un error de red al intentar insertar en Supabase
-                if (error.message?.includes('fetch') || error.message?.includes('network') || !navigator.onLine) {
+                if (error.message?.includes('fetch') || error.message?.includes('network') || !isOnline) {
                     await guardarPesajeOffline({
                         id_finca: fincaId,
                         id_animal: animal.id,

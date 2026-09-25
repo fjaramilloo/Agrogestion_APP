@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useConnection } from '../contexts/ConnectionContext';
 import { supabase } from '../lib/supabase';
 import { InteractiveFarmMap } from '../components/InteractiveFarmMap';
 import { MultiFarmMap, type FarmSummaryData } from '../components/MultiFarmMap';
@@ -21,6 +22,7 @@ function useIsMobile(breakpoint = 640) {
 
 export const FarmMapPage: React.FC = () => {
   const { fincaId, userFincas, role, licenciaInfo, setFincaId } = useAuth();
+  const { modoCampo, isOnline } = useConnection();
   const isVencida = Boolean(licenciaInfo?.isVencida);
   const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
   const isBloqueado = isVencida || isSobrecupo;
@@ -119,11 +121,17 @@ export const FarmMapPage: React.FC = () => {
 
   const loadFarmMapData = async () => {
     if (!fincaId) return;
-    setLoading(true);
 
-    // Si no hay conexión de red, cargar directamente de la memoria local
-    if (!navigator.onLine) {
-      await loadOfflineMapData(fincaId);
+    // 1. Cargar inmediatamente desde memoria local (Cache-First: 0 ms)
+    const hasLocal = await loadOfflineMapData(fincaId);
+    if (hasLocal) {
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    // 2. Si está en Modo Campo o sin conexión, detenerse aquí y operar 100% offline
+    if (modoCampo || !isOnline || !navigator.onLine) {
       setLoading(false);
       return;
     }
@@ -780,7 +788,7 @@ export const FarmMapPage: React.FC = () => {
       )}
 
       {/* Contenido Principal: Mapa o Estado Vacío */}
-      {loading ? (
+      {loading && potreros.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8' }}>
           <RefreshCw className="animate-spin" size={32} style={{ color: '#3B82F6', marginBottom: '12px' }} />
           <div>Cargando mapa e información geospacial...</div>

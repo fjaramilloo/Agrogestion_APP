@@ -197,7 +197,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .eq('id_usuario', userId);
 
             if (roleError) {
-                console.error("Error obteniendo roles:", roleError);
+                console.warn("Fallo de red al obtener permisos de finca en Supabase. Usando caché offline:", roleError);
+                // Fallback Offline desde localStorage
+                const cachedFincasRaw = localStorage.getItem('agrogestion_cached_user_fincas');
+                const cachedFincaId = localStorage.getItem('lastFincaId') || localStorage.getItem('agrogestion_cached_finca_id');
+                const cachedRole = (localStorage.getItem('agrogestion_cached_role') as UserRole) || 'administrador';
+                const cachedProfileRaw = localStorage.getItem('agrogestion_cached_profile');
+
+                if (cachedFincasRaw) {
+                    try { setUserFincas(JSON.parse(cachedFincasRaw)); } catch {}
+                }
+                if (cachedFincaId) {
+                    setFincaId(cachedFincaId);
+                }
+                if (cachedRole) {
+                    setRole(cachedRole);
+                }
+                if (cachedProfileRaw) {
+                    try { setProfile(JSON.parse(cachedProfileRaw)); } catch {}
+                }
             } else if (permisos && permisos.length > 0) {
                 const mappedFincas: UserFinca[] = permisos.map((p: any) => ({
                     id_finca: p.id_finca,
@@ -206,12 +224,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }));
 
                 setUserFincas(mappedFincas);
+                localStorage.setItem('agrogestion_cached_user_fincas', JSON.stringify(mappedFincas));
 
                 const savedFincaId = localStorage.getItem('lastFincaId');
                 const validFinca = mappedFincas.find(f => f.id_finca === savedFincaId) || mappedFincas[0];
 
                 setFincaId(validFinca.id_finca);
                 setRole(validFinca.rol);
+                localStorage.setItem('lastFincaId', validFinca.id_finca);
+                localStorage.setItem('agrogestion_cached_finca_id', validFinca.id_finca);
+                localStorage.setItem('agrogestion_cached_role', validFinca.rol || '');
 
                 // 2. Con el fincaId ya disponible, lanzar en paralelo:
                 //    - Datos de licencia
@@ -247,13 +269,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         nombre: perfilRes.data.nombre,
                         apellido: perfilRes.data.apellido
                     });
+                    localStorage.setItem('agrogestion_cached_profile', JSON.stringify({
+                        nombre: perfilRes.data.nombre,
+                        apellido: perfilRes.data.apellido
+                    }));
                 }
 
                 setIsSuperAdmin(!!adminRes.data);
             }
 
         } catch (err) {
-            console.error(err);
+            console.warn("Error en fetchUserData, restaurando estado offline de respaldo:", err);
+            const cachedFincasRaw = localStorage.getItem('agrogestion_cached_user_fincas');
+            const cachedFincaId = localStorage.getItem('lastFincaId') || localStorage.getItem('agrogestion_cached_finca_id');
+            const cachedRole = (localStorage.getItem('agrogestion_cached_role') as UserRole) || 'administrador';
+            const cachedProfileRaw = localStorage.getItem('agrogestion_cached_profile');
+
+            if (cachedFincasRaw) {
+                try { setUserFincas(JSON.parse(cachedFincasRaw)); } catch {}
+            }
+            if (cachedFincaId) setFincaId(cachedFincaId);
+            if (cachedRole) setRole(cachedRole);
+            if (cachedProfileRaw) {
+                try { setProfile(JSON.parse(cachedProfileRaw)); } catch {}
+            }
         } finally {
             setLoading(false);
         }

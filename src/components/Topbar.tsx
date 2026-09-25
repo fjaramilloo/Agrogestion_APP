@@ -1,12 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, WifiOff, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, Wifi, WifiOff, RefreshCw, DownloadCloud } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useConnection } from '../contexts/ConnectionContext';
 import NotificationCenter from './NotificationCenter';
-import {
-  obtenerConteoPendienteOffline,
-  procesarSincronizacionOffline,
-  sincronizarCacheFinca
-} from '../lib/offlineService';
 import './Topbar.css';
 
 interface TopbarProps {
@@ -15,63 +11,42 @@ interface TopbarProps {
 
 export default function Topbar({ onToggleSidebar }: TopbarProps) {
     const { role, isSuperAdmin, profile, fincaId } = useAuth();
-    const [conteoPendiente, setConteoPendiente] = useState(0);
-    const [syncing, setSyncing] = useState(false);
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const {
+        modoCampo,
+        toggleModoCampo,
+        isOnline,
+        syncing,
+        conteoPendienteTotal,
+        sincronizarTodo,
+        prepararFincaOffline
+    } = useConnection();
 
-    // 1. Monitorear estado de red y conteo de registros offline pendientes
-    useEffect(() => {
-        const handleOnlineStatus = () => {
-            const online = navigator.onLine;
-            setIsOnline(online);
-            if (online && fincaId) {
-                // Al volver a estar online, sincronizar caché local y procesar la cola pendiente
-                sincronizarCacheFinca(fincaId);
-                ejecutarSync();
-            }
-        };
+    const [preparando, setPreparando] = useState(false);
+    const [msjPreparado, setMsjPreparado] = useState<string | null>(null);
 
-        window.addEventListener('online', handleOnlineStatus);
-        window.addEventListener('offline', handleOnlineStatus);
-
-        return () => {
-            window.removeEventListener('online', handleOnlineStatus);
-            window.removeEventListener('offline', handleOnlineStatus);
-        };
-    }, [fincaId]);
-
-    // 2. Verificar conteo de cola offline por eventos con intervalo de respaldo (30s)
-    const actualizarConteo = async () => {
-        if (!fincaId) return;
-        const res = await obtenerConteoPendienteOffline(fincaId);
-        setConteoPendiente(res.total);
+    // Disparar sincronización manual
+    const handleSync = async () => {
+        if (!fincaId || syncing || !isOnline) return;
+        await sincronizarTodo(fincaId);
     };
 
-    useEffect(() => {
-        actualizarConteo();
-        const handleQueueChange = () => {
-            actualizarConteo();
-        };
-
-        window.addEventListener('offline-queue-changed', handleQueueChange);
-        const interval = setInterval(actualizarConteo, 30000);
-        return () => {
-            window.removeEventListener('offline-queue-changed', handleQueueChange);
-            clearInterval(interval);
-        };
-    }, [fincaId]);
-
-    // 3. Disparar sincronización por lotes a Supabase
-    const ejecutarSync = async () => {
-        if (!fincaId || syncing || !navigator.onLine) return;
-        setSyncing(true);
+    // Descargar datos de la finca antes de salir al potrero
+    const handlePrepararFinca = async () => {
+        if (!fincaId || preparando) return;
+        setPreparando(true);
+        setMsjPreparado(null);
         try {
-            await procesarSincronizacionOffline(fincaId);
-            await actualizarConteo();
-        } catch (e) {
-            console.error('Error al sincronizar cola offline:', e);
+            const res = await prepararFincaOffline(fincaId);
+            if (res.success) {
+                setMsjPreparado(`✅ Finca lista: ${res.animales} animales y ${res.potreros} potreros guardados para campo.`);
+            } else {
+                setMsjPreparado(`⚠️ ${res.error || 'No se pudo completar la preparación'}`);
+            }
+        } catch {
+            setMsjPreparado('⚠️ Error preparando datos para campo');
         } finally {
-            setSyncing(false);
+            setPreparando(false);
+            setTimeout(() => setMsjPreparado(null), 5000);
         }
     };
 
@@ -105,32 +80,96 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             </div>
 
             <div className="topbar-right">
-                {/* Badge Offline / Conteo de registros pendientes */}
-                {!isOnline && (
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        background: 'rgba(255, 152, 0, 0.2)', color: '#ffb74d',
-                        padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold',
-                        border: '1px solid rgba(255, 152, 0, 0.3)'
-                    }}>
-                        <WifiOff size={14} /> Modo Offline
-                    </div>
-                )}
+                {/* Botón interactivo global de Modo Campo / Conexión */}
+                <button
+                    onClick={toggleModoCampo}
+                    title={modoCampo 
+                        ? 'Modo Campo activo: La app opera 100% desconectada de forma rápida y estable. Clic para volver a En Línea.'
+                        : 'Clic para activar Modo Campo (trabajar desconectado sin que la señal inestable interrumpa la app)'}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        border: modoCampo 
+                            ? '1px solid rgba(245, 158, 11, 0.6)'
+                            : isOnline 
+                                ? '1px solid rgba(76, 175, 80, 0.4)' 
+                                : '1px solid rgba(239, 68, 68, 0.4)',
+                        backgroundColor: modoCampo 
+                            ? 'rgba(245, 158, 11, 0.2)' 
+                            : isOnline 
+                                ? 'rgba(76, 175, 80, 0.15)' 
+                                : 'rgba(239, 68, 68, 0.15)',
+                        color: modoCampo 
+                            ? '#fbbf24' 
+                            : isOnline 
+                                ? '#4ade80' 
+                                : '#f87171',
+                        transition: 'all 0.2s ease',
+                        userSelect: 'none'
+                    }}
+                >
+                    {modoCampo ? (
+                        <>🚜 Modo Campo (Offline)</>
+                    ) : isOnline ? (
+                        <><Wifi size={14} /> En Línea</>
+                    ) : (
+                        <><WifiOff size={14} /> Sin Señal (Auto)</>
+                    )}
+                </button>
 
-                {conteoPendiente > 0 && (
+                {/* Botón para preparar/descargar la finca antes de salir al potrero (solo si hay conexión y no estamos en modo campo) */}
+                {isOnline && (
                     <button
-                        onClick={ejecutarSync}
-                        disabled={syncing || !isOnline}
+                        onClick={handlePrepararFinca}
+                        disabled={preparando}
+                        title="Descargar todos los datos de la finca en el celular para trabajar en el potrero sin conexión"
                         style={{
-                            display: 'flex', alignItems: 'center', gap: '6px',
-                            background: 'rgba(76, 175, 80, 0.2)', color: '#81c784',
-                            border: '1px solid rgba(76, 175, 80, 0.3)',
-                            padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem',
-                            cursor: isOnline ? 'pointer' : 'default', fontWeight: 'bold'
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            color: '#60a5fa',
+                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                            padding: '6px 12px',
+                            borderRadius: '12px',
+                            fontSize: '0.78rem',
+                            cursor: preparando ? 'wait' : 'pointer',
+                            fontWeight: 600
                         }}
                     >
-                        <RefreshCw size={14} className={syncing ? 'spin-icon' : ''} />
-                        {conteoPendiente} pendientes {syncing ? '(Subiendo...)' : '(Sincronizar)'}
+                        <DownloadCloud size={14} className={preparando ? 'animate-spin' : ''} />
+                        <span className="hide-on-mobile">{preparando ? 'Preparando...' : 'Guardar para Campo'}</span>
+                    </button>
+                )}
+
+                {/* Badge y botón para sincronizar registros pendientes de pesajes, aforos, compras o ventas */}
+                {conteoPendienteTotal > 0 && (
+                    <button
+                        onClick={handleSync}
+                        disabled={syncing || !isOnline}
+                        title={isOnline ? 'Clic para subir todos los registros acumulados' : 'Conéctate a internet para sincronizar'}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: isOnline ? 'rgba(76, 175, 80, 0.2)' : 'rgba(100, 116, 139, 0.2)',
+                            color: isOnline ? '#81c784' : '#94a3b8',
+                            border: `1px solid ${isOnline ? 'rgba(76, 175, 80, 0.4)' : 'rgba(100, 116, 139, 0.3)'}`,
+                            padding: '6px 12px',
+                            borderRadius: '12px',
+                            fontSize: '0.8rem',
+                            cursor: isOnline ? 'pointer' : 'default',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+                        {conteoPendienteTotal} pendientes {syncing ? '(Subiendo...)' : isOnline ? '(Sincronizar)' : ''}
                     </button>
                 )}
 
@@ -144,6 +183,26 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Notificación flotante de preparación para campo */}
+            {msjPreparado && (
+                <div style={{
+                    position: 'absolute',
+                    top: '70px',
+                    right: '24px',
+                    background: '#1e293b',
+                    color: '#f8fafc',
+                    border: '1px solid #3b82f6',
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                    zIndex: 9999,
+                    maxWidth: '380px'
+                }}>
+                    {msjPreparado}
+                </div>
+            )}
         </header>
     );
 }

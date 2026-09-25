@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useConnection } from '../contexts/ConnectionContext';
 import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2, AlertOctagon, Pencil, Check, MapPin } from 'lucide-react';
 import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
 import ModalUpsell from '../components/ModalUpsell';
@@ -429,147 +430,157 @@ export default function Inventory() {
         }
     };
 
+    const { modoCampo, isOnline } = useConnection();
+
     const fetchAnimales = async () => {
         if (!fincaId) return;
-        setLoading(true);
 
-        if (navigator.onLine) {
-            try {
-                // FASE 2 - OPTIMIZACIÓN: 4 consultas en paralelo con .limit(50000)
-                const [configRes, animalesRes, ultimosPesajesRes, potsRes, propRes] = await Promise.all([
-                    supabase
-                        .from('configuracion_kpi')
-                        .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio')
-                        .eq('id_finca', fincaId)
-                        .single(),
-                    supabase
-                        .from('animales')
-                        .select(`
-                            id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
-                            peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
-                            peso_ingreso_ceba, estado, id_potrerada, creado_en,
-                            potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                            potreros ( nombre )
-                        `)
-                        .eq('id_finca', fincaId)
-                        .eq('estado', 'activo')
-                        .or('is_deleted.is.null,is_deleted.eq.false')
-                        .order('creado_en', { ascending: false })
-                        .limit(50000),
-                    supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000),
-                    supabase
-                        .from('potreradas')
-                        .select('id, nombre')
-                        .eq('id_finca', fincaId)
-                        .order('nombre', { ascending: true })
-                        .limit(10000),
-                    supabase
-                        .from('propietarios')
-                        .select('id, nombre')
-                        .eq('id_finca', fincaId)
-                        .order('nombre', { ascending: true })
-                        .limit(10000)
-                ]);
+        // 1. CARGA INMEDIATA DESDE CACHÉ LOCAL (Cache-First, 0 ms)
+        try {
+            const cachedAnimales = await localDB.animalesCache
+                .where('id_finca')
+                .equals(fincaId)
+                .toArray();
 
-                if (configRes.data) {
-                    setUmbralAltoGmp(configRes.data.umbral_alto_gmp ?? 20);
-                    setUmbralMedioGmp(configRes.data.umbral_medio_gmp ?? 10);
-                    setPrecioVentaPromedio(parseFloat(configRes.data.precio_venta_promedio || 0));
-                }
+            const cachedPotreradas = await localDB.potreradasCache
+                .where('id_finca')
+                .equals(fincaId)
+                .toArray();
 
-                const ultimosPesajesMap = new Map<string, any>();
-                if (ultimosPesajesRes.data) {
-                    for (const p of ultimosPesajesRes.data) {
-                        ultimosPesajesMap.set(p.id_animal, {
-                            peso: p.peso,
-                            fecha: p.fecha,
-                            gdp_calculada: p.gdp_calculada,
-                            gmp_calculada: p.gmp_calculada,
-                            potreros: p.potrero_nombre ? { nombre: p.potrero_nombre } : null
-                        });
-                    }
-                }
-
-                if (!animalesRes.error && animalesRes.data) {
-                    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-
-                    const dataProcesada = animalesRes.data.map((a: any) => {
-                        const ultimoP = ultimosPesajesMap.get(a.id) || null;
-                        const fechaRef = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
-                        fechaRef.setHours(0, 0, 0, 0);
-                        const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
-
-                        return {
-                            ...a,
-                            registros_pesaje: ultimoP ? [ultimoP] : [],
-                            potreroNombre: a.potreros?.nombre || 'Sin potrero',
-                            potreradaNombre: a.potreradas?.nombre || 'Sin potrerada',
-                            diasDesdeUltimoPesaje
-                        };
-                    });
-                    setAnimales(dataProcesada);
-                }
-
-                if (potsRes.data) setPotreradasDisponibles(potsRes.data);
-                if (propRes.data) setPropietariosLista(propRes.data);
-
-                // Actualizar la memoria IndexedDB en segundo plano
-                sincronizarCacheFinca(fincaId);
-                setLoading(false);
-                return;
-            } catch (err) {
-                console.warn('Fallo red Supabase, buscando en caché local...', err);
+            if (cachedPotreradas && cachedPotreradas.length > 0) {
+                setPotreradasDisponibles(cachedPotreradas);
             }
+
+            if (cachedAnimales && cachedAnimales.length > 0) {
+                const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+
+                const dataProcesada = cachedAnimales.map((a: any) => {
+                    const fechaRef = a.fecha_ultimo_pesaje ? new Date(a.fecha_ultimo_pesaje) : new Date(a.fecha_ingreso);
+                    fechaRef.setHours(0, 0, 0, 0);
+                    const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
+
+                    return {
+                        id: a.id,
+                        numero_chapeta: a.numero_chapeta,
+                        nombre_propietario: a.nombre_propietario || 'Sin Propietario',
+                        especie: 'bovino',
+                        sexo: 'M',
+                        etapa: a.etapa,
+                        peso_ingreso: a.peso_ingreso || 0,
+                        peso_compra: a.peso_compra,
+                        fecha_ingreso: a.fecha_ingreso,
+                        fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+                        peso_ingreso_ceba: a.peso_ingreso_ceba,
+                        estado: 'activo',
+                        id_potrerada: a.id_potrerada,
+                        potreroNombre: a.potrero_nombre || 'Sin potrero',
+                        potreradaNombre: a.potrerada_nombre || 'Sin potrerada',
+                        registros_pesaje: a.ultimo_peso ? [{ peso: a.ultimo_peso, fecha: a.fecha_ultimo_pesaje || a.updated_at, gdp_calculada: 0 }] : [],
+                        diasDesdeUltimoPesaje
+                    };
+                });
+
+                setAnimales(dataProcesada);
+                // Si ya tenemos animales cargados localmente, apagamos la carga inicial de una vez
+                setLoading(false);
+            }
+        } catch (cacheErr) {
+            console.warn('[Inventario] Error leyendo caché local:', cacheErr);
         }
 
-        // FALLBACK OFFLINE (IndexedDB)
-        const cachedAnimales = await localDB.animalesCache
-            .where('id_finca')
-            .equals(fincaId)
-            .toArray();
-
-        const cachedPotreradas = await localDB.potreradasCache
-            .where('id_finca')
-            .equals(fincaId)
-            .toArray();
-
-        if (cachedAnimales && cachedAnimales.length > 0) {
-            const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-
-            const dataProcesada = cachedAnimales.map((a: any) => {
-                const fechaRef = a.fecha_ultimo_pesaje ? new Date(a.fecha_ultimo_pesaje) : new Date(a.fecha_ingreso);
-                fechaRef.setHours(0, 0, 0, 0);
-                const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
-
-                return {
-                    id: a.id,
-                    numero_chapeta: a.numero_chapeta,
-                    nombre_propietario: a.nombre_propietario || 'Sin Propietario',
-                    especie: 'bovino',
-                    sexo: 'M',
-                    etapa: a.etapa,
-                    peso_ingreso: a.peso_ingreso || 0,
-                    peso_compra: a.peso_compra,
-                    fecha_ingreso: a.fecha_ingreso,
-                    fecha_ingreso_ceba: a.fecha_ingreso_ceba,
-                    peso_ingreso_ceba: a.peso_ingreso_ceba,
-                    estado: 'activo',
-                    id_potrerada: a.id_potrerada,
-                    potreroNombre: a.potrero_nombre || 'Sin potrero',
-                    potreradaNombre: a.potrerada_nombre || 'Sin potrerada',
-                    registros_pesaje: a.ultimo_peso ? [{ peso: a.ultimo_peso, fecha: a.fecha_ultimo_pesaje || a.updated_at, gdp_calculada: 0 }] : [],
-                    diasDesdeUltimoPesaje
-                };
-            });
-
-            setAnimales(dataProcesada);
+        // 2. Si estamos en Modo Campo forzado o no hay conexión efectiva, no consultar red
+        if (modoCampo || !isOnline) {
+            setLoading(false);
+            return;
         }
 
-        if (cachedPotreradas && cachedPotreradas.length > 0) {
-            setPotreradasDisponibles(cachedPotreradas);
-        }
+        // 3. REVALIDACIÓN EN SEGUNDO PLANO (Solo si hay conexión real y no estamos en Modo Campo)
+        try {
+            const [configRes, animalesRes, ultimosPesajesRes, potsRes, propRes] = await Promise.all([
+                supabase
+                    .from('configuracion_kpi')
+                    .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio')
+                    .eq('id_finca', fincaId)
+                    .single(),
+                supabase
+                    .from('animales')
+                    .select(`
+                        id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
+                        peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
+                        peso_ingreso_ceba, estado, id_potrerada, creado_en,
+                        potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+                        potreros ( nombre )
+                    `)
+                    .eq('id_finca', fincaId)
+                    .eq('estado', 'activo')
+                    .or('is_deleted.is.null,is_deleted.eq.false')
+                    .order('creado_en', { ascending: false })
+                    .limit(50000),
+                supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000),
+                supabase
+                    .from('potreradas')
+                    .select('id, nombre')
+                    .eq('id_finca', fincaId)
+                    .order('nombre', { ascending: true })
+                    .limit(10000),
+                supabase
+                    .from('propietarios')
+                    .select('id, nombre')
+                    .eq('id_finca', fincaId)
+                    .order('nombre', { ascending: true })
+                    .limit(10000)
+            ]);
 
-        setLoading(false);
+            if (configRes.data) {
+                setUmbralAltoGmp(configRes.data.umbral_alto_gmp ?? 20);
+                setUmbralMedioGmp(configRes.data.umbral_medio_gmp ?? 10);
+                setPrecioVentaPromedio(parseFloat(configRes.data.precio_venta_promedio || 0));
+            }
+
+            const ultimosPesajesMap = new Map<string, any>();
+            if (ultimosPesajesRes.data) {
+                for (const p of ultimosPesajesRes.data) {
+                    ultimosPesajesMap.set(p.id_animal, {
+                        peso: p.peso,
+                        fecha: p.fecha,
+                        gdp_calculada: p.gdp_calculada,
+                        gmp_calculada: p.gmp_calculada,
+                        potreros: p.potrero_nombre ? { nombre: p.potrero_nombre } : null
+                    });
+                }
+            }
+
+            // BLINDAJE: Solo actualizar estado si la nube entregó animales válidos
+            if (!animalesRes.error && animalesRes.data && animalesRes.data.length > 0) {
+                const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+
+                const dataProcesada = animalesRes.data.map((a: any) => {
+                    const ultimoP = ultimosPesajesMap.get(a.id) || null;
+                    const fechaRef = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
+                    fechaRef.setHours(0, 0, 0, 0);
+                    const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
+
+                    return {
+                        ...a,
+                        registros_pesaje: ultimoP ? [ultimoP] : [],
+                        potreroNombre: a.potreros?.nombre || 'Sin potrero',
+                        potreradaNombre: a.potreradas?.nombre || 'Sin potrerada',
+                        diasDesdeUltimoPesaje
+                    };
+                });
+                setAnimales(dataProcesada);
+            }
+
+            if (potsRes.data && potsRes.data.length > 0) setPotreradasDisponibles(potsRes.data);
+            if (propRes.data && propRes.data.length > 0) setPropietariosLista(propRes.data);
+
+            // Actualizar la memoria IndexedDB en segundo plano de manera segura
+            sincronizarCacheFinca(fincaId);
+        } catch (err) {
+            console.warn('[Inventario] Revalidación en segundo plano falló por red. Manteniendo datos locales.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Debounce search term to improve performance with 1700+ animals

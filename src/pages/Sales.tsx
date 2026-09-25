@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useConnection } from '../contexts/ConnectionContext';
 import { differenceInDays } from 'date-fns';
 import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud, AlertOctagon } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
@@ -37,6 +38,7 @@ interface AnimalVenta {
 
 export default function Sales() {
     const { fincaId, role, userFincas, modoGanancia, licenciaInfo } = useAuth();
+    const { modoCampo, toggleModoCampo, isOnline } = useConnection();
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -55,7 +57,6 @@ export default function Sales() {
     const [msjError, setMsjError] = useState('');
 
     // Offline / Sync State
-    const [isOnline, setIsOnline] = useState(true);
     const [offlineQueue, setOfflineQueue] = useState<OfflineSalesPayload[]>([]);
     const [syncing, setSyncing] = useState(false);
 
@@ -64,17 +65,6 @@ export default function Sales() {
 
     const [showReport, setShowReport] = useState(false);
     const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalVenta[], comprador: string, observaciones?: string } | null>(null);
-
-    const checkOnlineStatus = async () => {
-        try {
-            // Intento de conexión real (Ping)
-            const { error } = await supabase.from('fincas').select('id').limit(1);
-            if (error && error.code === 'PGRST301') return true; // JWT error but reached server
-            return !error;
-        } catch (e) {
-            return false;
-        }
-    };
 
     useEffect(() => {
         const saved = localStorage.getItem('agrogestion_ventas_offline');
@@ -301,10 +291,6 @@ export default function Sales() {
         setLoading(true);
         setMsjError('');
 
-        // Validar conexión real antes de decidir flujo
-        const realOnline = await checkOnlineStatus();
-        setIsOnline(realOnline);
-
         try {
             if (!selectedComprador) throw new Error("Debe seleccionar un Comprador para la venta.");
             if (isCarnicero && !observaciones.trim()) throw new Error("Para ventas al Carnicero es obligatorio detallar el motivo en observaciones.");
@@ -332,12 +318,11 @@ export default function Sales() {
         setMsjExito('');
         setShowConfirm(false);
 
-        // Segunda validación de conexión real antes de procesar
-        const realOnline = await checkOnlineStatus();
-        setIsOnline(realOnline);
+        // Validación de conexión efectiva
+        const effectiveOnline = isOnline;
 
         try {
-            if (!realOnline) {
+            if (!effectiveOnline) {
                 const newPayload: OfflineSalesPayload = {
                     id: Date.now().toString(),
                     fechaVenta,
@@ -348,8 +333,9 @@ export default function Sales() {
                 const newQueue = [...offlineQueue, newPayload];
                 setOfflineQueue(newQueue);
                 localStorage.setItem('agrogestion_ventas_offline', JSON.stringify(newQueue));
+                window.dispatchEvent(new CustomEvent('offline-queue-changed'));
                 
-                setMsjExito(`¡Sin conexión! Lote de ${animales.length} ventas guardado en la cola local.`);
+                setMsjExito(`¡Guardado localmente! Lote de ${animales.length} ventas guardado en la cola offline.`);
                 handleReset();
                 setLoading(false);
                 return;
@@ -426,9 +412,7 @@ export default function Sales() {
     }
 
     const syncOfflineQueue = async () => {
-        const realOnline = await checkOnlineStatus();
-        setIsOnline(realOnline);
-        if (!fincaId || offlineQueue.length === 0 || !realOnline) return;
+        if (!fincaId || offlineQueue.length === 0 || !isOnline) return;
         setSyncing(true);
         setMsjError('');
         setMsjExito('');
@@ -546,23 +530,24 @@ export default function Sales() {
 
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <div 
-                        onClick={() => setIsOnline(!isOnline)}
-                        title="Clic para forzar el estado de conexión"
+                        onClick={toggleModoCampo}
+                        title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
                         style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
                             gap: '8px', 
                             padding: '8px 16px', 
                             borderRadius: '20px', 
-                            backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
-                            color: isOnline ? 'var(--success)' : '#ff9800', 
+                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
+                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800', 
+                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
                             fontWeight: 'bold', 
                             fontSize: '0.9rem',
                             cursor: 'pointer',
                             userSelect: 'none'
                         }}
                     >
-                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Forzar Online)</>}
+                        {modoCampo ? <>🚜 Modo Campo (Offline)</> : isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Auto)</>}
                     </div>
                     {offlineQueue.length > 0 && isOnline && (
                         <div style={{ display: 'flex', gap: '8px' }}>

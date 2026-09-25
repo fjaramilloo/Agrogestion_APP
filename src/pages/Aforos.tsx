@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useConnection } from '../contexts/ConnectionContext';
 import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, UploadCloud, TrendingUp, Calendar, Activity } from 'lucide-react';
 import { guardarAforoOffline } from '../lib/offlineService';
 import { localDB } from '../lib/db';
@@ -40,6 +41,7 @@ interface OfflineAforoPayload {
 
 export default function Aforos() {
     const { fincaId, role } = useAuth();
+    const { modoCampo, toggleModoCampo, isOnline } = useConnection();
     const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
 
     const [potreros, setPotreros] = useState<Potrero[]>([]);
@@ -50,20 +52,8 @@ export default function Aforos() {
     const [activeTab, setActiveTab] = useState<'cuna' | 'historial'>('cuna');
 
     // Online / Sync State
-    const [isOnline, setIsOnline] = useState(true);
     const [offlineQueue, setOfflineQueue] = useState<OfflineAforoPayload[]>([]);
     const [syncing, setSyncing] = useState(false);
-
-    const checkOnlineStatus = async () => {
-        try {
-            // Intento de conexión real (Ping)
-            const { error } = await supabase.from('fincas').select('id').limit(1);
-            if (error && error.code === 'PGRST301') return true; 
-            return !error;
-        } catch (e) {
-            return false;
-        }
-    };
     
     // Potrero Info Context
     const [areaInfo, setAreaInfo] = useState<number | null>(null);
@@ -144,45 +134,48 @@ export default function Aforos() {
         const potrero = potreros.find(p => p.id === selectedPotreroId);
         if (potrero) setAreaInfo(potrero.area_hectareas || 0);
 
-        // Fetch potrerada and animals count logic
+        // Fetch potrerada and animals count logic (Cache-First)
         const fetchContext = async () => {
-            if (isOnline) {
-                // Find current movement that links to this potrero
-                const { data: mov } = await supabase
-                    .from('movimientos_potreros')
-                    .select(`
-                        id_potrerada,
-                        potreradas (id, nombre)
-                    `)
-                    .eq('id_potrero', selectedPotreroId)
-                    .is('fecha_salida', null)
-                    .limit(1)
-                    .single();
-
-                if (mov && mov.potreradas) {
-                    setPotreradaInfo(mov.potreradas as any);
-                    // Get animal count for this potrerada
-                    const { count } = await supabase
-                        .from('animales')
-                        .select('id', { count: 'exact', head: true })
-                        .eq('id_potrerada', mov.id_potrerada)
-                        .eq('estado', 'activo');
-                    setAnimalCount(count || 0);
-                    localStorage.setItem(`ctx_aforo_${selectedPotreroId}`, JSON.stringify({ potreradaInfo: mov.potreradas, animalCount: count }));
-                } else {
-                    setPotreradaInfo(null);
-                    setAnimalCount(0);
-                    localStorage.removeItem(`ctx_aforo_${selectedPotreroId}`);
-                }
-            } else {
-                const cached = localStorage.getItem(`ctx_aforo_${selectedPotreroId}`);
-                if (cached) {
+            // 1. Cargar caché inmediatamente
+            const cached = localStorage.getItem(`ctx_aforo_${selectedPotreroId}`);
+            if (cached) {
+                try {
                     const parsed = JSON.parse(cached);
                     setPotreradaInfo(parsed.potreradaInfo);
                     setAnimalCount(parsed.animalCount || 0);
-                } else {
-                    setPotreradaInfo(null);
-                    setAnimalCount(0);
+                } catch {}
+            }
+
+            // 2. Si hay conexión efectiva, actualizar en segundo plano sin borrar si falla
+            if (isOnline) {
+                try {
+                    const { data: mov, error: movErr } = await supabase
+                        .from('movimientos_potreros')
+                        .select(`
+                            id_potrerada,
+                            potreradas (id, nombre)
+                        `)
+                        .eq('id_potrero', selectedPotreroId)
+                        .is('fecha_salida', null)
+                        .limit(1)
+                        .single();
+
+                    if (!movErr && mov && mov.potreradas) {
+                        setPotreradaInfo(mov.potreradas as any);
+                        const { count } = await supabase
+                            .from('animales')
+                            .select('id', { count: 'exact', head: true })
+                            .eq('id_potrerada', mov.id_potrerada)
+                            .eq('estado', 'activo');
+                        setAnimalCount(count || 0);
+                        localStorage.setItem(`ctx_aforo_${selectedPotreroId}`, JSON.stringify({ potreradaInfo: mov.potreradas, animalCount: count }));
+                    } else if (!movErr && !mov) {
+                        setPotreradaInfo(null);
+                        setAnimalCount(0);
+                        localStorage.removeItem(`ctx_aforo_${selectedPotreroId}`);
+                    }
+                } catch {
+                    // Fallo de red: preservar caché
                 }
             }
         };
@@ -190,21 +183,7 @@ export default function Aforos() {
     }, [selectedPotreroId, potreros]);
 
     const fetchPotreros = async () => {
-        if (isOnline) {
-            try {
-                const { data } = await supabase
-                    .from('potreros')
-                    .select('id, nombre, area_hectareas')
-                    .eq('id_finca', fincaId)
-                    .order('nombre');
-                if (data) {
-                    setPotreros(data);
-                    localStorage.setItem(`agrogestion_potreros_aforo_${fincaId}`, JSON.stringify(data));
-                    return;
-                }
-            } catch (e) {}
-        }
-
+        // 1. Cargar primero de IndexedDB o caché local
         const cached = await localDB.potrerosCache.where('id_finca').equals(fincaId || '').toArray();
         if (cached && cached.length > 0) {
             setPotreros(cached.map(p => ({
@@ -216,12 +195,25 @@ export default function Aforos() {
             const legacy = localStorage.getItem(`agrogestion_potreros_aforo_${fincaId}`);
             if (legacy) setPotreros(JSON.parse(legacy));
         }
+
+        // 2. Si hay conexión, actualizar en segundo plano
+        if (isOnline) {
+            try {
+                const { data } = await supabase
+                    .from('potreros')
+                    .select('id, nombre, area_hectareas')
+                    .eq('id_finca', fincaId)
+                    .order('nombre');
+                if (data && data.length > 0) {
+                    setPotreros(data);
+                    localStorage.setItem(`agrogestion_potreros_aforo_${fincaId}`, JSON.stringify(data));
+                }
+            } catch (e) {}
+        }
     };
 
     const syncOfflineQueue = async () => {
-        const realOnline = await checkOnlineStatus();
-        setIsOnline(realOnline);
-        if (!fincaId || offlineQueue.length === 0 || !realOnline) return;
+        if (!fincaId || offlineQueue.length === 0 || !isOnline) return;
         setSyncing(true);
         let newQueue = [...offlineQueue];
         try {
@@ -237,6 +229,7 @@ export default function Aforos() {
             }
             setOfflineQueue(newQueue);
             localStorage.setItem('agrogestion_aforos_offline', JSON.stringify(newQueue));
+            window.dispatchEvent(new CustomEvent('offline-queue-changed'));
             if (offlineQueue.length > 0) setMsjExito('Aforos offline sincronizados exitosamente.');
             fetchHistorial();
         } catch (err) {
@@ -247,23 +240,29 @@ export default function Aforos() {
     };
 
     const fetchHistorial = async () => {
+        // 1. Cargar caché inmediatamente (0 ms)
+        const cached = localStorage.getItem(`agrogestion_aforos_hist_${fincaId}`);
+        if (cached) {
+            try { setHistorial(JSON.parse(cached)); } catch {}
+        }
+
+        // 2. Si hay conexión efectiva, actualizar en segundo plano
         if (isOnline) {
-            const { data } = await supabase
-                .from('registros_aforo')
-                .select(`
-                    id, fecha, promedio_muestras_kg, viabilidad, aforo_real_kg, animales_presentes, id_potrero,
-                    potrero:potreros(nombre)
-                `)
-                .eq('id_finca', fincaId)
-                .order('fecha', { ascending: false })
-                .limit(50);
-            if (data) {
-                setHistorial(data as any);
-                localStorage.setItem(`agrogestion_aforos_hist_${fincaId}`, JSON.stringify(data));
-            }
-        } else {
-            const cached = localStorage.getItem(`agrogestion_aforos_hist_${fincaId}`);
-            if (cached) setHistorial(JSON.parse(cached));
+            try {
+                const { data } = await supabase
+                    .from('registros_aforo')
+                    .select(`
+                        id, fecha, promedio_muestras_kg, viabilidad, aforo_real_kg, animales_presentes, id_potrero,
+                        potrero:potreros(nombre)
+                    `)
+                    .eq('id_finca', fincaId)
+                    .order('fecha', { ascending: false })
+                    .limit(50);
+                if (data && data.length > 0) {
+                    setHistorial(data as any);
+                    localStorage.setItem(`agrogestion_aforos_hist_${fincaId}`, JSON.stringify(data));
+                }
+            } catch (e) {}
         }
     };
 
@@ -318,11 +317,8 @@ export default function Aforos() {
             return;
         }
 
-        // Validar conexión real antes de decidir flujo
-        const realOnline = await checkOnlineStatus();
-        setIsOnline(realOnline);
-
-        if (realOnline) {
+        // Validar conexión efectiva (respeta Modo Campo global)
+        if (isOnline) {
             setLoading(true);
             try {
                 const { error } = await supabase.from('registros_aforo').insert({
@@ -354,6 +350,7 @@ export default function Aforos() {
                     metodo: 'cuadrom2',
                     gramos_m2: avgMuestra * 1000
                 });
+                window.dispatchEvent(new CustomEvent('offline-queue-changed'));
                 setMsjExito('📱 Aforo guardado localmente por falla de red. Se sincronizará al conectar.');
                 setMuestras(Array(8).fill(''));
                 setSelectedPotreroId('');
@@ -370,6 +367,7 @@ export default function Aforos() {
                 metodo: 'cuadrom2',
                 gramos_m2: avgMuestra * 1000
             });
+            window.dispatchEvent(new CustomEvent('offline-queue-changed'));
             setMsjExito('📱 Aforo guardado en la memoria del teléfono (Modo Offline).');
             setMuestras(Array(8).fill(''));
             setSelectedPotreroId('');
@@ -516,18 +514,19 @@ export default function Aforos() {
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span 
-                        onClick={() => setIsOnline(!isOnline)}
-                        title="Clic para forzar el estado de conexión"
+                        onClick={toggleModoCampo}
+                        title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
                         style={{ 
                             display: 'flex', alignItems: 'center', gap: '6px', 
                             padding: '6px 12px', borderRadius: '20px', fontSize: '0.9rem', fontWeight: 'bold',
-                            backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
-                            color: isOnline ? 'var(--success)' : '#ff9800',
+                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
+                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800',
+                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
                             cursor: 'pointer',
                             userSelect: 'none'
                         }}
                     >
-                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Forzar Online)</>}
+                        {modoCampo ? <>🚜 Modo Campo (Offline)</> : isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Auto)</>}
                     </span>
 
                     {offlineQueue.length > 0 && isOnline && isAdminOrCowboy && (

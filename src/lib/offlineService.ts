@@ -13,7 +13,11 @@ import {
  * Debe ejecutarse cuando la app tiene conexión a internet.
  */
 export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
-  if (!fincaId || !navigator.onLine) return;
+  if (!fincaId) return;
+
+  // Si el usuario tiene activo el Modo Campo forzado o el navegador está offline, no consultar red
+  const isModoCampo = typeof window !== 'undefined' && localStorage.getItem('agrogestion_modo_campo') === 'true';
+  if (isModoCampo || !navigator.onLine) return;
 
   try {
     const [animalesRes, potrerosRes, potreradasRes, mapRes, preciosRes] = await Promise.all([
@@ -55,7 +59,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         .order('fecha_boletin', { ascending: true })
     ]);
 
-    if (animalesRes.data) {
+    // BLINDAJE: Solo actualizar caché si la respuesta contiene datos válidos comprobados (evita vaciar la memoria local)
+    if (animalesRes.data && animalesRes.data.length > 0) {
       const ahora = new Date().toISOString();
       const animalesCache: AnimalCacheItem[] = animalesRes.data.map((a: any) => ({
         id: a.id,
@@ -74,12 +79,12 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         updated_at: ahora
       }));
 
-      // Limpiar y reemplazar caché de esta finca
+      // Limpiar y reemplazar caché de esta finca con datos nuevos
       await localDB.animalesCache.where('id_finca').equals(fincaId).delete();
       await localDB.animalesCache.bulkPut(animalesCache);
     }
 
-    if (potrerosRes.data) {
+    if (potrerosRes.data && potrerosRes.data.length > 0) {
       const potrerosCache: PotreroCacheItem[] = potrerosRes.data.map((p: any) => ({
         id: p.id,
         id_finca: fincaId,
@@ -95,7 +100,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
       await localDB.potrerosCache.bulkPut(potrerosCache);
     }
 
-    if (potreradasRes.data) {
+    if (potreradasRes.data && potreradasRes.data.length > 0) {
       const potreradasCache: PotreradaCacheItem[] = potreradasRes.data.map((p: any) => ({
         id: p.id,
         id_finca: fincaId,
@@ -210,7 +215,8 @@ export async function obtenerConteoPendienteOffline(fincaId: string): Promise<{ 
  * 5. Procesa la cola de sincronización offline enviando los datos a Supabase en lotes (batch upsert).
  */
 export async function procesarSincronizacionOffline(fincaId: string): Promise<{ procesados: number; errores: number }> {
-  if (!fincaId || !navigator.onLine) return { procesados: 0, errores: 0 };
+  const isModoCampo = typeof window !== 'undefined' && localStorage.getItem('agrogestion_modo_campo') === 'true';
+  if (!fincaId || !navigator.onLine || isModoCampo) return { procesados: 0, errores: 0 };
 
   let procesados = 0;
   let errores = 0;

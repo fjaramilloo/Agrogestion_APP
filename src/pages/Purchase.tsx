@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useConnection } from '../contexts/ConnectionContext';
 import ModalUpsell from '../components/ModalUpsell';
 import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X, AlertOctagon } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
@@ -31,6 +32,7 @@ interface AnimalCompra {
 
 export default function Purchase() {
     const { fincaId, role, userFincas, licenciaInfo, refreshLicencia } = useAuth();
+    const { modoCampo, toggleModoCampo, isOnline } = useConnection();
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -53,7 +55,6 @@ export default function Purchase() {
     const [msjError, setMsjError] = useState('');
 
     // Offline / Sync State
-    const [isOnline, setIsOnline] = useState(true);
     const [offlineQueue, setOfflineQueue] = useState<OfflinePurchasePayload[]>([]);
     const [syncing, setSyncing] = useState(false);
 
@@ -179,17 +180,6 @@ export default function Purchase() {
 
     const [showConfirm, setShowConfirm] = useState(false);
 
-    const checkOnlineStatus = async () => {
-        try {
-            // Intento de conexión real (Ping)
-            const { error } = await supabase.from('fincas').select('id').limit(1);
-            if (error && error.code === 'PGRST301') return true; // JWT error but reached server
-            return !error;
-        } catch (e) {
-            return false;
-        }
-    };
-
     const handleIngresarCompra = async () => {
         if (!fincaId || animales.length === 0) return;
 
@@ -201,9 +191,8 @@ export default function Purchase() {
         setLoading(true);
         setMsjError('');
 
-        // Validar conexión real antes de decidir flujo
-        const realOnline = await checkOnlineStatus();
-        setIsOnline(realOnline);
+        // Validar conexión: respeta Modo Campo forzado o conexión activa
+        const effectiveOnline = isOnline;
 
         try {
             if (!selectedProveedor) throw new Error("Debe seleccionar un Vendedor/Proveedor para la compra.");
@@ -223,8 +212,8 @@ export default function Purchase() {
                 if (!a.propietario) throw new Error(`Falta propietario para ${a.numero_chapeta}`);
             });
 
-            // Registro de chapetas existentes en la base de datos (sólo si hay conexión)
-            if (isOnline) {
+            // Registro de chapetas existentes en la base de datos (sólo si hay conexión efectiva)
+            if (effectiveOnline) {
                 const { data: existentes, error: checkError } = await supabase
                     .from('animales')
                     .select('numero_chapeta')
@@ -253,17 +242,16 @@ export default function Purchase() {
         setMsjExito('');
         setShowConfirm(false);
 
-        // Segunda validación de conexión real antes de la inserción final
-        const realOnline = await checkOnlineStatus();
-        setIsOnline(realOnline);
+        // Validación de conexión efectiva
+        const effectiveOnline = isOnline;
 
-        console.log("Iniciando proceso de guardado en base de datos. Estado real:", realOnline ? "Online" : "Offline");
+        console.log("Iniciando proceso de guardado en base de datos. Estado:", effectiveOnline ? "Online" : "Offline / Modo Campo");
 
         try {
             if (!fincaId) throw new Error("No se pudo identificar la finca activa.");
             if (animales.length === 0) throw new Error("La lista de animales está vacía.");
 
-            if (!realOnline) {
+            if (!effectiveOnline) {
                 console.log("Modo offline detectado. Guardando en cola local.");
                 const newPayload: OfflinePurchasePayload = {
                     id: Date.now().toString(),
@@ -278,8 +266,9 @@ export default function Purchase() {
                 const newQueue = [...offlineQueue, newPayload];
                 setOfflineQueue(newQueue);
                 localStorage.setItem('agrogestion_compras_offline', JSON.stringify(newQueue));
+                window.dispatchEvent(new CustomEvent('offline-queue-changed'));
                 
-                setMsjExito(`¡Sin conexión! Lote de ${animales.length} animales guardado en la cola local.`);
+                setMsjExito(`¡Guardado localmente! Lote de ${animales.length} animales guardado en la cola offline.`);
                 handleReset();
                 setLoading(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -388,9 +377,7 @@ export default function Purchase() {
     }
 
     const syncOfflineQueue = async () => {
-        const realOnline = await checkOnlineStatus();
-        setIsOnline(realOnline);
-        if (!fincaId || offlineQueue.length === 0 || !realOnline) return;
+        if (!fincaId || offlineQueue.length === 0 || !isOnline) return;
         setSyncing(true);
         setMsjError('');
         setMsjExito('');
@@ -517,23 +504,24 @@ export default function Purchase() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
                     <div 
-                        onClick={() => setIsOnline(!isOnline)}
-                        title="Clic para forzar el estado de conexión"
+                        onClick={toggleModoCampo}
+                        title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
                         style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
                             gap: '8px', 
                             padding: '8px 16px', 
                             borderRadius: '20px', 
-                            backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
-                            color: isOnline ? 'var(--success)' : '#ff9800', 
+                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
+                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800', 
+                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
                             fontWeight: 'bold', 
                             fontSize: '0.9rem',
                             cursor: 'pointer',
                             userSelect: 'none'
                         }}
                     >
-                        {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Forzar Online)</>}
+                        {modoCampo ? <>🚜 Modo Campo (Offline)</> : isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline (Auto)</>}
                     </div>
                     
                     <button 
