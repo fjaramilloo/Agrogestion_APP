@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!--
+    sitemap.xml — AgroGestión
+    https://www.appagrogestion.com
+    Actualizado: 2026-09-30
+
+    Nota: Las rutas internas (dashboard, pesaje, inventario, etc.)
+    están excluidas porque requieren autenticación y no aportan SEO.
+    Cuando se cree una landing page pública, agregar sus URLs aquí
+    con priority 0.9.
+  -->
+
+  <!-- Página principal -->
+  <url>
+    <loc>https://www.appagrogestion.com/</loc>
+    <lastmod>2026-09-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link
+      rel="alternate"
+      hreflang="es-CO"
+      href="https://www.appagrogestion.com/"/>
+  </url>
+
+  <!-- Login — baja prioridad, existe pero no aporta contenido SEO -->
+  <url>
+    <loc>https://www.appagrogestion.com/login</loc>
+    <lastmod>2026-09-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+  </url>
+
+</urlset>

@@ -164,7 +164,7 @@ serve(async (req: Request) => {
         "Content-Type":  "application/json",
       },
       body: JSON.stringify({
-        from:    "AgroGestion <onboarding@resend.dev>",
+        from:    "AgroGestion <notificaciones@appagrogestion.com>",
         to:      [NOTIFY_EMAIL],
         subject: `Nuevo registro: ${subjNombre} ${subjApellido} - ${subjOrg}`,
         html:    htmlBody,

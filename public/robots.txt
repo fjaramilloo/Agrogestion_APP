@@ -1,0 +1,32 @@
+# ============================================================
+# robots.txt — AgroGestión
+# https://www.appagrogestion.com
+# ============================================================
+
+# Permitir a todos los bots rastrear el sitio público
+User-agent: *
+Allow: /
+
+# Rutas internas de la app — no aportan SEO y requieren login
+Disallow: /login
+Disallow: /update-password
+Disallow: /superadmin
+Disallow: /configuracion
+Disallow: /suscripcion
+Disallow: /inventario
+Disallow: /pesaje
+Disallow: /compra
+Disallow: /venta
+Disallow: /historial-ventas
+Disallow: /historial-compras
+Disallow: /potreradas
+Disallow: /animales-ceba
+Disallow: /mercado
+Disallow: /mapa-finca
+Disallow: /aforos
+Disallow: /rotaciones
+Disallow: /movimientos
+Disallow: /lluvias
+
+# Sitemap
+Sitemap: https://www.appagrogestion.com/sitemap.xml
