@@ -186,27 +186,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchUserData = async (userId: string) => {
         try {
-            // 1. Verificamos Rol(es), Finca(s) y SuperAdmin en paralelo
-            const [permisosRes, adminRes] = await Promise.all([
-                supabase
-                    .from('permisos_finca')
-                    .select(`
-                        id_finca,
-                        rol,
-                        fincas ( nombre )
-                    `)
-                    .eq('id_usuario', userId),
-                supabase
-                    .from('superadmins')
-                    .select('id_usuario')
-                    .eq('id_usuario', userId)
-                    .maybeSingle()
-            ]);
-
-            // Siempre verificamos superadmin independientemente de las fincas
-            setIsSuperAdmin(!!adminRes.data);
-
-            const { data: permisos, error: roleError } = permisosRes;
+            // 1. Verificamos Rol(es) y Finca(s) — necesario primero para obtener fincaId
+            const { data: permisos, error: roleError } = await supabase
+                .from('permisos_finca')
+                .select(`
+                    id_finca,
+                    rol,
+                    fincas ( nombre )
+                `)
+                .eq('id_usuario', userId);
 
             if (roleError) {
                 console.warn("Fallo de red al obtener permisos de finca en Supabase. Usando caché offline:", roleError);
@@ -263,7 +251,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         .eq('id', userId)
                         .single(),
                     // Licencia corre en paralelo también (no depende de los otros)
-                    fetchLicenciaData(validFinca.id_finca)
+                    fetchLicenciaData(validFinca.id_finca),
                 ]);
 
                 if (kpiRes.data?.modo_ganancia) {
@@ -280,6 +268,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         apellido: perfilRes.data.apellido
                     }));
                 }
+            }
+
+            // 3. Verificación de superadmin: siempre, independiente de si tiene fincas
+            //    Se hace aquí (fuera del bloque de fincas) para que funcione aunque
+            //    el superadmin no tenga permisos_finca asignados.
+            try {
+                const { data: adminData } = await supabase
+                    .from('superadmins')
+                    .select('id_usuario')
+                    .eq('id_usuario', userId)
+                    .maybeSingle();
+                setIsSuperAdmin(!!adminData);
+            } catch {
+                // Si la tabla no existe o hay RLS bloqueando, simplemente no es superadmin
+                setIsSuperAdmin(false);
             }
 
         } catch (err) {
