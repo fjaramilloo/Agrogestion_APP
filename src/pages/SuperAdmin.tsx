@@ -98,7 +98,7 @@ interface CuentaAdmin {
 }
 
 export default function SuperAdmin() {
-    const { isSuperAdmin } = useAuth();
+    const { isSuperAdmin, loading: authLoading } = useAuth();
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'crear' | 'precios'>('dashboard');
     const [cuentas, setCuentas] = useState<CuentaAdmin[]>([]);
@@ -603,6 +603,16 @@ export default function SuperAdmin() {
             return 'N/A';
         }
     };
+
+    if (authLoading) {
+        return (
+            <div className="page-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                <div style={{ textAlign: 'center', color: 'var(--primary-light)' }}>
+                    Cargando...
+                </div>
+            </div>
+        );
+    }
 
     if (!isSuperAdmin) {
         return (

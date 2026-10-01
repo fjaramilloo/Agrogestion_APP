@@ -186,15 +186,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchUserData = async (userId: string) => {
         try {
-            // 1. Verificamos Rol(es) y Finca(s) — necesario primero para obtener fincaId
-            const { data: permisos, error: roleError } = await supabase
-                .from('permisos_finca')
-                .select(`
-                    id_finca,
-                    rol,
-                    fincas ( nombre )
-                `)
-                .eq('id_usuario', userId);
+            // 1. Verificamos Rol(es), Finca(s) y SuperAdmin en paralelo
+            const [permisosRes, adminRes] = await Promise.all([
+                supabase
+                    .from('permisos_finca')
+                    .select(`
+                        id_finca,
+                        rol,
+                        fincas ( nombre )
+                    `)
+                    .eq('id_usuario', userId),
+                supabase
+                    .from('superadmins')
+                    .select('id_usuario')
+                    .eq('id_usuario', userId)
+                    .maybeSingle()
+            ]);
+
+            // Siempre verificamos superadmin independientemente de las fincas
+            setIsSuperAdmin(!!adminRes.data);
+
+            const { data: permisos, error: roleError } = permisosRes;
 
             if (roleError) {
                 console.warn("Fallo de red al obtener permisos de finca en Supabase. Usando caché offline:", roleError);
@@ -239,8 +251,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 //    - Datos de licencia
                 //    - Modo de ganancia (configuracion_kpi)
                 //    - Perfil del usuario
-                //    - Verificación de superadmin
-                const [kpiRes, perfilRes, adminRes] = await Promise.all([
+                const [kpiRes, perfilRes] = await Promise.all([
                     supabase
                         .from('configuracion_kpi')
                         .select('modo_ganancia')
@@ -251,11 +262,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         .select('nombre, apellido')
                         .eq('id', userId)
                         .single(),
-                    supabase
-                        .from('superadmins')
-                        .select('id_usuario')
-                        .eq('id_usuario', userId)
-                        .maybeSingle(),
                     // Licencia corre en paralelo también (no depende de los otros)
                     fetchLicenciaData(validFinca.id_finca)
                 ]);
@@ -274,8 +280,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         apellido: perfilRes.data.apellido
                     }));
                 }
-
-                setIsSuperAdmin(!!adminRes.data);
             }
 
         } catch (err) {
