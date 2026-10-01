@@ -129,7 +129,23 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <!-- Pre-render mínimo para rastreadores (Google, Bing) que no ejecutan JavaScript -->
+    <!-- React reemplaza este bloque en el primer render -->
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0d1f15;padding:40px;box-sizing:border-box">
+      <div style="max-width:700px;text-align:center">
+        <h1 style="font-family:sans-serif;font-size:2rem;color:#f0fdf4;font-weight:700;line-height:1.3;margin:0 0 16px">AgroGestión — Software Ganadero para Colombia: Pesaje Bovino, Rotación de Potreros y Precios de Subastas</h1>
+        <p style="font-family:sans-serif;color:#86efac;font-size:1rem;margin:0">Cargando...</p>
+      </div>
+    </div>
+  </div>
+  <noscript>
+    <style>body{font-family:sans-serif;background:#0d1f15;color:#e2e8f0;padding:40px;max-width:800px;margin:0 auto}</style>
+    <h1>AgroGestión — Software Ganadero Inteligente para Colombia</h1>
+    <p>Plataforma de gestión ganadera de precisión. Control de pesaje bovino con semáforo GDP, rotación de potreros con mapa satelital KMZ/KML, aforos de pasturas y precios de subastas en tiempo real (Sugaberrío, Subastar, Suganar, Central Ganadera). Funciona 100% sin internet en el campo.</p>
+    <p>Para acceder a AgroGestión active JavaScript en su navegador.</p>
+    <p>Contáctenos: <a href="https://wa.me/fedejaramilloo" style="color:#22c55e">WhatsApp @fedejaramilloo</a> | <a href="mailto:soporte@appagrogestion.com" style="color:#22c55e">soporte@appagrogestion.com</a></p>
+  </noscript>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
