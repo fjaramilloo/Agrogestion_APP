@@ -239,7 +239,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 //    - Datos de licencia
                 //    - Modo de ganancia (configuracion_kpi)
                 //    - Perfil del usuario
-                const [kpiRes, perfilRes] = await Promise.all([
+                //    - Verificación de superadmin
+                const [kpiRes, perfilRes, adminRes] = await Promise.all([
                     supabase
                         .from('configuracion_kpi')
                         .select('modo_ganancia')
@@ -250,8 +251,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         .select('nombre, apellido')
                         .eq('id', userId)
                         .single(),
+                    supabase
+                        .from('superadmins')
+                        .select('id_usuario')
+                        .eq('id_usuario', userId)
+                        .maybeSingle(),
                     // Licencia corre en paralelo también (no depende de los otros)
-                    fetchLicenciaData(validFinca.id_finca),
+                    fetchLicenciaData(validFinca.id_finca)
                 ]);
 
                 if (kpiRes.data?.modo_ganancia) {
@@ -268,21 +274,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         apellido: perfilRes.data.apellido
                     }));
                 }
-            }
 
-            // 3. Verificación de superadmin: siempre, independiente de si tiene fincas
-            //    Se hace aquí (fuera del bloque de fincas) para que funcione aunque
-            //    el superadmin no tenga permisos_finca asignados.
-            try {
-                const { data: adminData } = await supabase
-                    .from('superadmins')
-                    .select('id_usuario')
-                    .eq('id_usuario', userId)
-                    .maybeSingle();
-                setIsSuperAdmin(!!adminData);
-            } catch {
-                // Si la tabla no existe o hay RLS bloqueando, simplemente no es superadmin
-                setIsSuperAdmin(false);
+                setIsSuperAdmin(!!adminRes.data);
             }
 
         } catch (err) {
