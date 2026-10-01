@@ -258,13 +258,13 @@ export default function LandingPage() {
   // SEO: Actualiza el título y la meta description al entrar a la landing
   // e inyecta los JSON-LD adicionales (FAQ y SoftwareApplication) en el <head>
   useEffect(() => {
-    // Título optimizado para buscadores
-    document.title = 'AgroGestión — Software Ganadero para Colombia | Pesaje Bovino, Rotación de Potreros y Subastas';
+    // Título optimizado (49 caracteres - límite Bing: 65, límite Google: 60)
+    document.title = 'AgroGestión — Software Ganadero con IA | Colombia';
 
-    // Meta description actualizada para la landing
+    // Meta description optimizada (143 caracteres - límite Bing: 160, recomendado: 140-155)
     let metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
-      metaDesc.setAttribute('content', 'Software ganadero para Colombia. Control de inventario bovino, pesaje con semáforo GDP, rotación de potreros con mapa satelital KMZ/KML, aforos de pasturas y precios de subastas (Sugaberrío, Subastar, Suganar). Funciona 100% sin internet. Prueba gratis hasta 40 animales.');
+      metaDesc.setAttribute('content', 'Software ganadero para Colombia: pesaje bovino, rotación de potreros y precios de subastas con IA. 100% sin internet. Prueba gratis.');
     }
 
     // Inyecta JSON-LD de FAQPage para Rich Results en Google
