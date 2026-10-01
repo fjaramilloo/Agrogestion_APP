@@ -59,18 +59,18 @@ const APP_SCHEMA = {
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Android, iOS, Windows, macOS',
   url: 'https://www.appagrogestion.com',
-  description: 'Software ganadero para Colombia. Control de pesaje bovino con ganancia diaria de peso (GDP), rotación de potreros con mapas satelitales KMZ/KML, aforos de pasturas, precios de subastas en tiempo real (Sugaberrío, Subastar, Suganar, Central Ganadera) y AgroBot, asistente zootécnico con IA. Funciona 100% sin internet.',
+  description: 'Software ganadero para Colombia. Control de inventario bovino, pesaje con ganancia diaria de peso (GDP), rotación de potreros con mapas satelitales KMZ/KML, aforos de pasturas, precios de subastas en tiempo real (Sugaberrío, Subastar, Suganar, Central Ganadera) y pluviometría. Funciona 100% sin internet.',
   offers: [
     { '@type': 'Offer', name: 'Plan Demo', price: '0', priceCurrency: 'COP', description: 'Gratis hasta 40 animales' },
     { '@type': 'Offer', name: 'Plan Finca', price: '80000', priceCurrency: 'COP', description: 'Hasta 500 animales, desde $80.000/mes' },
     { '@type': 'Offer', name: 'Plan Hacienda', price: '180000', priceCurrency: 'COP', description: 'Animales ilimitados, desde $180.000/mes' },
   ],
   featureList: [
+    'Control de inventario bovino y trazabilidad individual por chapeta',
     'Pesaje bovino con semáforo GDP offline',
     'Rotación de potreros con mapa satelital KMZ/KML',
     'Aforos de pasturas y cálculo de UGG/ha',
     'Precios de subastas Sugaberrío, Subastar, Suganar, Central Ganadera',
-    'AgroBot: asistente zootécnico con inteligencia artificial',
     'Pluviómetro y diagnóstico agroclimático',
     'Exportación a Excel y CSV',
     'PWA instalable en Android e iOS',
@@ -213,6 +213,12 @@ const faqs = [
 
 const modulos = [
   {
+    icon: '📋',
+    titulo: 'Inventario Bovino y Control de Hato',
+    desc: 'Control individual por numero de chapeta, lote, etapa productiva (cria, levante, ceba) y estado reproductivo. Trazabilidad completa desde el ingreso hasta la venta con alertas de permanencia.',
+    color: '#a78bfa',
+  },
+  {
     icon: '⚖️',
     titulo: 'Pesaje Bovino con Semaforo GDP',
     desc: 'Registra lotes de pesaje y visualiza al instante la Ganancia Diaria de Peso (kg/dia) por animal y por lote. El semaforo verde/amarillo/rojo elimina el "manejo al ojo" y protege su margen de rentabilidad.',
@@ -237,12 +243,6 @@ const modulos = [
     color: '#fbbf24',
   },
   {
-    icon: '🤖',
-    titulo: 'AgroBot — Asesor Zootecnico con IA',
-    desc: 'Su asesor zootecnico disponible 24/7. Consulte sobre manejo de pasturas tropicales, suplementacion mineral, balance nutricional, rotacion de praderas y clima sin esperar al profesional del campo.',
-    color: '#c084fc',
-  },
-  {
     icon: '🌧️',
     titulo: 'Pluviometro y Diagnostico Agroclimatico',
     desc: 'Registre lluvias diarias por finca, consulte historicos de precipitaciones y reciba diagnosticos agroclimaticos generados por IA para anticipar epocas criticas de sequia o exceso hidrico.',
@@ -259,12 +259,12 @@ export default function LandingPage() {
   // e inyecta los JSON-LD adicionales (FAQ y SoftwareApplication) en el <head>
   useEffect(() => {
     // Título optimizado para buscadores
-    document.title = 'AgroGestión — Software Ganadero con IA para Colombia | Pesaje Bovino, Rotación de Potreros y Subastas';
+    document.title = 'AgroGestión — Software Ganadero para Colombia | Pesaje Bovino, Rotación de Potreros y Subastas';
 
     // Meta description actualizada para la landing
     let metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
-      metaDesc.setAttribute('content', 'Software ganadero para Colombia. Control de pesaje bovino con semáforo GDP, rotación de potreros con mapa satelital KMZ/KML, aforos de pasturas, precios de subastas (Sugaberrío, Subastar, Suganar) y AgroBot IA. Funciona 100% sin internet. Prueba gratis hasta 40 animales.');
+      metaDesc.setAttribute('content', 'Software ganadero para Colombia. Control de inventario bovino, pesaje con semáforo GDP, rotación de potreros con mapa satelital KMZ/KML, aforos de pasturas y precios de subastas (Sugaberrío, Subastar, Suganar). Funciona 100% sin internet. Prueba gratis hasta 40 animales.');
     }
 
     // Inyecta JSON-LD de FAQPage para Rich Results en Google

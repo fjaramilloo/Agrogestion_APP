@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Bot, X, Send, Database, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -134,8 +134,15 @@ function extractSql(text: string): string | null {
 
 export default function AgroBot() {
     const navigate = useNavigate();
-    const { fincaId, licenciaInfo } = useAuth();
+    const location = useLocation();
+    const { user, fincaId, licenciaInfo } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
+
+    // No mostrar el widget flotante si no hay usuario autenticado o si estamos en rutas públicas
+    const publicRoutes = ['/', '/login', '/update-password'];
+    if (!user || publicRoutes.includes(location.pathname)) {
+        return null;
+    }
     const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
         { role: 'model', text: '¡Hola! Soy AgroBot, tu mentor ganadero. Puedo responder preguntas sobre tus animales, pesajes, lluvias y pluviometría, aforos de pasturas, rotaciones de potreros y mucho más. ¿En qué te puedo ayudar hoy?' }
     ]);
