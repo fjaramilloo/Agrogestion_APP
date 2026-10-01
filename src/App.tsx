@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 import Login from './pages/Login';
+import LandingPage from './pages/LandingPage';
 // Importación estática para páginas ligeras y de uso frecuente
 import Inventory from './pages/Inventory';
 import Weighing from './pages/Weighing';
@@ -83,11 +84,30 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
 };
 
 const AppRoutes = () => {
+  const { user, loading } = useAuth();
+
+  // Para la ruta raíz: si ya hay sesión, va al dashboard; si no, ve la landing pública
+  const RootRoute = () => {
+    if (loading) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--primary-light)' }}>
+          Cargando...
+        </div>
+      );
+    }
+    if (user) {
+      return (
+        <ProtectedRoute><Dashboard /></ProtectedRoute>
+      );
+    }
+    return <LandingPage />;
+  };
+
   return (
     <Routes>
+      <Route path="/" element={<RootRoute />} />
       <Route path="/login" element={<Login />} />
       <Route path="/update-password" element={<UpdatePassword />} />
-      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route
         path="/inventario"
         element={
