@@ -143,14 +143,8 @@
   <!-- End Google Tag Manager (noscript) -->
 
   <div id="root">
-    <!-- Pre-render mínimo para rastreadores (Google, Bing) que no ejecutan JavaScript -->
-    <!-- React reemplaza este bloque en el primer render -->
-    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0d1f15;padding:40px;box-sizing:border-box">
-      <div style="max-width:700px;text-align:center">
-        <h1 style="font-family:sans-serif;font-size:2rem;color:#f0fdf4;font-weight:700;line-height:1.3;margin:0 0 16px">AgroGestión — Software Ganadero para Colombia: Pesaje Bovino, Rotación de Potreros y Precios de Subastas</h1>
-        <p style="font-family:sans-serif;color:#86efac;font-size:1rem;margin:0">Cargando...</p>
-      </div>
-    </div>
+    <!-- H1 para rastreadores (Google, Bing) — React reemplaza este nodo en el primer render -->
+    <h1 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">AgroGestión — Software Ganadero para Colombia: Pesaje Bovino, Rotación de Potreros y Precios de Subastas</h1>
   </div>
   <noscript>
     <style>body{font-family:sans-serif;background:#0d1f15;color:#e2e8f0;padding:40px;max-width:800px;margin:0 auto}</style>
