@@ -136,13 +136,9 @@ export default function AgroBot() {
     const navigate = useNavigate();
     const location = useLocation();
     const { user, fincaId, licenciaInfo } = useAuth();
-    const [isOpen, setIsOpen] = useState(false);
 
-    // No mostrar el widget flotante si no hay usuario autenticado o si estamos en rutas públicas
-    const publicRoutes = ['/', '/login', '/update-password'];
-    if (!user || publicRoutes.includes(location.pathname)) {
-        return null;
-    }
+    // TODOS los hooks deben estar ANTES de cualquier return condicional (Regla de Hooks de React)
+    const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
         { role: 'model', text: '¡Hola! Soy AgroBot, tu mentor ganadero. Puedo responder preguntas sobre tus animales, pesajes, lluvias y pluviometría, aforos de pasturas, rotaciones de potreros y mucho más. ¿En qué te puedo ayudar hoy?' }
     ]);
@@ -159,6 +155,12 @@ export default function AgroBot() {
     useEffect(() => {
         if (isOpen) scrollToBottom();
     }, [messages, isOpen]);
+
+    // Guarda de rutas públicas — DESPUÉS de todos los hooks (correcto según React Rules of Hooks)
+    const publicRoutes = ['/', '/login', '/update-password'];
+    if (!user || publicRoutes.includes(location.pathname)) {
+        return null;
+    }
 
     const handleSend = async () => {
         if (!input.trim()) return;
