@@ -377,6 +377,42 @@ export default function Weighing() {
                 }
             }
 
+            // Verificar si el peso supera el umbral de entrada a ceba o castración
+            let marcaOkCeba = false;
+            let updateAnimalData: any = {};
+            
+            if (animal.etapa === 'levante' && pesoFloat >= pesoEntradaCeba) {
+                marcaOkCeba = true;
+                updateAnimalData.ok_ceba = true;
+                setMarcadoCeba(true);
+            }
+
+            if (castrarHoy) {
+                updateAnimalData.tipo_macho = 'novillo';
+                updateAnimalData.fecha_castracion = fechaPesaje;
+            }
+
+            if (Object.keys(updateAnimalData).length > 0) {
+                await supabase
+                    .from('animales')
+                    .update(updateAnimalData)
+                    .eq('id', animal.id);
+
+                try {
+                    const cached = await localDB.animalesCache.get(animal.id);
+                    if (cached) {
+                        await localDB.animalesCache.update(animal.id, {
+                            ...updateAnimalData
+                        });
+                    }
+                } catch { /* noop */ }
+            }
+
+            const msgCeba = marcaOkCeba
+                ? ` 🟢 Marcado para pasar a Ceba (${pesoFloat}kg ≥ ${pesoEntradaCeba}kg).`
+                : '';
+            const msgCastrado = castrarHoy ? ` ✂️ Registrado como Novillo.` : '';
+
             // MODO OFFLINE: Si estamos en Modo Campo o no hay conexión efectiva
             if (modoCampo || !isOnline) {
                 await guardarPesajeOffline({
@@ -390,7 +426,7 @@ export default function Weighing() {
                     gmp_calculada: gdpCalculada * 30
                 });
 
-                setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente (Modo Campo / Offline). Se sincronizará al conectar.`);
+                setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente (Modo Campo / Offline).${msgCeba}${msgCastrado} Se sincronizará al conectar.`);
                 setAnimal(null);
                 setChapeta('');
                 setNuevoPeso('');
@@ -422,7 +458,7 @@ export default function Weighing() {
                         gmp_calculada: gdpCalculada * 30
                     });
 
-                    setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente por fallo de red. Se sincronizará al conectar.`);
+                    setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente por fallo de red.${msgCeba}${msgCastrado} Se sincronizará al conectar.`);
                     setAnimal(null);
                     setChapeta('');
                     setNuevoPeso('');
@@ -431,33 +467,6 @@ export default function Weighing() {
                 }
                 throw error;
             }
-
-            // Verificar si el peso supera el umbral de entrada a ceba
-            let marcaOkCeba = false;
-            let updateAnimalData: any = {};
-            
-            if (animal.etapa === 'levante' && pesoFloat >= pesoEntradaCeba) {
-                marcaOkCeba = true;
-                updateAnimalData.ok_ceba = true;
-                setMarcadoCeba(true);
-            }
-
-            if (castrarHoy) {
-                updateAnimalData.tipo_macho = 'novillo';
-                updateAnimalData.fecha_castracion = fechaPesaje;
-            }
-
-            if (Object.keys(updateAnimalData).length > 0) {
-                await supabase
-                    .from('animales')
-                    .update(updateAnimalData)
-                    .eq('id', animal.id);
-            }
-
-            const msgCeba = marcaOkCeba
-                ? ` 🟢 Marcado para pasar a Ceba (${pesoFloat}kg ≥ ${pesoEntradaCeba}kg).`
-                : '';
-            const msgCastrado = castrarHoy ? ` ✂️ Registrado como Novillo.` : '';
 
             setMsjExito(`¡Pesaje de ${pesoFloat}kg guardado para la chapeta #${animal.numero_chapeta}!${msgCeba}${msgCastrado}`);
             setAnimal(null);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { differenceInDays } from 'date-fns';
@@ -154,27 +155,8 @@ export default function Sales() {
 
         setLoading(true);
         try {
-            if (!isOnline) {
-                const newAnimales = [...animales];
-                newAnimales[index] = { 
-                    ...a, 
-                    validado: true, 
-                    error: 'Validación Offline (Se verificará al sincronizar)', 
-                    id_animal: 'offline_id_' + Math.random().toString(36).substring(7),
-                    ultimo_peso: 0,
-                    ultima_fecha: fechaVenta,
-                    gmp: 0,
-                    potreroNombre: 'Sincronizar',
-                    fecha_ingreso: fechaVenta,
-                    fecha_inicio_ceba: fechaVenta,
-                    propietario: '-'
-                };
-                setAnimales(newAnimales);
-                return;
-            }
-
-            // Buscamos animal y su último pesaje
-            const { data, error } = await supabase
+            // Buscamos animal y su último pesaje (gracias a offlineAwareFetch y smartTableFallback, funciona tanto online como en Modo Campo con datos reales)
+            const { data } = await supabase
                 .from('animales')
                 .select(`
                     id, 
@@ -196,47 +178,70 @@ export default function Sales() {
                 .eq('id_finca', fincaId)
                 .eq('numero_chapeta', a.numero_chapeta.trim())
                 .eq('estado', 'activo')
-                .single();
+                .maybeSingle();
+
+            let animalEncontrado = data;
+            if (!animalEncontrado) {
+                const cached = await localDB.animalesCache
+                    .where('id_finca').equals(fincaId)
+                    .filter(an => an.numero_chapeta === a.numero_chapeta.trim())
+                    .first();
+                if (cached) {
+                    animalEncontrado = {
+                        id: cached.id,
+                        numero_chapeta: cached.numero_chapeta,
+                        nombre_propietario: cached.nombre_propietario,
+                        peso_ingreso: cached.peso_ingreso,
+                        peso_compra: cached.peso_compra,
+                        fecha_ingreso: cached.fecha_ingreso,
+                        etapa: cached.etapa,
+                        fecha_ingreso_ceba: cached.fecha_ingreso_ceba,
+                        peso_ingreso_ceba: cached.peso_ingreso_ceba,
+                        potreros: [{ nombre: cached.potrero_nombre }] as any,
+                        registros_pesaje: []
+                    };
+                }
+            }
 
             const newAnimales = [...animales];
-            if (error || !data) {
+            if (!animalEncontrado) {
                 newAnimales[index] = { ...a, validado: false, error: 'No encontrado o no está activo', id_animal: undefined };
             } else {
                 // Obtener el último peso disponible
-                const registros = (data.registros_pesaje || []).sort((x: any, y: any) => 
+                const registros = (animalEncontrado.registros_pesaje || []).sort((x: any, y: any) => 
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                 );
-                const ultimoPeso = registros.length > 0 ? registros[0].peso : (data.peso_compra ?? data.peso_ingreso);
-                const ultimaFecha = registros.length > 0 ? registros[0].fecha : data.fecha_ingreso;
+                const ultimoPeso = registros.length > 0 ? registros[0].peso : (animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso);
+                const ultimaFecha = registros.length > 0 ? registros[0].fecha : animalEncontrado.fecha_ingreso;
 
                 // Datos adicionales para reporte solicitado
-                const potreroObj = data.potreros as any;
+                const potreroObj = animalEncontrado.potreros as any;
                 const potrero = Array.isArray(potreroObj) ? potreroObj[0]?.nombre : potreroObj?.nombre || 'Sin potrero';
                 
                 // Buscar fecha de inicio en ceba
-                const registroCeba = (data.registros_pesaje || [])
+                const registroCeba = (animalEncontrado.registros_pesaje || [])
                     .filter((r: any) => r.etapa === 'ceba')
                     .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
                 
-                let fechaInicioCeba = data.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (data.etapa === 'ceba' ? data.fecha_ingreso : null));
-                let pesoInicioCeba = data.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (data.etapa === 'ceba' ? (data.peso_compra ?? data.peso_ingreso) : null));
+                let fechaInicioCeba = animalEncontrado.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (animalEncontrado.etapa === 'ceba' ? animalEncontrado.fecha_ingreso : null));
+                let pesoInicioCeba = animalEncontrado.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (animalEncontrado.etapa === 'ceba' ? (animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso) : null));
 
-                const pesoBaseIngreso = data.peso_compra ?? data.peso_ingreso;
-                const gmp = a.peso_salida ? calculateGMP(a.peso_salida, pesoBaseIngreso, data.fecha_ingreso, fechaVenta) : 0;
+                const pesoBaseIngreso = animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso;
+                const gmp = a.peso_salida ? calculateGMP(a.peso_salida, pesoBaseIngreso, animalEncontrado.fecha_ingreso, fechaVenta) : 0;
 
                 newAnimales[index] = { 
                     ...a, 
                     validado: true, 
                     error: undefined, 
-                    id_animal: data.id, 
-                    propietario: data.nombre_propietario,
+                    id_animal: animalEncontrado.id, 
+                    propietario: animalEncontrado.nombre_propietario,
                     ultimo_peso: ultimoPeso,
                     ultima_fecha: ultimaFecha,
                     gmp: gmp,
                     // Extensiones para el reporte
                     potreroNombre: potrero,
-                    fecha_ingreso: data.fecha_ingreso,
-                    peso_ingreso: data.peso_compra ?? data.peso_ingreso,
+                    fecha_ingreso: animalEncontrado.fecha_ingreso,
+                    peso_ingreso: animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso,
                     fecha_inicio_ceba: fechaInicioCeba,
                     peso_inicio_ceba: pesoInicioCeba
                 };
@@ -245,7 +250,7 @@ export default function Sales() {
                 if (isCarnicero && !newAnimales[index].peso_salida) {
                     // Calculamos GMP histórico (ciclo actual)
                     let gmpCalculado = 12.5; // Default razonable si no hay datos
-                    const registrosGmp = (data.registros_pesaje || []).sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+                    const registrosGmp = (animalEncontrado.registros_pesaje || []).sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
                     if (registrosGmp.length >= 2) {
                         const r1 = registrosGmp[0];
                         const r2 = registrosGmp[registrosGmp.length - 1];
@@ -255,9 +260,9 @@ export default function Sales() {
                         }
                     } else if (registrosGmp.length === 1) {
                          const r1 = registrosGmp[0];
-                         const dGmp = differenceInDays(new Date(r1.fecha), new Date(data.fecha_ingreso));
+                         const dGmp = differenceInDays(new Date(r1.fecha), new Date(animalEncontrado.fecha_ingreso));
                          if (dGmp > 0) {
-                             gmpCalculado = ((r1.peso - (data.peso_compra ?? data.peso_ingreso)) / dGmp) * 30;
+                             gmpCalculado = ((r1.peso - (animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso)) / dGmp) * 30;
                          }
                     }
 
@@ -318,30 +323,8 @@ export default function Sales() {
         setMsjExito('');
         setShowConfirm(false);
 
-        // Validación de conexión efectiva
-        const effectiveOnline = isOnline;
-
         try {
-            if (!effectiveOnline) {
-                const newPayload: OfflineSalesPayload = {
-                    id: Date.now().toString(),
-                    fechaVenta,
-                    animales: [...animales],
-                    selectedComprador,
-                    observaciones
-                };
-                const newQueue = [...offlineQueue, newPayload];
-                setOfflineQueue(newQueue);
-                localStorage.setItem('agrogestion_ventas_offline', JSON.stringify(newQueue));
-                window.dispatchEvent(new CustomEvent('offline-queue-changed'));
-                
-                setMsjExito(`¡Guardado localmente! Lote de ${animales.length} ventas guardado en la cola offline.`);
-                handleReset();
-                setLoading(false);
-                return;
-            }
-
-            const registrosInsert = animales.filter(a => a.id_animal && !a.id_animal.startsWith('offline_id_')).map(a => ({
+            const registrosInsert = animales.filter(a => a.id_animal).map(a => ({
                 id_animal: a.id_animal,
                 peso: parseFloat(a.peso_salida),
                 fecha: fechaVenta,
@@ -374,9 +357,18 @@ export default function Sales() {
                     .eq('id', a.id_animal);
 
                 if (errorAnimal) throw errorAnimal;
+
+                // Remover inmediatamente de la memoria local de animales activos
+                try {
+                    await localDB.animalesCache.delete(a.id_animal);
+                } catch { /* noop */ }
             }
 
-            setMsjExito(`¡Venta procesada! Se han marcado ${animales.length} animales como vendidos.`);
+            const mensaje = (!isOnline || modoCampo)
+                ? `📱 ¡Venta guardada localmente! Se marcaron ${animales.length} animales como vendidos y se sincronizarán al volver la señal.`
+                : `¡Venta procesada! Se han marcado ${animales.length} animales como vendidos.`;
+
+            setMsjExito(mensaje);
             
             // Guardar para reporte
             setReportData({

@@ -38,7 +38,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         try {
             const res = await prepararFincaOffline(fincaId);
             if (res.success) {
-                setMsjPreparado(`✅ Finca lista: ${res.animales} animales y ${res.potreros} potreros guardados para campo.`);
+                setMsjPreparado(`✅ Finca lista: animales (${res.animales}), potreros (${res.potreros}), rotaciones, lotes, lluvias e historial guardados para campo.`);
             } else {
                 setMsjPreparado(`⚠️ ${res.error || 'No se pudo completar la preparación'}`);
             }

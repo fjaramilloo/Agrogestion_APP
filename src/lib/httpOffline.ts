@@ -151,11 +151,186 @@ function evalFiltro(rowVal: any, f: Filtro): boolean {
 function cumple(row: any, filtros: Filtro[], exigirAlMenosUno = false): boolean {
   let evaluados = 0;
   for (const f of filtros) {
-    if (!(f.col in row)) continue;
-    evaluados++;
-    if (!evalFiltro(row[f.col], f)) return false;
+    if (f.col in row) {
+      evaluados++;
+      if (!evalFiltro(row[f.col], f)) return false;
+    } else {
+      if (f.op === 'is' && f.val === 'null' && !f.neg) {
+        evaluados++;
+        continue;
+      }
+      if (f.op === 'is' && f.val === 'null' && f.neg) {
+        return false;
+      }
+      if (f.col === 'estado' && f.op === 'eq' && f.val !== 'activo') {
+        return false;
+      }
+    }
   }
   return exigirAlMenosUno ? evaluados > 0 : true;
+}
+
+/**
+ * Fallback inteligente por tabla:
+ * Si la URL exacta no coincide (por filtros de fechas, orden o selección de columnas),
+ * reúne todas las filas cacheadas de esa tabla, evalúa los filtros y devuelve la respuesta sintética.
+ */
+async function smartTableFallback(
+  tabla: string,
+  u: URL,
+  headers: Headers,
+  method: string
+): Promise<Response | null> {
+  try {
+    const pool = new Map<string, any>();
+    const listSinId: any[] = [];
+
+    // 1. Recoger todas las respuestas cacheadas de esta tabla
+    const items = await localDB.httpReadCache.where('tabla').equals(tabla).toArray();
+    for (const item of items) {
+      if (item.method === 'HEAD' || !item.body) continue;
+      try {
+        const parsed = JSON.parse(item.body);
+        const arr = Array.isArray(parsed) ? parsed : [parsed];
+        for (const row of arr) {
+          if (!row || typeof row !== 'object') continue;
+          if (row.id !== undefined && row.id !== null) {
+            const idStr = String(row.id);
+            const prev = pool.get(idStr);
+            if (!prev) {
+              pool.set(idStr, { ...row });
+            } else {
+              pool.set(idStr, { ...prev, ...row });
+            }
+          } else {
+            listSinId.push(row);
+          }
+        }
+      } catch { /* noop */ }
+    }
+
+    // 2. Apoyarse en las tablas especializadas de Dexie si no hay datos en el pool
+    if (tabla === 'potreros') {
+      const pots = await localDB.potrerosCache.toArray();
+      for (const p of pots) {
+        if (!pool.has(p.id)) {
+          pool.set(p.id, {
+            id: p.id,
+            id_finca: p.id_finca,
+            nombre: p.nombre,
+            area_hectareas: p.area_ha,
+            geojson_geometry: p.geojson_geometry,
+            color_mapa: p.color_mapa,
+            kml_name: p.kml_name,
+            id_rotacion: null
+          });
+        }
+      }
+    } else if (tabla === 'potreradas') {
+      const pts = await localDB.potreradasCache.toArray();
+      for (const pt of pts) {
+        if (!pool.has(pt.id)) {
+          pool.set(pt.id, {
+            id: pt.id,
+            id_finca: pt.id_finca,
+            nombre: pt.nombre,
+            id_rotacion: null
+          });
+        }
+      }
+    } else if (tabla === 'animales') {
+      const anims = await localDB.animalesCache.toArray();
+      for (const a of anims) {
+        if (!pool.has(a.id)) {
+          pool.set(a.id, {
+            id: a.id,
+            id_finca: a.id_finca,
+            numero_chapeta: a.numero_chapeta,
+            nombre_propietario: a.nombre_propietario,
+            etapa: a.etapa,
+            estado: 'activo',
+            peso_ingreso: a.peso_ingreso,
+            peso_compra: a.peso_compra,
+            fecha_ingreso: a.fecha_ingreso,
+            fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+            peso_ingreso_ceba: a.peso_ingreso_ceba,
+            id_potrerada: a.id_potrerada,
+            potreros: a.potrero_nombre ? { nombre: a.potrero_nombre } : null,
+            potreradas: a.potrerada_nombre ? { nombre: a.potrerada_nombre } : null,
+            registros_pesaje: []
+          });
+        }
+      }
+    } else if (tabla === 'vista_precios_mercado') {
+      const m = await localDB.mercadoCache.get('mercado_general');
+      if (m?.precios && Array.isArray(m.precios)) {
+        m.precios.forEach((p: any) => listSinId.push(p));
+      }
+    }
+
+    const todos = [...pool.values(), ...listSinId];
+    if (todos.length === 0) return null;
+
+    const isSingle = headers.get('accept')?.includes('vnd.pgrst.object');
+    const isHead = method === 'HEAD';
+
+    // 3. Filtrar
+    const filtros = parseFiltros(u.searchParams);
+    let filtrados = todos.filter(r => {
+      if (r.is_deleted === true) return false;
+      return cumple(r, filtros);
+    });
+
+    // 4. Ordenar
+    ordenar(filtrados, u.searchParams);
+
+    // 5. Paginación
+    const limitStr = u.searchParams.get('limit');
+    const offsetStr = u.searchParams.get('offset');
+    const offset = offsetStr ? parseInt(offsetStr, 10) : 0;
+    if (limitStr) {
+      const limit = parseInt(limitStr, 10);
+      filtrados = filtrados.slice(offset, offset + limit);
+    } else if (offset > 0) {
+      filtrados = filtrados.slice(offset);
+    }
+
+    // 6. Encabezados de respuesta
+    const respHeaders: Record<string, string> = {
+      'Content-Type': 'application/json; charset=utf-8',
+      'x-offline-cache': 'smart-fallback'
+    };
+
+    const countParam = u.searchParams.get('count') || headers.get('prefer')?.includes('count=');
+    if (countParam || isHead) {
+      const total = filtrados.length;
+      respHeaders['Content-Range'] = total > 0 ? `0-${total - 1}/${total}` : '*/0';
+    }
+
+    if (isHead) {
+      return new Response(null, { status: 200, headers: respHeaders });
+    }
+
+    if (isSingle) {
+      if (filtrados.length === 1) {
+        return new Response(JSON.stringify(filtrados[0]), { status: 200, headers: respHeaders });
+      }
+      if (filtrados.length === 0) {
+        return new Response(JSON.stringify({
+          code: 'PGRST116',
+          details: 'The result contains 0 rows',
+          hint: null,
+          message: 'JSON object requested, multiple (or no) rows returned'
+        }), { status: 406, headers: respHeaders });
+      }
+      return new Response(JSON.stringify(filtrados[0]), { status: 200, headers: respHeaders });
+    }
+
+    return new Response(JSON.stringify(filtrados), { status: 200, headers: respHeaders });
+  } catch (err) {
+    console.warn('[OfflineHTTP] Error en smartTableFallback:', err);
+    return null;
+  }
 }
 
 // ───────────────────────── caché de lecturas ─────────────────────────
@@ -403,12 +578,32 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
     const key = `${method} ${url}${esLecturaRpc ? ' ' + bodyStr : ''}`;
     const deCache = async () => {
       const c = await localDB.httpReadCache.get(key);
-      return c ? respuestaDesdeCache(c) : null;
+      if (c) return respuestaDesdeCache(c);
+      if (!info.isRpc) {
+        const fallback = await smartTableFallback(info.tabla, info.u, headers, method);
+        if (fallback) return fallback;
+      }
+      return null;
     };
 
     if (modoCampo) {
       const r = await deCache();
       if (r) return r;
+      // Blindaje de último recurso para evitar romper páginas con promesas en Modo Campo
+      if (method === 'GET' && !headers.get('accept')?.includes('vnd.pgrst.object')) {
+        return new Response('[]', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json; charset=utf-8', 'x-offline-cache': 'empty-fallback' }
+        });
+      }
+      if (headers.get('accept')?.includes('vnd.pgrst.object')) {
+        return new Response(JSON.stringify({
+          code: 'PGRST116',
+          details: 'The result contains 0 rows',
+          hint: null,
+          message: 'JSON object requested, multiple (or no) rows returned'
+        }), { status: 406, headers: { 'Content-Type': 'application/json; charset=utf-8', 'x-offline-cache': 'empty-single-fallback' } });
+      }
       throw new TypeError('Failed to fetch (Modo Campo activo, sin datos guardados)');
     }
 

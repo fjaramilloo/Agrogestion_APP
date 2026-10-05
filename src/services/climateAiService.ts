@@ -390,7 +390,8 @@ export async function generarYGuardarAnalisisClimatico(
 
     let diagnostico: DiagnosticoClimatico;
 
-    const estaOnline = navigator.onLine;
+    const isModoCampo = typeof window !== 'undefined' && localStorage.getItem('agrogestion_modo_campo') === 'true';
+    const estaOnline = navigator.onLine && !isModoCampo;
 
     if (estaOnline) {
         try {
