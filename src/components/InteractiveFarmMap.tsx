@@ -637,11 +637,140 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
       {/* Contenedor del Mapa Leaflet */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1, backgroundColor: '#0f1715' }} />
 
-      {/* Banner de Estado GPS / Ubicación Actual (Solo Premium) */}
-      {tipoLicencia === 'premium' && currentPaddock && (
+      {/* Barra Superior Flotante: Mi Ubicación GPS (Izquierda, Hero) y Capas (Derecha) */}
       <div style={{
+        position: 'absolute',
+        top: '14px',
+        left: '14px',
+        right: '14px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        zIndex: 1000,
+        pointerEvents: 'none',
+      }}>
+        {/* Botón Principal y Prioritario: Mi Ubicación GPS */}
+        <button
+          onClick={handleTrackGps}
+          disabled={gpsLoading}
+          style={{
+            pointerEvents: 'auto',
+            background: tipoLicencia === 'premium'
+              ? 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)'
+              : '#1E293B',
+            border: tipoLicencia === 'premium' ? '1px solid rgba(147, 197, 253, 0.45)' : '1px solid #475569',
+            color: tipoLicencia === 'premium' ? '#FFFFFF' : '#94A3B8',
+            padding: isMobile ? '8px 14px' : '9px 18px',
+            borderRadius: '30px',
+            cursor: gpsLoading ? 'wait' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: isMobile ? '0.82rem' : '0.88rem',
+            fontWeight: 700,
+            letterSpacing: '0.01em',
+            boxShadow: tipoLicencia === 'premium'
+              ? '0 4px 18px rgba(37, 99, 235, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35)'
+              : '0 4px 12px rgba(0, 0, 0, 0.4)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {tipoLicencia !== 'premium' ? (
+            <>
+              <Lock size={15} color="#F59E0B" />
+              <span>GPS (Plan Premium)</span>
+            </>
+          ) : gpsLoading ? (
+            <>
+              <RefreshCw className="animate-spin" size={16} />
+              <span>Localizando GPS...</span>
+            </>
+          ) : (
+            <>
+              <Navigation 
+                size={16} 
+                style={{ 
+                  color: userLocation ? '#67E8F9' : '#FFFFFF',
+                  transform: userLocation ? 'rotate(45deg)' : 'none',
+                  transition: 'transform 0.3s ease'
+                }} 
+              />
+              <span>{userLocation ? 'Mi Ubicación GPS' : 'Mi Ubicación GPS'}</span>
+              {userLocation && (
+                <span 
+                  title="GPS Activo en vivo"
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#4ADE80',
+                    boxShadow: '0 0 8px #4ADE80',
+                    display: 'inline-block',
+                    marginLeft: '2px',
+                    flexShrink: 0,
+                  }} 
+                />
+              )}
+            </>
+          )}
+        </button>
+
+        {/* Grupo Superior Derecho: Capas y KMZ */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
+          {/* Cambiar Capa Satélite/Calle */}
+          <button
+            onClick={() => setMapType(mapType === 'satellite' ? 'street' : 'satellite')}
+            title="Cambiar tipo de mapa"
+            style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.88)',
+              border: '1px solid #334155',
+              color: '#F8FAFC',
+              padding: isMobile ? '7px 11px' : '8px 14px',
+              borderRadius: '20px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.78rem',
+              fontWeight: 500,
+              backdropFilter: 'blur(8px)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            <Layers size={15} color="#38BDF8" />
+            <span>{mapType === 'satellite' ? 'Satélite' : 'Terreno'}</span>
+          </button>
+
+          {/* Botón Cargar Plano KMZ (Solo Administradores en Escritorio) */}
+          {userRole === 'administrador' && onOpenUploader && !isMobile && (
+            <button
+              onClick={onOpenUploader}
+              style={{
+                backgroundColor: '#10B981',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '8px 14px',
+                borderRadius: '20px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
+              }}
+            >
+              <Upload size={15} /> KMZ
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Banner de Estado GPS / Ubicación Actual (Solo Premium, posicionado bajo la barra superior) */}
+      {tipoLicencia === 'premium' && currentPaddock && (
+        <div style={{
           position: 'absolute',
-          top: '16px',
+          top: '64px',
           left: '50%',
           transform: 'translateX(-50%)',
           backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -651,13 +780,15 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           padding: '10px 18px',
           color: '#F8FAFC',
           fontSize: '0.82rem',
-          zIndex: 1000,
+          zIndex: 999,
           boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-start',
           gap: '5px',
-          maxWidth: '90%',
+          maxWidth: '92%',
+          width: isMobile ? 'calc(100% - 28px)' : 'auto',
+          boxSizing: 'border-box',
         }}>
           {/* Fila 1: dónde estás */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.88rem' }}>
@@ -695,11 +826,11 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         </div>
       )}
 
-      {/* Banner de Zona Especial Actual (Solo Premium) */}
+      {/* Banner de Zona Especial Actual (Solo Premium, posicionado bajo la barra superior) */}
       {tipoLicencia === 'premium' && !currentPaddock && currentSpecialZone && (
         <div style={{
           position: 'absolute',
-          top: '16px',
+          top: '64px',
           left: '50%',
           transform: 'translateX(-50%)',
           backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -709,13 +840,15 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           padding: '10px 22px',
           color: '#F8FAFC',
           fontSize: '0.85rem',
-          zIndex: 1000,
+          zIndex: 999,
           boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
           fontWeight: 700,
-          maxWidth: '90%',
+          maxWidth: '92%',
+          width: isMobile ? 'calc(100% - 28px)' : 'auto',
+          boxSizing: 'border-box',
         }}>
           <span>
             📍 Estás en: <span style={{ color: currentSpecialZone.tipo === 'bosque' ? '#34D399' : currentSpecialZone.tipo === 'agua' ? '#38BDF8' : '#FBBF24' }}>
@@ -724,104 +857,6 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           </span>
         </div>
       )}
-
-      {/* Botones Flotantes de Control Superior */}
-      <div style={{
-        position: 'absolute',
-        top: '16px',
-        right: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        zIndex: 1000,
-      }}>
-        {/* Cambiar Capa Satélite/Calle */}
-        <button
-          onClick={() => setMapType(mapType === 'satellite' ? 'street' : 'satellite')}
-          title="Cambiar tipo de mapa"
-          style={{
-            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-            border: '1px solid #334155',
-            color: '#F8FAFC',
-            padding: '10px 14px',
-            borderRadius: '12px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '0.85rem',
-            fontWeight: 500,
-            backdropFilter: 'blur(6px)',
-          }}
-        >
-          <Layers size={18} color="#3B82F6" />
-          {mapType === 'satellite' ? 'Satélite' : 'Mapa Terreno'}
-        </button>
-
-        {/* Botón Cargar Plano KMZ (Solo Administradores en Escritorio) */}
-        {userRole === 'administrador' && onOpenUploader && !isMobile && (
-          <button
-            onClick={onOpenUploader}
-            style={{
-              backgroundColor: '#10B981',
-              color: '#FFFFFF',
-              border: 'none',
-              padding: '10px 16px',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
-            }}
-          >
-            <Upload size={18} /> Cargar Plano KMZ
-          </button>
-        )}
-      </div>
-
-      {/* Botón Flotante "Centrar en mi GPS" */}
-      <button
-        onClick={handleTrackGps}
-        disabled={gpsLoading}
-        style={{
-          position: 'absolute',
-          bottom: '24px',
-          left: '24px',
-          backgroundColor: tipoLicencia === 'premium' ? '#3B82F6' : '#1E293B',
-          border: tipoLicencia === 'premium' ? 'none' : '1px solid #475569',
-          color: tipoLicencia === 'premium' ? '#FFFFFF' : '#94A3B8',
-          padding: '12px 20px',
-          borderRadius: '30px',
-          cursor: gpsLoading ? 'wait' : 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '0.9rem',
-          fontWeight: 600,
-          boxShadow: tipoLicencia === 'premium' ? '0 4px 20px rgba(59, 130, 246, 0.5)' : '0 4px 12px rgba(0, 0, 0, 0.4)',
-          zIndex: 1000,
-        }}
-      >
-        {tipoLicencia !== 'premium' ? (
-          <>
-            <Lock size={16} color="#F59E0B" />
-            <span>GPS en vivo (Plan Premium)</span>
-          </>
-        ) : gpsLoading ? (
-          <>
-            <RefreshCw className="animate-spin" size={18} />
-            <span>Detectando GPS...</span>
-          </>
-        ) : (
-          <>
-            <Navigation size={18} />
-            <span>{userLocation ? 'Mi Ubicación GPS' : 'Localizarme en el mapa'}</span>
-          </>
-        )}
-      </button>
 
       {/* Drawer / Modal de Detalle de Potrero Seleccionado */}
       {selectedPotrero && (

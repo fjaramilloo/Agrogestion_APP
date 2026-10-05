@@ -587,38 +587,60 @@ export const FarmMapPage: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {userFincas && userFincas.length > 1 && (
-            <div style={{ display: 'flex', backgroundColor: '#1E293B', borderRadius: '10px', padding: '3px', border: '1px solid #334155' }}>
+            <div 
+              role="tablist" 
+              aria-label="Selector de vista de fincas"
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                backgroundColor: 'rgba(15, 23, 42, 0.85)', 
+                borderRadius: '20px', 
+                padding: '2px', 
+                border: '1px solid #334155',
+                boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.3)',
+              }}
+            >
               <button
+                type="button"
+                role="tab"
+                aria-selected={viewMode === 'single'}
                 onClick={() => setViewMode('single')}
                 style={{
-                  backgroundColor: viewMode === 'single' ? '#3B82F6' : 'transparent',
-                  color: viewMode === 'single' ? 'white' : '#94A3B8',
+                  backgroundColor: viewMode === 'single' ? '#334155' : 'transparent',
+                  color: viewMode === 'single' ? '#F8FAFC' : '#64748B',
                   border: 'none',
-                  padding: '6px 14px',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
+                  padding: '3px 10px',
+                  borderRadius: '16px',
+                  fontSize: '0.74rem',
+                  fontWeight: viewMode === 'single' ? 600 : 500,
                   cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                Finca Actual
+                Finca actual
               </button>
               <button
+                type="button"
+                role="tab"
+                aria-selected={viewMode === 'multi'}
                 onClick={() => setViewMode('multi')}
                 style={{
-                  backgroundColor: viewMode === 'multi' ? '#3B82F6' : 'transparent',
-                  color: viewMode === 'multi' ? 'white' : '#94A3B8',
+                  backgroundColor: viewMode === 'multi' ? '#334155' : 'transparent',
+                  color: viewMode === 'multi' ? '#F8FAFC' : '#64748B',
                   border: 'none',
-                  padding: '6px 14px',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
+                  padding: '3px 10px',
+                  borderRadius: '16px',
+                  fontSize: '0.74rem',
+                  fontWeight: viewMode === 'multi' ? 600 : 500,
                   cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                Multi-Finca
+                Todas las fincas
               </button>
             </div>
           )}
