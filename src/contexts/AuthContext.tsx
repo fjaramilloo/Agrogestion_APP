@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { limpiarCacheLecturas } from '../lib/httpOffline';
 import type { Session, User } from '@supabase/supabase-js';
 import type { ModoGanancia } from '../utils/ganancia';
 
@@ -318,6 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const signOut = async () => {
         await supabase.auth.signOut();
+        await limpiarCacheLecturas();
         localStorage.removeItem('lastFincaId');
     };
 

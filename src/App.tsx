@@ -18,6 +18,7 @@ import Rainfall from './pages/Rainfall';
 import Topbar from './components/Topbar';
 import Sidebar from './components/Sidebar';
 import VersionNotifier from './components/VersionNotifier';
+import SyncSummaryModal from './components/SyncSummaryModal';
 import UpdatePassword from './pages/UpdatePassword';
 import Suscripcion from './pages/Suscripcion';
 import { FarmMapPage } from './pages/FarmMap';
@@ -256,6 +257,7 @@ function App() {
         <Router>
           <AppRoutes />
           <VersionNotifier />
+          <SyncSummaryModal />
           <AgroBot />
         </Router>
       </ConnectionProvider>

@@ -99,7 +99,36 @@ export interface MercadoCacheItem {
   actualizado_en: string;
 }
 
+/** Respuesta GET/RPC de lectura guardada para poder usarla sin internet (cualquier módulo). */
+export interface HttpReadCacheItem {
+  key: string;
+  tabla: string;
+  url: string;
+  method: string;
+  reqBody?: string | null;
+  reqHeaders: Record<string, string>;
+  status: number;
+  contentType: string;
+  contentRange?: string;
+  body: string;
+  ts: number;
+}
+
+/** Escritura (insert/update/delete) hecha sin internet, pendiente de subir a la nube. */
+export interface HttpWriteQueueItem {
+  id: string;
+  ts: number;
+  method: string;
+  url: string;
+  tabla: string;
+  headers: Record<string, string>;
+  body: string | null;
+  filas: number;
+}
+
 export class AgrogestionDB extends Dexie {
+  httpReadCache!: Table<HttpReadCacheItem, string>;
+  httpWriteQueue!: Table<HttpWriteQueueItem, string>;
   animalesCache!: Table<AnimalCacheItem, string>;
   potrerosCache!: Table<PotreroCacheItem, string>;
   potreradasCache!: Table<PotreradaCacheItem, string>;
@@ -141,6 +170,20 @@ export class AgrogestionDB extends Dexie {
       mapasFincaCache: 'id_finca',
       mapaSnapshotCache: 'id_finca',
       mercadoCache: 'id'
+    });
+
+    // Esquema v4: caché HTTP de lecturas + cola genérica de escrituras (modo sin conexión total)
+    this.version(4).stores({
+      animalesCache: 'id, id_finca, numero_chapeta, etapa',
+      potrerosCache: 'id, id_finca, nombre',
+      potreradasCache: 'id, id_finca, nombre',
+      pesajesOfflineQueue: 'id, id_finca, id_animal, status_sync, fecha',
+      aforosOfflineQueue: 'id, id_finca, id_potrero, status_sync, fecha',
+      mapasFincaCache: 'id_finca',
+      mapaSnapshotCache: 'id_finca',
+      mercadoCache: 'id',
+      httpReadCache: 'key, tabla, ts',
+      httpWriteQueue: 'id, ts'
     });
   }
 }

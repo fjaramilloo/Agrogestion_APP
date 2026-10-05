@@ -44,20 +44,8 @@ export default defineConfig({
         // cuando el usuario tiene la app abierta (evita que redirija al login)
         navigateFallbackDenylist: [/\.pdf$/i, /\/manual-de-usuario\.pdf/, /\/guia-inicio-rapido\.pdf/],
         runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 días
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
+          // La API de Supabase ya NO pasa por el service worker: la capa offline propia (httpOffline.ts)
+          // guarda lecturas y encola escrituras. NetworkFirst sin timeout dejaba la app "cargando" con señal débil.
           {
             urlPattern: /^https:\/\/(?:server\.arcgisonline\.com|.*\.tile\.openstreetmap\.org)\/.*/i,
             handler: 'CacheFirst',

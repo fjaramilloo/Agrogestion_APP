@@ -1,10 +1,18 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
 import {
   sincronizarCacheFinca,
   procesarSincronizacionOffline
 } from '../lib/offlineService';
+import {
+  sincronizarColaHttp,
+  refrescarCacheLecturas,
+  contarEscriturasPendientes,
+  anunciarResumenSync,
+  type LineaResumenSync
+} from '../lib/syncService';
+import { useAuth } from './AuthContext';
 
 interface ConnectionContextType {
   modoCampo: boolean;
@@ -51,24 +59,29 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // 2. Ping ultrarrápido a Supabase para verificar si la red realmente transmite datos
   const checkRealOnline = useCallback(async (): Promise<boolean> => {
+    if (localStorage.getItem('agrogestion_modo_campo') === 'true') {
+      setIsRealOnline(false);
+      return false;
+    }
     if (!navigator.onLine) {
       setIsRealOnline(false);
       return false;
     }
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5 seg timeout máximo
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-      const { error } = await supabase
-        .from('fincas')
-        .select('id')
-        .limit(1)
-        .abortSignal(controller.signal);
+      // Ping directo (fuera de la capa offline) para que una copia guardada nunca simule que hay internet
+      const base = import.meta.env.VITE_SUPABASE_URL as string;
+      const res = await fetch(`${base}/auth/v1/health`, {
+        headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string },
+        cache: 'no-store',
+        signal: controller.signal
+      });
 
       clearTimeout(timeoutId);
 
-      // Si responde o si da error de autenticación/JWT pero llegó al servidor, hay red
-      const online = !error || error.code === 'PGRST301';
+      const online = res.status < 500;
       setIsRealOnline(online);
       return online;
     } catch {
@@ -88,8 +101,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (val) {
       // Si se activa Modo Campo, se asume desconectado de inmediato
       setIsRealOnline(false);
+      supabase.auth.stopAutoRefresh();
     } else {
       // Si se desactiva, comprobar si hay internet real
+      supabase.auth.startAutoRefresh();
       checkRealOnline();
     }
   };
@@ -104,6 +119,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // 5. Escuchar cambios de conectividad del navegador
   useEffect(() => {
+    if (modoCampo) supabase.auth.stopAutoRefresh();
     const handleOnline = async () => {
       if (!modoCampo) {
         await checkRealOnline();
@@ -148,6 +164,9 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         .count();
 
       total += pesajesCount + aforosCount;
+
+      // Cambios genéricos hechos sin conexión (rotaciones, lotes, etc.)
+      total += await contarEscriturasPendientes();
 
       // Compras de localStorage
       const comprasRaw = localStorage.getItem('agrogestion_compras_offline');
@@ -195,26 +214,94 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   }, [actualizarConteo]);
 
-  // 7. Sincronizar todas las colas pendientes (Pesajes, Aforos)
+  // 7. Sincronizar todas las colas pendientes (Pesajes, Aforos y cualquier cambio hecho sin conexión)
+  const { fincaId: fincaIdAuth } = useAuth();
+  const syncingRef = useRef(false);
+
   const sincronizarTodo = async (fincaId: string): Promise<{ procesados: number; errores: number }> => {
-    if (!fincaId || !isOnline || syncing) {
+    if (!isOnline || syncingRef.current) {
       return { procesados: 0, errores: 0 };
     }
 
+    syncingRef.current = true;
     setSyncing(true);
     try {
-      const res = await procesarSincronizacionOffline(fincaId);
+      const lineas: LineaResumenSync[] = [];
+      const mensajesError: string[] = [];
+      let procesados = 0;
+      let errores = 0;
+
+      // a) Pesajes y aforos guardados en cola dedicada
+      if (fincaId) {
+        const r1 = await procesarSincronizacionOffline(fincaId);
+        procesados += r1.procesados;
+        errores += r1.errores;
+        if (r1.pesajes) lineas.push({ etiqueta: 'Creados · pesajes', cantidad: r1.pesajes, ok: true });
+        if (r1.aforos) lineas.push({ etiqueta: 'Creados · aforos', cantidad: r1.aforos, ok: true });
+        if (r1.errores) lineas.push({ etiqueta: 'Pesajes/aforos con error', cantidad: r1.errores, ok: false });
+      }
+
+      // b) Todo lo demás (rotaciones, movimientos de lotes, animales, etc.)
+      const r2 = await sincronizarColaHttp();
+      procesados += r2.procesados;
+      errores += r2.errores;
+      lineas.push(...r2.lineas);
+      mensajesError.push(...r2.mensajesError);
+
+      // c) Dejar la memoria local al día con lo que ya quedó en la nube
+      if (procesados > 0 || errores > 0) {
+        await refrescarCacheLecturas();
+      }
+      if (fincaId) await sincronizarCacheFinca(fincaId);
       await actualizarConteo();
-      // Refrescar caché local segura tras sincronizar
-      await sincronizarCacheFinca(fincaId);
-      return res;
+
+      if (procesados > 0 || errores > 0) {
+        anunciarResumenSync({
+          fecha: new Date().toISOString(),
+          lineas,
+          exitosos: procesados,
+          fallidos: errores,
+          errores: mensajesError
+        });
+      }
+      return { procesados, errores };
     } catch (e) {
       console.error('Error al sincronizar todo:', e);
       return { procesados: 0, errores: 1 };
     } finally {
+      syncingRef.current = false;
       setSyncing(false);
     }
   };
+
+  // Sincronización automática: al recuperar la conexión (o salir de Modo Campo) y mientras queden pendientes
+  const sincronizarRef = useRef(sincronizarTodo);
+  sincronizarRef.current = sincronizarTodo;
+
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const intentar = async () => {
+      if (syncingRef.current) return;
+      try {
+        const enCola = await contarEscriturasPendientes();
+        const pesajes = await localDB.pesajesOfflineQueue.where('status_sync').anyOf('pending', 'failed').count();
+        const aforos = await localDB.aforosOfflineQueue.where('status_sync').anyOf('pending', 'failed').count();
+        if (enCola + pesajes + aforos > 0) {
+          await sincronizarRef.current(fincaIdAuth || '');
+        }
+      } catch (e) {
+        console.warn('[AutoSync] Error:', e);
+      }
+    };
+
+    const t = setTimeout(intentar, 1500);
+    const interval = setInterval(intentar, 30000);
+    return () => {
+      clearTimeout(t);
+      clearInterval(interval);
+    };
+  }, [isOnline, fincaIdAuth]);
 
   // 8. Preparar Finca para el Campo (Descarga completa garantizada para trabajar sin red)
   const prepararFincaOffline = async (fincaId: string): Promise<{ success: boolean; animales: number; potreros: number; error?: string }> => {
@@ -228,6 +315,8 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     try {
       await sincronizarCacheFinca(fincaId);
+      // Actualiza también todas las consultas de los módulos ya visitados (rotaciones, lotes, ventas, etc.)
+      await refrescarCacheLecturas();
       const animalesCount = await localDB.animalesCache.where('id_finca').equals(fincaId).count();
       const potrerosCount = await localDB.potrerosCache.where('id_finca').equals(fincaId).count();
 

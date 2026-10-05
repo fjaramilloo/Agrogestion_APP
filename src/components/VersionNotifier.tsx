@@ -17,6 +17,7 @@ export default function VersionNotifier() {
   };
 
   const checkForUpdates = async () => {
+    if (localStorage.getItem('agrogestion_modo_campo') === 'true') return;
     try {
       const response = await fetch(`/?v=${Date.now()}`, { cache: 'no-store' });
       if (!response.ok) return;
