@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import ModalUpsell from '../components/ModalUpsell';
 import { ArrowLeftRight, Save, Search, ChevronDown, Check, AlertOctagon } from 'lucide-react';
@@ -40,27 +41,76 @@ export default function Movements() {
     }, [fincaId]);
 
     const fetchData = async () => {
-        // Fetch potreradas
-        const { data: potreradasData } = await supabase
-            .from('potreradas')
-            .select('id, nombre, id_rotacion')
-            .eq('id_finca', fincaId)
-            .order('nombre');
-        
-        if (potreradasData) setPotreradas(potreradasData);
+        const currentFincaId = fincaId;
+        if (!currentFincaId) return;
 
-        // Fetch rotaciones con potreros
-        const { data: rotacionesData } = await supabase
-            .from('rotaciones')
-            .select(`
-                id, 
-                nombre,
-                potreros (id, nombre)
-            `)
-            .eq('id_finca', fincaId)
-            .order('nombre');
+        try {
+            // Fetch potreradas
+            const { data: potreradasData } = await supabase
+                .from('potreradas')
+                .select('id, nombre, id_rotacion')
+                .eq('id_finca', currentFincaId)
+                .order('nombre');
             
-        if (rotacionesData) setRotaciones(rotacionesData as any);
+            if (potreradasData && potreradasData.length > 0) {
+                setPotreradas(potreradasData);
+            } else {
+                const pts = await localDB.potreradasCache.where('id_finca').equals(currentFincaId).toArray();
+                if (pts.length > 0) {
+                    setPotreradas(pts.map(p => ({ id: p.id, nombre: p.nombre, id_rotacion: (p as any).id_rotacion || null })));
+                }
+            }
+        } catch {
+            try {
+                const pts = await localDB.potreradasCache.where('id_finca').equals(currentFincaId).toArray();
+                if (pts.length > 0) {
+                    setPotreradas(pts.map(p => ({ id: p.id, nombre: p.nombre, id_rotacion: (p as any).id_rotacion || null })));
+                }
+            } catch {}
+        }
+
+        try {
+            // Fetch rotaciones con potreros
+            const { data: rotacionesData } = await supabase
+                .from('rotaciones')
+                .select(`
+                    id, 
+                    nombre,
+                    potreros (id, nombre)
+                `)
+                .eq('id_finca', currentFincaId)
+                .order('nombre');
+                
+            if (rotacionesData && rotacionesData.length > 0) {
+                setRotaciones(rotacionesData as any);
+            } else {
+                const [rots, pots] = await Promise.all([
+                    localDB.rotacionesCache.where('id_finca').equals(currentFincaId).toArray(),
+                    localDB.potrerosCache.where('id_finca').equals(currentFincaId).toArray()
+                ]);
+                if (rots.length > 0) {
+                    setRotaciones(rots.map(r => ({
+                        id: r.id,
+                        nombre: r.nombre,
+                        potreros: pots.filter(p => (p as any).id_rotacion === r.id).map(p => ({ id: p.id, nombre: p.nombre }))
+                    })));
+                }
+            }
+        } catch {
+            try {
+                const [rots, pots] = await Promise.all([
+                    localDB.rotacionesCache.where('id_finca').equals(currentFincaId).toArray(),
+                    localDB.potrerosCache.where('id_finca').equals(currentFincaId).toArray()
+                ]);
+                if (rots.length > 0) {
+                    setRotaciones(rots.map(r => ({
+                        id: r.id,
+                        nombre: r.nombre,
+                        potreros: pots.filter(p => (p as any).id_rotacion === r.id).map(p => ({ id: p.id, nombre: p.nombre }))
+                    })));
+                }
+            } catch {}
+        }
     };
 
     // Cuando se selecciona una potrerada, buscar su último movimiento abierto

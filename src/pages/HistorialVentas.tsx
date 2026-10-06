@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getDateRange, DATE_RANGE_LABELS, DATE_RANGE_OPTIONS, type DateRangeOption } from '../utils/dateRanges';
 import { supabase } from '../lib/supabase';
+import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { Search, Tag, Calendar, Users, FileText, X, Info, TrendingUp, Download, Loader2, Filter } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -63,7 +64,7 @@ export default function HistorialVentas() {
     const [showFullHistory, setShowFullHistory] = useState(false);
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
-    const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('mes_actual');
+    const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('anio_actual');
     
     // Estado para abrir el reporte PDF completo
     const [selectedVenta, setSelectedVenta] = useState<VentaGrupo | null>(null);
@@ -92,76 +93,126 @@ export default function HistorialVentas() {
         
         const fetchVentas = async () => {
             setLoading(true);
-            const { start, end } = getDateRange(dateRangeOption);
+            try {
+                const { start, end } = getDateRange(dateRangeOption);
 
-            const { data: config } = await supabase
-                .from('configuracion_kpi')
-                .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio, costo_mensual_animal, participacion_utilidad')
-                .eq('id_finca', fincaId)
-                .single();
-            
-            let metaMinimaVal = 0;
-            if (config) {
-                setUmbralAlto(config.umbral_alto_gmp ?? 20);
-                setUmbralMedio(config.umbral_medio_gmp ?? 10);
-                
-                const precio = parseFloat(config.precio_venta_promedio || 0);
-                const costo = parseFloat(config.costo_mensual_animal || 0);
-                const participacion = parseFloat(config.participacion_utilidad as any) || 0.6;
-                if (precio > 0) {
-                    metaMinimaVal = (costo / participacion) / precio;
+                let config: any = null;
+                try {
+                    const res = await supabase
+                        .from('configuracion_kpi')
+                        .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio, costo_mensual_animal, participacion_utilidad')
+                        .eq('id_finca', fincaId)
+                        .single();
+                    config = res.data;
+                } catch {
+                    // Ignore offline
                 }
-            }
-
-            let query = supabase
-                .from('animales')
-                .select(`
-                    id, 
-                    numero_chapeta, 
-                    nombre_propietario,
-                    comprador_venta,
-                    fecha_venta,
-                    peso_venta,
-                    peso_ingreso,
-                    peso_compra,
-                    fecha_ingreso,
-                    etapa,
-                    fecha_ingreso_ceba,
-                    peso_ingreso_ceba,
-                    es_emergencia,
-                    precio_venta,
-                    observaciones_venta,
-                    potreros (nombre),
-                    registros_pesaje (
-                        peso,
-                        fecha,
-                        etapa,
-                        gdp_calculada
-                    )
-                `)
-                .eq('id_finca', fincaId)
-                .eq('estado', 'vendido');
-
-            if (start) {
-                query = query.gte('fecha_venta', start);
-            }
-            if (end) {
-                query = query.lte('fecha_venta', end);
-            }
-
-            const { data, error } = await query.order('fecha_venta', { ascending: false });
-
-            if (data && !error) {
-                const grouped = data.reduce((acc: any, animal: any) => {
-                    const fecha = animal.fecha_venta || 'Sin fecha';
-                    const comprador = animal.comprador_venta || 'Desconocido';
+                
+                let metaMinimaVal = 0;
+                if (config) {
+                    setUmbralAlto(config.umbral_alto_gmp ?? 20);
+                    setUmbralMedio(config.umbral_medio_gmp ?? 10);
                     
-                    if (comprador.toLowerCase() === 'desconocido') return acc;
+                    const precio = parseFloat(config.precio_venta_promedio || 0);
+                    const costo = parseFloat(config.costo_mensual_animal || 0);
+                    const participacion = parseFloat(config.participacion_utilidad as any) || 0.6;
+                    if (precio > 0) {
+                        metaMinimaVal = (costo / participacion) / precio;
+                    }
+                }
+
+                // Consultar todas las ventas de la finca (coincide exactamente con la caché offline)
+                let data: any[] = [];
+                try {
+                    const res = await supabase
+                        .from('animales')
+                        .select(`
+                            id, 
+                            numero_chapeta, 
+                            nombre_propietario,
+                            comprador_venta,
+                            fecha_venta,
+                            peso_venta,
+                            peso_ingreso,
+                            peso_compra,
+                            fecha_ingreso,
+                            etapa,
+                            fecha_ingreso_ceba,
+                            peso_ingreso_ceba,
+                            es_emergencia,
+                            precio_venta,
+                            observaciones_venta,
+                            potreros (nombre),
+                            registros_pesaje (
+                                peso,
+                                fecha,
+                                etapa,
+                                gdp_calculada
+                            )
+                        `)
+                        .eq('id_finca', fincaId)
+                        .eq('estado', 'vendido')
+                        .order('fecha_venta', { ascending: false });
+                    if (res?.data && res.data.length > 0) {
+                        data = res.data;
+                    }
+                } catch {
+                    // Ignore offline
+                }
+
+                // Fallback directo a Dexie si la consulta está vacía (Modo Campo sin internet)
+                if (data.length === 0) {
+                    try {
+                        const animsCached = await localDB.animalesCache
+                            .where('id_finca')
+                            .equals(fincaId)
+                            .filter(a => a.estado === 'vendido')
+                            .toArray();
+
+                        if (animsCached.length > 0) {
+                            data = animsCached.map(a => ({
+                                id: a.id,
+                                numero_chapeta: a.numero_chapeta,
+                                nombre_propietario: a.nombre_propietario,
+                                comprador_venta: a.comprador_venta || 'Venta General',
+                                fecha_venta: a.fecha_venta,
+                                peso_venta: a.peso_venta,
+                                peso_ingreso: a.peso_ingreso,
+                                peso_compra: a.peso_compra,
+                                fecha_ingreso: a.fecha_ingreso,
+                                etapa: a.etapa,
+                                fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+                                peso_ingreso_ceba: a.peso_ingreso_ceba,
+                                es_emergencia: false,
+                                precio_venta: a.precio_venta,
+                                observaciones_venta: a.observaciones_venta,
+                                potreros: a.potrero_nombre ? { nombre: a.potrero_nombre } : null,
+                                registros_pesaje: a.ultimo_peso ? [{ peso: a.ultimo_peso, fecha: a.fecha_ultimo_pesaje || a.fecha_ingreso, etapa: a.etapa, gdp_calculada: 0 }] : []
+                            }));
+                        }
+                    } catch (e) {
+                        console.warn('[HistorialVentas] Error fallback Dexie:', e);
+                    }
+                }
+
+                // Filtrar en memoria por el rango de fechas seleccionado
+                const dataFiltrada = data.filter((animal: any) => {
+                    if (!start && !end) return true;
+                    if (!animal.fecha_venta) return false;
+                    const fv = animal.fecha_venta.split('T')[0];
+                    if (start && fv < start) return false;
+                    if (end && fv > end) return false;
+                    return true;
+                });
+
+                const grouped = dataFiltrada.reduce((acc: any, animal: any) => {
+                    const fecha = animal.fecha_venta ? animal.fecha_venta.split('T')[0] : 'Sin fecha';
+                    const comprador = (animal.comprador_venta && animal.comprador_venta.trim()) ? animal.comprador_venta.trim() : 'Venta General';
                     
                     const key = `${fecha}-${comprador}`;
                     
                     const registros = (animal.registros_pesaje || []).sort((x: any, y: any) => 
-                        new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+                        new Date(y.fecha || 0).getTime() - new Date(x.fecha || 0).getTime()
                     );
                     const ultimoP = registros[0];
                     
@@ -181,7 +232,7 @@ export default function HistorialVentas() {
 
                     const registroCeba = (animal.registros_pesaje || [])
                         .filter((r: any) => r.etapa === 'ceba')
-                        .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
+                        .sort((x: any, y: any) => new Date(x.fecha || 0).getTime() - new Date(y.fecha || 0).getTime())[0];
                     const fechaInicioCeba = animal.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (animal.etapa === 'ceba' ? animal.fecha_ingreso : null));
                     const pesoInicioCeba = animal.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (animal.etapa === 'ceba' ? (animal.peso_compra ?? animal.peso_ingreso) : null));
 
@@ -201,7 +252,7 @@ export default function HistorialVentas() {
 
                     // Datos enriquecidos para el modal de detalle
                     const registrosOrdenados = (animal.registros_pesaje || []).sort((x: any, y: any) =>
-                        new Date(x.fecha).getTime() - new Date(y.fecha).getTime()
+                        new Date(y.fecha || 0).getTime() - new Date(x.fecha || 0).getTime()
                     );
                     
                     const registrosEtapa = registrosOrdenados.filter((r: any) => r.etapa === animal.etapa);
@@ -254,7 +305,7 @@ export default function HistorialVentas() {
                     }
                     
                     acc[key].animalesCount++;
-                    acc[key].pesoTotal += parseFloat(animalRep.peso_salida.toString());
+                    acc[key].pesoTotal += parseFloat(animalRep.peso_salida.toString()) || 0;
                     acc[key].gmpTotal += gmp;
                     acc[key].gmpCount++;
                     acc[key].animalesReporte.push(animalRep);
@@ -273,20 +324,20 @@ export default function HistorialVentas() {
                 ventasList.sort((a, b) => new Date(b.fechaVenta).getTime() - new Date(a.fechaVenta).getTime());
                 setVentas(ventasList);
 
-                // Calcular métricas anuales
+                // Calcular métricas anuales sobre TODO el inventario de ventas del año actual
                 const curYear = new Date().getFullYear();
-                const yearlyAnimals = data.filter(a => a.fecha_venta && new Date(a.fecha_venta).getFullYear() === curYear);
+                const yearlyAnimals = data.filter(a => a.fecha_venta && new Date(a.fecha_venta.split('T')[0] + 'T00:00:00').getFullYear() === curYear);
                 const countY = yearlyAnimals.length;
-                const weightY = countY > 0 ? yearlyAnimals.reduce((sum, a) => sum + (a.peso_venta || 0), 0) / countY : 0;
+                const weightY = countY > 0 ? yearlyAnimals.reduce((sum, a) => sum + (Number(a.peso_venta) || 0), 0) / countY : 0;
                 
                 let totalGmpY = 0;
                 let validGmpCount = 0;
                 
                 yearlyAnimals.forEach(animal => {
-                    const pesoSalida = animal.peso_venta || 0;
-                    const pesoIngresoDB = animal.peso_compra ?? animal.peso_ingreso ?? 0;
-                    const fechaSalida = animal.fecha_venta;
-                    const fechaIngreso = animal.fecha_ingreso;
+                    const pesoSalida = Number(animal.peso_venta) || 0;
+                    const pesoIngresoDB = Number(animal.peso_compra ?? animal.peso_ingreso ?? 0);
+                    const fechaSalida = animal.fecha_venta ? animal.fecha_venta.split('T')[0] : '';
+                    const fechaIngreso = animal.fecha_ingreso ? animal.fecha_ingreso.split('T')[0] : '';
                     
                     if (fechaSalida && fechaIngreso && pesoIngresoDB > 0 && pesoSalida > 0) {
                         const d1 = new Date(fechaIngreso + 'T12:00:00');
@@ -305,8 +356,11 @@ export default function HistorialVentas() {
                     avgGmp: avgGmpY,
                     metaMinima: metaMinimaVal
                 });
+            } catch (err) {
+                console.error('[HistorialVentas] Error cargando ventas:', err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
         fetchVentas();
     }, [fincaId, dateRangeOption]);

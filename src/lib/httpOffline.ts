@@ -133,8 +133,28 @@ function evalFiltro(rowVal: any, f: Filtro): boolean {
     case 'gt': case 'gte': case 'lt': case 'lte': {
       const a = Number(rowVal), b = Number(f.val);
       const num = rowVal !== null && rowVal !== '' && !isNaN(a) && !isNaN(b);
-      const x: any = num ? a : norm(rowVal);
-      const y: any = num ? b : f.val;
+      if (num) {
+        r = f.op === 'gt' ? a > b : f.op === 'gte' ? a >= b : f.op === 'lt' ? a < b : a <= b;
+        break;
+      }
+      // Comparación segura de fechas (ISO / YYYY-MM-DD)
+      const isDateA = typeof rowVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(rowVal);
+      const isDateB = typeof f.val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(f.val);
+      if (isDateA && isDateB) {
+        const tA = new Date(rowVal.length === 10 ? rowVal + 'T12:00:00Z' : rowVal).getTime();
+        let tB = new Date(f.val.length === 10 ? f.val + 'T12:00:00Z' : f.val).getTime();
+        if (f.op === 'lte' && f.val.length === 10) {
+          tB = new Date(f.val + 'T23:59:59.999Z').getTime();
+        } else if (f.op === 'gte' && f.val.length === 10) {
+          tB = new Date(f.val + 'T00:00:00.000Z').getTime();
+        }
+        if (!isNaN(tA) && !isNaN(tB)) {
+          r = f.op === 'gt' ? tA > tB : f.op === 'gte' ? tA >= tB : f.op === 'lt' ? tA < tB : tA <= tB;
+          break;
+        }
+      }
+      const x: any = norm(rowVal);
+      const y: any = f.val;
       r = f.op === 'gt' ? x > y : f.op === 'gte' ? x >= y : f.op === 'lt' ? x < y : x <= y;
       break;
     }
@@ -222,7 +242,7 @@ async function smartTableFallback(
             geojson_geometry: p.geojson_geometry,
             color_mapa: p.color_mapa,
             kml_name: p.kml_name,
-            id_rotacion: null
+            id_rotacion: (p as any).id_rotacion || null
           });
         }
       }
@@ -234,7 +254,18 @@ async function smartTableFallback(
             id: pt.id,
             id_finca: pt.id_finca,
             nombre: pt.nombre,
-            id_rotacion: null
+            id_rotacion: (pt as any).id_rotacion || null
+          });
+        }
+      }
+    } else if (tabla === 'rotaciones') {
+      const rots = await localDB.rotacionesCache.toArray();
+      for (const r of rots) {
+        if (!pool.has(r.id)) {
+          pool.set(r.id, {
+            id: r.id,
+            id_finca: r.id_finca,
+            nombre: r.nombre
           });
         }
       }
@@ -248,13 +279,18 @@ async function smartTableFallback(
             numero_chapeta: a.numero_chapeta,
             nombre_propietario: a.nombre_propietario,
             etapa: a.etapa,
-            estado: 'activo',
+            estado: a.estado || 'activo',
             peso_ingreso: a.peso_ingreso,
             peso_compra: a.peso_compra,
             fecha_ingreso: a.fecha_ingreso,
             fecha_ingreso_ceba: a.fecha_ingreso_ceba,
             peso_ingreso_ceba: a.peso_ingreso_ceba,
             id_potrerada: a.id_potrerada,
+            peso_venta: a.peso_venta,
+            fecha_venta: a.fecha_venta,
+            comprador_venta: a.comprador_venta,
+            observaciones_venta: a.observaciones_venta,
+            precio_venta: a.precio_venta,
             potreros: a.potrero_nombre ? { nombre: a.potrero_nombre } : null,
             potreradas: a.potrerada_nombre ? { nombre: a.potrerada_nombre } : null,
             registros_pesaje: []
@@ -316,6 +352,23 @@ async function smartTableFallback(
         return new Response(JSON.stringify(filtrados[0]), { status: 200, headers: respHeaders });
       }
       if (filtrados.length === 0) {
+        if (tabla === 'resumen_finca') {
+          return new Response(JSON.stringify({
+            id_finca: u.searchParams.get('id_finca') || '',
+            total_animales_activos: 0,
+            gmp_promedio_total: 0,
+            carga_animal: 0
+          }), { status: 200, headers: respHeaders });
+        }
+        if (tabla === 'configuracion_kpi') {
+          return new Response(JSON.stringify({
+            umbral_alto_gmp: 20,
+            umbral_medio_gmp: 10,
+            precio_venta_promedio: 0,
+            costo_mensual_animal: 0,
+            participacion_utilidad: 0.6
+          }), { status: 200, headers: respHeaders });
+        }
         return new Response(JSON.stringify({
           code: 'PGRST116',
           details: 'The result contains 0 rows',
@@ -597,6 +650,31 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
         });
       }
       if (headers.get('accept')?.includes('vnd.pgrst.object')) {
+        if (info.tabla === 'resumen_finca') {
+          return new Response(JSON.stringify({
+            id_finca: info.u.searchParams.get('id_finca') || '',
+            total_animales_activos: 0,
+            gmp_promedio_total: 0,
+            carga_animal: 0
+          }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'x-offline-cache': 'default-resumen-single' } });
+        }
+        if (info.tabla === 'configuracion_kpi') {
+          return new Response(JSON.stringify({
+            umbral_alto_gmp: 20,
+            umbral_medio_gmp: 10,
+            precio_venta_promedio: 0,
+            costo_mensual_animal: 0,
+            participacion_utilidad: 0.6
+          }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'x-offline-cache': 'default-kpi-single' } });
+        }
+        if (info.tabla === 'fincas') {
+          return new Response(JSON.stringify({
+            id: info.u.searchParams.get('id') || '',
+            nombre: 'Mi Finca',
+            proposito: 'Ceba y Levante',
+            area_aprovechable: 0
+          }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'x-offline-cache': 'default-finca-single' } });
+        }
         return new Response(JSON.stringify({
           code: 'PGRST116',
           details: 'The result contains 0 rows',

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, Fragment, lazy, Suspense } from 'react';
 import { supabase } from '../lib/supabase';
+import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -152,146 +153,236 @@ export default function Dashboard() {
             if (!fincaId) return;
             setLoading(true);
 
-            // RENDIMIENTO: las 5 consultas salen AL MISMO TIEMPO (antes iban en 3 tandas, una tras otra).
-            // Se procesan en dos grupos para pintar las tarjetas del resumen apenas llegan.
-            const pResumen = Promise.all([
-                // 1. Resumen pre-calculado (instantáneo)
-                supabase.from('resumen_finca').select('*').eq('id_finca', fincaId).single(),
-                // 2. Información de la finca y configuración
-                supabase.from('fincas').select('nombre, proposito, area_aprovechable, ubicacion, municipio').eq('id', fincaId).single(),
-                supabase.from('configuracion_kpi').select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad').eq('id_finca', fincaId).single()
-            ]);
+            try {
+                const safePromise = async (p: any, fallback: any = { data: null, error: null }) => {
+                    try {
+                        const res = await p;
+                        return res || fallback;
+                    } catch {
+                        return fallback;
+                    }
+                };
 
-            // 3. Carga completa y acelerada mediante los índices de Fase 1 (sin truncamientos de API REST)
-            const pDetalle = Promise.all([
-                supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }).limit(50000),
+                // RENDIMIENTO: las consultas salen en paralelo
+                const pResumen = Promise.all([
+                    safePromise(supabase.from('resumen_finca').select('*').eq('id_finca', fincaId).single()),
+                    safePromise(supabase.from('fincas').select('nombre, proposito, area_aprovechable, ubicacion, municipio').eq('id', fincaId).single()),
+                    safePromise(supabase.from('configuracion_kpi').select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad').eq('id_finca', fincaId).single())
+                ]);
 
-                supabase.from('animales').select(`
-                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
-                    fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
-                    id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
-                    potreros ( nombre ),
-                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                    registros_pesaje (
-                        id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
-                    )
-                `).eq('id_finca', fincaId).limit(10000)
-            ]);
+                const pDetalle = Promise.all([
+                    safePromise(supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }).limit(50000), { data: [], error: null }),
+                    safePromise(supabase.from('animales').select(`
+                        id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
+                        fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
+                        id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
+                        potreros ( nombre ),
+                        potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+                        registros_pesaje (
+                            id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
+                        )
+                    `).eq('id_finca', fincaId).limit(10000), { data: [], error: null })
+                ]);
 
-            const [{ data: resumen }, fincaRes, configRes] = await pResumen;
+                const [{ data: resumen }, fincaRes, configRes] = await pResumen;
 
-            const finca = fincaRes.data;
-            const configKpi = configRes.data;
+                const finca = fincaRes?.data;
+                const configKpi = configRes?.data;
 
-            if (finca) {
-                setFincaInfo({
-                    nombre: finca.nombre,
-                    proposito: finca.proposito || 'No Definido',
-                    area_aprovechable: finca.area_aprovechable || 0,
-                    ubicacion: finca.ubicacion || 'Sin ubicación',
-                    municipio: finca.municipio || ''
-                });
-            }
-
-            let metaMinimaVal = 0;
-            if (configKpi) {
-                const precio = parseFloat(configKpi.precio_venta_promedio || 0);
-                const costo = parseFloat(configKpi.costo_mensual_animal || 0);
-                const participacion = parseFloat(configKpi.participacion_utilidad as any) || 0.6;
-                if (precio > 0) metaMinimaVal = (costo / participacion) / precio;
-                if (configKpi.umbral_alto_gmp) setUmbralAlto(configKpi.umbral_alto_gmp);
-                if (configKpi.umbral_medio_gmp) setUmbralMedio(configKpi.umbral_medio_gmp);
-            }
-
-            // Si hay resumen, poblar stats de inmediato para quitar el loading de las tarjetas
-            if (resumen) {
-                const totalAnimalesRes = resumen.total_animales_activos || 0;
-                const gmpTotalRes = parseFloat(resumen.gmp_promedio_total || 0);
-                const carneHaAno = (finca?.area_aprovechable && finca.area_aprovechable > 0)
-                    ? (totalAnimalesRes * gmpTotalRes * 12) / finca.area_aprovechable
-                    : 0;
-
-                setStats(prev => ({
-                    ...prev,
-                    totalAnimales: totalAnimalesRes,
-                    gmpLevante: parseFloat(resumen.gmp_promedio_levante || 0),
-                    gmpCeba: parseFloat(resumen.gmp_promedio_ceba || 0),
-                    gmpTotal: gmpTotalRes,
-                    totalMuertosAno: resumen.muertes_anio_actual || 0,
-                    cargaAnimal: parseFloat(resumen.carga_animal || 0),
-                    pesoPromedioEntrada: parseFloat(resumen.peso_promedio_entrada || 360),
-                    pesoPromedioSalida: parseFloat(resumen.peso_promedio_salida || 540),
-                    produccionCarneHaAno: carneHaAno,
-                    metaMinima: metaMinimaVal
-                }));
-            }
-
-            const [lluviasRes, todosAnimalesRes] = await pDetalle;
-
-            const lluvias = lluviasRes.data;
-            const todosAnimales: any[] = todosAnimalesRes.data || [];
-            const animales: any[] = todosAnimales.filter((a: any) => a.estado === 'activo');
-
-            // Construir pesajesMap y pesajesFlat idénticos al comportamiento original
-            const pesajesMap: Record<string, any[]> = {};
-            const pesajesFlat: any[] = [];
-            todosAnimales.forEach((a: any) => {
-                if (a.registros_pesaje && Array.isArray(a.registros_pesaje)) {
-                    const sorted = a.registros_pesaje.sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
-                    const uniqueFechas = new Set();
-                    const deduplicated = sorted.filter((p: any) => {
-                        const dateOnly = p.fecha.split('T')[0];
-                        if (uniqueFechas.has(dateOnly)) return false;
-                        uniqueFechas.add(dateOnly);
-                        return true;
+                if (finca) {
+                    setFincaInfo({
+                        nombre: finca.nombre || 'Mi Finca',
+                        proposito: finca.proposito || 'No Definido',
+                        area_aprovechable: finca.area_aprovechable || 0,
+                        ubicacion: finca.ubicacion || 'Sin ubicación',
+                        municipio: finca.municipio || ''
                     });
-                    pesajesMap[a.id] = deduplicated;
-                    pesajesFlat.push(...deduplicated);
-                } else {
-                    pesajesMap[a.id] = [];
                 }
-            });
 
-            // Mapa de último pesaje por animal activo (para distribución de pesos y despachos)
-            const ultPesajesMap = new Map<string, any>();
-            animales.forEach((a: any) => {
-                const misPsjs = pesajesMap[a.id] || [];
-                const ult = misPsjs[misPsjs.length - 1];
-                if (ult) {
-                    ultPesajesMap.set(a.id, ult);
+                let metaMinimaVal = 0;
+                if (configKpi) {
+                    const precio = parseFloat(configKpi.precio_venta_promedio || 0);
+                    const costo = parseFloat(configKpi.costo_mensual_animal || 0);
+                    const participacion = parseFloat(configKpi.participacion_utilidad as any) || 0.6;
+                    if (precio > 0) metaMinimaVal = (costo / participacion) / precio;
+                    if (configKpi.umbral_alto_gmp) setUmbralAlto(configKpi.umbral_alto_gmp);
+                    if (configKpi.umbral_medio_gmp) setUmbralMedio(configKpi.umbral_medio_gmp);
                 }
-            });
 
-                // Cálculos de permanencia (Siguen siendo necesarios para el Dashboard ya que no están en el resumen)
+                const [lluviasRes, todosAnimalesRes] = await pDetalle;
+
+                const lluvias = lluviasRes?.data || [];
+                let todosAnimales: any[] = todosAnimalesRes?.data || [];
+
+                // Fallback directo a Dexie si no hay animales en respuesta (Modo Campo sin HTTP cache)
+                if (todosAnimales.length === 0) {
+                    try {
+                        const animsCached = await localDB.animalesCache.where('id_finca').equals(fincaId).toArray();
+                        if (animsCached.length > 0) {
+                            todosAnimales = animsCached.map(a => ({
+                                id: a.id,
+                                numero_chapeta: a.numero_chapeta,
+                                etapa: a.etapa,
+                                fecha_ingreso: a.fecha_ingreso,
+                                peso_ingreso: a.peso_ingreso,
+                                peso_compra: a.peso_compra,
+                                fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+                                peso_ingreso_ceba: a.peso_ingreso_ceba,
+                                nombre_propietario: a.nombre_propietario,
+                                estado: a.estado || 'activo',
+                                id_potrerada: a.id_potrerada,
+                                comprador_venta: a.comprador_venta,
+                                fecha_venta: a.fecha_venta,
+                                observaciones_venta: a.observaciones_venta,
+                                potreros: a.potrero_nombre ? { nombre: a.potrero_nombre } : null,
+                                potreradas: a.potrerada_nombre ? { nombre: a.potrerada_nombre } : null,
+                                registros_pesaje: a.ultimo_peso ? [{
+                                    id_animal: a.id,
+                                    peso: a.ultimo_peso,
+                                    fecha: a.fecha_ultimo_pesaje || a.fecha_ingreso,
+                                    etapa: a.etapa,
+                                    gmp_calculada: null,
+                                    gdp_calculada: null
+                                }] : []
+                            }));
+                        }
+                    } catch (e) {
+                        console.warn('[Dashboard] Error cargando animales de Dexie:', e);
+                    }
+                }
+
+                const animales: any[] = todosAnimales.filter((a: any) => a.estado === 'activo');
+
+                // Construir pesajesMap y pesajesFlat de forma blindada
+                const pesajesMap: Record<string, any[]> = {};
+                const pesajesFlat: any[] = [];
+                todosAnimales.forEach((a: any) => {
+                    if (a.registros_pesaje && Array.isArray(a.registros_pesaje)) {
+                        const sorted = a.registros_pesaje.sort((x: any, y: any) => new Date(x.fecha || 0).getTime() - new Date(y.fecha || 0).getTime());
+                        const uniqueFechas = new Set();
+                        const deduplicated = sorted.filter((p: any) => {
+                            if (!p || !p.fecha) return false;
+                            const dateOnly = typeof p.fecha === 'string' ? p.fecha.split('T')[0] : '';
+                            if (!dateOnly || uniqueFechas.has(dateOnly)) return false;
+                            uniqueFechas.add(dateOnly);
+                            return true;
+                        });
+                        pesajesMap[a.id] = deduplicated;
+                        pesajesFlat.push(...deduplicated);
+                    } else {
+                        pesajesMap[a.id] = [];
+                    }
+                });
+
+                // Mapa de último pesaje por animal activo (para distribución de pesos y despachos)
+                const ultPesajesMap = new Map<string, any>();
+                animales.forEach((a: any) => {
+                    const misPsjs = pesajesMap[a.id] || [];
+                    const ult = misPsjs[misPsjs.length - 1];
+                    if (ult) {
+                        ultPesajesMap.set(a.id, ult);
+                    }
+                });
+
+                // Cálculos de permanencia
                 let totalDiasLevante = 0;
                 let countLevante = 0;
                 let totalDiasCeba = 0;
                 let countCeba = 0;
 
                 animales.forEach((animal: any) => {
-                    if (animal.etapa === 'levante') {
-                        const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
-                        totalDiasLevante += diffHoy;
-                        countLevante++;
-                    } else if (animal.etapa === 'ceba') {
-                        const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
-                        totalDiasCeba += diffHoy;
-                        countCeba++;
+                    if (animal.fecha_ingreso) {
+                        const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso)) || 0;
+                        if (animal.etapa === 'levante') {
+                            totalDiasLevante += diffHoy;
+                            countLevante++;
+                        } else if (animal.etapa === 'ceba') {
+                            totalDiasCeba += diffHoy;
+                            countCeba++;
+                        }
                     }
                 });
 
-                setStats(prev => ({
-                    ...prev,
+                // Recálculo local de métricas si resumen_finca está vacío o no vino
+                let gmpSumTotal = 0;
+                let gmpCountTotal = 0;
+                let gmpSumLevante = 0;
+                let gmpCountLevante = 0;
+                let gmpSumCeba = 0;
+                let gmpCountCeba = 0;
+                let pesoEntradaSum = 0;
+                let pesoEntradaCount = 0;
+
+                animales.forEach((a: any) => {
+                    const ultP = ultPesajesMap.get(a.id);
+                    let gmpIndiv = ultP?.gmp_calculada != null ? Number(ultP.gmp_calculada) : null;
+                    if (gmpIndiv === null && ultP?.gdp_calculada != null) {
+                        gmpIndiv = Number(ultP.gdp_calculada) * 30;
+                    }
+                    if (gmpIndiv !== null && !isNaN(gmpIndiv)) {
+                        gmpSumTotal += gmpIndiv;
+                        gmpCountTotal++;
+                        if (a.etapa === 'levante') {
+                            gmpSumLevante += gmpIndiv;
+                            gmpCountLevante++;
+                        } else if (a.etapa === 'ceba') {
+                            gmpSumCeba += gmpIndiv;
+                            gmpCountCeba++;
+                        }
+                    }
+                    const pIng = Number(a.peso_compra ?? a.peso_ingreso ?? 0);
+                    if (pIng > 0) {
+                        pesoEntradaSum += pIng;
+                        pesoEntradaCount++;
+                    }
+                });
+
+                const curYearStr = String(new Date().getFullYear());
+                const muertesAnoCalculadas = todosAnimales.filter((a: any) => {
+                    const isMuerto = a.estado === 'muerto' && a.fecha_muerte?.startsWith(curYearStr);
+                    const isCarnicero = a.estado === 'vendido' && a.comprador_venta?.toLowerCase().includes('carnicero') && a.fecha_venta?.startsWith(curYearStr);
+                    return isMuerto || isCarnicero;
+                }).length;
+
+                const fallbackGmpTotal = gmpCountTotal > 0 ? gmpSumTotal / gmpCountTotal : 0;
+                const fallbackGmpLev = gmpCountLevante > 0 ? gmpSumLevante / gmpCountLevante : 0;
+                const fallbackGmpCeba = gmpCountCeba > 0 ? gmpSumCeba / gmpCountCeba : 0;
+                const fallbackPesoEntrada = pesoEntradaCount > 0 ? pesoEntradaSum / pesoEntradaCount : 360;
+                const areaAprov = finca?.area_aprovechable || 0;
+                const fallbackCarga = areaAprov > 0 ? animales.length / areaAprov : 0;
+                const fallbackCarneHa = areaAprov > 0 ? (animales.length * fallbackGmpTotal * 12) / areaAprov : 0;
+
+                const totalAnimalesFinal = resumen?.total_animales_activos != null ? Number(resumen.total_animales_activos) : animales.length;
+                const gmpLevFinal = resumen?.gmp_promedio_levante != null ? parseFloat(resumen.gmp_promedio_levante) : fallbackGmpLev;
+                const gmpCebaFinal = resumen?.gmp_promedio_ceba != null ? parseFloat(resumen.gmp_promedio_ceba) : fallbackGmpCeba;
+                const gmpTotalFinal = resumen?.gmp_promedio_total != null ? parseFloat(resumen.gmp_promedio_total) : fallbackGmpTotal;
+                const muertesFinal = resumen?.muertes_anio_actual != null ? Number(resumen.muertes_anio_actual) : muertesAnoCalculadas;
+                const cargaFinal = resumen?.carga_animal != null ? parseFloat(resumen.carga_animal) : fallbackCarga;
+                const pesoEntradaFinal = resumen?.peso_promedio_entrada != null ? parseFloat(resumen.peso_promedio_entrada) : fallbackPesoEntrada;
+                const pesoSalidaFinal = parseFloat(resumen?.peso_promedio_salida || 540);
+                const carneHaFinal = (areaAprov > 0) ? ((totalAnimalesFinal * gmpTotalFinal * 12) / areaAprov) : fallbackCarneHa;
+
+                setStats({
+                    totalAnimales: totalAnimalesFinal,
+                    gmpLevante: gmpLevFinal,
+                    gmpCeba: gmpCebaFinal,
+                    gmpTotal: gmpTotalFinal,
+                    totalMuertosAno: muertesFinal,
+                    cargaAnimal: cargaFinal,
+                    pesoPromedioEntrada: pesoEntradaFinal,
+                    pesoPromedioSalida: pesoSalidaFinal,
+                    produccionCarneHaAno: carneHaFinal,
+                    metaMinima: metaMinimaVal,
                     promedioLevanteMeses: countLevante > 0 ? (totalDiasLevante / countLevante) / 30 : 0,
                     promedioCebaMeses: countCeba > 0 ? (totalDiasCeba / countCeba) / 30 : 0,
-                }));
+                });
 
                 setRawData({
                     animales: todosAnimales,
                     pesajes: pesajesFlat
                 });
 
-                // --- CALCULAR MUERTES Y VENDIDOS A CARNICERO (solo para modal de detalle) ---
+                // --- CALCULAR MUERTES Y VENDIDOS A CARNICERO (modal de detalle) ---
                 const muertesCompletas: any[] = [];
                 (todosAnimales || []).forEach((a: any) => {
                     const isMuerto = a.estado === 'muerto';
@@ -308,17 +399,16 @@ export default function Dashboard() {
                     }
                 });
                 
-                // Ordenar muertesData descendente por fecha_baja
                 muertesCompletas.sort((a, b) => new Date(b.fecha_baja || 0).getTime() - new Date(a.fecha_baja || 0).getTime());
                 setMuertesData(muertesCompletas);
-                // Nota: totalMuertosAno viene del resumen_finca (línea 188), que ahora incluye
-                // correctamente tanto muertes como ventas a carnicero del año actual.
 
                 // Agrupar lluvias por mes
                 const gruposLluvia: Record<string, number> = {};
                 (lluvias || []).forEach((r: any) => {
-                    const mes = r.fecha.substring(0, 7);
-                    gruposLluvia[mes] = (gruposLluvia[mes] || 0) + r.milimetros;
+                    if (r && r.fecha) {
+                        const mes = r.fecha.substring(0, 7);
+                        gruposLluvia[mes] = (gruposLluvia[mes] || 0) + (Number(r.milimetros) || 0);
+                    }
                 });
 
                 if (Object.keys(gruposLluvia).length > 0) {
@@ -343,22 +433,19 @@ export default function Dashboard() {
                 const distAnimales: Record<string, any[]> = { rango1: [], rango2: [], rango3: [], rango4: [] };
                 
                 animales.forEach((animal: any) => {
-                    // FASE 2: último pesaje viene del RPC (Map lookup O(1), sin iterar arrays)
                     const ultimoP = ultPesajesMap.get(animal.id) || null;
                     const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
                     const pesoRef = ultimoP ? ultimoP.peso : pesoBase;
                     const fechaRef = ultimoP ? ultimoP.fecha : animal.fecha_ingreso;
-                    const dias = differenceInDays(new Date(), new Date(fechaRef)) || 0;
+                    const dias = fechaRef ? (differenceInDays(new Date(), new Date(fechaRef)) || 0) : 0;
 
-                    // PRIORIZAR GMP INDIVIDUAL PARA COINCIDENCIA TOTAL
                     let gmpIndiv = 0;
                     if (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
                         gmpIndiv = Number(ultimoP.gmp_calculada);
                     } else if (ultimoP) {
-                        // Fallback manual si no hay dato en BD
                         const fechaBase = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
                         const pesoBaseE = parseFloat(animal.peso_ingreso_ceba ?? (animal.peso_compra ?? animal.peso_ingreso ?? 0));
-                        const diffDiasEtapa = differenceInDays(new Date(ultimoP.fecha), new Date(fechaBase));
+                        const diffDiasEtapa = fechaBase ? differenceInDays(new Date(ultimoP.fecha), new Date(fechaBase)) : 0;
                         if (diffDiasEtapa > 0) {
                             gmpIndiv = ((ultimoP.peso - pesoBaseE) / diffDiasEtapa) * 30;
                         }
@@ -392,7 +479,7 @@ export default function Dashboard() {
                 setDistribucionPesos(dist);
                 setAnimalesPorRango(distAnimales);
 
-                // --- CÁLCULO DE PRÓXIMOS DESPACHOS (Lotes listos para venta) ---
+                // --- CÁLCULO DE PRÓXIMOS DESPACHOS ---
                 const reportePots: Record<string, { 
                     id: string, 
                     nombre: string, 
@@ -408,22 +495,20 @@ export default function Dashboard() {
                     if (!idPot || a.etapa !== 'ceba') return;
 
                     const potNombre = a.potreradas?.nombre || 'Potrerada Desconocida';
-                    // FASE 2: último pesaje del RPC (O(1) lookup)
                     const ultimoP = ultPesajesMap.get(a.id) || null;
                     const pesoBase = a.peso_compra ?? a.peso_ingreso;
                     const pesoRef = ultimoP ? ultimoP.peso : pesoBase;
                     const fechaRef = ultimoP ? ultimoP.fecha : a.fecha_ingreso;
-                    const diasRef = differenceInDays(new Date(), new Date(fechaRef)) || 0;
+                    const diasRef = fechaRef ? (differenceInDays(new Date(), new Date(fechaRef)) || 0) : 0;
                     
-                    // Calculo de GMP individual para este lote: PRIORIZAR VALOR OFICIAL
-                    let gmpIndiv = 10.3; // Fallback
+                    let gmpIndiv = 10.3;
                     if (ultimoP) {
                         if (ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
                             gmpIndiv = Number(ultimoP.gmp_calculada);
                         } else {
                             const fechaBaseCeba = a.fecha_ingreso_ceba || a.fecha_ingreso;
                             const pesoBaseCeba = parseFloat(a.peso_ingreso_ceba ?? (a.peso_compra ?? a.peso_ingreso ?? 0));
-                            const diffDiasEtapa = differenceInDays(new Date(ultimoP.fecha), new Date(fechaBaseCeba));
+                            const diffDiasEtapa = fechaBaseCeba ? differenceInDays(new Date(ultimoP.fecha), new Date(fechaBaseCeba)) : 0;
                             if (diffDiasEtapa > 0) {
                                 gmpIndiv = ((ultimoP.peso - pesoBaseCeba) / diffDiasEtapa) * 30;
                             }
@@ -447,16 +532,14 @@ export default function Dashboard() {
 
                 const potsKeys = Object.keys(reportePots);
                 if (potsKeys.length > 0) {
-                    // Prioridad 1: Mas animales listos (> 530)
-                    // Prioridad 2: Mayor peso promedio
                     const sortedPots = potsKeys.map(k => reportePots[k]).sort((a, b) => {
                         if (b.countReady !== a.countReady) return b.countReady - a.countReady;
                         return (b.sumPeso / b.countAll) - (a.sumPeso / a.countAll);
                     });
 
                     const best = sortedPots[0];
-                    const gmpProm = best.sumGmp / best.countGmp;
-                    const pesoProm = best.sumPeso / best.countAll;
+                    const gmpProm = best.countGmp > 0 ? best.sumGmp / best.countGmp : 10.3;
+                    const pesoProm = best.countAll > 0 ? best.sumPeso / best.countAll : 0;
                     const faltanKg = Math.max(0, 530 - pesoProm);
                     const dias = gmpProm > 0 ? Math.ceil(faltanKg / (gmpProm / 30)) : 999;
 
@@ -469,7 +552,11 @@ export default function Dashboard() {
                         gmpLote: gmpProm
                     });
                 }
-            setLoading(false);
+            } catch (err) {
+                console.error('[Dashboard] Error cargando datos del dashboard:', err);
+            } finally {
+                setLoading(false);
+            }
         }
         fetchDashboardData();
     }, [fincaId]);

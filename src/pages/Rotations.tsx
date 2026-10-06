@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info, Search, CheckSquare, Square, Calculator, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
@@ -65,10 +66,43 @@ export default function Rotations() {
                 .eq('id_finca', fincaId)
                 .order('nombre');
 
-            if (rotData) setRotaciones(rotData);
-            if (potData) setPotreros(potData);
-        } finally {
-            // fetchData fin
+            if (rotData && rotData.length > 0) {
+                setRotaciones(rotData);
+            } else {
+                const rots = await localDB.rotacionesCache.where('id_finca').equals(fincaId).toArray();
+                if (rots.length > 0) setRotaciones(rots.map(r => ({ id: r.id, nombre: r.nombre })));
+            }
+
+            if (potData && potData.length > 0) {
+                setPotreros(potData);
+            } else {
+                const pots = await localDB.potrerosCache.where('id_finca').equals(fincaId).toArray();
+                if (pots.length > 0) {
+                    setPotreros(pots.map(p => ({
+                        id: p.id,
+                        nombre: p.nombre,
+                        area_hectareas: p.area_ha || 0,
+                        id_rotacion: (p as any).id_rotacion || null
+                    })));
+                }
+            }
+        } catch (err) {
+            console.warn('[Rotations] Error fetching data:', err);
+            try {
+                const [rots, pots] = await Promise.all([
+                    localDB.rotacionesCache.where('id_finca').equals(fincaId).toArray(),
+                    localDB.potrerosCache.where('id_finca').equals(fincaId).toArray()
+                ]);
+                if (rots.length > 0) setRotaciones(rots.map(r => ({ id: r.id, nombre: r.nombre })));
+                if (pots.length > 0) {
+                    setPotreros(pots.map(p => ({
+                        id: p.id,
+                        nombre: p.nombre,
+                        area_hectareas: p.area_ha || 0,
+                        id_rotacion: (p as any).id_rotacion || null
+                    })));
+                }
+            } catch {}
         }
     };
 

@@ -6,6 +6,7 @@ export interface AnimalCacheItem {
   numero_chapeta: string;
   nombre_propietario?: string;
   etapa: string;
+  estado?: string;
   peso_ingreso?: number;
   peso_compra?: number;
   fecha_ingreso: string;
@@ -16,6 +17,13 @@ export interface AnimalCacheItem {
   potrerada_nombre?: string;
   ultimo_peso?: number;
   fecha_ultimo_pesaje?: string;
+  peso_venta?: number;
+  fecha_venta?: string;
+  comprador_venta?: string;
+  observaciones_venta?: string;
+  precio_venta?: number;
+  proveedor_compra?: string;
+  registros_pesaje?: any[];
   updated_at: string;
 }
 
@@ -24,6 +32,7 @@ export interface PotreroCacheItem {
   id_finca: string;
   nombre: string;
   area_ha?: number;
+  id_rotacion?: string | null;
   capacidad_maxima?: number;
   geojson_geometry?: any;
   color_mapa?: string;
@@ -50,6 +59,13 @@ export interface MapaFincaCacheItem {
 }
 
 export interface PotreradaCacheItem {
+  id: string;
+  id_finca: string;
+  nombre: string;
+  id_rotacion?: string | null;
+}
+
+export interface RotacionCacheItem {
   id: string;
   id_finca: string;
   nombre: string;
@@ -132,6 +148,7 @@ export class AgrogestionDB extends Dexie {
   animalesCache!: Table<AnimalCacheItem, string>;
   potrerosCache!: Table<PotreroCacheItem, string>;
   potreradasCache!: Table<PotreradaCacheItem, string>;
+  rotacionesCache!: Table<RotacionCacheItem, string>;
   pesajesOfflineQueue!: Table<PesajeOfflineQueueItem, string>;
   aforosOfflineQueue!: Table<AforoOfflineQueueItem, string>;
   mapasFincaCache!: Table<MapaFincaCacheItem, string>;
@@ -177,6 +194,21 @@ export class AgrogestionDB extends Dexie {
       animalesCache: 'id, id_finca, numero_chapeta, etapa',
       potrerosCache: 'id, id_finca, nombre',
       potreradasCache: 'id, id_finca, nombre',
+      pesajesOfflineQueue: 'id, id_finca, id_animal, status_sync, fecha',
+      aforosOfflineQueue: 'id, id_finca, id_potrero, status_sync, fecha',
+      mapasFincaCache: 'id_finca',
+      mapaSnapshotCache: 'id_finca',
+      mercadoCache: 'id',
+      httpReadCache: 'key, tabla, ts',
+      httpWriteQueue: 'id, ts'
+    });
+
+    // Esquema v5: tabla dedicada de rotaciones offline
+    this.version(5).stores({
+      animalesCache: 'id, id_finca, numero_chapeta, etapa',
+      potrerosCache: 'id, id_finca, nombre',
+      potreradasCache: 'id, id_finca, nombre',
+      rotacionesCache: 'id, id_finca, nombre',
       pesajesOfflineQueue: 'id, id_finca, id_animal, status_sync, fecha',
       aforosOfflineQueue: 'id, id_finca, id_potrero, status_sync, fecha',
       mapasFincaCache: 'id_finca',

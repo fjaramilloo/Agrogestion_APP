@@ -4,6 +4,7 @@ import {
   type AnimalCacheItem,
   type PotreroCacheItem,
   type PotreradaCacheItem,
+  type RotacionCacheItem,
   type PesajeOfflineQueueItem,
   type AforoOfflineQueueItem
 } from './db';
@@ -19,221 +20,384 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
   const isModoCampo = typeof window !== 'undefined' && localStorage.getItem('agrogestion_modo_campo') === 'true';
   if (isModoCampo || !navigator.onLine) return;
 
+  const safe = async <T>(promise: PromiseLike<T>, tag: string): Promise<T | null> => {
+    try {
+      const res = await promise;
+      return res;
+    } catch (err) {
+      console.warn(`[OfflineService] Query ${tag} omitida:`, err);
+      return null;
+    }
+  };
+
   try {
     const [
       animalesRes,
-      _animalesVendidosLotesRes,
-      _animalesVendidosHistorialRes,
-      _animalesComprasRes,
-      potrerosRes,
-      potreradasRes,
-      _rotacionesRes,
-      _rotacionesConPotrerosRes,
-      _movimientosRes,
-      _lluviasRes,
-      _fincaRes,
+      , // animalesDashboardRes
+      animalesVendidosRes,
+      , // animalesVendidosLotesRes
+      animalesComprasRes,
+      potrerosRotationsRes,
+      potrerosMapaRes,
+      potreradasMovementsRes,
+      potreradasTodasRes,
+      rotacionesRotationsRes,
+      rotacionesMovementsRes,
+      , // movimientosRes
+      , // lluviasDashboardRes
+      , // lluviasPluvioRes
+      , // resumenFincaDashboardRes
+      , // fincaDashboardRes
+      , // fincaBasicaRes
+      , // configKpiDashboardRes
+      , // configKpiVentasRes
+      , // configKpiComprasRes
+      , // compradoresRes
+      , // proveedoresRes
+      , // propietariosRes
       diagRes,
-      _configKpiRes,
-      _compradoresRes,
-      _proveedoresRes,
-      _propietariosRes,
-      _resumenFincaRes,
       mapRes,
       preciosRes
     ] = await Promise.all([
-      // 1. Animales activos con pesajes completos (para Inventario, Dashboard, Potreradas, Pesajes)
-      supabase
-        .from('animales')
-        .select(`
-          id, numero_chapeta, nombre_propietario, etapa, estado,
-          peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba,
-          id_potrerada, id_potrero_actual,
-          potreros ( nombre ),
-          potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-          registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
-        `)
-        .eq('id_finca', fincaId)
-        .eq('estado', 'activo')
-        .or('is_deleted.is.null,is_deleted.eq.false')
-        .order('fecha', { foreignTable: 'registros_pesaje', ascending: false })
-        .limit(20000),
+      // 1. Animales activos con pesajes completos (para Inventario, Potreradas, Pesajes)
+      safe(
+        supabase
+          .from('animales')
+          .select(`
+            id, numero_chapeta, nombre_propietario, etapa, estado,
+            peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba,
+            id_potrerada, id_potrero_actual,
+            potreros ( nombre ),
+            potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+            registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
+          `)
+          .eq('id_finca', fincaId)
+          .eq('estado', 'activo')
+          .or('is_deleted.is.null,is_deleted.eq.false')
+          .order('fecha', { foreignTable: 'registros_pesaje', ascending: false })
+          .limit(20000),
+        'animales_activos'
+      ),
 
-      // 2. Animales vendidos que pertenecían a un lote (para Gestión de Lotes / Potreradas)
-      supabase
-        .from('animales')
-        .select(`
-          id, numero_chapeta, nombre_propietario, id_potrerada,
-          peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
-          potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
-        `)
-        .eq('id_finca', fincaId)
-        .eq('estado', 'vendido')
-        .not('id_potrerada', 'is', null)
-        .limit(10000),
+      // 2. Animales completos para Dashboard.tsx (coincidencia exacta de URL)
+      safe(
+        supabase
+          .from('animales')
+          .select(`
+            id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
+            fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
+            id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
+            potreros ( nombre ),
+            potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+            registros_pesaje (
+                id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
+            )
+          `)
+          .eq('id_finca', fincaId)
+          .limit(10000),
+        'animales_dashboard'
+      ),
 
       // 3. Animales vendidos completos (para Historial de Ventas)
-      supabase
-        .from('animales')
-        .select(`
-          id, numero_chapeta, nombre_propietario, comprador_venta,
-          fecha_venta, peso_venta, peso_ingreso, peso_compra,
-          fecha_ingreso, etapa, fecha_ingreso_ceba, peso_ingreso_ceba,
-          es_emergencia, precio_venta, observaciones_venta,
-          potreros ( nombre ),
-          registros_pesaje ( peso, fecha, etapa, gdp_calculada )
-        `)
-        .eq('id_finca', fincaId)
-        .eq('estado', 'vendido')
-        .order('fecha_venta', { ascending: false })
-        .limit(10000),
+      safe(
+        supabase
+          .from('animales')
+          .select(`
+            id, 
+            numero_chapeta, 
+            nombre_propietario,
+            comprador_venta,
+            fecha_venta,
+            peso_venta,
+            peso_ingreso,
+            peso_compra,
+            fecha_ingreso,
+            etapa,
+            fecha_ingreso_ceba,
+            peso_ingreso_ceba,
+            es_emergencia,
+            precio_venta,
+            observaciones_venta,
+            potreros (nombre),
+            registros_pesaje (
+                peso,
+                fecha,
+                etapa,
+                gdp_calculada
+            )
+          `)
+          .eq('id_finca', fincaId)
+          .eq('estado', 'vendido')
+          .order('fecha_venta', { ascending: false }),
+        'animales_vendidos'
+      ),
 
-      // 4. Animales comprados completos (para Historial de Compras)
-      supabase
-        .from('animales')
-        .select(`
-          id, numero_chapeta, nombre_propietario,
-          potreros ( nombre ),
-          proveedor_compra, fecha_ingreso, peso_ingreso, peso_compra,
-          etapa,
-          registros_pesaje ( peso, fecha, gdp_calculada )
-        `)
-        .eq('id_finca', fincaId)
-        .not('proveedor_compra', 'is', null)
-        .order('fecha_ingreso', { ascending: false })
-        .limit(10000),
+      // 4. Animales vendidos en lotes (para Gestión de Lotes)
+      safe(
+        supabase
+          .from('animales')
+          .select(`
+            id, numero_chapeta, nombre_propietario, id_potrerada,
+            peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
+            potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
+          `)
+          .eq('id_finca', fincaId)
+          .eq('estado', 'vendido')
+          .not('id_potrerada', 'is', null)
+          .limit(10000),
+        'animales_vendidos_lotes'
+      ),
 
-      // 5. Potreros (con rotación y geometrías para mapa)
-      supabase
-        .from('potreros')
-        .select('id, nombre, area_hectareas, id_rotacion, geojson_geometry, color_mapa, kml_name')
-        .eq('id_finca', fincaId)
-        .order('nombre')
-        .limit(10000),
+      // 5. Animales comprados completos (para Historial de Compras)
+      safe(
+        supabase
+          .from('animales')
+          .select(`
+            id, 
+            numero_chapeta, 
+            nombre_propietario,
+            potreros(nombre),
+            proveedor_compra,
+            fecha_ingreso,
+            peso_ingreso,
+            peso_compra,
+            etapa,
+            registros_pesaje (
+                peso,
+                fecha,
+                gdp_calculada
+            )
+          `)
+          .eq('id_finca', fincaId)
+          .not('proveedor_compra', 'is', null)
+          .order('fecha_ingreso', { ascending: false }),
+        'animales_compras'
+      ),
 
-      // 6. Potreradas / Lotes
-      supabase
-        .from('potreradas')
-        .select('*')
-        .eq('id_finca', fincaId)
-        .order('nombre', { ascending: true })
-        .limit(10000),
+      // 6. Potreros (Rotations.tsx exact query)
+      safe(
+        supabase
+          .from('potreros')
+          .select('id, nombre, area_hectareas, id_rotacion')
+          .eq('id_finca', fincaId)
+          .order('nombre'),
+        'potreros_rotaciones'
+      ),
 
-      // 7. Rotaciones básicas
-      supabase
-        .from('rotaciones')
-        .select('id, nombre')
-        .eq('id_finca', fincaId)
-        .order('nombre')
-        .limit(1000),
+      // 7. Potreros completos para Mapa
+      safe(
+        supabase
+          .from('potreros')
+          .select('id, nombre, area_hectareas, id_rotacion, geojson_geometry, color_mapa, kml_name')
+          .eq('id_finca', fincaId)
+          .order('nombre')
+          .limit(10000),
+        'potreros_mapa'
+      ),
 
-      // 8. Rotaciones con potreros (para Rotación de Lotes / Movements)
-      supabase
-        .from('rotaciones')
-        .select(`
-          id, 
-          nombre,
-          potreros (id, nombre)
-        `)
-        .eq('id_finca', fincaId)
-        .order('nombre')
-        .limit(1000),
+      // 8. Potreradas / Lotes (Movements.tsx exact query)
+      safe(
+        supabase
+          .from('potreradas')
+          .select('id, nombre, id_rotacion')
+          .eq('id_finca', fincaId)
+          .order('nombre'),
+        'potreradas_movements'
+      ),
 
-      // 9. Movimientos activos de potreros
-      supabase
-        .from('movimientos_potreros')
-        .select(`
-          id, id_potrerada, id_potrero, fecha_entrada, fecha_salida,
-          potreros (id, nombre, id_rotacion),
-          potreradas (nombre)
-        `)
-        .eq('id_finca', fincaId)
-        .is('fecha_salida', null)
-        .order('fecha_entrada', { ascending: false }),
+      // 9. Potreradas todas las columnas
+      safe(
+        supabase
+          .from('potreradas')
+          .select('*')
+          .eq('id_finca', fincaId)
+          .order('nombre', { ascending: true })
+          .limit(10000),
+        'potreradas_todas'
+      ),
 
-      // 10. Pluviometría: Registros de lluvia
-      supabase
-        .from('registros_lluvia')
-        .select('*')
-        .eq('id_finca', fincaId)
-        .order('fecha', { ascending: false })
-        .limit(10000),
+      // 10. Rotaciones básicas (Rotations.tsx exact query)
+      safe(
+        supabase
+          .from('rotaciones')
+          .select('id, nombre')
+          .eq('id_finca', fincaId)
+          .order('nombre'),
+        'rotaciones_basicas'
+      ),
 
-      // 11. Información de la finca (ubicación, municipio, propósito)
-      supabase
-        .from('fincas')
-        .select('id, nombre, ubicacion, municipio, proposito, area_aprovechable')
-        .eq('id', fincaId)
-        .single(),
+      // 11. Rotaciones con potreros (Movements.tsx exact query)
+      safe(
+        supabase
+          .from('rotaciones')
+          .select(`
+            id, 
+            nombre,
+            potreros (id, nombre)
+          `)
+          .eq('id_finca', fincaId)
+          .order('nombre'),
+        'rotaciones_con_potreros'
+      ),
 
-      // 12. Último diagnóstico climático
-      supabase
-        .from('analisis_climatico_finca')
-        .select('*')
-        .eq('id_finca', fincaId)
-        .order('fecha_analisis', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      // 12. Movimientos activos de potreros
+      safe(
+        supabase
+          .from('movimientos_potreros')
+          .select(`
+            id, id_potrerada, id_potrero, fecha_entrada, fecha_salida,
+            potreros (id, nombre, id_rotacion),
+            potreradas (nombre)
+          `)
+          .eq('id_finca', fincaId)
+          .is('fecha_salida', null)
+          .order('fecha_entrada', { ascending: false }),
+        'movimientos_potreros'
+      ),
 
-      // 13. Configuración KPI de la finca
-      supabase
-        .from('configuracion_kpi')
-        .select('*')
-        .eq('id_finca', fincaId)
-        .maybeSingle(),
+      // 13. Registros de lluvia (Dashboard.tsx exact query)
+      safe(
+        supabase
+          .from('registros_lluvia')
+          .select('fecha, milimetros')
+          .eq('id_finca', fincaId)
+          .order('fecha', { ascending: true })
+          .limit(50000),
+        'lluvias_dashboard'
+      ),
 
-      // 14. Compradores
-      supabase
-        .from('compradores')
-        .select('id, nombre')
-        .eq('id_finca', fincaId)
-        .order('nombre'),
+      // 14. Registros de lluvia (Pluviometría module exact query)
+      safe(
+        supabase
+          .from('registros_lluvia')
+          .select('*')
+          .eq('id_finca', fincaId)
+          .order('fecha', { ascending: false })
+          .limit(10000),
+        'lluvias_pluvio'
+      ),
 
-      // 15. Proveedores
-      supabase
-        .from('proveedores')
-        .select('id, nombre')
-        .eq('id_finca', fincaId)
-        .order('nombre'),
+      // 15. Resumen finca (Dashboard.tsx exact query)
+      safe(
+        supabase
+          .from('resumen_finca')
+          .select('*')
+          .eq('id_finca', fincaId)
+          .single(),
+        'resumen_finca_single'
+      ),
 
-      // 16. Propietarios
-      supabase
-        .from('propietarios')
-        .select('id, nombre')
-        .eq('id_finca', fincaId)
-        .order('nombre'),
+      // 16. Información finca (Dashboard.tsx exact query)
+      safe(
+        supabase
+          .from('fincas')
+          .select('nombre, proposito, area_aprovechable, ubicacion, municipio')
+          .eq('id', fincaId)
+          .single(),
+        'finca_dashboard'
+      ),
 
-      // 17. Resumen finca (Dashboard instantáneo)
-      supabase
-        .from('resumen_finca')
-        .select('*')
-        .eq('id_finca', fincaId)
-        .maybeSingle(),
+      // 17. Información finca básica
+      safe(
+        supabase
+          .from('fincas')
+          .select('id, nombre, ubicacion, municipio, proposito, area_aprovechable')
+          .eq('id', fincaId)
+          .single(),
+        'finca_basica'
+      ),
 
-      // 18. Mapa KML/KMZ
-      supabase
-        .from('mapas_finca')
-        .select('*')
-        .eq('id_finca', fincaId)
-        .maybeSingle(),
+      // 18. Configuración KPI (Dashboard.tsx exact query)
+      safe(
+        supabase
+          .from('configuracion_kpi')
+          .select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad')
+          .eq('id_finca', fincaId)
+          .single(),
+        'config_kpi_dashboard'
+      ),
 
-      // 19. Precios de mercado
-      supabase
-        .from('vista_precios_mercado')
-        .select('*')
-        .order('fecha_boletin', { ascending: true })
+      // 19. Configuración KPI (HistorialVentas.tsx exact query)
+      safe(
+        supabase
+          .from('configuracion_kpi')
+          .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio, costo_mensual_animal, participacion_utilidad')
+          .eq('id_finca', fincaId)
+          .single(),
+        'config_kpi_ventas'
+      ),
+
+      // 20. Configuración KPI (HistorialCompras.tsx exact query)
+      safe(
+        supabase
+          .from('configuracion_kpi')
+          .select('umbral_alto_gmp, umbral_medio_gmp')
+          .eq('id_finca', fincaId)
+          .single(),
+        'config_kpi_compras'
+      ),
+
+      // 21. Compradores
+      safe(
+        supabase
+          .from('compradores')
+          .select('id, nombre')
+          .eq('id_finca', fincaId)
+          .order('nombre'),
+        'compradores'
+      ),
+
+      // 22. Proveedores
+      safe(
+        supabase
+          .from('proveedores')
+          .select('id, nombre')
+          .eq('id_finca', fincaId)
+          .order('nombre'),
+        'proveedores'
+      ),
+
+      // 23. Propietarios
+      safe(
+        supabase
+          .from('propietarios')
+          .select('id, nombre')
+          .eq('id_finca', fincaId)
+          .order('nombre'),
+        'propietarios'
+      ),
+
+      // 24. Diagnóstico climático
+      safe(
+        supabase
+          .from('analisis_climatico_finca')
+          .select('*')
+          .eq('id_finca', fincaId)
+          .order('fecha_analisis', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        'diagnostico_climatico'
+      ),
+
+      // 25. Mapa KML/KMZ
+      safe(
+        supabase
+          .from('mapas_finca')
+          .select('*')
+          .eq('id_finca', fincaId)
+          .maybeSingle(),
+        'mapas_finca'
+      ),
+
+      // 26. Precios de mercado
+      safe(
+        supabase
+          .from('vista_precios_mercado')
+          .select('*')
+          .order('fecha_boletin', { ascending: true }),
+        'precios_mercado'
+      )
     ]);
-
-    // Consultas específicas adicionales para garantizar coincidencia exacta de URL en módulos clave
-    await Promise.all([
-      supabase.from('potreros').select('id, nombre, area_hectareas, id_rotacion').eq('id_finca', fincaId).order('nombre'),
-      supabase.from('potreros').select('id_rotacion, area_hectareas').eq('id_finca', fincaId),
-      supabase.from('potreradas').select('id, nombre, id_rotacion').eq('id_finca', fincaId).order('nombre'),
-      supabase.from('potreradas').select('id, nombre').eq('id_finca', fincaId).limit(10000),
-      supabase.from('fincas').select('ubicacion, municipio').eq('id', fincaId).single(),
-      supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp, peso_entrada_ceba').eq('id_finca', fincaId).single(),
-      supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio, costo_mensual_animal, participacion_utilidad').eq('id_finca', fincaId).single(),
-      supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp').eq('id_finca', fincaId).single()
-    ]).catch(() => { /* las respuestas principales ya respaldan los datos */ });
 
     // Guardar diagnóstico climático en localStorage para visualización instantánea 0ms
     if (diagRes?.data) {
@@ -242,82 +406,185 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
       } catch { /* noop */ }
     }
 
-    // BLINDAJE: Solo actualizar caché si la respuesta contiene datos válidos comprobados (evita vaciar la memoria local)
-    if (animalesRes.data && animalesRes.data.length > 0) {
-      const ahora = new Date().toISOString();
-      const animalesCache: AnimalCacheItem[] = animalesRes.data.map((a: any) => ({
-        id: a.id,
-        id_finca: fincaId,
-        numero_chapeta: a.numero_chapeta,
-        nombre_propietario: a.nombre_propietario,
-        etapa: a.etapa,
-        peso_ingreso: a.peso_ingreso,
-        peso_compra: a.peso_compra,
-        fecha_ingreso: a.fecha_ingreso,
-        fecha_ingreso_ceba: a.fecha_ingreso_ceba,
-        peso_ingreso_ceba: a.peso_ingreso_ceba,
-        id_potrerada: a.id_potrerada,
-        potrero_nombre: a.potreros?.nombre || '',
-        potrerada_nombre: a.potreradas?.nombre || '',
-        updated_at: ahora
-      }));
+    // ── GUARDADO BLINDADO EN DEXIE ──
 
-      // Limpiar y reemplazar caché de esta finca con datos nuevos
-      await localDB.animalesCache.where('id_finca').equals(fincaId).delete();
-      await localDB.animalesCache.bulkPut(animalesCache);
-    }
+    // 1. ANIMALES (Activos + Vendidos)
+    const mapaAnimales = new Map<string, AnimalCacheItem>();
+    const ahora = new Date().toISOString();
 
-    if (potrerosRes.data && potrerosRes.data.length > 0) {
-      const potrerosCache: PotreroCacheItem[] = potrerosRes.data.map((p: any) => ({
-        id: p.id,
-        id_finca: fincaId,
-        nombre: p.nombre,
-        area_ha: p.area_hectareas,
-        geojson_geometry: p.geojson_geometry,
-        color_mapa: p.color_mapa,
-        kml_name: p.kml_name,
-        capacidad_maxima: undefined
-      }));
-
-      await localDB.potrerosCache.where('id_finca').equals(fincaId).delete();
-      await localDB.potrerosCache.bulkPut(potrerosCache);
-    }
-
-    if (potreradasRes.data && potreradasRes.data.length > 0) {
-      const potreradasCache: PotreradaCacheItem[] = potreradasRes.data.map((p: any) => ({
-        id: p.id,
-        id_finca: fincaId,
-        nombre: p.nombre
-      }));
-
-      await localDB.potreradasCache.where('id_finca').equals(fincaId).delete();
-      await localDB.potreradasCache.bulkPut(potreradasCache);
-    }
-
-    if (mapRes.data) {
-      await localDB.mapasFincaCache.put({
-        id_finca: fincaId,
-        nombre_archivo: mapRes.data.nombre_archivo || 'plano.kmz',
-        centro_latitud: mapRes.data.centro_latitud,
-        centro_longitud: mapRes.data.centro_longitud,
-        zoom_inicial: mapRes.data.zoom_inicial || 16,
-        zonas_adicionales: mapRes.data.zonas_adicionales || [],
-        actualizado_en: new Date().toISOString()
+    if (animalesRes?.data && animalesRes.data.length > 0) {
+      animalesRes.data.forEach((a: any) => {
+        mapaAnimales.set(a.id, {
+          id: a.id,
+          id_finca: fincaId,
+          numero_chapeta: a.numero_chapeta,
+          nombre_propietario: a.nombre_propietario,
+          etapa: a.etapa,
+          estado: 'activo',
+          peso_ingreso: a.peso_ingreso,
+          peso_compra: a.peso_compra,
+          fecha_ingreso: a.fecha_ingreso,
+          fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+          peso_ingreso_ceba: a.peso_ingreso_ceba,
+          id_potrerada: a.id_potrerada,
+          potrero_nombre: a.potreros?.nombre || '',
+          potrerada_nombre: a.potreradas?.nombre || '',
+          updated_at: ahora
+        });
       });
     }
 
-    if (preciosRes.data && preciosRes.data.length > 0) {
-      await localDB.mercadoCache.put({
-        id: 'mercado_general',
-        precios: preciosRes.data,
-        actualizado_en: new Date().toISOString()
+    if (animalesVendidosRes?.data && animalesVendidosRes.data.length > 0) {
+      animalesVendidosRes.data.forEach((a: any) => {
+        const prev = mapaAnimales.get(a.id);
+        mapaAnimales.set(a.id, {
+          id: a.id,
+          id_finca: fincaId,
+          numero_chapeta: a.numero_chapeta,
+          nombre_propietario: a.nombre_propietario,
+          etapa: a.etapa,
+          estado: 'vendido',
+          peso_ingreso: a.peso_ingreso,
+          peso_compra: a.peso_compra,
+          fecha_ingreso: a.fecha_ingreso,
+          fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+          peso_ingreso_ceba: a.peso_ingreso_ceba,
+          id_potrerada: prev?.id_potrerada,
+          potrero_nombre: a.potreros?.nombre || prev?.potrero_nombre || '',
+          potrerada_nombre: prev?.potrerada_nombre || '',
+          peso_venta: a.peso_venta,
+          fecha_venta: a.fecha_venta,
+          comprador_venta: a.comprador_venta,
+          observaciones_venta: a.observaciones_venta,
+          precio_venta: a.precio_venta,
+          updated_at: ahora
+        });
       });
     }
 
-    // Snapshot del Mapa Finca (potreros + ganado ubicado en cada uno)
-    await guardarSnapshotMapa(fincaId, mapRes.data);
+    if (animalesComprasRes?.data && animalesComprasRes.data.length > 0) {
+      animalesComprasRes.data.forEach((a: any) => {
+        const prev = mapaAnimales.get(a.id);
+        mapaAnimales.set(a.id, {
+          ...(prev || {}),
+          id: a.id,
+          id_finca: fincaId,
+          numero_chapeta: a.numero_chapeta,
+          nombre_propietario: a.nombre_propietario || prev?.nombre_propietario,
+          etapa: a.etapa || prev?.etapa || 'ceba',
+          estado: prev?.estado || 'activo',
+          peso_ingreso: a.peso_ingreso ?? prev?.peso_ingreso,
+          peso_compra: a.peso_compra ?? prev?.peso_compra,
+          fecha_ingreso: a.fecha_ingreso || prev?.fecha_ingreso,
+          proveedor_compra: a.proveedor_compra,
+          potrero_nombre: a.potreros?.nombre || prev?.potrero_nombre || '',
+          registros_pesaje: a.registros_pesaje || prev?.registros_pesaje || [],
+          updated_at: ahora
+        });
+      });
+    }
+
+    if (mapaAnimales.size > 0) {
+      try {
+        await localDB.animalesCache.where('id_finca').equals(fincaId).delete();
+        await localDB.animalesCache.bulkPut(Array.from(mapaAnimales.values()));
+      } catch (e) {
+        console.warn('[OfflineService] Error guardando animalesCache:', e);
+      }
+    }
+
+    // 2. POTREROS (Con id_rotacion y geometrías)
+    const potsRaw = potrerosMapaRes?.data || potrerosRotationsRes?.data;
+    if (potsRaw && potsRaw.length > 0) {
+      try {
+        const potrerosCache: PotreroCacheItem[] = potsRaw.map((p: any) => ({
+          id: p.id,
+          id_finca: fincaId,
+          nombre: p.nombre,
+          area_ha: p.area_hectareas,
+          id_rotacion: p.id_rotacion || null,
+          geojson_geometry: p.geojson_geometry,
+          color_mapa: p.color_mapa,
+          kml_name: p.kml_name,
+          capacidad_maxima: undefined
+        }));
+
+        await localDB.potrerosCache.where('id_finca').equals(fincaId).delete();
+        await localDB.potrerosCache.bulkPut(potrerosCache);
+      } catch (e) {
+        console.warn('[OfflineService] Error guardando potrerosCache:', e);
+      }
+    }
+
+    // 3. POTRERADAS / LOTES (Con id_rotacion)
+    const ptsRaw = potreradasMovementsRes?.data || potreradasTodasRes?.data;
+    if (ptsRaw && ptsRaw.length > 0) {
+      try {
+        const potreradasCache: PotreradaCacheItem[] = ptsRaw.map((p: any) => ({
+          id: p.id,
+          id_finca: fincaId,
+          nombre: p.nombre,
+          id_rotacion: p.id_rotacion || null
+        }));
+
+        await localDB.potreradasCache.where('id_finca').equals(fincaId).delete();
+        await localDB.potreradasCache.bulkPut(potreradasCache);
+      } catch (e) {
+        console.warn('[OfflineService] Error guardando potreradasCache:', e);
+      }
+    }
+
+    // 4. ROTACIONES
+    const rotsRaw = rotacionesRotationsRes?.data || rotacionesMovementsRes?.data;
+    if (rotsRaw && rotsRaw.length > 0) {
+      try {
+        const rotacionesCache: RotacionCacheItem[] = rotsRaw.map((r: any) => ({
+          id: r.id,
+          id_finca: fincaId,
+          nombre: r.nombre
+        }));
+
+        await localDB.rotacionesCache.where('id_finca').equals(fincaId).delete();
+        await localDB.rotacionesCache.bulkPut(rotacionesCache);
+      } catch (e) {
+        console.warn('[OfflineService] Error guardando rotacionesCache:', e);
+      }
+    }
+
+    // 5. MAPAS FINCA
+    if (mapRes?.data) {
+      try {
+        await localDB.mapasFincaCache.put({
+          id_finca: fincaId,
+          nombre_archivo: mapRes.data.nombre_archivo || 'plano.kmz',
+          centro_latitud: mapRes.data.centro_latitud,
+          centro_longitud: mapRes.data.centro_longitud,
+          zoom_inicial: mapRes.data.zoom_inicial || 16,
+          zonas_adicionales: mapRes.data.zonas_adicionales || [],
+          actualizado_en: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('[OfflineService] Error guardando mapasFincaCache:', e);
+      }
+    }
+
+    // 6. PRECIOS DE MERCADO
+    if (preciosRes?.data && preciosRes.data.length > 0) {
+      try {
+        await localDB.mercadoCache.put({
+          id: 'mercado_general',
+          precios: preciosRes.data,
+          actualizado_en: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('[OfflineService] Error guardando mercadoCache:', e);
+      }
+    }
+
+    // 7. SNAPSHOT DEL MAPA FINCA
+    await guardarSnapshotMapa(fincaId, mapRes?.data);
   } catch (error) {
-    console.warn('[OfflineService] Error al sincronizar caché local:', error);
+    console.warn('[OfflineService] Error inesperado en sincronizarCacheFinca:', error);
   }
 }
 

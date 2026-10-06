@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getDateRange, DATE_RANGE_LABELS, DATE_RANGE_OPTIONS, type DateRangeOption } from '../utils/dateRanges';
 import { supabase } from '../lib/supabase';
+import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { Search, ShoppingCart, Calendar, Users, FileText, X, Info, TrendingUp, Filter } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -54,7 +55,7 @@ export default function HistorialCompras() {
     const [searchTerm, setSearchTerm] = useState('');
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
-    const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('mes_actual');
+    const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('anio_actual');
     
     // Estado para abrir el reporte PDF completo
     const [selectedCompra, setSelectedCompra] = useState<CompraGrupo | null>(null);
@@ -87,62 +88,104 @@ export default function HistorialCompras() {
     const fetchCompras = async () => {
         if (!fincaId) return;
         setLoading(true);
-        const { start, end } = getDateRange(dateRangeOption);
-            const { data: config } = await supabase
-                .from('configuracion_kpi')
-                .select('umbral_alto_gmp, umbral_medio_gmp')
-                .eq('id_finca', fincaId)
-                .single();
-            if (config) {
-                setUmbralAlto(config.umbral_alto_gmp ?? 20);
-                setUmbralMedio(config.umbral_medio_gmp ?? 10);
+        try {
+            const { start, end } = getDateRange(dateRangeOption);
+            try {
+                const { data: config } = await supabase
+                    .from('configuracion_kpi')
+                    .select('umbral_alto_gmp, umbral_medio_gmp')
+                    .eq('id_finca', fincaId)
+                    .single();
+                if (config) {
+                    setUmbralAlto(config.umbral_alto_gmp ?? 20);
+                    setUmbralMedio(config.umbral_medio_gmp ?? 10);
+                }
+            } catch {
+                // Ignore config error offline
             }
 
-            let query = supabase
-                .from('animales')
-                .select(`
-                    id, 
-                    numero_chapeta, 
-                    nombre_propietario,
-                    potreros(nombre),
-                    proveedor_compra,
-                    fecha_ingreso,
-                    peso_ingreso,
-                    peso_compra,
-                    etapa,
-                    registros_pesaje (
-                        peso,
-                        fecha,
-                        gdp_calculada
-                    )
-                `)
-                .eq('id_finca', fincaId)
-                .not('proveedor_compra', 'is', null);
+            let queryData: any[] = [];
+            try {
+                const { data, error } = await supabase
+                    .from('animales')
+                    .select(`
+                        id, 
+                        numero_chapeta, 
+                        nombre_propietario,
+                        potreros(nombre),
+                        proveedor_compra,
+                        fecha_ingreso,
+                        peso_ingreso,
+                        peso_compra,
+                        etapa,
+                        registros_pesaje (
+                            peso,
+                            fecha,
+                            gdp_calculada
+                        )
+                    `)
+                    .eq('id_finca', fincaId)
+                    .not('proveedor_compra', 'is', null)
+                    .order('fecha_ingreso', { ascending: false });
 
-            if (start) {
-                query = query.gte('fecha_ingreso', start);
+                if (!error && data && data.length > 0) {
+                    queryData = data;
+                }
+            } catch (err) {
+                console.warn('[HistorialCompras] Error al consultar Supabase:', err);
             }
-            if (end) {
-                query = query.lte('fecha_ingreso', end);
+
+            // Fallback robusto desde Dexie si Supabase vino vacío (offline)
+            if (queryData.length === 0) {
+                try {
+                    const cached = await localDB.animalesCache.where('id_finca').equals(fincaId).toArray();
+                    if (cached && cached.length > 0) {
+                        queryData = cached
+                            .filter(a => a.proveedor_compra || a.fecha_ingreso || a.peso_compra)
+                            .map(a => ({
+                                id: a.id,
+                                numero_chapeta: a.numero_chapeta,
+                                nombre_propietario: a.nombre_propietario,
+                                potreros: a.potrero_nombre ? { nombre: a.potrero_nombre } : null,
+                                proveedor_compra: a.proveedor_compra || 'Compra General',
+                                fecha_ingreso: a.fecha_ingreso,
+                                peso_ingreso: a.peso_ingreso || 0,
+                                peso_compra: a.peso_compra,
+                                etapa: a.etapa,
+                                registros_pesaje: (a as any).registros_pesaje || []
+                            }));
+                    }
+                } catch (e) {
+                    console.warn('[HistorialCompras] Error fallback Dexie:', e);
+                }
             }
 
-            const { data, error } = await query.order('fecha_ingreso', { ascending: false });
+            // Filtrar por rango de fechas en memoria
+            const dataFiltrada = queryData.filter((animal: any) => {
+                if (!animal.fecha_ingreso) return true;
+                const f = String(animal.fecha_ingreso).split('T')[0];
+                if (start && f < start) return false;
+                if (end && f > end) return false;
+                return true;
+            });
 
-            if (data && !error) {
-                const grouped = data.reduce((acc: any, animal: any) => {
-                    const fecha = animal.fecha_ingreso || 'Sin fecha';
-                    const proveedor = animal.proveedor_comp_extra || animal.proveedor_compra || 'Sin proveedor';
-                    const key = `${fecha}-${proveedor}`;
-                    
-                    const registros = (animal.registros_pesaje || []).sort((x: any, y: any) => 
-                        new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                    );
-                    const ultimoP = registros[0];
-                    const pesoActual = ultimoP?.peso || animal.peso_ingreso;
-                    
-                    let gmp: number | null = null;
-                    if (ultimoP && animal.peso_ingreso && animal.fecha_ingreso) {
-                        const dias = differenceInDays(new Date(ultimoP.fecha + 'T12:00:00'), new Date(animal.fecha_ingreso + 'T12:00:00'));
+            const grouped = dataFiltrada.reduce((acc: any, animal: any) => {
+                const fecha = animal.fecha_ingreso ? String(animal.fecha_ingreso).split('T')[0] : 'Sin fecha';
+                const proveedor = (animal.proveedor_comp_extra || animal.proveedor_compra || '').trim() || 'Compra General';
+                const key = `${fecha}-${proveedor}`;
+                
+                const registros = (animal.registros_pesaje || []).sort((x: any, y: any) => 
+                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+                );
+                const ultimoP = registros[0];
+                const pesoActual = ultimoP?.peso || animal.peso_ingreso;
+                
+                let gmp: number | null = null;
+                if (ultimoP && animal.peso_ingreso && animal.fecha_ingreso) {
+                    const d1 = new Date(String(ultimoP.fecha).split('T')[0] + 'T12:00:00');
+                    const d2 = new Date(String(animal.fecha_ingreso).split('T')[0] + 'T12:00:00');
+                    if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
+                        const dias = differenceInDays(d1, d2);
                         if (dias > 0) {
                             const gananciaTotal = ultimoP.peso - animal.peso_ingreso;
                             gmp = (gananciaTotal / dias) * 30;
@@ -150,93 +193,97 @@ export default function HistorialCompras() {
                             gmp = 0;
                         }
                     }
+                }
 
-                    const animalRep: AnimalCompraParaReporte = {
-                        numero_chapeta: animal.numero_chapeta,
-                        peso_ingreso: animal.peso_ingreso || 0,
-                        propietario: animal.nombre_propietario
-                    };
+                const animalRep: AnimalCompraParaReporte = {
+                    numero_chapeta: animal.numero_chapeta,
+                    peso_ingreso: animal.peso_ingreso || 0,
+                    propietario: animal.nombre_propietario
+                };
 
-                    // Datos enriquecidos para el modal de detalle
-                    const registrosOrdenados = (animal.registros_pesaje || []).sort((x: any, y: any) =>
-                        new Date(x.fecha).getTime() - new Date(y.fecha).getTime()
-                    );
-                    const pesajesMap: Record<string, number> = {};
-                    registrosOrdenados.forEach((r: any) => {
-                        pesajesMap[r.fecha] = r.peso;
-                    });
-
-                    const animalDet: AnimalCompraDetalle = {
-                        id: animal.id,
-                        numero_chapeta: animal.numero_chapeta,
-                        nombre_propietario: animal.nombre_propietario,
-                        etapa: animal.etapa,
-                        peso_ingreso: animal.peso_ingreso || 0,
-                        peso_compra: animal.peso_compra,
-                        fecha_ingreso: animal.fecha_ingreso,
-                        proveedor_compra: proveedor,
-                        gmp: gmp,
-                        pesoActual: pesoActual,
-                        pesajesFiltrados: pesajesMap,
-                        registros_pesaje: registrosOrdenados.map((r: any) => ({
-                            peso: r.peso,
-                            fecha: r.fecha,
-                            gdp_calculada: r.gdp_calculada || 0
-                        }))
-                    };
-
-                    if (!acc[key]) {
-                        acc[key] = {
-                            id: key,
-                            titulo: `Compra - ${fecha} - ${proveedor}`,
-                            fechaCompra: fecha,
-                            proveedor: proveedor,
-                            animalesCount: 0,
-                            pesoTotalIngreso: 0,
-                            pesoTotalCompra: 0,
-                            pesoTotalActual: 0,
-                            gmpTotal: 0,
-                            gmpCount: 0,
-                            animalesReporte: [],
-                            animalesDetalle: []
-                        };
-                    }
-                    
-                    acc[key].animalesCount++;
-                    acc[key].pesoTotalIngreso += animal.peso_ingreso || 0;
-                    acc[key].pesoTotalCompra += animal.peso_compra || 0;
-                    acc[key].pesoTotalActual += pesoActual;
-                    
-                    if (gmp !== null) {
-                        acc[key].gmpTotal += gmp;
-                        acc[key].gmpCount++;
-                    }
-
-                    acc[key].animalesReporte.push(animalRep);
-                    acc[key].animalesDetalle.push(animalDet);
-                    
-                    return acc;
-                }, {});
-
-                const comprasList: CompraGrupo[] = Object.values(grouped).map((c: any) => ({
-                    ...c,
-                    pesoPromedioIngreso: c.animalesCount > 0 ? c.pesoTotalIngreso / c.animalesCount : 0,
-                    pesoPromedioActual: c.animalesCount > 0 ? c.pesoTotalActual / c.animalesCount : 0,
-                    gmpPromedio: c.gmpCount > 0 ? c.gmpTotal / c.gmpCount : null
-                }));
-                
-                // Ordenar por fecha descendente
-                comprasList.sort((a, b) => new Date(b.fechaCompra).getTime() - new Date(a.fechaCompra).getTime());
-                setCompras(comprasList);
-                
-                // Actualizar detalleCompra si estaba abierto
-                setDetalleCompra(prev => {
-                    if (!prev) return null;
-                    const updated = comprasList.find(c => c.id === prev.id);
-                    return updated || prev;
+                // Datos enriquecidos para el modal de detalle
+                const registrosOrdenados = (animal.registros_pesaje || []).sort((x: any, y: any) =>
+                    new Date(x.fecha).getTime() - new Date(y.fecha).getTime()
+                );
+                const pesajesMap: Record<string, number> = {};
+                registrosOrdenados.forEach((r: any) => {
+                    pesajesMap[r.fecha] = r.peso;
                 });
-            }
+
+                const animalDet: AnimalCompraDetalle = {
+                    id: animal.id,
+                    numero_chapeta: animal.numero_chapeta,
+                    nombre_propietario: animal.nombre_propietario,
+                    etapa: animal.etapa,
+                    peso_ingreso: animal.peso_ingreso || 0,
+                    peso_compra: animal.peso_compra,
+                    fecha_ingreso: animal.fecha_ingreso,
+                    proveedor_compra: proveedor,
+                    gmp: gmp,
+                    pesoActual: pesoActual,
+                    pesajesFiltrados: pesajesMap,
+                    registros_pesaje: registrosOrdenados.map((r: any) => ({
+                        peso: r.peso,
+                        fecha: r.fecha,
+                        gdp_calculada: r.gdp_calculada || 0
+                    }))
+                };
+
+                if (!acc[key]) {
+                    acc[key] = {
+                        id: key,
+                        titulo: `Compra - ${fecha} - ${proveedor}`,
+                        fechaCompra: fecha,
+                        proveedor: proveedor,
+                        animalesCount: 0,
+                        pesoTotalIngreso: 0,
+                        pesoTotalCompra: 0,
+                        pesoTotalActual: 0,
+                        gmpTotal: 0,
+                        gmpCount: 0,
+                        animalesReporte: [],
+                        animalesDetalle: []
+                    };
+                }
+                
+                acc[key].animalesCount++;
+                acc[key].pesoTotalIngreso += animal.peso_ingreso || 0;
+                acc[key].pesoTotalCompra += animal.peso_compra || 0;
+                acc[key].pesoTotalActual += pesoActual;
+                
+                if (gmp !== null) {
+                    acc[key].gmpTotal += gmp;
+                    acc[key].gmpCount++;
+                }
+
+                acc[key].animalesReporte.push(animalRep);
+                acc[key].animalesDetalle.push(animalDet);
+                
+                return acc;
+            }, {});
+
+            const comprasList: CompraGrupo[] = Object.values(grouped).map((c: any) => ({
+                ...c,
+                pesoPromedioIngreso: c.animalesCount > 0 ? c.pesoTotalIngreso / c.animalesCount : 0,
+                pesoPromedioActual: c.animalesCount > 0 ? c.pesoTotalActual / c.animalesCount : 0,
+                gmpPromedio: c.gmpCount > 0 ? c.gmpTotal / c.gmpCount : null
+            }));
+            
+            // Ordenar por fecha descendente
+            comprasList.sort((a, b) => new Date(b.fechaCompra).getTime() - new Date(a.fechaCompra).getTime());
+            setCompras(comprasList);
+            
+            // Actualizar detalleCompra si estaba abierto
+            setDetalleCompra(prev => {
+                if (!prev) return null;
+                const updated = comprasList.find(c => c.id === prev.id);
+                return updated || prev;
+            });
+        } catch (err) {
+            console.error('[HistorialCompras] Error al cargar compras:', err);
+        } finally {
             setLoading(false);
+        }
     };
 
     useEffect(() => {
