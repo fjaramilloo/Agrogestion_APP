@@ -67,4 +67,25 @@ export default defineConfig({
   // Solo usamos rutas relativas para la app móvil para evitar la pantalla negra.
   // Esto no afecta a la web en producción (Vercel).
   base: process.env.CAPACITOR_BUILD === 'true' ? './' : '/',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/react-router-dom/')) {
+            return 'vendor-react';
+          }
+          if (id.includes('node_modules/@supabase/')) {
+            return 'vendor-supabase';
+          }
+          if (id.includes('node_modules/dexie') || id.includes('node_modules/dexie-react-hooks')) {
+            return 'vendor-dexie';
+          }
+          if (id.includes('node_modules/date-fns/')) {
+            return 'vendor-date';
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 650
+  }
 })

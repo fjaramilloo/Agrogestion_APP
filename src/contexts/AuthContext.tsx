@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { limpiarCacheLecturas } from '../lib/httpOffline';
 import type { Session, User } from '@supabase/supabase-js';
@@ -68,6 +68,28 @@ const defaultLicenciaInfo: LicenciaInfo = {
     isBloqueada: false
 };
 
+// Claves de caché local para arrancar al instante (se validan contra el id del usuario)
+const CACHE_USER_ID = 'agrogestion_cached_user_id';
+const CACHE_LICENCIA = 'agrogestion_cached_licencia';
+const CACHE_EXTRA = 'agrogestion_cached_extra';
+
+const leerJSON = <T,>(key: string): T | null => {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? (JSON.parse(raw) as T) : null;
+    } catch {
+        return null;
+    }
+};
+
+const guardarJSON = (key: string, value: unknown) => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* almacenamiento lleno */ }
+};
+
+/** Solo actualiza el estado si el contenido cambió: evita que las pantallas vuelvan a pedir datos. */
+const siCambio = <T,>(nuevo: T) => (prev: T): T =>
+    JSON.stringify(prev) === JSON.stringify(nuevo) ? prev : nuevo;
+
 const AuthContext = createContext<AuthState>({
     user: null,
     session: null,
@@ -97,38 +119,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [licenciaInfo, setLicenciaInfo] = useState<LicenciaInfo>(defaultLicenciaInfo);
     const [modoGanancia, setModoGanancia] = useState<ModoGanancia>('GMP');
     const [loading, setLoading] = useState(true);
+    // Usuario cuyos datos ya se cargaron: evita descargarlos otra vez en cada renovación de token
+    const usuarioCargadoRef = useRef<string | null>(null);
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        let activo = true;
+
+        const procesarSesion = (session: Session | null, event?: string) => {
+            if (!activo) return;
             setSession(session);
-            setUser(session?.user ?? null);
+            setUser(prev => (event === 'TOKEN_REFRESHED' && prev && prev.id === session?.user?.id ? prev : session?.user ?? null));
             if (session?.user) {
-                fetchUserData(session.user.id);
+                const uid = session.user.id;
+                if (usuarioCargadoRef.current === uid) return; // Ya cargado o refresco de token, no duplicar
+                usuarioCargadoRef.current = uid;
+                // Arranque instantáneo con lo guardado de la última vez; se refresca en segundo plano
+                if (restaurarDesdeCache(uid)) setLoading(false);
+                fetchUserData(uid);
             } else {
+                usuarioCargadoRef.current = null;
+                setRole(null);
+                setFincaId(null);
+                setUserFincas([]);
+                setProfile(null);
+                setIsSuperAdmin(false);
+                setLicenciaInfo(defaultLicenciaInfo);
                 setLoading(false);
             }
+        };
+
+        // Doble garantía: getSession() resuelve inmediatamente en cualquier navegador/webview
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!usuarioCargadoRef.current && session?.user) {
+                procesarSesion(session);
+            } else if (!session) {
+                setLoading(false);
+            }
+        }).catch(() => {
+            if (activo) setLoading(false);
         });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
-                setSession(session);
-                setUser(session?.user ?? null);
-                if (session?.user) {
-                    fetchUserData(session.user.id);
-                } else {
-                    setRole(null);
-                    setFincaId(null);
-                    setUserFincas([]);
-                    setProfile(null);
-                    setIsSuperAdmin(false);
-                    setLicenciaInfo(defaultLicenciaInfo);
-                    setLoading(false);
-                }
+            (event, session) => {
+                setTimeout(() => {
+                    procesarSesion(session, event);
+                }, 0);
             }
         );
 
-        return () => subscription.unsubscribe();
+        return () => {
+            activo = false;
+            subscription.unsubscribe();
+        };
     }, []);
+
+    /** Restaura el estado guardado SOLO si pertenece al mismo usuario. Devuelve true si se pudo. */
+    const restaurarDesdeCache = (userId: string): boolean => {
+        if (localStorage.getItem(CACHE_USER_ID) !== userId) return false;
+        const fincas = leerJSON<UserFinca[]>('agrogestion_cached_user_fincas');
+        const savedFincaId = localStorage.getItem('lastFincaId') || localStorage.getItem('agrogestion_cached_finca_id');
+        if (!fincas || fincas.length === 0 || !savedFincaId) return false;
+        const finca = fincas.find(f => f.id_finca === savedFincaId) || fincas[0];
+
+        setUserFincas(siCambio(fincas));
+        setFincaId(finca.id_finca);
+        setRole(finca.rol);
+        const perfil = leerJSON<UserProfile>('agrogestion_cached_profile');
+        if (perfil) setProfile(siCambio<UserProfile | null>(perfil));
+        const lic = leerJSON<LicenciaInfo>(CACHE_LICENCIA);
+        if (lic) {
+            // Recalcular vencimiento con la fecha de hoy (la caché puede ser de días atrás)
+            const isVencida = isLicenciaExpirada(lic.licencia, lic.fechaVencimientoLicencia);
+            setLicenciaInfo(siCambio({ ...lic, isVencida, isBloqueada: isVencida || lic.isSobrecupo }));
+        }
+        const extra = leerJSON<{ modoGanancia?: ModoGanancia; isSuperAdmin?: boolean }>(CACHE_EXTRA);
+        if (extra?.modoGanancia) setModoGanancia(extra.modoGanancia);
+        if (extra?.isSuperAdmin !== undefined) setIsSuperAdmin(extra.isSuperAdmin);
+        return true;
+    };
 
     const fetchLicenciaData = async (targetFincaId: string) => {
         try {
@@ -142,23 +210,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const org: any = fincaData.organizaciones;
                 const orgId = org.id;
 
-                // Obtener fincas de la org y contar animales activos EN PARALELO
-                const { data: orgFincas } = await supabase
-                    .from('fincas')
-                    .select('id')
-                    .eq('id_organizacion', orgId);
-
-                const orgFincaIds = (orgFincas || []).map((f: any) => f.id);
-                let animalCount = 0;
-
-                if (orgFincaIds.length > 0) {
-                    const { count } = await supabase
-                        .from('animales')
-                        .select('id', { count: 'exact', head: true })
-                        .in('id_finca', orgFincaIds)
-                        .eq('estado', 'activo');
-                    animalCount = count || 0;
-                }
+                // Conteo de animales activos de TODA la organización en una sola consulta (join con fincas)
+                const { count } = await supabase
+                    .from('animales')
+                    .select('id, fincas!inner(id_organizacion)', { count: 'exact', head: true })
+                    .eq('fincas.id_organizacion', orgId)
+                    .eq('estado', 'activo');
+                const animalCount = count || 0;
 
                 const lic = (org.licencia as TipoLicencia) || 'demo';
                 const limite = org.limite_animales ?? 40;
@@ -167,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const isSobrecupo = animalCount > limite;
                 const isBloqueada = isVencida || isSobrecupo;
 
-                setLicenciaInfo({
+                const info: LicenciaInfo = {
                     licencia: lic,
                     limiteAnimales: limite,
                     totalAnimalesOrganizacion: animalCount,
@@ -178,7 +236,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     isVencida,
                     isSobrecupo,
                     isBloqueada
-                });
+                };
+                setLicenciaInfo(siCambio(info));
+                guardarJSON(CACHE_LICENCIA, info);
             }
         } catch (err) {
             console.error("Error cargando licencia:", err);
@@ -206,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const cachedProfileRaw = localStorage.getItem('agrogestion_cached_profile');
 
                 if (cachedFincasRaw) {
-                    try { setUserFincas(JSON.parse(cachedFincasRaw)); } catch {}
+                    try { setUserFincas(siCambio(JSON.parse(cachedFincasRaw))); } catch {}
                 }
                 if (cachedFincaId) {
                     setFincaId(cachedFincaId);
@@ -217,6 +277,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (cachedProfileRaw) {
                     try { setProfile(JSON.parse(cachedProfileRaw)); } catch {}
                 }
+                const lic = leerJSON<LicenciaInfo>(CACHE_LICENCIA);
+                if (lic) setLicenciaInfo(siCambio(lic));
             } else if (permisos && permisos.length > 0) {
                 const mappedFincas: UserFinca[] = permisos.map((p: any) => ({
                     id_finca: p.id_finca,
@@ -224,7 +286,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     rol: p.rol as UserRole
                 }));
 
-                setUserFincas(mappedFincas);
+                setUserFincas(siCambio(mappedFincas));
                 localStorage.setItem('agrogestion_cached_user_fincas', JSON.stringify(mappedFincas));
 
                 const savedFincaId = localStorage.getItem('lastFincaId');
@@ -235,8 +297,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 localStorage.setItem('lastFincaId', validFinca.id_finca);
                 localStorage.setItem('agrogestion_cached_finca_id', validFinca.id_finca);
                 localStorage.setItem('agrogestion_cached_role', validFinca.rol || '');
+                localStorage.setItem(CACHE_USER_ID, userId);
 
-                // 2. Con el fincaId ya disponible, lanzar en paralelo:
+                // Con finca y rol ya definidos la app se puede mostrar: no esperar licencia/perfil/KPI
+                setLoading(false);
+
+                // 2. Con el fincaId ya disponible, lanzar en paralelo (en segundo plano):
                 //    - Datos de licencia
                 //    - Modo de ganancia (configuracion_kpi)
                 //    - Perfil del usuario
@@ -266,17 +332,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
 
                 if (perfilRes.data) {
-                    setProfile({
+                    const perfil = {
                         nombre: perfilRes.data.nombre,
                         apellido: perfilRes.data.apellido
-                    });
-                    localStorage.setItem('agrogestion_cached_profile', JSON.stringify({
-                        nombre: perfilRes.data.nombre,
-                        apellido: perfilRes.data.apellido
-                    }));
+                    };
+                    setProfile(siCambio<UserProfile | null>(perfil));
+                    localStorage.setItem('agrogestion_cached_profile', JSON.stringify(perfil));
                 }
 
-                setIsSuperAdmin(!!adminRes.data);
+                // Solo actualizar si la consulta respondió bien (sin señal no se pierde el estado guardado)
+                if (!adminRes.error) setIsSuperAdmin(!!adminRes.data);
+                guardarJSON(CACHE_EXTRA, {
+                    modoGanancia: (kpiRes.data?.modo_ganancia as ModoGanancia) || leerJSON<any>(CACHE_EXTRA)?.modoGanancia,
+                    isSuperAdmin: adminRes.error ? leerJSON<any>(CACHE_EXTRA)?.isSuperAdmin : !!adminRes.data
+                });
             }
 
         } catch (err) {
@@ -287,7 +356,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const cachedProfileRaw = localStorage.getItem('agrogestion_cached_profile');
 
             if (cachedFincasRaw) {
-                try { setUserFincas(JSON.parse(cachedFincasRaw)); } catch {}
+                try { setUserFincas(siCambio(JSON.parse(cachedFincasRaw))); } catch {}
             }
             if (cachedFincaId) setFincaId(cachedFincaId);
             if (cachedRole) setRole(cachedRole);
@@ -321,6 +390,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase.auth.signOut();
         await limpiarCacheLecturas();
         localStorage.removeItem('lastFincaId');
+        localStorage.removeItem(CACHE_USER_ID);
     };
 
     return (

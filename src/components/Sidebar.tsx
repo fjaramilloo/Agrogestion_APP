@@ -75,9 +75,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             
             setHayMercado((count ?? 0) > 0);
         };
-        checkMercado();
-        const interval = setInterval(checkMercado, 60000);
-        return () => clearInterval(interval);
+        // Diferir la primera consulta 2.5 segundos y luego verificar cada 5 minutos
+        const timer = setTimeout(checkMercado, 2500);
+        const interval = setInterval(checkMercado, 5 * 60 * 1000);
+        return () => {
+            clearTimeout(timer);
+            clearInterval(interval);
+        };
     }, [fincaId]);
 
     const handleLogout = async () => {

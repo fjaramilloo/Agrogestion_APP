@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, Fragment } from 'react';
+import { useEffect, useState, useMemo, Fragment, lazy, Suspense } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -10,7 +10,8 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
 import { useNavigate } from 'react-router-dom';
-import ReporteInventarioExcel from '../components/ReporteInventarioExcel';
+// El reporte trae xlsx + jsPDF (pesados): se descarga solo cuando el usuario lo abre
+const ReporteInventarioExcel = lazy(() => import('../components/ReporteInventarioExcel'));
 import ModalUpsell from '../components/ModalUpsell';
 
 // Hook para detectar pantalla móvil (<= 768px)
@@ -151,18 +152,33 @@ export default function Dashboard() {
             if (!fincaId) return;
             setLoading(true);
 
-            // 1. Obtener Resumen Pre-calculado (Instantáneo)
-            const { data: resumen } = await supabase
-                .from('resumen_finca')
-                .select('*')
-                .eq('id_finca', fincaId)
-                .single();
-
-            // 2. Información de la Finca y Configuración en paralelo
-            const [fincaRes, configRes] = await Promise.all([
+            // RENDIMIENTO: las 5 consultas salen AL MISMO TIEMPO (antes iban en 3 tandas, una tras otra).
+            // Se procesan en dos grupos para pintar las tarjetas del resumen apenas llegan.
+            const pResumen = Promise.all([
+                // 1. Resumen pre-calculado (instantáneo)
+                supabase.from('resumen_finca').select('*').eq('id_finca', fincaId).single(),
+                // 2. Información de la finca y configuración
                 supabase.from('fincas').select('nombre, proposito, area_aprovechable, ubicacion, municipio').eq('id', fincaId).single(),
                 supabase.from('configuracion_kpi').select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad').eq('id_finca', fincaId).single()
             ]);
+
+            // 3. Carga completa y acelerada mediante los índices de Fase 1 (sin truncamientos de API REST)
+            const pDetalle = Promise.all([
+                supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }).limit(50000),
+
+                supabase.from('animales').select(`
+                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
+                    fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
+                    id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
+                    potreros ( nombre ),
+                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+                    registros_pesaje (
+                        id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
+                    )
+                `).eq('id_finca', fincaId).limit(10000)
+            ]);
+
+            const [{ data: resumen }, fincaRes, configRes] = await pResumen;
 
             const finca = fincaRes.data;
             const configKpi = configRes.data;
@@ -210,21 +226,7 @@ export default function Dashboard() {
                 }));
             }
 
-            // 3. Carga completa y acelerada mediante los índices de Fase 1 (sin truncamientos de API REST)
-            const [lluviasRes, todosAnimalesRes] = await Promise.all([
-                supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }).limit(50000),
-
-                supabase.from('animales').select(`
-                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
-                    fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
-                    id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
-                    potreros ( nombre ),
-                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                    registros_pesaje (
-                        id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
-                    )
-                `).eq('id_finca', fincaId).limit(10000)
-            ]);
+            const [lluviasRes, todosAnimalesRes] = await pDetalle;
 
             const lluvias = lluviasRes.data;
             const todosAnimales: any[] = todosAnimalesRes.data || [];
@@ -1648,7 +1650,9 @@ export default function Dashboard() {
                         </div>
                     )}
                     {showReporteExcel && (
-                        <ReporteInventarioExcel onClose={() => setShowReporteExcel(false)} />
+                        <Suspense fallback={null}>
+                            <ReporteInventarioExcel onClose={() => setShowReporteExcel(false)} />
+                        </Suspense>
                     )}
 
                     {/* Modal Detalle de Pesos por Rango */}

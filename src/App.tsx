@@ -1,36 +1,50 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ConnectionProvider } from './contexts/ConnectionContext';
-import Login from './pages/Login';
-import LandingPage from './pages/LandingPage';
-// Importación estática para páginas ligeras y de uso frecuente
-import Inventory from './pages/Inventory';
-import Weighing from './pages/Weighing';
-import Purchase from './pages/Purchase';
-import Sales from './pages/Sales';
-import Movements from './pages/Movements';
-import Rotations from './pages/Rotations';
-import Mercado from './pages/Mercado';
-import MercadoGanado from './pages/MercadoGanado';
-import Aforos from './pages/Aforos';
-import Rainfall from './pages/Rainfall';
 import Topbar from './components/Topbar';
 import Sidebar from './components/Sidebar';
 import VersionNotifier from './components/VersionNotifier';
 import SyncSummaryModal from './components/SyncSummaryModal';
-import UpdatePassword from './pages/UpdatePassword';
-import Suscripcion from './pages/Suscripcion';
-import { FarmMapPage } from './pages/FarmMap';
-import AgroBot from './components/AgroBot';
+import { lazyWithRetry, prefetchWhenIdle } from './utils/lazyWithRetry';
 
-// Importación diferida (lazy) para páginas pesadas — se cargan solo al navegar a ellas
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Potreradas = lazy(() => import('./pages/Potreradas'));
-const HistorialVentas = lazy(() => import('./pages/HistorialVentas'));
-const HistorialCompras = lazy(() => import('./pages/HistorialCompras'));
-const Settings = lazy(() => import('./pages/Settings'));
-const SuperAdmin = lazy(() => import('./pages/SuperAdmin'));
+// RENDIMIENTO: todas las pantallas se cargan bajo demanda. Antes se descargaba y procesaba
+// TODO el código de la app (~2.5 MB) antes de mostrar algo; ahora el arranque solo carga el
+// "esqueleto" (sesión, barra superior y menú) y la pantalla que se va a ver.
+const loadDashboard = () => import('./pages/Dashboard');
+const loadInventory = () => import('./pages/Inventory');
+const loadWeighing = () => import('./pages/Weighing');
+const loadPotreradas = () => import('./pages/Potreradas');
+
+const Login = lazyWithRetry(() => import('./pages/Login'));
+const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'));
+const UpdatePassword = lazyWithRetry(() => import('./pages/UpdatePassword'));
+const Dashboard = lazyWithRetry(loadDashboard);
+const Inventory = lazyWithRetry(loadInventory);
+const Weighing = lazyWithRetry(loadWeighing);
+const Potreradas = lazyWithRetry(loadPotreradas);
+const Purchase = lazyWithRetry(() => import('./pages/Purchase'));
+const Sales = lazyWithRetry(() => import('./pages/Sales'));
+const Movements = lazyWithRetry(() => import('./pages/Movements'));
+const Rotations = lazyWithRetry(() => import('./pages/Rotations'));
+const Mercado = lazyWithRetry(() => import('./pages/Mercado'));
+const MercadoGanado = lazyWithRetry(() => import('./pages/MercadoGanado'));
+const Aforos = lazyWithRetry(() => import('./pages/Aforos'));
+const Rainfall = lazyWithRetry(() => import('./pages/Rainfall'));
+const Suscripcion = lazyWithRetry(() => import('./pages/Suscripcion'));
+const FarmMapPage = lazyWithRetry(() => import('./pages/FarmMap').then(m => ({ default: m.FarmMapPage })));
+const HistorialVentas = lazyWithRetry(() => import('./pages/HistorialVentas'));
+const HistorialCompras = lazyWithRetry(() => import('./pages/HistorialCompras'));
+const Settings = lazyWithRetry(() => import('./pages/Settings'));
+const SuperAdmin = lazyWithRetry(() => import('./pages/SuperAdmin'));
+// AgroBot trae librerías de markdown pesadas: se carga después de mostrar la pantalla
+const AgroBot = lazyWithRetry(() => import('./components/AgroBot'));
+
+const PantallaCargando = ({ fullScreen = false }: { fullScreen?: boolean }) => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: fullScreen ? '100vh' : undefined, padding: fullScreen ? undefined : '80px', color: 'var(--primary-light)' }}>
+    Cargando...
+  </div>
+);
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, role, loading } = useAuth();
@@ -50,13 +64,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--primary-light)' }}>
-        Cargando...
-      </div>
-    );
-  }
+  if (loading) return <PantallaCargando fullScreen />;
 
   if (!user) return <Navigate to="/login" replace />;
 
@@ -71,11 +79,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main className={`main-content-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
           {/* Suspense aquí para que las páginas lazy muestren un loader mientras cargan */}
-          <Suspense fallback={
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '80px', color: 'var(--primary-light)' }}>
-              Cargando...
-            </div>
-          }>
+          <Suspense fallback={<PantallaCargando />}>
             {children}
           </Suspense>
         </main>
@@ -84,25 +88,31 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   );
 };
 
-const AppRoutes = () => {
+// Para la ruta raíz: si ya hay sesión, va al dashboard; si no, ve la landing pública.
+// IMPORTANTE: debe estar definido FUERA de AppRoutes. Si se define adentro, cada cambio de la sesión
+// (licencia, perfil, renovación de token) crea un componente nuevo y el Dashboard se desmonta y
+// vuelve a descargar todos sus datos.
+const RootRoute = () => {
   const { user, loading } = useAuth();
+  if (loading) return <PantallaCargando fullScreen />;
+  if (user) {
+    return (
+      <ProtectedRoute><Dashboard /></ProtectedRoute>
+    );
+  }
+  return <LandingPage />;
+};
 
-  // Para la ruta raíz: si ya hay sesión, va al dashboard; si no, ve la landing pública
-  const RootRoute = () => {
-    if (loading) {
-      return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--primary-light)' }}>
-          Cargando...
-        </div>
-      );
-    }
-    if (user) {
-      return (
-        <ProtectedRoute><Dashboard /></ProtectedRoute>
-      );
-    }
-    return <LandingPage />;
-  };
+const AppRoutes = () => {
+  const { user } = useAuth();
+  const userId = user?.id;
+
+  // Con sesión iniciada, descargar en segundo plano las pantallas de campo más usadas
+  // para que abrirlas sea instantáneo (y queden disponibles sin señal).
+  React.useEffect(() => {
+    if (!userId) return;
+    prefetchWhenIdle([loadDashboard, loadInventory, loadWeighing, loadPotreradas]);
+  }, [userId]);
 
   return (
     <Routes>
@@ -250,15 +260,25 @@ const AppRoutes = () => {
   );
 };
 
+// Solo se descarga AgroBot cuando hay sesión (la landing y el login no lo necesitan)
+const AgroBotConSesion = () => {
+  const { user } = useAuth();
+  return user ? <AgroBot /> : null;
+};
+
 function App() {
   return (
     <AuthProvider>
       <ConnectionProvider>
         <Router>
-          <AppRoutes />
+          <Suspense fallback={<PantallaCargando fullScreen />}>
+            <AppRoutes />
+          </Suspense>
           <VersionNotifier />
           <SyncSummaryModal />
-          <AgroBot />
+          <Suspense fallback={null}>
+            <AgroBotConSesion />
+          </Suspense>
         </Router>
       </ConnectionProvider>
     </AuthProvider>

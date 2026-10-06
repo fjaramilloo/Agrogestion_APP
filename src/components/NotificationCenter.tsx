@@ -20,10 +20,21 @@ interface Notification {
     fincaNombre: string;
 }
 
+const ALERTS_CACHE_KEY = 'agrogestion_cached_alerts';
+const ALERTS_CACHE_TS = 'agrogestion_cached_alerts_ts';
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutos
+
 export default function NotificationCenter() {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>(() => {
+        try {
+            const raw = sessionStorage.getItem(ALERTS_CACHE_KEY);
+            return raw ? JSON.parse(raw) : [];
+        } catch {
+            return [];
+        }
+    });
     const { role, fincaId, userFincas, licenciaInfo } = useAuth();
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -315,6 +326,10 @@ export default function NotificationCenter() {
             });
 
             setNotifications(finalNotifications);
+            try {
+                sessionStorage.setItem(ALERTS_CACHE_KEY, JSON.stringify(finalNotifications));
+                sessionStorage.setItem(ALERTS_CACHE_TS, String(Date.now()));
+            } catch { /* storage quota */ }
         } catch (err) {
             console.error("Error calculando alertas:", err);
         } finally {
@@ -322,13 +337,31 @@ export default function NotificationCenter() {
         }
     };
 
+    // Dependencia estable: solo re-evaluar si cambia la lista real de IDs de fincas
+    const fincasKey = (userFincas || []).map(f => f.id_finca).sort().join(',');
+
     useEffect(() => {
-        if (!userFincas || userFincas.length === 0) return;
-        fetchAlerts();
-        // Recargar cada 30 minutos
+        if (!fincasKey) return;
+
+        // Comprobar si ya tenemos alertas calculadas recientemente en la sesión
+        const lastFetch = Number(sessionStorage.getItem(ALERTS_CACHE_TS) || 0);
+        const yaValido = Date.now() - lastFetch < CACHE_TTL_MS;
+
+        // DIFERIR: Darle prioridad absoluta a la pantalla principal y al Dashboard durante
+        // los primeros 3.5 segundos de arranque para evitar saturar el ancho de banda y la CPU.
+        const delayMs = yaValido ? CACHE_TTL_MS - (Date.now() - lastFetch) : 3500;
+        const timer = setTimeout(() => {
+            fetchAlerts();
+        }, delayMs);
+
+        // Recargar periódicamente cada 30 minutos
         const interval = setInterval(fetchAlerts, 30 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, [userFincas, licenciaInfo]);
+
+        return () => {
+            clearTimeout(timer);
+            clearInterval(interval);
+        };
+    }, [fincasKey]);
 
     // Filtrar por rol
     const filteredNotifications = useMemo(() => {
