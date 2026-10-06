@@ -34,6 +34,7 @@ INFORME_AUDITORIA_SEGURIDAD_SENTINELA.md
 # Plantillas de correo (uso local para Gmail)
 plantilla_*.html
 
-# Scripts locales y temporales
-scripts/
+# Scripts locales temporales
+scripts/sql_runner.sh
+scripts/check_animal.mjs
 test-*.mjs
