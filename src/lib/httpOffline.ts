@@ -11,6 +11,9 @@ import { localDB, type HttpReadCacheItem, type HttpWriteQueueItem } from './db';
 
 export const isModoCampoActivo = (): boolean => {
   try {
+    if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+      return false;
+    }
     return localStorage.getItem('agrogestion_modo_campo') === 'true';
   } catch {
     return false;
@@ -617,6 +620,15 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
 
   // Auth / Storage / Functions: no se pueden usar sin red
   if (!info) {
+    // Las peticiones de autenticación (login, registro, recuperación de contraseña)
+    // NUNCA se bloquean por Modo Campo; si el usuario se autentica, debe conectar normalmente.
+    if (url.includes('/auth/v1/')) {
+      if (url.includes('/auth/v1/token') || url.includes('/auth/v1/signup') || url.includes('/auth/v1/recover')) {
+        try { localStorage.removeItem('agrogestion_modo_campo'); } catch {}
+      }
+      return conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
+    }
+
     if (modoCampo) throw new TypeError('Failed to fetch (Modo Campo activo)');
     return conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
   }

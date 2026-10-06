@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +28,12 @@ export default function Login() {
     const [resendError, setResendError] = useState<string | null>(null);
 
     const { user } = useAuth();
+
+    useEffect(() => {
+        try {
+            localStorage.removeItem('agrogestion_modo_campo');
+        } catch {}
+    }, []);
 
     if (user) {
         return <Navigate to="/" replace />;
@@ -84,6 +90,10 @@ export default function Login() {
         setLoading(true);
         resetFormStatus();
         try {
+            localStorage.removeItem('agrogestion_modo_campo');
+        } catch {}
+
+        try {
             const { error: signInError } = await supabase.auth.signInWithPassword({
                 email: email.trim(),
                 password,
@@ -102,7 +112,12 @@ export default function Login() {
                 }
             }
         } catch (err: any) {
-            setError(err.message || "Ocurrió un error al intentar iniciar sesión");
+            const raw = err?.message || '';
+            if (raw.includes('Failed to fetch') || raw.includes('NetworkError') || raw.includes('Load failed')) {
+                setError('No se pudo conectar al servidor. Revisa tu conexión a internet.');
+            } else {
+                setError(raw || "Ocurrió un error al intentar iniciar sesión");
+            }
         } finally {
             setLoading(false);
         }

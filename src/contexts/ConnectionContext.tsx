@@ -46,6 +46,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // 1. Modo Campo forzado: se guarda en localStorage para no perderse si se recarga la app en el potrero
   const [modoCampo, setModoCampoState] = useState<boolean>(() => {
     try {
+      if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+        localStorage.removeItem('agrogestion_modo_campo');
+        return false;
+      }
       return localStorage.getItem('agrogestion_modo_campo') === 'true';
     } catch {
       return false;
@@ -215,8 +219,15 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [actualizarConteo]);
 
   // 7. Sincronizar todas las colas pendientes (Pesajes, Aforos y cualquier cambio hecho sin conexión)
-  const { fincaId: fincaIdAuth } = useAuth();
+  const { user, fincaId: fincaIdAuth } = useAuth();
   const syncingRef = useRef(false);
+
+  useEffect(() => {
+    if (!user) {
+      setModoCampoState(false);
+      try { localStorage.removeItem('agrogestion_modo_campo'); } catch {}
+    }
+  }, [user]);
 
   const sincronizarTodo = async (fincaId: string): Promise<{ procesados: number; errores: number }> => {
     if (!isOnline || syncingRef.current) {

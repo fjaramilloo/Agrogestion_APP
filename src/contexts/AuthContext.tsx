@@ -144,6 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setProfile(null);
                 setIsSuperAdmin(false);
                 setLicenciaInfo(defaultLicenciaInfo);
+                try { localStorage.removeItem('agrogestion_modo_campo'); } catch {}
                 setLoading(false);
             }
         };
@@ -387,10 +388,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const signOut = async () => {
-        await supabase.auth.signOut();
+        try { await supabase.auth.signOut(); } catch {}
         await limpiarCacheLecturas();
         localStorage.removeItem('lastFincaId');
         localStorage.removeItem(CACHE_USER_ID);
+        try { localStorage.removeItem('agrogestion_modo_campo'); } catch {}
     };
 
     return (
