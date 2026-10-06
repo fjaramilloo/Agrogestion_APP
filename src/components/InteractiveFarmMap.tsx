@@ -633,7 +633,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
+    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', zIndex: 1, isolation: 'isolate' }}>
       {/* Contenedor del Mapa Leaflet */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1, backgroundColor: '#0f1715' }} />
 
@@ -1032,8 +1032,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             </div>
           )}
 
-          {/* Acción: Mover Ganado (Solo disponible y solo para Administradores) */}
-          {tipoLicencia !== 'demo' && userRole === 'administrador' && onMoveCattleToPotrero && !selectedPotrero.potrerada_actual && (
+          {/* Acción: Mover Ganado (Disponible para Administradores y Vaqueros) */}
+          {tipoLicencia !== 'demo' && (userRole === 'administrador' || userRole === 'vaquero') && onMoveCattleToPotrero && !selectedPotrero.potrerada_actual && (
             <button
               onClick={() => {
                 onMoveCattleToPotrero(selectedPotrero.id, selectedPotrero.nombre);

@@ -56,7 +56,7 @@ body {
 }
 
 /* Form Styles */
-input,
+input:not([type="radio"]):not([type="checkbox"]),
 select {
   width: 100%;
   padding: 14px 16px;
@@ -69,7 +69,16 @@ select {
   transition: all 0.3s ease;
 }
 
-input:focus,
+input[type="radio"],
+input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+input:not([type="radio"]):not([type="checkbox"]):focus,
 select:focus {
   outline: none;
   border-color: var(--primary);

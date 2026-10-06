@@ -126,7 +126,7 @@ export const MultiFarmMap: React.FC<MultiFarmMapProps> = ({ fincas, onSelectFinc
   }, [fincas, onSelectFinca]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
+    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', zIndex: 1, isolation: 'isolate' }}>
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
       <div style={{
