@@ -157,12 +157,66 @@ export const FarmMapPage: React.FC = () => {
     }
 
     try {
-      // 1. Cargar metadatos del mapa de la finca
-      const { data: mapData } = await supabase
-        .from('mapas_finca')
-        .select('*')
-        .eq('id_finca', fincaId)
-        .maybeSingle();
+      // Cargar todos los datos en paralelo para eliminar esperas secuenciales (5x más rápido)
+      const [
+        mapDataRes,
+        potsDataRes,
+        rotDataRes,
+        movsDataRes,
+        animalesDataRes,
+        potsListRes,
+      ] = await Promise.all([
+        supabase
+          .from('mapas_finca')
+          .select('*')
+          .eq('id_finca', fincaId)
+          .maybeSingle(),
+        supabase
+          .from('potreros')
+          .select('id, nombre, area_hectareas, geojson_geometry, color_mapa, id_rotacion')
+          .eq('id_finca', fincaId),
+        supabase
+          .from('rotaciones')
+          .select('id, nombre')
+          .eq('id_finca', fincaId),
+        supabase
+          .from('movimientos_potreros')
+          .select('id_potrero, id_potrerada, fecha_entrada, potreradas(nombre)')
+          .eq('id_finca', fincaId)
+          .is('fecha_salida', null),
+        supabase
+          .from('animales')
+          .select(`
+            id,
+            id_potrerada,
+            nombre_propietario,
+            peso_ingreso,
+            peso_compra,
+            fecha_ingreso,
+            registros_pesaje (
+              peso,
+              fecha,
+              gdp_calculada,
+              gmp_calculada
+            )
+          `)
+          .eq('id_finca', fincaId)
+          .eq('estado', 'activo')
+          .or('is_deleted.is.null,is_deleted.eq.false'),
+        supabase
+          .from('potreradas')
+          .select('id, nombre, id_rotacion')
+          .eq('id_finca', fincaId)
+          .order('nombre'),
+      ]);
+
+      const mapData = mapDataRes.data;
+      const potsData = potsDataRes.data || [];
+      if (potsDataRes.error) throw potsDataRes.error;
+      const rotData = rotDataRes.data || [];
+      const movsData = movsDataRes.data || [];
+      const animalesData = animalesDataRes.data || [];
+      const potsList = potsListRes.data || [];
 
       const currentZonas = mapData?.zonas_adicionales || [];
       const currentMeta = mapData ? {
@@ -177,65 +231,26 @@ export const FarmMapPage: React.FC = () => {
         setZonasAdicionales([]);
       }
 
-      // 2. Cargar potreros con geometrías (incluye id_rotacion para filtro inteligente de traslado)
-      const { data: potsData, error: potErr } = await supabase
-        .from('potreros')
-        .select('id, nombre, area_hectareas, geojson_geometry, color_mapa, id_rotacion')
-        .eq('id_finca', fincaId);
-
-      if (potErr) throw potErr;
-
       // Cargar rotaciones de la finca para tener sus nombres
-      const { data: rotData } = await supabase
-        .from('rotaciones')
-        .select('id, nombre')
-        .eq('id_finca', fincaId);
-
       const rotacionMap = new Map<string, string>(
-        (rotData || []).map((r: any) => [r.id, r.nombre])
+        rotData.map((r: any) => [r.id, r.nombre])
       );
       setRotacionesMap(rotacionMap);
 
       // Mapa id_potrero -> id_rotacion para consultas rápidas
       const potreroRotacionMap = new Map<string, string | null>(
-        (potsData || []).map((p: any) => [p.id, p.id_rotacion ?? null])
+        potsData.map((p: any) => [p.id, p.id_rotacion ?? null])
       );
 
-      // 3. Cargar movimientos activos de potreradas para saber qué ganado está en qué potrero
-      const { data: movsData } = await supabase
-        .from('movimientos_potreros')
-        .select('id_potrero, id_potrerada, fecha_entrada, potreradas(nombre)')
-        .eq('id_finca', fincaId)
-        .is('fecha_salida', null);
-
-      // Cargar animales con sus pesajes para calcular peso promedio y peso estimado
-      const { data: animalesData } = await supabase
-        .from('animales')
-        .select(`
-          id,
-          id_potrerada,
-          nombre_propietario,
-          peso_ingreso,
-          peso_compra,
-          fecha_ingreso,
-          registros_pesaje (
-            peso,
-            fecha,
-            gdp_calculada,
-            gmp_calculada
-          )
-        `)
-        .eq('id_finca', fincaId)
-        .eq('estado', 'activo')
-        .or('is_deleted.is.null,is_deleted.eq.false');
+      // Optimización: calcular fecha actual una sola vez para no instanciar Date en cada iteración
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      const todayMs = todayDate.getTime();
 
       const calculateDaysDiff = (dateStr: string) => {
         if (!dateStr) return 0;
-        const target = new Date(dateStr.split('T')[0] + 'T00:00:00');
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const diffTime = today.getTime() - target.getTime();
-        return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+        const targetMs = new Date(dateStr.split('T')[0] + 'T00:00:00').getTime();
+        return Math.max(0, Math.floor((todayMs - targetMs) / 86400000));
       };
 
       // Agrupar métricas por potrerada
@@ -248,7 +263,7 @@ export const FarmMapPage: React.FC = () => {
       }>();
 
       const animalesPorPotrerada = new Map<string, any[]>();
-      (animalesData || []).forEach((a: any) => {
+      animalesData.forEach((a: any) => {
         if (a.id_potrerada) {
           if (!animalesPorPotrerada.has(a.id_potrerada)) {
             animalesPorPotrerada.set(a.id_potrerada, []);
@@ -264,16 +279,21 @@ export const FarmMapPage: React.FC = () => {
         let latestPesajeDate: string | null = null;
 
         for (const a of animales) {
-          const registros = (a.registros_pesaje || []).sort(
-            (x: any, y: any) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-          );
+          // Búsqueda en una sola pasada O(n) del pesaje más reciente (sin array sort costoso)
+          let lastP: any = null;
+          if (a.registros_pesaje && a.registros_pesaje.length > 0) {
+            for (const r of a.registros_pesaje) {
+              if (!lastP || r.fecha > lastP.fecha) {
+                lastP = r;
+              }
+            }
+          }
 
-          const lastP = registros[0];
           const pesoBase = Number(a.peso_compra ?? a.peso_ingreso ?? 0);
           const pesoActual = lastP ? Number(lastP.peso) : pesoBase;
 
           if (lastP?.fecha) {
-            if (!latestPesajeDate || new Date(lastP.fecha).getTime() > new Date(latestPesajeDate).getTime()) {
+            if (!latestPesajeDate || lastP.fecha > latestPesajeDate) {
               latestPesajeDate = lastP.fecha;
             }
           }
@@ -300,10 +320,9 @@ export const FarmMapPage: React.FC = () => {
 
         // Formato legible de fecha de pesaje (ej. 15 Ago o hace X días)
         let formattedPesajeDate: string | null = null;
-        const targetPesajeDate: string | null = latestPesajeDate;
-        if (targetPesajeDate) {
-          const d = new Date(targetPesajeDate.split('T')[0] + 'T00:00:00');
-          const dias = calculateDaysDiff(targetPesajeDate);
+        if (latestPesajeDate) {
+          const d = new Date(latestPesajeDate.split('T')[0] + 'T00:00:00');
+          const dias = calculateDaysDiff(latestPesajeDate);
           const dateStr = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
           formattedPesajeDate = dias === 0 ? 'Hoy' : dias === 1 ? 'Ayer' : `${dateStr} (hace ${dias}d)`;
         }
@@ -335,7 +354,7 @@ export const FarmMapPage: React.FC = () => {
         fecha_ultimo_pesaje?: string | null;
       }>();
 
-      (movsData || []).forEach((m: any) => {
+      movsData.forEach((m: any) => {
         if (m.id_potrero && m.id_potrerada) {
           const metrics = potreradaMetricsMap.get(m.id_potrerada) || {
             total_animales: 0,
@@ -359,7 +378,7 @@ export const FarmMapPage: React.FC = () => {
         }
       });
 
-      const processedPotreros = (potsData || []).map((p) => ({
+      const processedPotreros = potsData.map((p: any) => ({
         ...p,
         potrerada_actual: potreroAssignmentMap.get(p.id) || null,
       }));
@@ -375,12 +394,6 @@ export const FarmMapPage: React.FC = () => {
         map_meta: currentMeta,
         zonas_adicionales: currentZonas,
       }).catch(err => console.warn('[OfflineMap] Error guardando snapshot local:', err));
-
-      // Cargar lista de potreradas para el modal de traslado
-      const { data: potsList } = await supabase
-        .from('potreradas')
-        .select('id, nombre, id_rotacion')
-        .eq('id_finca', fincaId);
 
       const potrerosDict = new Map<string, any>(
         (potsData || []).map((p: any) => [p.id, p])

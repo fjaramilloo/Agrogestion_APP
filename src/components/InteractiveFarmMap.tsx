@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Layers, Navigation, RefreshCw, Upload, Users, ArrowRightLeft, Lock } from 'lucide-react';
@@ -60,6 +60,9 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const userAccuracyCircleRef = useRef<L.Circle | null>(null);
+  const polygonsGroupRef = useRef<L.FeatureGroup | null>(null);
+  const badgesGroupRef = useRef<L.LayerGroup | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
 
   const [mapType, setMapType] = useState<'satellite' | 'street'>('satellite');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -80,7 +83,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     return () => window.removeEventListener('resize', handler);
   }, []);
 
-  // Inicialización del Mapa de Leaflet
+  // Inicialización del Mapa de Leaflet y Capas Base
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -91,69 +94,132 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         zoomControl: false,
       });
 
-      // Añadir control de zoom abajo a la derecha
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-      // Escuchar cambios de zoom para adaptar el nivel de detalle de las etiquetas
       map.on('zoomend', () => {
         setCurrentZoom(map.getZoom());
       });
 
+      // Crear grupos dedicados para evitar redraws masivos del mapa
+      const polyGroup = L.featureGroup().addTo(map);
+      const badgeGroup = L.layerGroup().addTo(map);
+      polygonsGroupRef.current = polyGroup;
+      badgesGroupRef.current = badgeGroup;
+
       mapInstanceRef.current = map;
-    }
 
-    const map = mapInstanceRef.current;
-
-    // Remover capas antiguas
-    map.eachLayer((layer: L.Layer) => {
-      if (layer instanceof L.TileLayer) {
-        map.removeLayer(layer);
-      }
-    });
-
-    // Agregar Capa Satelital (Esri World Imagery) o Capa de Terreno (OSM)
-    if (mapType === 'satellite') {
-      L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {
-          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-          maxZoom: 19,
-        }
-      ).addTo(map);
-    } else {
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(map);
+      // Invalidate size para asegurar que el mapa ocupe el 100% del contenedor sin franjas negras
+      setTimeout(() => map.invalidateSize(), 100);
+      setTimeout(() => map.invalidateSize(), 300);
     }
 
     return () => {
-      // no destruir mapa para renderizado suave
+      // Cleanup al desmontar para evitar fugas de memoria
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        polygonsGroupRef.current = null;
+        badgesGroupRef.current = null;
+        tileLayerRef.current = null;
+      }
     };
-  }, [mapType, centerLat, centerLng, zoom]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Dibujar Polígonos de Potreros y Etiquetas Flotantes Inteligentes por Zoom
+  // ResizeObserver para recalcular el tamaño del mapa cuando cambie el viewport
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    if (!container) return;
+
+    const ro = new ResizeObserver(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    });
+    ro.observe(container);
+
+    return () => ro.disconnect();
+  }, []);
+
+  // Capa Base (Satélite vs Calles) gestionada sin reiniciar el mapa
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // Limpiar polígonos y marcadores anteriores (excepto capa base y marcador GPS)
-    map.eachLayer((layer: L.Layer) => {
-      if (layer instanceof L.GeoJSON || layer instanceof L.Polygon || (layer instanceof L.Marker && layer !== userMarkerRef.current)) {
-        map.removeLayer(layer);
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+
+    const tileLayer = mapType === 'satellite'
+      ? L.tileLayer(
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 19,
+          }
+        )
+      : L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19,
+        });
+
+    tileLayer.addTo(map);
+    tileLayerRef.current = tileLayer;
+  }, [mapType]);
+
+  // Precalcular centroides de polígonos para evitar recalcularlos en cada evento de zoom/render
+  const centroids = useMemo(() => {
+    const potreroCentroids = new Map<string, L.LatLng>();
+    const zonaCentroids = new Map<string, L.LatLng>();
+
+    potreros.forEach((p) => {
+      if (!p.geojson_geometry) return;
+      try {
+        const layer = L.geoJSON(p.geojson_geometry);
+        const b = layer.getBounds();
+        if (b.isValid()) {
+          potreroCentroids.set(p.id, b.getCenter());
+        }
+      } catch (e) {
+        console.warn('Error calculando centroide potrero:', p.nombre, e);
       }
     });
+
+    zonasAdicionales.forEach((z) => {
+      if (!z.geojson_geometry) return;
+      try {
+        const layer = L.geoJSON(z.geojson_geometry);
+        const b = layer.getBounds();
+        if (b.isValid()) {
+          zonaCentroids.set(z.id, b.getCenter());
+        }
+      } catch (e) {
+        console.warn('Error calculando centroide zona especial:', z.nombre, e);
+      }
+    });
+
+    return { potreroCentroids, zonaCentroids };
+  }, [potreros, zonasAdicionales]);
+
+  // 1. Renderizar Polígonos GeoJSON en polygonsGroupRef (Solo cuando cambia data o selección)
+  // Este efecto NUNCA se ejecuta al cambiar el zoom, lo que hace el mapa ultra fluido
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const polyGroup = polygonsGroupRef.current;
+    if (!map || !polyGroup) return;
+
+    // Limpiar únicamente la capa de polígonos
+    polyGroup.clearLayers();
 
     const bounds = L.latLngBounds([]);
     const isDemo = tipoLicencia === 'demo';
 
-    // 1. Renderizar Potreros de Pastoreo
+    // 1. Renderizar Polígonos de Potreros
     potreros.forEach((p) => {
       if (!p.geojson_geometry) return;
 
       const isSelected = selectedPotrero?.id === p.id;
       const hasCattle = !isDemo && !!p.potrerada_actual;
-      // Verde si está libre, Gris Pizarra si está ocupado con ganado
       const baseColor = isDemo ? '#10B981' : hasCattle ? '#64748B' : '#10B981';
       const polyColor = isSelected ? '#F59E0B' : baseColor;
 
@@ -171,9 +237,9 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             setSelectedPotrero(p);
           });
         },
-      }).addTo(map);
+      });
 
-      // Tooltip informativo rápido al pasar el cursor (Hover)
+      // Tooltip informativo rápido al pasar el cursor (Hover en PC)
       const hoverTooltipContent = `
         <div style="font-family: system-ui, sans-serif; font-size: 11px; padding: 2px;">
           <strong style="color: #0F172A;">${p.nombre}</strong> (${p.area_hectareas} Ha)
@@ -186,156 +252,15 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         opacity: 0.95,
       });
 
-      // Calcular centroide del polígono para poner el Badge según el nivel de Zoom
+      polyGroup.addLayer(geoJsonLayer);
+
       try {
         const polyBounds = geoJsonLayer.getBounds();
         if (polyBounds.isValid()) {
           bounds.extend(polyBounds);
-          const center = polyBounds.getCenter();
-
-          let badgeHtml = '';
-          let iconWidth = 100;
-          let iconHeight = 24;
-
-          if (isMobile && currentZoom < 14) {
-            // Móvil + zoom alejado: NO mostrar badge, el mapa debe ser legible
-            // Solo un punto de color muy pequeño para indicar la existencia del potrero
-            badgeHtml = `
-              <div style="
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background-color: ${polyColor};
-                border: 1.5px solid rgba(255,255,255,0.7);
-                box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-                cursor: pointer;
-              "></div>
-            `;
-            iconWidth = 8;
-            iconHeight = 8;
-          } else if (isMobile && currentZoom < 16) {
-            // Móvil + zoom medio: solo nombre truncado muy compacto
-            const nombreCorto = p.nombre.length > 8 ? p.nombre.substring(0, 8) + '…' : p.nombre;
-            badgeHtml = `
-              <div style="
-                background-color: rgba(15, 23, 42, 0.88);
-                backdrop-filter: blur(4px);
-                border: 1px solid ${polyColor};
-                border-radius: 4px;
-                padding: 2px 5px;
-                color: white;
-                font-family: system-ui, sans-serif;
-                font-size: 9px;
-                font-weight: 700;
-                text-align: center;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-                white-space: nowrap;
-                cursor: pointer;
-                max-width: 70px;
-              ">${nombreCorto}</div>
-            `;
-            iconWidth = 60;
-            iconHeight = 16;
-          } else if (currentZoom < 14) {
-            // Nivel 1: Zoom Alejado (Panorámica) -> Píldora ultra-compacta y limpia sin saturación
-            badgeHtml = `
-              <div style="
-                background-color: ${isSelected ? '#F59E0B' : 'rgba(15, 23, 42, 0.85)'};
-                backdrop-filter: blur(4px);
-                border: 1px solid ${isSelected ? '#FFFFFF' : polyColor};
-                border-radius: 4px;
-                padding: 2px 6px;
-                color: white;
-                font-family: system-ui, sans-serif;
-                font-size: 10px;
-                font-weight: 700;
-                text-align: center;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.45);
-                white-space: nowrap;
-                cursor: pointer;
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-              ">
-                <span>${p.nombre}</span>
-                ${hasCattle ? `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background-color:#94A3B8;"></span>` : ''}
-              </div>
-            `;
-            iconWidth = 70;
-            iconHeight = 18;
-          } else if (currentZoom < 16) {
-            // Nivel 2: Zoom Medio (Vista de Sector) -> Nombre y Hectáreas ordenadas
-            badgeHtml = `
-              <div style="
-                background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.90)'};
-                backdrop-filter: blur(4px);
-                border: 1px solid ${isSelected ? '#FFFFFF' : polyColor};
-                border-radius: 6px;
-                padding: 3px 8px;
-                color: white;
-                font-family: system-ui, sans-serif;
-                font-size: 11px;
-                font-weight: 600;
-                text-align: center;
-                box-shadow: 0 3px 10px rgba(0,0,0,0.5);
-                white-space: nowrap;
-                cursor: pointer;
-              ">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                  <span style="font-weight: 700; color: #F8FAFC;">${p.nombre}</span>
-                  <span style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'};">${p.area_hectareas} Ha</span>
-                </div>
-                ${hasCattle ? `<div style="margin-top: 2px; font-size: 8.5px; background: #475569; color: #F8FAFC; padding: 1px 4px; border-radius: 3px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs)</div>` : ''}
-              </div>
-            `;
-            iconWidth = 105;
-            iconHeight = hasCattle ? 36 : 24;
-          } else {
-            // Nivel 3: Zoom Cercano (Detallado) -> Tarjeta con métricas completas
-            badgeHtml = `
-              <div style="
-                background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.92)'};
-                backdrop-filter: blur(4px);
-                border: 1.5px solid ${isSelected ? '#FFFFFF' : polyColor};
-                border-radius: 8px;
-                padding: 4px 8px;
-                color: white;
-                font-family: system-ui, sans-serif;
-                font-size: 11px;
-                font-weight: 600;
-                text-align: center;
-                box-shadow: 0 4px 14px rgba(0,0,0,0.5);
-                white-space: nowrap;
-                cursor: pointer;
-              ">
-                <div style="color: #F8FAFC; font-weight: 700;">${p.nombre}</div>
-                <div style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'};">${p.area_hectareas} Ha</div>
-                ${
-                  hasCattle
-                    ? `<div style="margin-top: 2px; font-size: 9px; background: #475569; color: #F8FAFC; padding: 2px 5px; border-radius: 4px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs &bull; ${p.potrerada_actual?.peso_promedio}kg)</div>`
-                    : ''
-                }
-              </div>
-            `;
-            iconWidth = 125;
-            iconHeight = hasCattle ? 46 : 30;
-          }
-
-          const customIcon = L.divIcon({
-            html: badgeHtml,
-            className: '',
-            iconSize: [iconWidth, iconHeight],
-            iconAnchor: [iconWidth / 2, iconHeight / 2],
-          });
-
-          const badgeMarker = L.marker(center, { icon: customIcon }).addTo(map);
-          badgeMarker.on('click', () => {
-            setSelectedZona(null);
-            setSelectedPotrero(p);
-          });
         }
       } catch (e) {
-        console.warn('Error calculando centro de polígono potrero:', e);
+        // ignore
       }
     });
 
@@ -368,9 +293,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             setSelectedZona(z);
           });
         },
-      }).addTo(map);
+      });
 
-      // Tooltip informativo al pasar el cursor (Hover)
       geoJsonLayer.bindTooltip(`
         <div style="font-family: system-ui, sans-serif; font-size: 11px; padding: 2px;">
           <strong style="color: #0F172A;">${zoneIcon} ${z.nombre}</strong> (${z.area_hectareas} Ha)
@@ -382,152 +306,343 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         opacity: 0.95,
       });
 
+      polyGroup.addLayer(geoJsonLayer);
+
       try {
         const polyBounds = geoJsonLayer.getBounds();
         if (polyBounds.isValid()) {
           bounds.extend(polyBounds);
-          const center = polyBounds.getCenter();
-
-          let badgeHtml = '';
-          let iconWidth = 100;
-          let iconHeight = 24;
-
-          if (isMobile && currentZoom < 14) {
-            // Móvil + zoom alejado: solo un punto de color
-            badgeHtml = `
-              <div style="
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background-color: ${zoneColor};
-                border: 1.5px solid rgba(255,255,255,0.7);
-                box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-                cursor: pointer;
-              "></div>
-            `;
-            iconWidth = 8;
-            iconHeight = 8;
-          } else if (isMobile && currentZoom < 16) {
-            // Móvil + zoom medio: nombre muy compacto
-            const nombreCortoZ = z.nombre.length > 8 ? z.nombre.substring(0, 8) + '…' : z.nombre;
-            badgeHtml = `
-              <div style="
-                background-color: rgba(15, 23, 42, 0.88);
-                backdrop-filter: blur(4px);
-                border: 1px solid ${zoneColor};
-                border-radius: 4px;
-                padding: 2px 5px;
-                color: white;
-                font-family: system-ui, sans-serif;
-                font-size: 9px;
-                font-weight: 700;
-                text-align: center;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-                white-space: nowrap;
-                cursor: pointer;
-                max-width: 70px;
-              ">${zoneIcon} ${nombreCortoZ}</div>
-            `;
-            iconWidth = 60;
-            iconHeight = 16;
-          } else if (currentZoom < 14) {
-            // Nivel 1: Zoom Alejado -> Píldora ultra compacta
-            badgeHtml = `
-              <div style="
-                background-color: ${isSelected ? '#F59E0B' : 'rgba(15, 23, 42, 0.85)'};
-                backdrop-filter: blur(4px);
-                border: 1px solid ${isSelected ? '#FFFFFF' : zoneColor};
-                border-radius: 4px;
-                padding: 2px 6px;
-                color: white;
-                font-family: system-ui, sans-serif;
-                font-size: 10px;
-                font-weight: 700;
-                text-align: center;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.45);
-                white-space: nowrap;
-                cursor: pointer;
-              ">
-                <span>${zoneIcon} ${z.nombre}</span>
-              </div>
-            `;
-            iconWidth = 75;
-            iconHeight = 18;
-          } else if (currentZoom < 16) {
-            // Nivel 2: Zoom Medio -> Nombre y Ha
-            badgeHtml = `
-              <div style="
-                background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.90)'};
-                backdrop-filter: blur(4px);
-                border: 1px solid ${isSelected ? '#FFFFFF' : zoneColor};
-                border-radius: 6px;
-                padding: 3px 8px;
-                color: white;
-                font-family: system-ui, sans-serif;
-                font-size: 11px;
-                font-weight: 600;
-                text-align: center;
-                box-shadow: 0 3px 10px rgba(0,0,0,0.5);
-                white-space: nowrap;
-                cursor: pointer;
-              ">
-                <span style="font-weight: 700; color: #F8FAFC;">${zoneIcon} ${z.nombre}</span>
-                <span style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'}; margin-left: 4px;">${z.area_hectareas} Ha</span>
-              </div>
-            `;
-            iconWidth = 110;
-            iconHeight = 24;
-          } else {
-            // Nivel 3: Zoom Cercano -> Tarjeta con tipo de zona
-            badgeHtml = `
-              <div style="
-                background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.92)'};
-                backdrop-filter: blur(4px);
-                border: 1.5px solid ${isSelected ? '#FFFFFF' : zoneColor};
-                border-radius: 8px;
-                padding: 4px 8px;
-                color: white;
-                font-family: system-ui, sans-serif;
-                font-size: 11px;
-                font-weight: 600;
-                text-align: center;
-                box-shadow: 0 4px 14px rgba(0,0,0,0.5);
-                white-space: nowrap;
-                cursor: pointer;
-              ">
-                <div style="color: #F8FAFC; font-weight: 700;">${zoneIcon} ${z.nombre}</div>
-                <div style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : baseZoneColor}; font-weight: 600;">${z.area_hectareas} Ha &bull; ${zoneLabel}</div>
-              </div>
-            `;
-            iconWidth = 130;
-            iconHeight = 44;
-          }
-
-          const customIcon = L.divIcon({
-            html: badgeHtml,
-            className: '',
-            iconSize: [iconWidth, iconHeight],
-            iconAnchor: [iconWidth / 2, iconHeight / 2],
-          });
-
-          const badgeMarker = L.marker(center, { icon: customIcon }).addTo(map);
-          badgeMarker.on('click', () => {
-            setSelectedPotrero(null);
-            setSelectedZona(z);
-          });
         }
       } catch (e) {
-        console.warn('Error calculando centro de polígono zona especial:', e);
+        // ignore
       }
     });
 
-    // Ajustar vista del mapa solo al cargar nuevos datos para no reiniciar el zoom del usuario
+    // Ajustar vista del mapa al cargar la finca por primera vez
     const currentDataKey = `${potreros.length}-${zonasAdicionales.length}-${potreros.map(p => p.id).join(',')}`;
     if (bounds.isValid() && fittedBoundsKeyRef.current !== currentDataKey && (potreros.some((p) => p.geojson_geometry) || zonasAdicionales.some((z) => z.geojson_geometry))) {
-      map.fitBounds(bounds, { padding: [40, 40] });
+      map.invalidateSize();
+      map.fitBounds(bounds, { padding: isMobile ? [20, 20] : [40, 40], maxZoom: 17 });
       fittedBoundsKeyRef.current = currentDataKey;
     }
-  }, [potreros, zonasAdicionales, tipoLicencia, currentZoom, selectedPotrero, selectedZona, isMobile]);
+  }, [potreros, zonasAdicionales, tipoLicencia, selectedPotrero?.id, selectedZona?.id, isMobile]);
+
+  // 2. Renderizar Etiquetas Flotantes Inteligentes (Badges en badgesGroupRef)
+  // Controla la densidad visual para que en zoom panorámico NO se amontonen las 50 etiquetas
+  useEffect(() => {
+    const badgeGroup = badgesGroupRef.current;
+    if (!badgeGroup) return;
+
+    badgeGroup.clearLayers();
+
+    const isDemo = tipoLicencia === 'demo';
+    // Determinar umbral según dispositivo:
+    // En celular una finca completa suele quedar en zoom 13-15.5
+    // En PC suele quedar en zoom 13-14
+    const isOverviewZoom = isMobile ? currentZoom < 15.5 : currentZoom < 14.5;
+    const isMediumZoom = isMobile ? (currentZoom >= 15.5 && currentZoom < 17.5) : (currentZoom >= 14.5 && currentZoom < 16.5);
+
+    // 1. Badges de Potreros
+    potreros.forEach((p) => {
+      const center = centroids.potreroCentroids.get(p.id);
+      if (!center) return;
+
+      const isSelected = selectedPotrero?.id === p.id;
+      const hasCattle = !isDemo && !!p.potrerada_actual;
+      const baseColor = isDemo ? '#10B981' : hasCattle ? '#64748B' : '#10B981';
+      const polyColor = isSelected ? '#F59E0B' : baseColor;
+
+      // EN VISTA PANORÁMICA (Zoom alejado):
+      // Para evitar que 50 etiquetas se encimen formando una pirámide ilegible:
+      // - Si tiene ganado: Mostrar badge compacto con ícono de vaca y nombre del lote
+      // - Si está seleccionado: Mostrar badge destacado en ámbar
+      // - Si está vacío y no seleccionado: NO mostrar texto (mapa limpio y despejado)
+      if (isOverviewZoom) {
+        if (!hasCattle && !isSelected) {
+          // Potrero vacío en vista panorámica: no genera marcador DOM, máxima fluidez
+          return;
+        }
+
+        let badgeHtml = '';
+        let iconWidth = 90;
+        let iconHeight = 22;
+
+        if (isSelected) {
+          badgeHtml = `
+            <div style="
+              background-color: #D97706;
+              border: 1.5px solid #FEF3C7;
+              border-radius: 6px;
+              padding: 2px 7px;
+              color: white;
+              font-family: system-ui, sans-serif;
+              font-size: 10px;
+              font-weight: 700;
+              text-align: center;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+              white-space: nowrap;
+              cursor: pointer;
+            ">
+              ${p.nombre} (${p.area_hectareas} Ha)
+            </div>
+          `;
+          iconWidth = 100;
+          iconHeight = 22;
+        } else if (hasCattle) {
+          const potreradaNombre = p.potrerada_actual?.nombre || 'Lote';
+          const nombreCorto = potreradaNombre.length > 12 ? potreradaNombre.substring(0, 10) + '…' : potreradaNombre;
+          badgeHtml = `
+            <div style="
+              background-color: #1E293B;
+              border: 1.5px solid #38BDF8;
+              border-radius: 12px;
+              padding: 2px 7px;
+              color: #F8FAFC;
+              font-family: system-ui, sans-serif;
+              font-size: 9.5px;
+              font-weight: 700;
+              text-align: center;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+              white-space: nowrap;
+              cursor: pointer;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+            ">
+              <span>🐮</span>
+              <span style="color: #BAE6FD;">${nombreCorto}</span>
+              <span style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; font-size: 8.5px; padding: 0 3px; border-radius: 4px;">${p.potrerada_actual?.total_animales || ''}</span>
+            </div>
+          `;
+          iconWidth = 90;
+          iconHeight = 22;
+        }
+
+        const customIcon = L.divIcon({
+          html: badgeHtml,
+          className: '',
+          iconSize: [iconWidth, iconHeight],
+          iconAnchor: [iconWidth / 2, iconHeight / 2],
+        });
+
+        const marker = L.marker(center, { icon: customIcon });
+        marker.on('click', () => {
+          setSelectedZona(null);
+          setSelectedPotrero(p);
+        });
+        badgeGroup.addLayer(marker);
+        return;
+      }
+
+      // EN VISTA DE SECTOR (Zoom medio):
+      if (isMediumZoom) {
+        const nombreDisplay = isMobile && p.nombre.length > 10 ? p.nombre.substring(0, 10) + '…' : p.nombre;
+        const badgeHtml = `
+          <div style="
+            background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.94)'};
+            border: 1.5px solid ${isSelected ? '#FFFFFF' : polyColor};
+            border-radius: 6px;
+            padding: 2px 7px;
+            color: white;
+            font-family: system-ui, sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            white-space: nowrap;
+            cursor: pointer;
+          ">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <span style="font-weight: 700; color: #F8FAFC;">${nombreDisplay}</span>
+              <span style="font-size: 9px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'};">${p.area_hectareas} Ha</span>
+            </div>
+            ${hasCattle ? `<div style="margin-top: 2px; font-size: 8.5px; background: #334155; color: #38BDF8; padding: 1px 4px; border-radius: 3px; font-weight: 600;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs)</div>` : ''}
+          </div>
+        `;
+        const iconWidth = hasCattle ? 110 : 85;
+        const iconHeight = hasCattle ? 34 : 22;
+
+        const customIcon = L.divIcon({
+          html: badgeHtml,
+          className: '',
+          iconSize: [iconWidth, iconHeight],
+          iconAnchor: [iconWidth / 2, iconHeight / 2],
+        });
+
+        const marker = L.marker(center, { icon: customIcon });
+        marker.on('click', () => {
+          setSelectedZona(null);
+          setSelectedPotrero(p);
+        });
+        badgeGroup.addLayer(marker);
+        return;
+      }
+
+      // EN VISTA DETALLADA (Zoom cercano):
+      const badgeHtml = `
+        <div style="
+          background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.95)'};
+          border: 1.5px solid ${isSelected ? '#FFFFFF' : polyColor};
+          border-radius: 8px;
+          padding: 4px 8px;
+          color: white;
+          font-family: system-ui, sans-serif;
+          font-size: 11px;
+          font-weight: 600;
+          text-align: center;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+          white-space: nowrap;
+          cursor: pointer;
+        ">
+          <div style="color: #F8FAFC; font-weight: 700;">${p.nombre}</div>
+          <div style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'};">${p.area_hectareas} Ha</div>
+          ${
+            hasCattle
+              ? `<div style="margin-top: 3px; font-size: 9px; background: #334155; color: #38BDF8; padding: 2px 6px; border-radius: 4px; font-weight: 600;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs &bull; ${p.potrerada_actual?.peso_promedio}kg)</div>`
+              : ''
+          }
+        </div>
+      `;
+      const iconWidth = 125;
+      const iconHeight = hasCattle ? 46 : 30;
+
+      const customIcon = L.divIcon({
+        html: badgeHtml,
+        className: '',
+        iconSize: [iconWidth, iconHeight],
+        iconAnchor: [iconWidth / 2, iconHeight / 2],
+      });
+
+      const marker = L.marker(center, { icon: customIcon });
+      marker.on('click', () => {
+        setSelectedZona(null);
+        setSelectedPotrero(p);
+      });
+      badgeGroup.addLayer(marker);
+    });
+
+    // 2. Badges de Zonas Especiales
+    zonasAdicionales.forEach((z) => {
+      const center = centroids.zonaCentroids.get(z.id);
+      if (!center) return;
+
+      const isSelected = selectedZona?.id === z.id;
+      const isBosque = z.tipo === 'bosque' || z.tipo === 'reforestacion' || z.tipo === 'reserva';
+      const isAgua = z.tipo === 'agua';
+      const isInfra = z.tipo === 'infraestructura';
+
+      const baseZoneColor = z.color || (isBosque ? '#059669' : isAgua ? '#0284C7' : isInfra ? '#D97706' : '#8B5CF6');
+      const zoneColor = isSelected ? '#F59E0B' : baseZoneColor;
+      const zoneIcon = isBosque ? '🌳' : isAgua ? '💧' : isInfra ? '🏠' : '📍';
+      const zoneLabel = isBosque ? 'Bosque' : isAgua ? 'Agua' : isInfra ? 'Infraestructura' : 'Zona Especial';
+
+      // En vista panorámica: Solo mostrar si está seleccionada
+      if (isOverviewZoom) {
+        if (!isSelected) return;
+
+        const badgeHtml = `
+          <div style="
+            background-color: #D97706;
+            border: 1.5px solid #FEF3C7;
+            border-radius: 6px;
+            padding: 2px 7px;
+            color: white;
+            font-family: system-ui, sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+            white-space: nowrap;
+            cursor: pointer;
+          ">
+            ${zoneIcon} ${z.nombre}
+          </div>
+        `;
+        const customIcon = L.divIcon({
+          html: badgeHtml,
+          className: '',
+          iconSize: [90, 22],
+          iconAnchor: [45, 11],
+        });
+        const marker = L.marker(center, { icon: customIcon });
+        marker.on('click', () => {
+          setSelectedPotrero(null);
+          setSelectedZona(z);
+        });
+        badgeGroup.addLayer(marker);
+        return;
+      }
+
+      // En vista de sector:
+      if (isMediumZoom) {
+        const nombreDisplay = isMobile && z.nombre.length > 10 ? z.nombre.substring(0, 10) + '…' : z.nombre;
+        const badgeHtml = `
+          <div style="
+            background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.94)'};
+            border: 1px solid ${isSelected ? '#FFFFFF' : zoneColor};
+            border-radius: 6px;
+            padding: 2px 7px;
+            color: white;
+            font-family: system-ui, sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            white-space: nowrap;
+            cursor: pointer;
+          ">
+            <span style="font-weight: 700; color: #F8FAFC;">${zoneIcon} ${nombreDisplay}</span>
+            <span style="font-size: 9px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'}; margin-left: 4px;">${z.area_hectareas} Ha</span>
+          </div>
+        `;
+        const customIcon = L.divIcon({
+          html: badgeHtml,
+          className: '',
+          iconSize: [100, 22],
+          iconAnchor: [50, 11],
+        });
+        const marker = L.marker(center, { icon: customIcon });
+        marker.on('click', () => {
+          setSelectedPotrero(null);
+          setSelectedZona(z);
+        });
+        badgeGroup.addLayer(marker);
+        return;
+      }
+
+      // En vista detallada:
+      const badgeHtml = `
+        <div style="
+          background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.95)'};
+          border: 1.5px solid ${isSelected ? '#FFFFFF' : zoneColor};
+          border-radius: 8px;
+          padding: 4px 8px;
+          color: white;
+          font-family: system-ui, sans-serif;
+          font-size: 11px;
+          font-weight: 600;
+          text-align: center;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+          white-space: nowrap;
+          cursor: pointer;
+        ">
+          <div style="color: #F8FAFC; font-weight: 700;">${zoneIcon} ${z.nombre}</div>
+          <div style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : baseZoneColor}; font-weight: 600;">${z.area_hectareas} Ha &bull; ${zoneLabel}</div>
+        </div>
+      `;
+      const customIcon = L.divIcon({
+        html: badgeHtml,
+        className: '',
+        iconSize: [125, 42],
+        iconAnchor: [62, 21],
+      });
+      const marker = L.marker(center, { icon: customIcon });
+      marker.on('click', () => {
+        setSelectedPotrero(null);
+        setSelectedZona(z);
+      });
+      badgeGroup.addLayer(marker);
+    });
+  }, [potreros, zonasAdicionales, currentZoom, isMobile, selectedPotrero?.id, selectedZona?.id, tipoLicencia, centroids]);
 
   // Manejar Geolocalización GPS del Usuario en Tiempo Real (Exclusivo Plan Premium)
   const handleTrackGps = () => {
