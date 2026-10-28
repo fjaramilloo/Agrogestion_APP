@@ -264,12 +264,12 @@ export default function Settings() {
 
                 if (errCheck) throw errCheck;
 
-                const conVenta = animalesCarga?.filter(a => a.fecha_venta) || [];
+                const conVenta = animalesCarga?.filter((a: any) => a.fecha_venta) || [];
                 if (conVenta.length > 0) {
                     throw new Error(`No se puede deshacer la carga: ${conVenta.length} animal(es) ya tienen ventas registradas (ej. #${conVenta[0].numero_chapeta}).`);
                 }
 
-                const animalIds = animalesCarga?.map(a => a.id) || [];
+                const animalIds = animalesCarga?.map((a: any) => a.id) || [];
                 if (animalIds.length > 0) {
                     // Eliminar pesajes asociados a estos animales
                     await supabase
@@ -302,7 +302,7 @@ export default function Settings() {
 
                 if (errGetP) throw errGetP;
 
-                const animalesAfectados = Array.from(new Set(pesajesABorrar?.map(p => p.id_animal).filter(Boolean))) as string[];
+                const animalesAfectados = Array.from(new Set(pesajesABorrar?.map((p: any) => p.id_animal).filter(Boolean))) as string[];
 
                 // 2. Eliminar los pesajes cargados
                 const { error: errDel } = await supabase
@@ -524,7 +524,38 @@ export default function Settings() {
 
             if (error) throw error;
 
-            setUserFormMsg({ type: 'success', text: `✓ Usuario ${newUserEmail} creado y asignado a ${selectedFincas.length} finca(s) exitosamente.` });
+            // Obtener nombres de las fincas asignadas para el correo de bienvenida
+            const nombresFincas = fincasAdmin
+                .filter((f: any) => selectedFincas.includes(f.id_finca))
+                .map((f: any) => f.nombre_finca);
+
+            // Enviar correo de bienvenida con credenciales e instructivo de instalación (PWA)
+            let emailEnviado = false;
+            try {
+                const { error: fnErr } = await supabase.functions.invoke('notify-worker-invite', {
+                    body: {
+                        email: newUserEmail.trim(),
+                        nombre: newUserNombre.trim(),
+                        apellido: newUserApellido.trim(),
+                        password: newUserPass,
+                        rol: newUserRole,
+                        fincas: nombresFincas
+                    }
+                });
+                if (!fnErr) {
+                    emailEnviado = true;
+                } else {
+                    console.warn('[handleCreateUser] Error al enviar email de bienvenida:', fnErr);
+                }
+            } catch (fnEx) {
+                console.warn('[handleCreateUser] Excepción al invocar función de email:', fnEx);
+            }
+
+            const successText = emailEnviado
+                ? `✓ Usuario ${newUserEmail} creado y asignado exitosamente. Se ha enviado un correo con sus credenciales y guía de instalación móvil.`
+                : `✓ Usuario ${newUserEmail} creado y asignado a ${selectedFincas.length} finca(s) exitosamente.`;
+
+            setUserFormMsg({ type: 'success', text: successText });
             setNewUserEmail('');
             setNewUserPass('');
             setNewUserNombre('');
@@ -685,8 +716,8 @@ export default function Settings() {
                     const { data: pds } = await supabase.from('potreradas').select('id, nombre').eq('id_finca', fincaId);
                     const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
 
-                    const mapPotreradas = new Map(pds?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
-                    const mapPotreros = new Map(pts?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
+                    const mapPotreradas = new Map(pds?.map((p: any) => [p.nombre.toLowerCase().trim(), p.id]));
+                    const mapPotreros = new Map(pts?.map((p: any) => [p.nombre.toLowerCase().trim(), p.id]));
 
                     // VALIDACIÓN PREVENTIVA: Revisar si los potreros del CSV existen
                     const potrerosNoReconocidos = new Set<string>();
@@ -736,7 +767,7 @@ export default function Settings() {
                         if (errCreate) throw new Error(`Error al crear potreradas: ${errCreate.message}`);
 
                         // Agregar al mapa las recién creadas
-                        creadas?.forEach(p => mapPotreradas.set(p.nombre.toLowerCase().trim(), p.id));
+                        creadas?.forEach((p: any) => mapPotreradas.set(p.nombre.toLowerCase().trim(), p.id));
                     }
 
                     // 3. Construir filas de animales con IDs resueltos
@@ -1007,10 +1038,10 @@ export default function Settings() {
                         if (batchData) pesajesExistentes.push(...batchData);
                     }
 
-                    const setDuplicados = new Set(pesajesExistentes?.map(p => `${p.id_animal}|${p.fecha}|${p.peso}`));
+                    const setDuplicados = new Set(pesajesExistentes?.map((p: any) => `${p.id_animal}|${p.fecha}|${p.peso}`));
 
                     const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
-                    const mapPotreros = new Map(pts?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
+                    const mapPotreros = new Map(pts?.map((p: any) => [p.nombre.toLowerCase().trim(), p.id]));
 
                     // VALIDACIÓN PREVENTIVA: Revisar si los potreros del CSV de pesajes existen
                     const potrerosNoReconocidos = new Set<string>();
@@ -1263,8 +1294,8 @@ export default function Settings() {
                     const { data: exRot } = await supabase.from('rotaciones').select('id, nombre').eq('id_finca', fincaId);
                     const { data: exPot } = await supabase.from('potreros').select('id, nombre, id_rotacion').eq('id_finca', fincaId);
 
-                    const mapRotaciones = new Map(exRot?.map(r => [r.nombre.toLowerCase().trim(), r.id]));
-                    const mapPotreros = new Map(exPot?.map(p => [p.nombre.toLowerCase().trim(), { id: p.id, id_rotacion: p.id_rotacion }]));
+                    const mapRotaciones = new Map(exRot?.map((r: any) => [r.nombre.toLowerCase().trim(), r.id]));
+                    const mapPotreros = new Map<string, { id: string; id_rotacion: string | null }>(exPot?.map((p: any) => [p.nombre.toLowerCase().trim(), { id: p.id, id_rotacion: p.id_rotacion }]));
 
                     // 2. Identificar rotaciones nuevas
                     const rotacionesNuevas = new Map<string, string>(); // nombre_lower -> original
@@ -1282,7 +1313,7 @@ export default function Settings() {
                         }));
                         const { data: creadas, error: rotErr } = await supabase.from('rotaciones').insert(inserts).select();
                         if (rotErr) throw rotErr;
-                        creadas?.forEach(r => mapRotaciones.set(r.nombre.toLowerCase().trim(), r.id));
+                        creadas?.forEach((r: any) => mapRotaciones.set(r.nombre.toLowerCase().trim(), r.id));
                     }
 
                     // 3. Procesar potreros
@@ -1810,6 +1841,9 @@ export default function Settings() {
                                             <div>
                                                 <label>Contraseña Temporal</label>
                                                 <input type="text" value={newUserPass} onChange={(e) => setNewUserPass(e.target.value)} required />
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                                                    ✉️ Se enviará automáticamente al correo junto con la guía de instalación.
+                                                </span>
                                             </div>
                                             <div>
                                                 <label>Perfil / Rol</label>
