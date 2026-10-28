@@ -6,7 +6,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend, BarChart, Bar, ReferenceLine
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, AlertOctagon } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, AlertOctagon, SlidersHorizontal } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
@@ -123,6 +123,12 @@ export default function Dashboard() {
     const [animalesPorRango, setAnimalesPorRango] = useState<Record<string, any[]>>({
         rango1: [], rango2: [], rango3: [], rango4: []
     });
+    const [cortesPeso, setCortesPeso] = useState({
+        corte1: 430,
+        corte2: 480,
+        corte3: 530,
+        preset: 'ceba_tradicional'
+    });
     const [rangoModalVisible, setRangoModalVisible] = useState(false);
     const [selectedRangoData, setSelectedRangoData] = useState<{
         nombre: string,
@@ -167,7 +173,7 @@ export default function Dashboard() {
                 const pResumen = Promise.all([
                     safePromise(supabase.from('resumen_finca').select('*').eq('id_finca', fincaId).single()),
                     safePromise(supabase.from('fincas').select('nombre, proposito, area_aprovechable, ubicacion, municipio').eq('id', fincaId).single()),
-                    safePromise(supabase.from('configuracion_kpi').select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad').eq('id_finca', fincaId).single())
+                    safePromise(supabase.from('configuracion_kpi').select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad, corte_peso_1, corte_peso_2, corte_peso_3, preset_peso').eq('id_finca', fincaId).single())
                 ]);
 
                 const pDetalle = Promise.all([
@@ -207,6 +213,14 @@ export default function Dashboard() {
                     if (precio > 0) metaMinimaVal = (costo / participacion) / precio;
                     if (configKpi.umbral_alto_gmp) setUmbralAlto(configKpi.umbral_alto_gmp);
                     if (configKpi.umbral_medio_gmp) setUmbralMedio(configKpi.umbral_medio_gmp);
+                    if (configKpi.corte_peso_1 || configKpi.corte_peso_2 || configKpi.corte_peso_3) {
+                        setCortesPeso({
+                            corte1: Number(configKpi.corte_peso_1) || 430,
+                            corte2: Number(configKpi.corte_peso_2) || 480,
+                            corte3: Number(configKpi.corte_peso_3) || 530,
+                            preset: configKpi.preset_peso || 'ceba_tradicional'
+                        });
+                    }
                 }
 
                 const [lluviasRes, todosAnimalesRes] = await pDetalle;
@@ -462,13 +476,17 @@ export default function Dashboard() {
                         potrerada: animal.potreradas?.nombre || animal.potreros?.nombre || 'Sin Ubicación'
                     };
 
-                    if (estimado < 430) {
+                    const c1 = Number(configKpi?.corte_peso_1) || 430;
+                    const c2 = Number(configKpi?.corte_peso_2) || 480;
+                    const c3 = Number(configKpi?.corte_peso_3) || 530;
+
+                    if (estimado <= c1) {
                         dist.rango1++;
                         distAnimales.rango1.push(objAnimal);
-                    } else if (estimado <= 480) {
+                    } else if (estimado <= c2) {
                         dist.rango2++;
                         distAnimales.rango2.push(objAnimal);
-                    } else if (estimado <= 530) {
+                    } else if (estimado <= c3) {
                         dist.rango3++;
                         distAnimales.rango3.push(objAnimal);
                     } else {
@@ -480,6 +498,7 @@ export default function Dashboard() {
                 setAnimalesPorRango(distAnimales);
 
                 // --- CÁLCULO DE PRÓXIMOS DESPACHOS ---
+                const corteMetaDespacho = Number(configKpi?.corte_peso_3) || 530;
                 const reportePots: Record<string, { 
                     id: string, 
                     nombre: string, 
@@ -525,7 +544,7 @@ export default function Dashboard() {
                     reportePots[idPot].sumPeso += pesoEst;
                     reportePots[idPot].sumGmp += gmpIndiv;
                     reportePots[idPot].countGmp++;
-                    if (pesoEst >= 530) {
+                    if (pesoEst >= corteMetaDespacho) {
                         reportePots[idPot].countReady++;
                     }
                 });
@@ -540,7 +559,7 @@ export default function Dashboard() {
                     const best = sortedPots[0];
                     const gmpProm = best.countGmp > 0 ? best.sumGmp / best.countGmp : 10.3;
                     const pesoProm = best.countAll > 0 ? best.sumPeso / best.countAll : 0;
-                    const faltanKg = Math.max(0, 530 - pesoProm);
+                    const faltanKg = Math.max(0, corteMetaDespacho - pesoProm);
                     const dias = gmpProm > 0 ? Math.ceil(faltanKg / (gmpProm / 30)) : 999;
 
                     setProximosDespachos({
@@ -695,10 +714,14 @@ export default function Dashboard() {
 
                     // 3. Agrupar por Rango de Peso (Tomamos el peso al INICIO del intervalo)
                     const pesoRef = prevWeight;
+                    const c1 = Number(cortesPeso.corte1) || 430;
+                    const c2 = Number(cortesPeso.corte2) || 480;
+                    const c3 = Number(cortesPeso.corte3) || 530;
+
                     let targetRango = '';
-                    if (pesoRef <= 400) targetRango = 'rango1';
-                    else if (pesoRef <= 480) targetRango = 'rango2';
-                    else if (pesoRef <= 530) targetRango = 'rango3';
+                    if (pesoRef <= c1) targetRango = 'rango1';
+                    else if (pesoRef <= c2) targetRango = 'rango2';
+                    else if (pesoRef <= c3) targetRango = 'rango3';
                     else targetRango = 'rango4';
 
                     agrupadoPorRango[targetRango].sum += gmpVal;
@@ -732,11 +755,15 @@ export default function Dashboard() {
             .slice(0, 15); // Mostrar máximo 15 pesajes para no saturar 
 
         // 4. Procesar gráfica de Rangos de Peso
+        const c1Val = Number(cortesPeso.corte1) || 430;
+        const c2Val = Number(cortesPeso.corte2) || 480;
+        const c3Val = Number(cortesPeso.corte3) || 530;
+
         const dataPorRango = [
-            { name: '< 400 kg', ...agrupadoPorRango.rango1 },
-            { name: '401 - 480 kg', ...agrupadoPorRango.rango2 },
-            { name: '481 - 530 kg', ...agrupadoPorRango.rango3 },
-            { name: '> 531 kg', ...agrupadoPorRango.rango4 },
+            { name: `< ${c1Val} kg`, ...agrupadoPorRango.rango1 },
+            { name: `${c1Val + 1} - ${c2Val} kg`, ...agrupadoPorRango.rango2 },
+            { name: `${c2Val + 1} - ${c3Val} kg`, ...agrupadoPorRango.rango3 },
+            { name: `> ${c3Val} kg`, ...agrupadoPorRango.rango4 },
         ].map(r => ({
             name: r.name,
             gmp: r.count > 0 ? parseFloat((r.sum / r.count).toFixed(1)) : 0,
@@ -771,7 +798,7 @@ export default function Dashboard() {
             evolucionPorRango: dataPorRango,
             detallesGmpAgrupados: { levante: levDetails, ceba: cebaDetails }
         };
-    }, [filterTipo, rawData]);
+    }, [filterTipo, rawData, cortesPeso]);
 
     return (
         <div className="page-container" style={{ paddingBottom: '40px' }}>
@@ -1056,10 +1083,33 @@ export default function Dashboard() {
                                 background: 'rgba(255,255,255,0.02)',
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
                                 gap: '10px'
                             }}>
-                                <TrendingUp size={18} color="var(--primary)" />
-                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Proyección de Animales por Rango de Peso (Estimado Hoy)</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <TrendingUp size={18} color="var(--primary)" />
+                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Proyección de Animales por Rango de Peso (Estimado Hoy)</h3>
+                                </div>
+                                <button 
+                                    onClick={() => navigate('/configuracion')}
+                                    title="Personalizar rangos de peso según el modelo de esta finca"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.04)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '6px',
+                                        color: 'var(--text-muted)',
+                                        fontSize: '0.75rem',
+                                        padding: '4px 10px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <SlidersHorizontal size={13} />
+                                    <span>Ajustar Rangos</span>
+                                </button>
                             </div>
                             <div style={{ padding: '24px' }}>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px' }}>
@@ -1074,46 +1124,46 @@ export default function Dashboard() {
                                             <tbody>
                                                 <tr 
                                                     onClick={() => {
-                                                        setSelectedRangoData({ nombre: '< 430 kg', animales: animalesPorRango.rango1 });
+                                                        setSelectedRangoData({ nombre: `< ${cortesPeso.corte1} kg`, animales: animalesPorRango.rango1 });
                                                         setRangoModalVisible(true);
                                                     }}
                                                     style={{ cursor: 'pointer' }}
                                                     className="table-row-hover"
                                                 >
-                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&lt; 430 kg</td>
+                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&lt; {cortesPeso.corte1} kg</td>
                                                     <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango1}</td>
                                                 </tr>
                                                 <tr 
                                                     onClick={() => {
-                                                        setSelectedRangoData({ nombre: '431 - 480 kg', animales: animalesPorRango.rango2 });
+                                                        setSelectedRangoData({ nombre: `${cortesPeso.corte1 + 1} - ${cortesPeso.corte2} kg`, animales: animalesPorRango.rango2 });
                                                         setRangoModalVisible(true);
                                                     }}
                                                     style={{ cursor: 'pointer' }}
                                                     className="table-row-hover"
                                                 >
-                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>431 - 480 kg</td>
+                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>{cortesPeso.corte1 + 1} - {cortesPeso.corte2} kg</td>
                                                     <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango2}</td>
                                                 </tr>
                                                 <tr 
                                                     onClick={() => {
-                                                        setSelectedRangoData({ nombre: '481 - 530 kg', animales: animalesPorRango.rango3 });
+                                                        setSelectedRangoData({ nombre: `${cortesPeso.corte2 + 1} - ${cortesPeso.corte3} kg`, animales: animalesPorRango.rango3 });
                                                         setRangoModalVisible(true);
                                                     }}
                                                     style={{ cursor: 'pointer' }}
                                                     className="table-row-hover"
                                                 >
-                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>481 - 530 kg</td>
+                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>{cortesPeso.corte2 + 1} - {cortesPeso.corte3} kg</td>
                                                     <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango3}</td>
                                                 </tr>
                                                 <tr 
                                                     onClick={() => {
-                                                        setSelectedRangoData({ nombre: '> 530 kg', animales: animalesPorRango.rango4 });
+                                                        setSelectedRangoData({ nombre: `> ${cortesPeso.corte3} kg`, animales: animalesPorRango.rango4 });
                                                         setRangoModalVisible(true);
                                                     }}
                                                     style={{ cursor: 'pointer' }}
                                                     className="table-row-hover"
                                                 >
-                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&gt; 530 kg</td>
+                                                    <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&gt; {cortesPeso.corte3} kg</td>
                                                     <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango4}</td>
                                                 </tr>
                                                 <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
@@ -1156,7 +1206,7 @@ export default function Dashboard() {
                                                     Lote: <span style={{ color: 'var(--primary-light)' }}>{proximosDespachos.nombre}</span>
                                                 </div>
                                                 <div style={{ fontSize: '1.05rem', lineHeight: '1.6', color: 'rgba(255,255,255,0.9)' }}>
-                                                    Tienes <b style={{ color: 'white', fontSize: '1.2rem' }}>{proximosDespachos.listos}</b> animales de más de 530 kg. 
+                                                    Tienes <b style={{ color: 'white', fontSize: '1.2rem' }}>{proximosDespachos.listos}</b> animales de más de {cortesPeso.corte3} kg. 
                                                     <br />
                                                     <span style={{ display: 'block', marginTop: '12px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
                                                         {proximosDespachos.diasFaltantes === 0 

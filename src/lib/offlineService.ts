@@ -311,7 +311,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
       safe(
         supabase
           .from('configuracion_kpi')
-          .select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad')
+          .select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad, corte_peso_1, corte_peso_2, corte_peso_3, preset_peso')
           .eq('id_finca', fincaId)
           .single(),
         'config_kpi_dashboard'

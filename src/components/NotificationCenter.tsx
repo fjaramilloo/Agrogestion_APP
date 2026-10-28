@@ -85,6 +85,16 @@ export default function NotificationCenter() {
                 }
             }
 
+            // Obtener umbrales de despacho personalizados por finca (o fallback a 530)
+            const corteVentaMap = new Map<string, number>();
+            const { data: configs } = await supabase
+                .from('configuracion_kpi')
+                .select('id_finca, corte_peso_3')
+                .in('id_finca', fincaIds);
+            if (configs) {
+                configs.forEach((c: any) => corteVentaMap.set(c.id_finca, Number(c.corte_peso_3) || 530));
+            }
+
             const newNotifications: Notification[] = [];
             const hoy = new Date();
             
@@ -160,13 +170,14 @@ export default function NotificationCenter() {
                     potsMap[a.id_potrerada].pesos.push(estimado);
                 });
 
+                const umbralDespacho = corteVentaMap.get(fid) || 530;
                 Object.entries(potsMap).forEach(([id, data]) => {
                     const avg = data.pesos.reduce((a, b) => a + b, 0) / data.pesos.length;
-                    if (avg >= 530) {
+                    if (avg >= umbralDespacho) {
                         newNotifications.push({
                             id: `lote-listo-${id}`,
                             title: 'Lote Listo para Despacho',
-                            description: `El lote ${data.nombre} promedia ${Math.round(avg)} kg estimado hoy.`,
+                            description: `El lote ${data.nombre} promedia ${Math.round(avg)} kg estimado hoy (meta: ${umbralDespacho} kg).`,
                             time: format(hoy, 'HH:mm'),
                             type: 'success',
                             read: false,

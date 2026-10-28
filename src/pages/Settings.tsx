@@ -19,6 +19,49 @@ interface CargaMasivaItem {
     estado: string;
 }
 
+export const PRESETS_RANGOS_PESO = [
+    { 
+        id: 'ceba_tradicional', 
+        nombre: 'Ceba Tradicional (430 - 530+ kg)', 
+        corte1: 430, 
+        corte2: 480, 
+        corte3: 530, 
+        descripcion: 'Para engorde pesado de novillos (Palmola, Alejandría). Meta de despacho: 530 kg.' 
+    },
+    { 
+        id: 'levante_preceba', 
+        nombre: 'Levante / Pre-ceba (230 - 380 kg)', 
+        corte1: 280, 
+        corte2: 330, 
+        corte3: 380, 
+        descripcion: 'Para levante o ceba liviana (La Gerencia). Meta de despacho: 380 kg.' 
+    },
+    { 
+        id: 'ceba_liviana', 
+        nombre: 'Ceba Liviana / Exportación (340 - 440 kg)', 
+        corte1: 340, 
+        corte2: 390, 
+        corte3: 440, 
+        descripcion: 'Para exportación en pie o ceba de ciclo corto. Meta de despacho: 440 kg.' 
+    },
+    { 
+        id: 'destete_cria', 
+        nombre: 'Destete / Cría (140 - 220 kg)', 
+        corte1: 140, 
+        corte2: 180, 
+        corte3: 220, 
+        descripcion: 'Para terneros de destete temprano y cría. Meta de despacho: 220 kg.' 
+    },
+    { 
+        id: 'personalizado', 
+        nombre: 'Personalizado (Manual)', 
+        corte1: 0, 
+        corte2: 0, 
+        corte3: 0, 
+        descripcion: 'Ajusta manualmente los 3 umbrales según tus requerimientos específicos.' 
+    }
+];
+
 const parseFechaCol = (fechaStr: string) => {
     if (!fechaStr) return null;
     let s = fechaStr.toString().trim();
@@ -157,7 +200,11 @@ export default function Settings() {
         precio_compra_promedio: '',
         costo_mensual_animal: '',
         peso_entrada_ceba: '380',
-        consumo_dia_potrero: '50'
+        consumo_dia_potrero: '50',
+        corte_peso_1: '430',
+        corte_peso_2: '480',
+        corte_peso_3: '530',
+        preset_peso: 'ceba_tradicional'
     });
 
 
@@ -357,7 +404,7 @@ export default function Settings() {
         // Precio de venta y umbral ceba desde configuracion_kpi
         const { data: config } = await supabase
             .from('configuracion_kpi')
-            .select('precio_venta_promedio, precio_compra_promedio, costo_mensual_animal, peso_entrada_ceba, consumo_dia_potrero, participacion_utilidad')
+            .select('precio_venta_promedio, precio_compra_promedio, costo_mensual_animal, peso_entrada_ceba, consumo_dia_potrero, participacion_utilidad, corte_peso_1, corte_peso_2, corte_peso_3, preset_peso')
             .eq('id_finca', fincaId)
             .single();
 
@@ -372,7 +419,11 @@ export default function Settings() {
                 precio_compra_promedio: config?.precio_compra_promedio?.toString() || '0',
                 costo_mensual_animal: config?.costo_mensual_animal?.toString() || '0',
                 peso_entrada_ceba: config?.peso_entrada_ceba?.toString() || '380',
-                consumo_dia_potrero: config?.consumo_dia_potrero?.toString() || '50'
+                consumo_dia_potrero: config?.consumo_dia_potrero?.toString() || '50',
+                corte_peso_1: config?.corte_peso_1?.toString() || '430',
+                corte_peso_2: config?.corte_peso_2?.toString() || '480',
+                corte_peso_3: config?.corte_peso_3?.toString() || '530',
+                preset_peso: config?.preset_peso || 'ceba_tradicional'
             });
             // Cargar participación de utilidad (guardar como % entero para el display)
             const partDecimal = config?.participacion_utilidad ?? 0.6;
@@ -448,6 +499,9 @@ export default function Settings() {
             // Convertir el porcentaje ingresado (ej. 60) a decimal (ej. 0.60)
             const partPct = Math.min(99, Math.max(1, parseInt(participacionUtilidad) || 60));
             const participacionDecimal = partPct / 100;
+            const c1 = parseFloat(farmInfo.corte_peso_1) || 430;
+            const c2 = parseFloat(farmInfo.corte_peso_2) || 480;
+            const c3 = parseFloat(farmInfo.corte_peso_3) || 530;
 
             const { error: kpiError } = await supabase
                 .from('configuracion_kpi')
@@ -462,7 +516,11 @@ export default function Settings() {
                     peso_entrada_ceba: pesoCeba,
                     consumo_dia_potrero: consumoDia,
                     modo_ganancia: modoLocal,
-                    participacion_utilidad: participacionDecimal
+                    participacion_utilidad: participacionDecimal,
+                    corte_peso_1: c1,
+                    corte_peso_2: c2,
+                    corte_peso_3: c3,
+                    preset_peso: farmInfo.preset_peso || 'ceba_tradicional'
                 }, { onConflict: 'id_finca' });
 
             if (kpiError) throw kpiError;
@@ -1768,6 +1826,161 @@ export default function Settings() {
                                             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '400px' }}>
                                                 Este es el adelanto {modoLocal === 'GDP' ? 'diario' : 'mensual'} mínimo que requiere cada animal para cubrir sus costos directos e indirectos.
                                             </p>
+                                        </div>
+
+                                        {/* Rangos de Peso para Dashboard y Despachos */}
+                                        <div style={{
+                                            background: 'rgba(255,255,255,0.02)',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            borderRadius: '12px',
+                                            padding: '20px',
+                                            marginBottom: '24px'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                                                <h4 style={{ color: 'white', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <Scale size={18} color="var(--primary)" />
+                                                    Rangos de Peso para Proyecciones y Despachos (Dashboard)
+                                                </h4>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Configuración específica para esta finca</span>
+                                            </div>
+                                            
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.4' }}>
+                                                Selecciona el modelo productivo de esta finca o personaliza los cortes de peso. La tabla del Dashboard y la alerta de despacho se ajustarán automáticamente a estos valores.
+                                            </p>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '18px' }}>
+                                                <div style={{ gridColumn: '1 / -1' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <Target size={16} /> Plantilla de Rangos / Modelo Productivo
+                                                    </label>
+                                                    <select
+                                                        value={farmInfo.preset_peso}
+                                                        onChange={(e) => {
+                                                            const selectedId = e.target.value;
+                                                            const p = PRESETS_RANGOS_PESO.find(item => item.id === selectedId);
+                                                            if (p && selectedId !== 'personalizado') {
+                                                                setFarmInfo({
+                                                                    ...farmInfo,
+                                                                    preset_peso: selectedId,
+                                                                    corte_peso_1: p.corte1.toString(),
+                                                                    corte_peso_2: p.corte2.toString(),
+                                                                    corte_peso_3: p.corte3.toString()
+                                                                });
+                                                            } else {
+                                                                setFarmInfo({ ...farmInfo, preset_peso: 'personalizado' });
+                                                            }
+                                                        }}
+                                                    >
+                                                        {PRESETS_RANGOS_PESO.map(pr => (
+                                                            <option key={pr.id} value={pr.id}>{pr.nombre}</option>
+                                                        ))}
+                                                    </select>
+                                                    {PRESETS_RANGOS_PESO.find(p => p.id === farmInfo.preset_peso)?.descripcion && (
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '4px', display: 'block' }}>
+                                                            💡 {PRESETS_RANGOS_PESO.find(p => p.id === farmInfo.preset_peso)?.descripcion}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <label>Corte 1: Adaptación / Inicio (kg)</label>
+                                                    <input
+                                                        type="number"
+                                                        step="1"
+                                                        value={farmInfo.corte_peso_1}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            const p = PRESETS_RANGOS_PESO.find(item => 
+                                                                item.id !== 'personalizado' &&
+                                                                item.corte1.toString() === val && 
+                                                                item.corte2.toString() === farmInfo.corte_peso_2 && 
+                                                                item.corte3.toString() === farmInfo.corte_peso_3
+                                                            );
+                                                            setFarmInfo({
+                                                                ...farmInfo,
+                                                                corte_peso_1: val,
+                                                                preset_peso: p ? p.id : 'personalizado'
+                                                            });
+                                                        }}
+                                                        required
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label>Corte 2: Desarrollo Medio (kg)</label>
+                                                    <input
+                                                        type="number"
+                                                        step="1"
+                                                        value={farmInfo.corte_peso_2}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            const p = PRESETS_RANGOS_PESO.find(item => 
+                                                                item.id !== 'personalizado' &&
+                                                                item.corte1.toString() === farmInfo.corte_peso_1 && 
+                                                                item.corte2.toString() === val && 
+                                                                item.corte3.toString() === farmInfo.corte_peso_3
+                                                            );
+                                                            setFarmInfo({
+                                                                ...farmInfo,
+                                                                corte_peso_2: val,
+                                                                preset_peso: p ? p.id : 'personalizado'
+                                                            });
+                                                        }}
+                                                        required
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label style={{ color: 'var(--success)', fontWeight: 'bold' }}>
+                                                        Corte 3: Meta Venta / Despacho (kg)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        step="1"
+                                                        value={farmInfo.corte_peso_3}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            const p = PRESETS_RANGOS_PESO.find(item => 
+                                                                item.id !== 'personalizado' &&
+                                                                item.corte1.toString() === farmInfo.corte_peso_1 && 
+                                                                item.corte2.toString() === farmInfo.corte_peso_2 && 
+                                                                item.corte3.toString() === val
+                                                            );
+                                                            setFarmInfo({
+                                                                ...farmInfo,
+                                                                corte_peso_3: val,
+                                                                preset_peso: p ? p.id : 'personalizado'
+                                                            });
+                                                        }}
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Vista previa de cómo se verá la tabla */}
+                                            <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '12px 16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    Vista Previa de Rangos en el Dashboard:
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                                                    <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Fila 1 (Entrada)</div>
+                                                        <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.9rem' }}>&lt; {farmInfo.corte_peso_1 || 0} kg</div>
+                                                    </div>
+                                                    <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Fila 2 (Levante)</div>
+                                                        <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.9rem' }}>{(parseFloat(farmInfo.corte_peso_1) || 0) + 1} - {farmInfo.corte_peso_2 || 0} kg</div>
+                                                    </div>
+                                                    <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Fila 3 (Pre-Salida)</div>
+                                                        <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.9rem' }}>{(parseFloat(farmInfo.corte_peso_2) || 0) + 1} - {farmInfo.corte_peso_3 || 0} kg</div>
+                                                    </div>
+                                                    <div style={{ background: 'rgba(76, 175, 80, 0.1)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(76, 175, 80, 0.3)' }}>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--success)' }}>Fila 4 (Despacho 🚚)</div>
+                                                        <div style={{ fontWeight: 'bold', color: 'var(--success)', fontSize: '0.9rem' }}>&gt; {farmInfo.corte_peso_3 || 0} kg</div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <h4 style={{ color: 'white', marginBottom: '16px', fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>Umbrales (Semáforo {getModoLabel(modoLocal)})</h4>
