@@ -30,13 +30,10 @@ export interface MatchCandidate {
  */
 export function normalizeName(name: string): string {
   if (!name) return '';
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u06ff]/g, '') // Quitar tildes y diacríticos
-    .replace(/^(potrero|potreros|pot|lote|p-)\s*/i, '') // Eliminar prefijos comunes
-    .replace(/[^a-z0-9]/g, '') // Dejar solo letras y números
-    .trim();
+  const clean = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u06ff]/g, '');
+  const withoutPrefix = clean.replace(/^(potrero|potreros|pot|lote|p-)\s*/i, '').trim();
+  const base = withoutPrefix.length > 0 ? withoutPrefix : clean;
+  return base.replace(/[^a-z0-9]/g, '').trim();
 }
 
 /**

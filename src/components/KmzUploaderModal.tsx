@@ -4,6 +4,7 @@ import { parseKmzOrKmlFile, type ParsedKmlResult } from '../utils/kmlParser';
 import { matchKmzWithExistingPotreros, type MatchCandidate, type ExistingPotrero } from '../utils/potreroMatcher';
 import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
+import { limpiarCacheLecturas } from '../lib/httpOffline';
 
 interface KmzUploaderModalProps {
   fincaId: string;
@@ -43,7 +44,20 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
       }
 
       setParsedData(result);
-      const autoMatches = matchKmzWithExistingPotreros(result.polygons, existingPotreros);
+
+      // Si existingPotreros vino vacío por carga asíncrona, consultar directamente de la BD
+      let potrerosActuales = existingPotreros;
+      if (potrerosActuales.length === 0 && fincaId) {
+        const { data: dbPots } = await supabase
+          .from('potreros')
+          .select('id, nombre, area_hectareas, geojson_geometry')
+          .eq('id_finca', fincaId);
+        if (dbPots && dbPots.length > 0) {
+          potrerosActuales = dbPots;
+        }
+      }
+
+      const autoMatches = matchKmzWithExistingPotreros(result.polygons, potrerosActuales);
       setMatches(autoMatches);
       setStep(2);
     } catch (err: any) {
@@ -159,6 +173,14 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
 
           if (insErr) console.warn('Error al insertar nuevo potrero:', insErr);
         }
+      }
+
+      // Invalidar caches locales para que el mapa renderice de inmediato los potreros frescos
+      try {
+        await localDB.mapaSnapshotCache.delete(fincaId);
+        await limpiarCacheLecturas();
+      } catch (cacheErr) {
+        console.warn('Error limpiando caché local tras guardar mapa:', cacheErr);
       }
 
       onSuccess();
