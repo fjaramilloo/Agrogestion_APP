@@ -185,7 +185,7 @@ export default function Dashboard() {
                         potreros ( nombre ),
                         potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
                         registros_pesaje (
-                            id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
+                            id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted
                         )
                     `).eq('id_finca', fincaId).limit(10000), { data: [], error: null })
                 ]);
@@ -276,6 +276,7 @@ export default function Dashboard() {
                         const uniqueFechas = new Set();
                         const deduplicated = sorted.filter((p: any) => {
                             if (!p || !p.fecha) return false;
+                            if (p.is_deleted === true) return false;
                             const dateOnly = typeof p.fecha === 'string' ? p.fecha.split('T')[0] : '';
                             if (!dateOnly || uniqueFechas.has(dateOnly)) return false;
                             uniqueFechas.add(dateOnly);
