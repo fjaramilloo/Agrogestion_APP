@@ -314,7 +314,7 @@ export default function Weighing() {
 
             if (error) throw error;
 
-            setMsjExito(`¡Animal #${chapeta} creado exitosamente! Su peso inicial ha sido registrado.`);
+            setMsjExito(`¡Animal #${chapeta} creado exitosamente con peso inicial de ${data.peso_ingreso} kg! Ingrese un nuevo peso si desea registrar un pesaje de hoy.`);
 
             setAnimal({
                 id: data.id,
@@ -329,7 +329,7 @@ export default function Weighing() {
             setAnimalNoEncontrado(false);
             setShowCrearAnimal(false);
             if (refreshLicencia) await refreshLicencia();
-            setNuevoPeso(pesoIngresoNuevo);
+            setNuevoPeso('');
 
         } catch (err: any) {
             setMsjError(err.message || 'Error al crear el animal.');
