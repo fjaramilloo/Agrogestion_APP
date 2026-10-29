@@ -9,7 +9,7 @@ import ModalUpsell from '../components/ModalUpsell';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, evaluarEstadoRecuperacionMerma } from '../utils/ganancia';
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
 import { sincronizarCacheFinca } from '../lib/offlineService';
@@ -38,6 +38,8 @@ interface Animal {
     peso_ingreso_ceba?: number | null;
     estado: string;
     id_potrerada?: string | null;
+    dias_recuperacion_merma?: number | null;
+    fecha_recuperacion_merma?: string | null;
     potreros?: { nombre: string } | null;
     potreradas?: { nombre: string } | null;
     potreroNombre?: string;
@@ -468,6 +470,8 @@ export default function Inventory() {
                         etapa: a.etapa,
                         peso_ingreso: a.peso_ingreso || 0,
                         peso_compra: a.peso_compra,
+                        dias_recuperacion_merma: a.dias_recuperacion_merma,
+                        fecha_recuperacion_merma: a.fecha_recuperacion_merma,
                         fecha_ingreso: a.fecha_ingreso,
                         fecha_ingreso_ceba: a.fecha_ingreso_ceba,
                         peso_ingreso_ceba: a.peso_ingreso_ceba,
@@ -508,6 +512,7 @@ export default function Inventory() {
                         id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
                         peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
                         peso_ingreso_ceba, estado, id_potrerada, creado_en,
+                        dias_recuperacion_merma, fecha_recuperacion_merma,
                         potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
                         potreros ( nombre )
                     `)
@@ -1004,7 +1009,10 @@ export default function Inventory() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Último Pesaje <ArrowUpDown size={14} opacity={sortBy === 'dias_pesaje' ? 1 : 0.3} /></div>
                             </th>
                             <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Último Peso</th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>{getModoLabel(modoGanancia)} Promedio</th>
+                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>
+                                <div>{getModoLabel(modoGanancia)} (Último Período)</div>
+                                <div style={{ fontSize: '0.72rem', fontWeight: 'normal', opacity: 0.65 }}>y Acumulado Histórico</div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1022,17 +1030,17 @@ export default function Inventory() {
                                 const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
                                 const pesoU = ultimoP ? `${Math.round(ultimoP.peso)} kg` : `${Math.round(pesoBase)} kg*`;
 
-                                const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date();
-                                const pesoReferencia = ultimoP ? ultimoP.peso : pesoBase;
-                                const dias = differenceInDays(fechaReferencia, new Date(fechaInicio)) || 1;
-                                const gananciaTotal = pesoReferencia - pesoBase;
+                                const ultimoGmp = calcularGmpUltimoPeriodo(ultimoP);
+                                const acumGmp = calcularGmpAcumulado(ultimoP ? ultimoP.peso : pesoBase, pesoBase, fechaInicio, ultimoP?.fecha);
+                                const estadoMerma = evaluarEstadoRecuperacionMerma(animal, ultimoP?.peso);
+
                                 const hasRecords = !!ultimoP;
-                                const gmpPromedio = (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) ? Number(ultimoP.gmp_calculada) : (gananciaTotal / dias) * 30;
-                                const isAlerta = hasRecords && gmpPromedio < 0;
-                                const gmpColor = !hasRecords ? 'var(--text-muted)' : (
-                                    gmpPromedio < 0 ? 'var(--error)' : (
-                                        gmpPromedio <= umbralMedioGmp ? 'var(--warning)' : (
-                                            gmpPromedio <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)'
+                                const evalGmp = ultimoGmp !== null ? ultimoGmp : acumGmp;
+                                const isAlerta = hasRecords && evalGmp !== null && evalGmp < 0;
+                                const gmpColor = (evalGmp === null || !hasRecords) ? 'var(--text-muted)' : (
+                                    evalGmp < 0 ? 'var(--error)' : (
+                                        evalGmp <= umbralMedioGmp ? 'var(--warning)' : (
+                                            evalGmp <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)'
                                         )
                                     )
                                 );
@@ -1100,22 +1108,43 @@ export default function Inventory() {
                                             {(animal.registros_pesaje?.length || 0) > 1 && ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>+{(ultimoP.peso - (animal.peso_compra ?? animal.peso_ingreso)).toFixed(1)} kg ganados</div>}
                                         </td>
                                         <td style={{ padding: '16px' }}>
-                                            {hasRecords ? (
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    color: gmpColor === 'var(--text-light)' ? 'white' : gmpColor,
-                                                    fontWeight: 'bold'
-                                                }}>
-                                                    <div style={{ 
-                                                        width: '10px', 
-                                                        height: '10px', 
-                                                        borderRadius: '50%', 
-                                                        backgroundColor: gmpColor,
-                                                        border: gmpColor === 'var(--text-light)' ? '1px solid rgba(255,255,255,0.4)' : 'none'
-                                                    }}></div>
-                                                    {toDisplayValue(gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
+                                            {hasRecords && ultimoGmp !== null ? (
+                                                <div>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        color: gmpColor === 'var(--text-light)' ? 'white' : gmpColor,
+                                                        fontWeight: 'bold',
+                                                        fontSize: '0.98rem'
+                                                    }}>
+                                                        <div style={{ 
+                                                            width: '9px', 
+                                                            height: '9px', 
+                                                            borderRadius: '50%', 
+                                                            backgroundColor: gmpColor,
+                                                            border: gmpColor === 'var(--text-light)' ? '1px solid rgba(255,255,255,0.4)' : 'none',
+                                                            flexShrink: 0
+                                                        }}></div>
+                                                        <span>{toDisplayValue(ultimoGmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}</span>
+                                                    </div>
+                                                    {acumGmp !== null && (
+                                                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px', paddingLeft: '17px' }}>
+                                                            Acum: <span style={{ color: acumGmp < 0 ? 'var(--error)' : 'rgba(255,255,255,0.85)', fontWeight: 500 }}>
+                                                                {toDisplayValue(acumGmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {estadoMerma.estado === 'recuperado' && (
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--success)', marginTop: '2px', paddingLeft: '17px' }}>
+                                                            ✓ Merma ({estadoMerma.dias}d)
+                                                        </div>
+                                                    )}
+                                                    {estadoMerma.estado === 'en_recuperacion' && (
+                                                        <div style={{ fontSize: '0.7rem', color: '#ffb74d', marginTop: '2px', paddingLeft: '17px' }}>
+                                                            ⏳ Merma: faltan {estadoMerma.kgFaltantes} kg
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>NA</div>
@@ -1199,19 +1228,16 @@ export default function Inventory() {
 
                 const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(fechaInicioModal);
                 const diasHoy = differenceInDays(new Date(), refDate) || 0;
-                
-                // USAR GMP INDIVIDUAL PARA COHERENCIA
-                let gmpIndiv = 0;
-                if (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
-                    gmpIndiv = Number(ultimoP.gmp_calculada);
-                } else if (ultimoP) {
-                    const gainTotal = ultimoP.peso - pesoBaseModal;
-                    const daysTotal = differenceInDays(new Date(ultimoP.fecha), new Date(fechaInicioModal)) || 1;
-                    gmpIndiv = (gainTotal / daysTotal) * 30;
-                }
-                if (gmpIndiv === 0) gmpIndiv = 10.3;
+                const diasModal = differenceInDays(refDate, new Date(fechaInicioModal)) || 1;
+                const ultimoGmpModal = calcularGmpUltimoPeriodo(ultimoP);
+                const acumGmpModal = calcularGmpAcumulado(ultimoP ? ultimoP.peso : pesoBaseModal, pesoBaseModal, fechaInicioModal, ultimoP?.fecha);
+                const estadoMermaModal = evaluarEstadoRecuperacionMerma(selectedAnimal, ultimoP?.peso);
 
-                const estimadoHoy = pesoU + (diasHoy * (gmpIndiv / 30));
+                const gmpForEstimate = (ultimoGmpModal !== null && ultimoGmpModal > 0)
+                    ? ultimoGmpModal
+                    : ((acumGmpModal !== null && acumGmpModal > 0) ? acumGmpModal : 10.3);
+
+                const estimadoHoy = pesoU + (diasHoy * (gmpForEstimate / 30));
 
                 interface TimelineItem {
                     id: string;
@@ -1507,25 +1533,73 @@ export default function Inventory() {
                             {/* Metric Cards */}
                             <div style={{ 
                                 display: 'grid', 
-                                gridTemplateColumns: selectedAnimal.peso_compra ? 'repeat(auto-fit, minmax(140px, 1fr))' : 'repeat(2, 1fr)', 
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
                                 gap: '12px', 
-                                marginBottom: '28px' 
+                                marginBottom: '24px' 
                             }}>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Último Pesaje</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>{pesoU} kg</div>
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '4px' }}>Último Pesaje</div>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'white' }}>{pesoU} kg</div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Llegada: '} {fechaU}</div>
                                 </div>
+
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '4px' }}>{getModoLabel(modoGanancia)} (Último)</div>
+                                    <div style={{ 
+                                        fontSize: '1.4rem', 
+                                        fontWeight: 'bold', 
+                                        color: ultimoGmpModal === null ? 'var(--text-muted)' : (
+                                            ultimoGmpModal < 0 ? 'var(--error)' : (
+                                                ultimoGmpModal <= umbralMedioGmp ? 'var(--warning)' : (
+                                                    ultimoGmpModal <= umbralAltoGmp ? 'white' : 'var(--success)'
+                                                )
+                                            )
+                                        )
+                                    }}>
+                                        {ultimoGmpModal !== null ? `${toDisplayValue(ultimoGmpModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'Sin datos'}
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Coyuntura reciente</div>
+                                </div>
+
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '4px' }}>{getModoLabel(modoGanancia)} (Acumulado)</div>
+                                    <div style={{ 
+                                        fontSize: '1.4rem', 
+                                        fontWeight: 'bold', 
+                                        color: acumGmpModal === null ? 'var(--text-muted)' : (
+                                            acumGmpModal < 0 ? 'var(--error)' : (
+                                                acumGmpModal <= umbralMedioGmp ? 'var(--warning)' : (
+                                                    acumGmpModal <= umbralAltoGmp ? 'white' : 'var(--success)'
+                                                )
+                                            )
+                                        )
+                                    }}>
+                                        {acumGmpModal !== null ? `${toDisplayValue(acumGmpModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'Sin datos'}
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ciclo ({diasModal} días)</div>
+                                </div>
+
                                 {selectedAnimal.peso_compra && (
-                                    <div style={{ backgroundColor: 'rgba(255, 193, 7, 0.04)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.18)' }}>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso de Compra</div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ffc107' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
+                                    <div style={{ backgroundColor: 'rgba(255, 193, 7, 0.04)', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.18)' }}>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '4px' }}>Peso de Compra</div>
+                                        <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#ffc107' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
                                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Llegada: {selectedAnimal.peso_ingreso} kg</div>
+                                        {estadoMermaModal.estado === 'recuperado' && (
+                                            <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#34d399', fontWeight: 600, backgroundColor: 'rgba(16, 185, 129, 0.12)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
+                                                ✓ Recuperado en {estadoMermaModal.dias} días
+                                            </div>
+                                        )}
+                                        {estadoMermaModal.estado === 'en_recuperacion' && (
+                                            <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#fbbf24', fontWeight: 600, backgroundColor: 'rgba(245, 158, 11, 0.12)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
+                                                ⏳ Faltan {estadoMermaModal.kgFaltantes} kg
+                                            </div>
+                                        )}
                                     </div>
                                 )}
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
                                         {estimadoHoy.toFixed(1)} kg
                                     </div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>

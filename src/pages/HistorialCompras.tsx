@@ -9,7 +9,7 @@ import { es } from 'date-fns/locale';
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, evaluarEstadoRecuperacionMerma } from '../utils/ganancia';
 
 interface AnimalCompraParaReporte {
     numero_chapeta: string;
@@ -25,12 +25,16 @@ interface AnimalCompraDetalle {
     etapa: string;
     peso_ingreso: number;
     peso_compra?: number | null;
+    dias_recuperacion_merma?: number | null;
+    fecha_recuperacion_merma?: string | null;
     fecha_ingreso: string;
     proveedor_compra: string;
     gmp: number | null;
+    gmpAcumulado?: number | null;
+    gmpUltimo?: number | null;
     pesoActual: number;
     pesajesFiltrados: Record<string, number>;
-    registros_pesaje: { peso: number; fecha: string; gdp_calculada: number }[];
+    registros_pesaje: { peso: number; fecha: string; gdp_calculada: number; gmp_calculada?: number }[];
 }
 
 interface CompraGrupo {
@@ -118,10 +122,14 @@ export default function HistorialCompras() {
                         peso_ingreso,
                         peso_compra,
                         etapa,
+                        dias_recuperacion_merma,
+                        fecha_recuperacion_merma,
                         registros_pesaje (
                             peso,
                             fecha,
-                            gdp_calculada
+                            gdp_calculada,
+                            gmp_calculada,
+                            is_deleted
                         )
                     `)
                     .eq('id_finca', fincaId)
@@ -151,6 +159,8 @@ export default function HistorialCompras() {
                                 fecha_ingreso: a.fecha_ingreso,
                                 peso_ingreso: a.peso_ingreso || 0,
                                 peso_compra: a.peso_compra,
+                                dias_recuperacion_merma: a.dias_recuperacion_merma,
+                                fecha_recuperacion_merma: a.fecha_recuperacion_merma,
                                 etapa: a.etapa,
                                 registros_pesaje: (a as any).registros_pesaje || []
                             }));
@@ -174,26 +184,16 @@ export default function HistorialCompras() {
                 const proveedor = (animal.proveedor_comp_extra || animal.proveedor_compra || '').trim() || 'Compra General';
                 const key = `${fecha}-${proveedor}`;
                 
-                const registros = (animal.registros_pesaje || []).sort((x: any, y: any) => 
-                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                );
+                const registros = (animal.registros_pesaje || [])
+                    .filter((r: any) => !r.is_deleted)
+                    .sort((x: any, y: any) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime());
                 const ultimoP = registros[0];
+                const pesoBase = animal.peso_compra ?? animal.peso_ingreso ?? 0;
                 const pesoActual = ultimoP?.peso || animal.peso_ingreso;
                 
-                let gmp: number | null = null;
-                if (ultimoP && animal.peso_ingreso && animal.fecha_ingreso) {
-                    const d1 = new Date(String(ultimoP.fecha).split('T')[0] + 'T12:00:00');
-                    const d2 = new Date(String(animal.fecha_ingreso).split('T')[0] + 'T12:00:00');
-                    if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
-                        const dias = differenceInDays(d1, d2);
-                        if (dias > 0) {
-                            const gananciaTotal = ultimoP.peso - animal.peso_ingreso;
-                            gmp = (gananciaTotal / dias) * 30;
-                        } else {
-                            gmp = 0;
-                        }
-                    }
-                }
+                const ultimoGmp = calcularGmpUltimoPeriodo(ultimoP);
+                const acumGmp = calcularGmpAcumulado(pesoActual, pesoBase, animal.fecha_ingreso, ultimoP?.fecha);
+                const gmp = acumGmp;
 
                 const animalRep: AnimalCompraParaReporte = {
                     numero_chapeta: animal.numero_chapeta,
@@ -202,7 +202,7 @@ export default function HistorialCompras() {
                 };
 
                 // Datos enriquecidos para el modal de detalle
-                const registrosOrdenados = (animal.registros_pesaje || []).sort((x: any, y: any) =>
+                const registrosOrdenados = [...registros].sort((x: any, y: any) =>
                     new Date(x.fecha).getTime() - new Date(y.fecha).getTime()
                 );
                 const pesajesMap: Record<string, number> = {};
@@ -217,15 +217,20 @@ export default function HistorialCompras() {
                     etapa: animal.etapa,
                     peso_ingreso: animal.peso_ingreso || 0,
                     peso_compra: animal.peso_compra,
+                    dias_recuperacion_merma: animal.dias_recuperacion_merma,
+                    fecha_recuperacion_merma: animal.fecha_recuperacion_merma,
                     fecha_ingreso: animal.fecha_ingreso,
                     proveedor_compra: proveedor,
-                    gmp: gmp,
+                    gmp: acumGmp,
+                    gmpAcumulado: acumGmp,
+                    gmpUltimo: ultimoGmp,
                     pesoActual: pesoActual,
                     pesajesFiltrados: pesajesMap,
                     registros_pesaje: registrosOrdenados.map((r: any) => ({
                         peso: r.peso,
                         fecha: r.fecha,
-                        gdp_calculada: r.gdp_calculada || 0
+                        gdp_calculada: r.gdp_calculada || 0,
+                        gmp_calculada: r.gmp_calculada
                     }))
                 };
 
@@ -847,12 +852,24 @@ export default function HistorialCompras() {
                                                     </th>
                                                 ))}
                                                 <th 
+                                                    onClick={() => handleSort('dias_recuperacion_merma')}
+                                                    style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                        RECUP. MERMA
+                                                        {sortConfig.key === 'dias_recuperacion_merma' && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                                    </div>
+                                                </th>
+                                                <th 
                                                     onClick={() => handleSort('gmp')}
                                                     style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
                                                 >
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                                                        {getModoLabel(modoGanancia)}
-                                                        {sortConfig.key === 'gmp' && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            GANANCIA NETA
+                                                            {sortConfig.key === 'gmp' && <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.62rem', opacity: 0.7 }}>{getModoLabel(modoGanancia)} vs Compra</div>
                                                     </div>
                                                 </th>
                                             </tr>
@@ -880,41 +897,79 @@ export default function HistorialCompras() {
                                                 if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
                                                 if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
                                                 return 0;
-                                            }).map((a, idx) => (
-                                                <tr
-                                                    key={a.id}
-                                                    className="table-row-hover"
-                                                    style={{ borderBottom: idx < detalleCompra.animalesDetalle.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor: 'pointer' }}
-                                                    onClick={() => setSelectedAnimalDetalle(a)}
-                                                >
-                                                    <td style={{ padding: '12px', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
-                                                    <td style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
-                                                    <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                                        <div style={{ fontWeight: 'bold' }}>{a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}</div>
-                                                    </td>
-                                                    <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                                        <div style={{ fontWeight: 'bold' }}>{a.peso_ingreso ? `${Math.round(a.peso_ingreso)} kg` : '-'}</div>
-                                                    </td>
-                                                    {fechasColumnas.map(fecha => (
-                                                        <td key={fecha} style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                                            {a.pesajesFiltrados[fecha] ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-'}
+                                            }).map((a, idx) => {
+                                                const estadoMerma = evaluarEstadoRecuperacionMerma(a, a.pesoActual);
+                                                return (
+                                                    <tr
+                                                        key={a.id}
+                                                        className="table-row-hover"
+                                                        style={{ borderBottom: idx < detalleCompra.animalesDetalle.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor: 'pointer' }}
+                                                        onClick={() => setSelectedAnimalDetalle(a)}
+                                                    >
+                                                        <td style={{ padding: '12px', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
+                                                        <td style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
+                                                        <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                            <div style={{ fontWeight: 'bold' }}>{a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}</div>
                                                         </td>
-                                                    ))}
-                                                    <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                        {a.gmp !== null ? (
-                                                            <span style={{
-                                                                color: a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
-                                                                fontWeight: 'bold',
-                                                                textShadow: (a.gmp > umbralMedio && a.gmp <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
-                                                            }}>
-                                                                {toDisplayValue(a.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
-                                                            </span>
-                                                        ) : (
-                                                            <span style={{ color: 'var(--text-muted)' }}>-</span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                        <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                            <div style={{ fontWeight: 'bold' }}>{a.peso_ingreso ? `${Math.round(a.peso_ingreso)} kg` : '-'}</div>
+                                                        </td>
+                                                        {fechasColumnas.map(fecha => (
+                                                            <td key={fecha} style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                {a.pesajesFiltrados[fecha] ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-'}
+                                                            </td>
+                                                        ))}
+                                                        <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                            {estadoMerma.estado === 'recuperado' && (
+                                                                <span style={{
+                                                                    fontSize: '0.72rem',
+                                                                    color: '#34d399',
+                                                                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '6px',
+                                                                    fontWeight: 600,
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
+                                                                }}>
+                                                                    ✓ {estadoMerma.dias} d
+                                                                </span>
+                                                            )}
+                                                            {estadoMerma.estado === 'en_recuperacion' && (
+                                                                <span style={{
+                                                                    fontSize: '0.72rem',
+                                                                    color: '#fbbf24',
+                                                                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '6px',
+                                                                    fontWeight: 600,
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
+                                                                }}>
+                                                                    ⏳ Faltan {estadoMerma.kgFaltantes} kg
+                                                                </span>
+                                                            )}
+                                                            {estadoMerma.estado === 'sin_merma' && (
+                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>-</span>
+                                                            )}
+                                                        </td>
+                                                        <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                            {a.gmp !== null ? (
+                                                                <span style={{
+                                                                    color: a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
+                                                                    fontWeight: 'bold',
+                                                                    textShadow: (a.gmp > umbralMedio && a.gmp <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                                                }}>
+                                                                    {toDisplayValue(a.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ color: 'var(--text-muted)' }}>-</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                         <tfoot>
                                             <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
@@ -933,6 +988,7 @@ export default function HistorialCompras() {
                                                         </td>
                                                     );
                                                 })}
+                                                <td></td>
                                                 <td></td>
                                             </tr>
                                             <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -953,6 +1009,12 @@ export default function HistorialCompras() {
                                                         </td>
                                                     );
                                                 })}
+                                                <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.75rem', color: '#34d399', fontWeight: 600 }}>
+                                                    {(() => {
+                                                        const recuperados = detalleCompra.animalesDetalle.filter(a => evaluarEstadoRecuperacionMerma(a, a.pesoActual).estado === 'recuperado');
+                                                        return recuperados.length > 0 ? `${recuperados.length}/${detalleCompra.animalesCount} rec.` : '-';
+                                                    })()}
+                                                </td>
                                                 <td></td>
                                             </tr>
                                         </tfoot>
@@ -993,6 +1055,7 @@ export default function HistorialCompras() {
             {/* TARJETA DE ANIMAL INDIVIDUAL */}
             {selectedAnimalDetalle && (() => {
                 const a = selectedAnimalDetalle;
+                const estadoMerma = evaluarEstadoRecuperacionMerma(a, a.pesoActual);
                 const registrosOrdenados = [...a.registros_pesaje].sort((x, y) =>
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                 );
@@ -1001,7 +1064,7 @@ export default function HistorialCompras() {
                     ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es })
                     : format(new Date(a.fecha_ingreso), 'dd/MM/yyyy', { locale: es });
 
-                const pesoBase = a.peso_ingreso;
+                const pesoBase = a.peso_compra ?? a.peso_ingreso;
                 const timeline = [
                     ...registrosOrdenados.map((p, i, arr) => {
                         const siguiente = arr[i + 1] || { peso: pesoBase, fecha: a.fecha_ingreso };
@@ -1020,7 +1083,7 @@ export default function HistorialCompras() {
 
                 return (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }} onClick={() => setSelectedAnimalDetalle(null)}>
-                        <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
+                        <div className="card" style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
                             <button
                                 onClick={() => setSelectedAnimalDetalle(null)}
                                 style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px' }}
@@ -1038,33 +1101,49 @@ export default function HistorialCompras() {
                                 </p>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso de Llegada</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{a.peso_ingreso} kg</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--primary-light)', marginTop: '4px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '28px' }}>
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '4px' }}>Peso Llegada</div>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>{a.peso_ingreso} kg</div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', marginTop: '4px' }}>
                                         {format(new Date(a.fecha_ingreso + 'T12:00:00'), 'dd/MM/yyyy')}
                                     </div>
-                                    {(a as any).peso_compra && (
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--warning)', marginTop: '6px' }}>
-                                            Compra: {Math.round((a as any).peso_compra)} kg
+                                    {a.peso_compra && (
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--warning)', marginTop: '4px' }}>
+                                            Compra: {Math.round(a.peso_compra)} kg
                                         </div>
                                     )}
                                 </div>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso Actual</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{Math.round(a.pesoActual)} kg</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '4px' }}>Peso Actual</div>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{Math.round(a.pesoActual)} kg</div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                                         Último: {fechaU}
                                     </div>
                                 </div>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>{getModoLabel(modoGanancia)}</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))) : 'var(--text-muted)' }}>
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '4px' }}>Ganancia Neta</div>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))) : 'var(--text-muted)' }}>
                                         {a.gmp !== null ? `${toDisplayValue(a.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : '-'}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ganancia ({getUnidadLabel(modoGanancia)})</div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>{a.peso_compra ? 'vs Peso Compra' : 'vs Ingreso'}</div>
                                 </div>
+                                {a.peso_compra && a.peso_ingreso < a.peso_compra && (
+                                    <div style={{ backgroundColor: 'rgba(255, 193, 7, 0.04)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.18)' }}>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '4px' }}>Recup. Merma</div>
+                                        {estadoMerma.estado === 'recuperado' ? (
+                                            <>
+                                                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#34d399' }}>✓ Recuperado</div>
+                                                <div style={{ fontSize: '0.72rem', color: '#34d399', marginTop: '4px' }}>En {estadoMerma.dias} días</div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#fbbf24' }}>⏳ Faltan {estadoMerma.kgFaltantes} kg</div>
+                                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Merma: {(a.peso_compra - a.peso_ingreso).toFixed(1)} kg</div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Evolución de Peso</h3>

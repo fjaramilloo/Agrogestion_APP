@@ -298,7 +298,7 @@ export default function Potreradas() {
                         let gmpIndiv = 0;
                         let isValidGmp = false;
                         {
-                            const startW = Number(a.peso_ingreso || pesoBase);
+                            const startW = Number(pesoBase);
                             const startD = new Date((a.fecha_ingreso || '') + 'T12:00:00');
                             const endD = new Date(lastP.fecha + 'T12:00:00');
                             const tGain = Number(lastP.peso) - startW;
@@ -671,7 +671,7 @@ export default function Potreradas() {
             let fechaIngresoEtapa = null;
             let pesoIngresoEtapa = null;
 
-            const pesoBase = a.peso_ingreso ?? a.peso_compra;
+            const pesoBase = a.peso_compra ?? a.peso_ingreso;
 
             if (showFullHistory) {
                 fechaIngresoEtapa = a.fecha_ingreso;
@@ -991,10 +991,11 @@ export default function Potreradas() {
             else if (p.gmpPromedio <= umbralAlto) lastGmpColor = [0, 0, 0];
             else lastGmpColor = [76, 175, 80];
 
+            const gmpHistoricoLote = (p.gmpAcumulado !== null && p.gmpAcumulado !== undefined) ? p.gmpAcumulado : detailData.gmpPromedioGrupo;
             let acumGmpColor = [40, 40, 40];
-            if (detailData.gmpPromedioGrupo < 0) acumGmpColor = [244, 67, 54];
-            else if (detailData.gmpPromedioGrupo <= umbralMedio) acumGmpColor = [255, 152, 0];
-            else if (detailData.gmpPromedioGrupo <= umbralAlto) acumGmpColor = [0, 0, 0];
+            if (gmpHistoricoLote < 0) acumGmpColor = [244, 67, 54];
+            else if (gmpHistoricoLote <= umbralMedio) acumGmpColor = [255, 152, 0];
+            else if (gmpHistoricoLote <= umbralAlto) acumGmpColor = [0, 0, 0];
             else acumGmpColor = [76, 175, 80];
 
             // FILA 1
@@ -1023,7 +1024,7 @@ export default function Potreradas() {
             // FILA 2
             xPos = marginX;
             // Caja 4: GMP Histórico
-            drawBox(xPos, currentY, `${getModoLabel(modoGanancia)} HISTÓRICO LOTE`, `${toDisplayValue(detailData.gmpPromedioGrupo, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, 'ACUMULADO', acumGmpColor);
+            drawBox(xPos, currentY, `${getModoLabel(modoGanancia)} HISTÓRICO LOTE`, `${toDisplayValue(gmpHistoricoLote, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, 'ACUMULADO', acumGmpColor);
             xPos += boxWidth + colGap;
 
             // Caja 5: Último GMP
