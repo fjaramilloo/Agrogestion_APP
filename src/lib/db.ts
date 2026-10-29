@@ -23,8 +23,6 @@ export interface AnimalCacheItem {
   observaciones_venta?: string;
   precio_venta?: number;
   proveedor_compra?: string;
-  dias_recuperacion_merma?: number | null;
-  fecha_recuperacion_merma?: string | null;
   registros_pesaje?: any[];
   updated_at: string;
 }
