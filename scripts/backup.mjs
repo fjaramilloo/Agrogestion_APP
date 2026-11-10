@@ -116,6 +116,11 @@ async function uploadToGoogleDrive(filePath, filename, folderId, authClient) {
 const env = loadEnv();
 const projectRef = 'attusafghupkdkjkmxkd';
 
+// Usamos el pooler oficial IPv4 de Supabase para compatibilidad total (Mac + GitHub Actions)
+const defaultHost = 'aws-1-us-east-1.pooler.supabase.com';
+const defaultPort = 5432;
+const defaultUser = `postgres.${projectRef}`;
+
 async function runBackup() {
   let password = process.env.SUPABASE_DB_PASSWORD || env.SUPABASE_DB_PASSWORD;
 
@@ -123,15 +128,17 @@ async function runBackup() {
     password = await promptPassword('🔑 Ingresa la contraseña de tu base de datos Supabase: ');
   }
 
-  const host = `db.${projectRef}.supabase.co`;
+  const host = process.env.SUPABASE_DB_HOST || defaultHost;
+  const port = parseInt(process.env.SUPABASE_DB_PORT || String(defaultPort), 10);
+  const user = process.env.SUPABASE_DB_USER || (host.includes('pooler.supabase.com') ? defaultUser : 'postgres');
 
-  console.log(`\n🚀 Conectando a Supabase PostgreSQL (${host})...`);
+  console.log(`\n🚀 Conectando a Supabase PostgreSQL (${host}:${port} como ${user})...`);
 
   const client = new Client({
     host,
-    port: 5432,
+    port,
     database: 'postgres',
-    user: 'postgres',
+    user,
     password: password,
     ssl: { rejectUnauthorized: false }
   });
