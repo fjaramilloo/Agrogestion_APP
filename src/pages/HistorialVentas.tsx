@@ -11,7 +11,7 @@ import SalesReportSimple from '../components/SalesReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, esPesajePosteriorAIngreso } from '../utils/ganancia';
 
 interface AnimalVentaParaReporte {
     numero_chapeta: string;
@@ -147,7 +147,8 @@ export default function HistorialVentas() {
                                 peso,
                                 fecha,
                                 etapa,
-                                gdp_calculada
+                                gdp_calculada,
+                                is_deleted
                             )
                         `)
                         .eq('id_finca', fincaId)
@@ -211,30 +212,34 @@ export default function HistorialVentas() {
                     
                     const key = `${fecha}-${comprador}`;
                     
-                    const registros = (animal.registros_pesaje || []).sort((x: any, y: any) => 
-                        new Date(y.fecha || 0).getTime() - new Date(x.fecha || 0).getTime()
-                    );
+                    const registros = (animal.registros_pesaje || [])
+                        .filter((r: any) => !r.is_deleted)
+                        .sort((x: any, y: any) => 
+                            new Date(y.fecha || 0).getTime() - new Date(x.fecha || 0).getTime()
+                        );
                     const ultimoP = registros[0];
                     
                     const pesoSalida = animal.peso_venta || ultimoP?.peso || 0;
-                    const pesoIngresoDB = animal.peso_compra ?? animal.peso_ingreso ?? 0;
+                    const pesoIngresoDB = animal.peso_ingreso ?? animal.peso_compra ?? 0;
                     let gmp = 0;
 
                     if (fecha && animal.fecha_ingreso && pesoIngresoDB > 0 && pesoSalida > 0) {
-                        const d1 = new Date(animal.fecha_ingreso + 'T12:00:00');
+                        const d1 = new Date(animal.fecha_ingreso.split('T')[0] + 'T12:00:00');
                         const d2 = new Date(fecha + 'T12:00:00');
-                        const dias = Math.max(1, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
-                        gmp = ((pesoSalida - pesoIngresoDB) / dias) * 30;
+                        const dias = Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+                        if (dias > 0) {
+                            gmp = ((pesoSalida - pesoIngresoDB) / dias) * 30;
+                        }
                     }
 
                     const potreroObj = animal.potreros as any;
                     const potreroNombre = Array.isArray(potreroObj) ? potreroObj[0]?.nombre : potreroObj?.nombre || 'Sin potrero';
 
-                    const registroCeba = (animal.registros_pesaje || [])
+                    const registroCeba = registros
                         .filter((r: any) => r.etapa === 'ceba')
                         .sort((x: any, y: any) => new Date(x.fecha || 0).getTime() - new Date(y.fecha || 0).getTime())[0];
                     const fechaInicioCeba = animal.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (animal.etapa === 'ceba' ? animal.fecha_ingreso : null));
-                    const pesoInicioCeba = animal.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (animal.etapa === 'ceba' ? (animal.peso_compra ?? animal.peso_ingreso) : null));
+                    const pesoInicioCeba = animal.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (animal.etapa === 'ceba' ? (animal.peso_ingreso ?? animal.peso_compra) : null));
 
                     const animalRep: AnimalVentaParaReporte = {
                         numero_chapeta: animal.numero_chapeta,
@@ -243,7 +248,7 @@ export default function HistorialVentas() {
                         gmp: gmp,
                         potreroNombre: potreroNombre,
                         fecha_ingreso: animal.fecha_ingreso,
-                        peso_ingreso: animal.peso_compra ?? animal.peso_ingreso,
+                        peso_ingreso: animal.peso_ingreso ?? animal.peso_compra,
                         fecha_inicio_ceba: fechaInicioCeba,
                         peso_inicio_ceba: pesoInicioCeba,
                         precio_venta: animal.precio_venta != null ? animal.precio_venta.toString() : undefined,
@@ -251,22 +256,24 @@ export default function HistorialVentas() {
                     };
 
                     // Datos enriquecidos para el modal de detalle
-                    const registrosOrdenados = (animal.registros_pesaje || []).sort((x: any, y: any) =>
-                        new Date(y.fecha || 0).getTime() - new Date(x.fecha || 0).getTime()
-                    );
+                    const registrosOrdenados = registros;
                     
                     const registrosEtapa = registrosOrdenados.filter((r: any) => r.etapa === animal.etapa);
                     
                     const pesajesMap: Record<string, number> = {};
                     registrosEtapa.forEach((r: any) => {
                         const fechaNorm = r.fecha ? r.fecha.split('T')[0] : r.fecha;
-                        pesajesMap[fechaNorm] = Number(r.peso);
+                        if (esPesajePosteriorAIngreso(fechaNorm, animal.fecha_ingreso)) {
+                            pesajesMap[fechaNorm] = Number(r.peso);
+                        }
                     });
                     
                     const pesajesTotalesMap: Record<string, number> = {};
                     registrosOrdenados.forEach((r: any) => {
                         const fechaNorm = r.fecha ? r.fecha.split('T')[0] : r.fecha;
-                        pesajesTotalesMap[fechaNorm] = Number(r.peso);
+                        if (esPesajePosteriorAIngreso(fechaNorm, animal.fecha_ingreso)) {
+                            pesajesTotalesMap[fechaNorm] = Number(r.peso);
+                        }
                     });
 
                     const animalDet: AnimalVentaDetalle = {
@@ -274,7 +281,8 @@ export default function HistorialVentas() {
                         numero_chapeta: animal.numero_chapeta,
                         nombre_propietario: animal.nombre_propietario,
                         etapa: animal.etapa,
-                        peso_ingreso: animal.peso_compra ?? animal.peso_ingreso,
+                        peso_ingreso: animal.peso_ingreso ?? animal.peso_compra,
+                        peso_compra: animal.peso_compra,
                         fecha_ingreso: animal.fecha_ingreso,
                         peso_venta: animal.peso_venta || ultimoP?.peso || 0,
                         gmp: gmp,
@@ -335,17 +343,19 @@ export default function HistorialVentas() {
                 
                 yearlyAnimals.forEach(animal => {
                     const pesoSalida = Number(animal.peso_venta) || 0;
-                    const pesoIngresoDB = Number(animal.peso_compra ?? animal.peso_ingreso ?? 0);
+                    const pesoIngresoDB = Number(animal.peso_ingreso ?? animal.peso_compra ?? 0);
                     const fechaSalida = animal.fecha_venta ? animal.fecha_venta.split('T')[0] : '';
                     const fechaIngreso = animal.fecha_ingreso ? animal.fecha_ingreso.split('T')[0] : '';
                     
                     if (fechaSalida && fechaIngreso && pesoIngresoDB > 0 && pesoSalida > 0) {
                         const d1 = new Date(fechaIngreso + 'T12:00:00');
                         const d2 = new Date(fechaSalida + 'T12:00:00');
-                        const dias = Math.max(1, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
-                        const gmpV = ((pesoSalida - pesoIngresoDB) / dias) * 30;
-                        totalGmpY += gmpV;
-                        validGmpCount++;
+                        const dias = Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+                        if (dias > 0) {
+                            const gmpV = ((pesoSalida - pesoIngresoDB) / dias) * 30;
+                            totalGmpY += gmpV;
+                            validGmpCount++;
+                        }
                     }
                 });
                 const avgGmpY = validGmpCount > 0 ? totalGmpY / validGmpCount : 0;
@@ -665,7 +675,10 @@ export default function HistorialVentas() {
                     const registrosAUsar = (showFullHistory
                         ? (a.registros_pesaje || [])
                         : (a.registros_pesaje || []).filter(r => r.etapa === a.etapa)
-                    ).slice().sort((x, y) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+                    )
+                        .filter(r => esPesajePosteriorAIngreso(r.fecha, anchorFecha))
+                        .slice()
+                        .sort((x, y) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
 
                     // Siempre calculamos GDP secuencialmente usando el ingreso como punto de arranque.
                     // Esto cubre casos donde gdp_calculada es null en la BD (ej: primer pesaje de ceba).
@@ -832,9 +845,9 @@ export default function HistorialVentas() {
 
                                         <div className="card" style={{ padding: '16px', height: '280px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
                                             <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{getModoLabel(modoGanancia)} Promedio</h4>
-                                            {chartData.length > 1 ? (
+                                            {chartData.some(d => d.gmpPromedio !== undefined) ? (
                                                 <ResponsiveContainer width="100%" height="85%">
-                                                    <LineChart data={chartData.slice(1)}>
+                                                    <LineChart data={chartData.filter(d => d.gmpPromedio !== undefined)}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                                         <XAxis dataKey="fechaStr" stroke="var(--text-muted)" fontSize={12} />
                                                         <YAxis stroke="var(--text-muted)" fontSize={12} domain={['auto', 'auto']} />
@@ -1009,16 +1022,16 @@ export default function HistorialVentas() {
             ================================================================ */}
             {selectedAnimalDetalle && (() => {
                 const a = selectedAnimalDetalle;
-                const registrosOrdenados = [...a.registros_pesaje].sort((x, y) =>
-                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                );
+                const registrosOrdenados = [...a.registros_pesaje]
+                    .filter(r => esPesajePosteriorAIngreso(r.fecha, a.fecha_ingreso))
+                    .sort((x, y) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime());
                 const ultimoP = registrosOrdenados[0];
                 const fechaU = ultimoP
                     ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es })
                     : format(new Date(a.fecha_ingreso), 'dd/MM/yyyy', { locale: es });
 
-                // Timeline: ingreso + todos los pesajes (de más nuevo a más viejo para la tabla)
-                const baseWeight = a.peso_compra ?? a.peso_ingreso;
+                // Timeline: ingreso + todos los pesajes posteriores (de más nuevo a más viejo para la tabla)
+                const baseWeight = a.peso_ingreso ?? a.peso_compra ?? 0;
                 const timeline = [
                     ...registrosOrdenados.map((p, i, arr) => {
                         const siguiente = arr[i + 1] || { peso: baseWeight, fecha: a.fecha_ingreso };

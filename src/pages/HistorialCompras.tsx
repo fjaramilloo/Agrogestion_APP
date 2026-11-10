@@ -9,7 +9,7 @@ import { es } from 'date-fns/locale';
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, esPesajePosteriorAIngreso } from '../utils/ganancia';
 
 interface AnimalCompraParaReporte {
     numero_chapeta: string;
@@ -206,7 +206,10 @@ export default function HistorialCompras() {
                     .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
                 const pesajesMap: Record<string, number> = {};
                 registrosOrdenados.forEach((r: any) => {
-                    pesajesMap[r.fecha] = r.peso;
+                    const fechaNorm = r.fecha ? r.fecha.split('T')[0] : r.fecha;
+                    if (esPesajePosteriorAIngreso(fechaNorm, animal.fecha_ingreso)) {
+                        pesajesMap[fechaNorm] = r.peso;
+                    }
                 });
 
                 const animalDet: AnimalCompraDetalle = {
@@ -992,9 +995,9 @@ export default function HistorialCompras() {
             {/* TARJETA DE ANIMAL INDIVIDUAL */}
             {selectedAnimalDetalle && (() => {
                 const a = selectedAnimalDetalle;
-                const registrosOrdenados = [...a.registros_pesaje].sort((x, y) =>
-                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                );
+                const registrosOrdenados = [...a.registros_pesaje]
+                    .filter(r => esPesajePosteriorAIngreso(r.fecha, a.fecha_ingreso))
+                    .sort((x, y) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime());
                 const ultimoP = registrosOrdenados[0];
                 const fechaU = ultimoP
                     ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es })

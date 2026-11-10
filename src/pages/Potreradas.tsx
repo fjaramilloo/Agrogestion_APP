@@ -57,7 +57,7 @@ interface AnimalPotrero {
 interface ChartData {
     fecha: string;
     pesoPromedio: number;
-    gmpPromedio: number;
+    gmpPromedio: number | null;
 }
 
 export default function Potreradas() {
@@ -745,15 +745,18 @@ export default function Potreradas() {
         const fechasColumnas = Array.from(fechasRegistradasSet).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
 
         // 4. Preparar datos para las gráficas (agrupar pesajes por fecha)
-        const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
+        const allWeighings: { fecha: string; peso: number; gdp: number; isAnchor?: boolean }[] = [];
         animals?.forEach(a => {
             let entryDateForChart: string | null = null;
-            // Inyectar el peso inicial
+            let entryWeightForChart: number | null = null;
+            // Inyectar el peso inicial como punto de anclaje (no aporta GMP=0 a la curva de ganancia)
             if (showFullHistory) {
-                if (a.fecha_ingreso && a.peso_ingreso) {
+                const baseW = a.peso_ingreso ?? a.peso_compra;
+                if (a.fecha_ingreso && baseW) {
                     const f = String(a.fecha_ingreso).split('T')[0];
                     entryDateForChart = f;
-                    allWeighings.push({ fecha: f, peso: Number(a.peso_ingreso), gdp: 0 });
+                    entryWeightForChart = Number(baseW);
+                    allWeighings.push({ fecha: f, peso: entryWeightForChart, gdp: 0, isAnchor: true });
                 }
             } else if (p.etapa === 'ceba') {
                 const cebaDate = a.fecha_ingreso_ceba || (a.etapa === 'ceba' ? a.fecha_ingreso : null);
@@ -761,13 +764,16 @@ export default function Potreradas() {
                 if (cebaDate && cebaWeight) {
                     const f = String(cebaDate).split('T')[0];
                     entryDateForChart = f;
-                    allWeighings.push({ fecha: f, peso: Number(cebaWeight), gdp: 0 });
+                    entryWeightForChart = Number(cebaWeight);
+                    allWeighings.push({ fecha: f, peso: entryWeightForChart, gdp: 0, isAnchor: true });
                 }
             } else {
-                if (a.fecha_ingreso && a.peso_ingreso) {
+                const baseW = a.peso_ingreso ?? a.peso_compra;
+                if (a.fecha_ingreso && baseW) {
                     const f = String(a.fecha_ingreso).split('T')[0];
                     entryDateForChart = f;
-                    allWeighings.push({ fecha: f, peso: Number(a.peso_ingreso), gdp: 0 });
+                    entryWeightForChart = Number(baseW);
+                    allWeighings.push({ fecha: f, peso: entryWeightForChart, gdp: 0, isAnchor: true });
                 }
             }
 
@@ -779,50 +785,54 @@ export default function Potreradas() {
                 .slice()
                 .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
 
-            // Para calcular GDP secuencial cuando se muestra historial completo
-            // (los registros de etapas anteriores tienen gdp_calculada=null)
-            let prevFechaChart: Date | null = null;
-            let prevPesoChart: number | null = null;
-            if (showFullHistory && a.fecha_ingreso && (a.peso_ingreso ?? a.peso_compra)) {
-                prevFechaChart = new Date(a.fecha_ingreso.split('T')[0] + 'T12:00:00');
-                prevPesoChart = Number(a.peso_ingreso ?? a.peso_compra);
-            }
+            // Calcular GDP secuencial desde el punto de anclaje para consistencia total en la gráfica
+            let prevFechaChart: Date | null = entryDateForChart ? new Date(entryDateForChart + 'T12:00:00') : null;
+            let prevPesoChart: number | null = entryWeightForChart !== null && entryWeightForChart > 0 ? entryWeightForChart : null;
 
             registrosEtapaChrono.forEach((r: any) => {
                 const fecha = r.fecha.split('T')[0];
                 const peso = Number(r.peso);
                 let gdp = 0;
-                if (showFullHistory && prevFechaChart !== null && prevPesoChart !== null) {
+                if (prevFechaChart !== null && prevPesoChart !== null) {
                     const currDate = new Date(fecha + 'T12:00:00');
                     const days = differenceInDays(currDate, prevFechaChart);
                     if (days > 0) {
                         gdp = (peso - prevPesoChart) / days;
+                    } else {
+                        gdp = Number(r.gdp_calculada || 0);
                     }
                     prevFechaChart = currDate;
                     prevPesoChart = peso;
                 } else {
                     gdp = Number(r.gdp_calculada || 0);
+                    prevFechaChart = new Date(fecha + 'T12:00:00');
+                    prevPesoChart = peso;
                 }
-                allWeighings.push({ fecha, peso, gdp });
+                allWeighings.push({ fecha, peso, gdp, isAnchor: false });
             });
         });
 
-        const groupedByDate: { [key: string]: { totalPeso: number; totalGdp: number; count: number } } = {};
+        const groupedByDate: { [key: string]: { totalPeso: number; totalGdp: number; countPeso: number; countGdp: number } } = {};
         allWeighings.forEach(w => {
             if (!groupedByDate[w.fecha]) {
-                groupedByDate[w.fecha] = { totalPeso: 0, totalGdp: 0, count: 0 };
+                groupedByDate[w.fecha] = { totalPeso: 0, totalGdp: 0, countPeso: 0, countGdp: 0 };
             }
             groupedByDate[w.fecha].totalPeso += w.peso;
-            groupedByDate[w.fecha].totalGdp += w.gdp;
-            groupedByDate[w.fecha].count += 1;
+            groupedByDate[w.fecha].countPeso += 1;
+            if (!w.isAnchor) {
+                groupedByDate[w.fecha].totalGdp += w.gdp;
+                groupedByDate[w.fecha].countGdp += 1;
+            }
         });
 
         const history: ChartData[] = Object.keys(groupedByDate)
             .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
             .map(date => ({
                 fecha: format(new Date(date + 'T12:00:00'), 'dd MMM', { locale: es }),
-                pesoPromedio: Math.round(groupedByDate[date].totalPeso / groupedByDate[date].count),
-                gmpPromedio: Number(( (groupedByDate[date].totalGdp / groupedByDate[date].count) * 30).toFixed(2))
+                pesoPromedio: Math.round(groupedByDate[date].totalPeso / groupedByDate[date].countPeso),
+                gmpPromedio: groupedByDate[date].countGdp > 0
+                    ? Number(((groupedByDate[date].totalGdp / groupedByDate[date].countGdp) * 30).toFixed(2))
+                    : null
             }));
 
         setDetailData({
@@ -989,16 +999,19 @@ export default function Potreradas() {
             };
 
             // Colores Semáforo dinámicos
+            const ultimoGmpLote = detailData.gmpPromedioGrupo;
+            const historicoGmpLote = p.gmpAcumulado ?? detailData.gmpPromedioGrupo;
+
             let lastGmpColor = [40, 40, 40];
-            if (p.gmpPromedio < 0) lastGmpColor = [244, 67, 54];
-            else if (p.gmpPromedio <= umbralMedio) lastGmpColor = [255, 152, 0];
-            else if (p.gmpPromedio <= umbralAlto) lastGmpColor = [0, 0, 0];
+            if (ultimoGmpLote < 0) lastGmpColor = [244, 67, 54];
+            else if (ultimoGmpLote <= umbralMedio) lastGmpColor = [255, 152, 0];
+            else if (ultimoGmpLote <= umbralAlto) lastGmpColor = [0, 0, 0];
             else lastGmpColor = [76, 175, 80];
 
             let acumGmpColor = [40, 40, 40];
-            if (detailData.gmpPromedioGrupo < 0) acumGmpColor = [244, 67, 54];
-            else if (detailData.gmpPromedioGrupo <= umbralMedio) acumGmpColor = [255, 152, 0];
-            else if (detailData.gmpPromedioGrupo <= umbralAlto) acumGmpColor = [0, 0, 0];
+            if (historicoGmpLote < 0) acumGmpColor = [244, 67, 54];
+            else if (historicoGmpLote <= umbralMedio) acumGmpColor = [255, 152, 0];
+            else if (historicoGmpLote <= umbralAlto) acumGmpColor = [0, 0, 0];
             else acumGmpColor = [76, 175, 80];
 
             // FILA 1
@@ -1014,7 +1027,7 @@ export default function Potreradas() {
 
             // Caja 3: Productividad (Kilos/Ha/Mes)
             const numAnimales = detailData.animales.length;
-            const avgGmp = p.gmpPromedio;
+            const avgGmp = ultimoGmpLote;
             const areaSistema = detailData.areaTotalSistema || 1;
             
             const kilosHaMes = (numAnimales * avgGmp) / areaSistema;
@@ -1027,11 +1040,11 @@ export default function Potreradas() {
             // FILA 2
             xPos = marginX;
             // Caja 4: GMP Histórico
-            drawBox(xPos, currentY, `${getModoLabel(modoGanancia)} HISTÓRICO LOTE`, `${toDisplayValue(detailData.gmpPromedioGrupo, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, 'ACUMULADO', acumGmpColor);
+            drawBox(xPos, currentY, `${getModoLabel(modoGanancia)} HISTÓRICO LOTE`, `${toDisplayValue(historicoGmpLote, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, 'ACUMULADO', acumGmpColor);
             xPos += boxWidth + colGap;
 
             // Caja 5: Último GMP
-            drawBox(xPos, currentY, `ÚLTIMO ${getModoLabel(modoGanancia)}`, `${toDisplayValue(p.gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, 'Muestra más reciente', lastGmpColor);
+            drawBox(xPos, currentY, `ÚLTIMO ${getModoLabel(modoGanancia)}`, `${toDisplayValue(ultimoGmpLote, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, 'Muestra más reciente', lastGmpColor);
             xPos += boxWidth + colGap;
 
             // Caja 6: Punto de Equilibrio
@@ -2053,9 +2066,9 @@ export default function Potreradas() {
 
                                         <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
                                             <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{getModoLabel(modoGanancia)} Promedio</h4>
-                                            {detailData.history.length > 1 ? (
+                                            {detailData.history.some(d => d.gmpPromedio !== null) ? (
                                                 <ResponsiveContainer width="100%" height="85%">
-                                                    <LineChart data={detailData.history.filter((_, idx) => idx > 0)}>
+                                                    <LineChart data={detailData.history.filter(d => d.gmpPromedio !== null)}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                                                         <XAxis dataKey="fecha" stroke="var(--text-muted)" fontSize={12} />
                                                         <YAxis stroke="var(--text-muted)" fontSize={12} />
