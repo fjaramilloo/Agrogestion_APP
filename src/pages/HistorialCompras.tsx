@@ -121,7 +121,8 @@ export default function HistorialCompras() {
                         registros_pesaje (
                             peso,
                             fecha,
-                            gdp_calculada
+                            gdp_calculada,
+                            is_deleted
                         )
                     `)
                     .eq('id_finca', fincaId)
@@ -174,9 +175,9 @@ export default function HistorialCompras() {
                 const proveedor = (animal.proveedor_comp_extra || animal.proveedor_compra || '').trim() || 'Compra General';
                 const key = `${fecha}-${proveedor}`;
                 
-                const registros = (animal.registros_pesaje || []).sort((x: any, y: any) => 
-                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                );
+                const registros = (animal.registros_pesaje || [])
+                    .filter((r: any) => !r.is_deleted)
+                    .sort((x: any, y: any) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime());
                 const ultimoP = registros[0];
                 const pesoActual = ultimoP?.peso || animal.peso_ingreso;
                 
@@ -189,8 +190,6 @@ export default function HistorialCompras() {
                         if (dias > 0) {
                             const gananciaTotal = ultimoP.peso - animal.peso_ingreso;
                             gmp = (gananciaTotal / dias) * 30;
-                        } else {
-                            gmp = 0;
                         }
                     }
                 }
@@ -202,9 +201,9 @@ export default function HistorialCompras() {
                 };
 
                 // Datos enriquecidos para el modal de detalle
-                const registrosOrdenados = (animal.registros_pesaje || []).sort((x: any, y: any) =>
-                    new Date(x.fecha).getTime() - new Date(y.fecha).getTime()
-                );
+                const registrosOrdenados = (animal.registros_pesaje || [])
+                    .filter((r: any) => !r.is_deleted)
+                    .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
                 const pesajesMap: Record<string, number> = {};
                 registrosOrdenados.forEach((r: any) => {
                     pesajesMap[r.fecha] = r.peso;

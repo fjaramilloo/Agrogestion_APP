@@ -9,7 +9,7 @@ import {
 import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, AlertOctagon, SlidersHorizontal } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
 import { useNavigate } from 'react-router-dom';
 // El reporte trae xlsx + jsPDF (pesados): se descarga solo cuando el usuario lo abre
 const ReporteInventarioExcel = lazy(() => import('../components/ReporteInventarioExcel'));
@@ -330,10 +330,9 @@ export default function Dashboard() {
 
                 animales.forEach((a: any) => {
                     const ultP = ultPesajesMap.get(a.id);
-                    let gmpIndiv = ultP?.gmp_calculada != null ? Number(ultP.gmp_calculada) : null;
-                    if (gmpIndiv === null && ultP?.gdp_calculada != null) {
-                        gmpIndiv = Number(ultP.gdp_calculada) * 30;
-                    }
+                    const pesoBase = Number(a.peso_ingreso ?? a.peso_compra ?? 0);
+                    const gmpIndiv = calcularGmpAcumulado(ultP?.peso, pesoBase, a.fecha_ingreso, ultP?.fecha);
+
                     if (gmpIndiv !== null && !isNaN(gmpIndiv)) {
                         gmpSumTotal += gmpIndiv;
                         gmpCountTotal++;
@@ -345,9 +344,8 @@ export default function Dashboard() {
                             gmpCountCeba++;
                         }
                     }
-                    const pIng = Number(a.peso_compra ?? a.peso_ingreso ?? 0);
-                    if (pIng > 0) {
-                        pesoEntradaSum += pIng;
+                    if (pesoBase > 0) {
+                        pesoEntradaSum += pesoBase;
                         pesoEntradaCount++;
                     }
                 });
@@ -367,13 +365,13 @@ export default function Dashboard() {
                 const fallbackCarga = areaAprov > 0 ? animales.length / areaAprov : 0;
                 const fallbackCarneHa = areaAprov > 0 ? (animales.length * fallbackGmpTotal * 12) / areaAprov : 0;
 
-                const totalAnimalesFinal = resumen?.total_animales_activos != null ? Number(resumen.total_animales_activos) : animales.length;
-                const gmpLevFinal = resumen?.gmp_promedio_levante != null ? parseFloat(resumen.gmp_promedio_levante) : fallbackGmpLev;
-                const gmpCebaFinal = resumen?.gmp_promedio_ceba != null ? parseFloat(resumen.gmp_promedio_ceba) : fallbackGmpCeba;
-                const gmpTotalFinal = resumen?.gmp_promedio_total != null ? parseFloat(resumen.gmp_promedio_total) : fallbackGmpTotal;
+                const totalAnimalesFinal = animales.length > 0 ? animales.length : (resumen?.total_animales_activos != null ? Number(resumen.total_animales_activos) : 0);
+                const gmpLevFinal = gmpCountLevante > 0 ? fallbackGmpLev : (resumen?.gmp_promedio_levante != null ? parseFloat(resumen.gmp_promedio_levante) : 0);
+                const gmpCebaFinal = gmpCountCeba > 0 ? fallbackGmpCeba : (resumen?.gmp_promedio_ceba != null ? parseFloat(resumen.gmp_promedio_ceba) : 0);
+                const gmpTotalFinal = gmpCountTotal > 0 ? fallbackGmpTotal : (resumen?.gmp_promedio_total != null ? parseFloat(resumen.gmp_promedio_total) : 0);
                 const muertesFinal = resumen?.muertes_anio_actual != null ? Number(resumen.muertes_anio_actual) : muertesAnoCalculadas;
-                const cargaFinal = resumen?.carga_animal != null ? parseFloat(resumen.carga_animal) : fallbackCarga;
-                const pesoEntradaFinal = resumen?.peso_promedio_entrada != null ? parseFloat(resumen.peso_promedio_entrada) : fallbackPesoEntrada;
+                const cargaFinal = areaAprov > 0 ? fallbackCarga : (resumen?.carga_animal != null ? parseFloat(resumen.carga_animal) : 0);
+                const pesoEntradaFinal = pesoEntradaCount > 0 ? fallbackPesoEntrada : (resumen?.peso_promedio_entrada != null ? parseFloat(resumen.peso_promedio_entrada) : 360);
                 const pesoSalidaFinal = parseFloat(resumen?.peso_promedio_salida || 540);
                 const carneHaFinal = (areaAprov > 0) ? ((totalAnimalesFinal * gmpTotalFinal * 12) / areaAprov) : fallbackCarneHa;
 
@@ -449,24 +447,14 @@ export default function Dashboard() {
                 
                 animales.forEach((animal: any) => {
                     const ultimoP = ultPesajesMap.get(animal.id) || null;
-                    const pesoBase = animal.peso_compra ?? animal.peso_ingreso;
-                    const pesoRef = ultimoP ? ultimoP.peso : pesoBase;
-                    const fechaRef = ultimoP ? ultimoP.fecha : animal.fecha_ingreso;
+                    const pesoBase = animal.peso_ingreso ?? animal.peso_compra ?? 0;
+                    const tienePesajePosterior = Boolean(ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, animal.fecha_ingreso));
+                    const pesoRef = (tienePesajePosterior && ultimoP) ? ultimoP.peso : pesoBase;
+                    const fechaRef = (tienePesajePosterior && ultimoP) ? ultimoP.fecha : animal.fecha_ingreso;
                     const dias = fechaRef ? (differenceInDays(new Date(), new Date(fechaRef)) || 0) : 0;
 
-                    let gmpIndiv = 0;
-                    if (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
-                        gmpIndiv = Number(ultimoP.gmp_calculada);
-                    } else if (ultimoP) {
-                        const fechaBase = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
-                        const pesoBaseE = parseFloat(animal.peso_ingreso_ceba ?? (animal.peso_compra ?? animal.peso_ingreso ?? 0));
-                        const diffDiasEtapa = fechaBase ? differenceInDays(new Date(ultimoP.fecha), new Date(fechaBase)) : 0;
-                        if (diffDiasEtapa > 0) {
-                            gmpIndiv = ((ultimoP.peso - pesoBaseE) / diffDiasEtapa) * 30;
-                        }
-                    }
-
-                    if (gmpIndiv === 0) gmpIndiv = 10.3; // Fallback mínimo
+                    const gmpAcum = calcularGmpAcumulado(ultimoP?.peso, pesoBase, animal.fecha_ingreso, ultimoP?.fecha);
+                    const gmpIndiv = (gmpAcum !== null && gmpAcum !== 0) ? gmpAcum : 10.3;
 
                     const estimado = pesoRef + (dias * (gmpIndiv / 30));
 
@@ -516,24 +504,14 @@ export default function Dashboard() {
 
                     const potNombre = a.potreradas?.nombre || 'Potrerada Desconocida';
                     const ultimoP = ultPesajesMap.get(a.id) || null;
-                    const pesoBase = a.peso_compra ?? a.peso_ingreso;
-                    const pesoRef = ultimoP ? ultimoP.peso : pesoBase;
-                    const fechaRef = ultimoP ? ultimoP.fecha : a.fecha_ingreso;
+                    const pesoBase = a.peso_ingreso ?? a.peso_compra ?? 0;
+                    const tienePesajePosterior = Boolean(ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, a.fecha_ingreso));
+                    const pesoRef = (tienePesajePosterior && ultimoP) ? ultimoP.peso : pesoBase;
+                    const fechaRef = (tienePesajePosterior && ultimoP) ? ultimoP.fecha : a.fecha_ingreso;
                     const diasRef = fechaRef ? (differenceInDays(new Date(), new Date(fechaRef)) || 0) : 0;
                     
-                    let gmpIndiv = 10.3;
-                    if (ultimoP) {
-                        if (ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
-                            gmpIndiv = Number(ultimoP.gmp_calculada);
-                        } else {
-                            const fechaBaseCeba = a.fecha_ingreso_ceba || a.fecha_ingreso;
-                            const pesoBaseCeba = parseFloat(a.peso_ingreso_ceba ?? (a.peso_compra ?? a.peso_ingreso ?? 0));
-                            const diffDiasEtapa = fechaBaseCeba ? differenceInDays(new Date(ultimoP.fecha), new Date(fechaBaseCeba)) : 0;
-                            if (diffDiasEtapa > 0) {
-                                gmpIndiv = ((ultimoP.peso - pesoBaseCeba) / diffDiasEtapa) * 30;
-                            }
-                        }
-                    }
+                    const gmpAcum = calcularGmpAcumulado(ultimoP?.peso, pesoBase, a.fecha_ingreso, ultimoP?.fecha);
+                    const gmpIndiv = (gmpAcum !== null && gmpAcum !== 0) ? gmpAcum : 10.3;
 
                     const pesoEst = pesoRef + (diasRef * (gmpIndiv / 30));
 
@@ -646,17 +624,19 @@ export default function Dashboard() {
             // Ordenar pesajes cronológicamente
             const ordenados = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
             
-            let prevWeight = parseFloat(animal.peso_compra ?? animal.peso_ingreso);
+            let prevWeight = parseFloat(animal.peso_ingreso ?? animal.peso_compra ?? 0);
             let prevDate = new Date(`${animal.fecha_ingreso}T01:00:00`);
+            let validWeighingCounter = 1;
             
-            ordenados.forEach((p: any, index: number) => {
-                const numPesaje = index + 2; 
+            ordenados.forEach((p: any) => {
                 const currentWeight = parseFloat(p.peso); 
                 const currentDateStr = p.fecha as string;
                 const currentDate = new Date(`${currentDateStr}T01:00:00`);
                 const diffDias = differenceInDays(currentDate, prevDate);
                 
                 if (diffDias > 0) {
+                    validWeighingCounter++;
+                    const numPesaje = validWeighingCounter;
                     const ganancia = currentWeight - prevWeight;
                     let gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined && p.gdp_calculada !== 0) ? Number(p.gdp_calculada) : (ganancia / diffDias);
                     if (gdp === 0 && ganancia !== 0) {

@@ -9,7 +9,7 @@ import ModalUpsell from '../components/ModalUpsell';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
 import { sincronizarCacheFinca } from '../lib/offlineService';
@@ -789,15 +789,13 @@ export default function Inventory() {
             if (a.potreradaNombre && a.potreradaNombre !== 'Sin potrerada') potreradas.add(a.potreradaNombre);
             
             const ultimoP = a.registros_pesaje?.[0];
-            if (ultimoP) {
-                const isCeba = a.etapa === 'ceba';
-                const pesoBase = isCeba ? (a.peso_ingreso_ceba || a.peso_compra || a.peso_ingreso || 0) : (a.peso_compra ?? a.peso_ingreso ?? 0);
-                const fechaInicio = isCeba ? (a.fecha_ingreso_ceba || a.fecha_ingreso) : a.fecha_ingreso;
-                const fechaRef = new Date(ultimoP.fecha);
-                const dias = differenceInDays(fechaRef, new Date(fechaInicio)) || 1;
-                const gmp = ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined ? Number(ultimoP.gmp_calculada) : ((ultimoP.peso - pesoBase) / dias) * 30;
-                
-                if (gmp <= umbralMedioGmp) alertas++;
+            const penultimoP = a.registros_pesaje?.[1];
+            const pesoBase = a.peso_ingreso ?? a.peso_compra ?? 0;
+            const fechaInicio = a.fecha_ingreso;
+            const gmpUltimo = calcularGmpUltimoPeriodo(ultimoP, fechaInicio, pesoBase, penultimoP);
+            
+            if (gmpUltimo !== null && gmpUltimo <= umbralMedioGmp) {
+                alertas++;
             }
         });
 
@@ -1004,7 +1002,7 @@ export default function Inventory() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Último Pesaje <ArrowUpDown size={14} opacity={sortBy === 'dias_pesaje' ? 1 : 0.3} /></div>
                             </th>
                             <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Último Peso</th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>{getModoLabel(modoGanancia)} Promedio</th>
+                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>{getModoLabel(modoGanancia)} (Últ. / Hist.)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1015,27 +1013,29 @@ export default function Inventory() {
                         ) : (
                             sortedAndFilteredAnimals.map((animal) => {
                                 const ultimoP = animal.registros_pesaje?.[0];
-                                const isCeba = animal.etapa === 'ceba';
-                                const pesoBase = isCeba ? (animal.peso_ingreso_ceba || animal.peso_compra || animal.peso_ingreso || 0) : (animal.peso_compra ?? animal.peso_ingreso ?? 0);
-                                const fechaInicio = isCeba ? (animal.fecha_ingreso_ceba || animal.fecha_ingreso) : animal.fecha_ingreso;
+                                const penultimoP = animal.registros_pesaje?.[1];
+                                const pesoBase = animal.peso_ingreso ?? animal.peso_compra ?? 0;
+                                const fechaInicio = animal.fecha_ingreso;
                                 
-                                const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
-                                const pesoU = ultimoP ? `${Math.round(ultimoP.peso)} kg` : `${Math.round(pesoBase)} kg*`;
+                                const tienePesajePosterior = Boolean(ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, fechaInicio));
+                                const fechaU = tienePesajePosterior && ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
+                                const pesoU = tienePesajePosterior && ultimoP ? `${Math.round(ultimoP.peso)} kg` : `${Math.round(pesoBase)} kg*`;
 
-                                const fechaReferencia = ultimoP ? new Date(ultimoP.fecha) : new Date();
-                                const pesoReferencia = ultimoP ? ultimoP.peso : pesoBase;
-                                const dias = differenceInDays(fechaReferencia, new Date(fechaInicio)) || 1;
-                                const gananciaTotal = pesoReferencia - pesoBase;
-                                const hasRecords = !!ultimoP;
-                                const gmpPromedio = (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) ? Number(ultimoP.gmp_calculada) : (gananciaTotal / dias) * 30;
+                                const gananciaTotal = tienePesajePosterior && ultimoP ? (ultimoP.peso - pesoBase) : 0;
+                                const gmpUltimo = calcularGmpUltimoPeriodo(ultimoP, fechaInicio, pesoBase, penultimoP);
+                                const gmpHistorico = calcularGmpAcumulado(ultimoP?.peso, pesoBase, fechaInicio, ultimoP?.fecha);
+                                const hasRecords = gmpUltimo !== null;
+                                const gmpPromedio = gmpUltimo ?? 0;
                                 const isAlerta = hasRecords && gmpPromedio < 0;
-                                const gmpColor = !hasRecords ? 'var(--text-muted)' : (
-                                    gmpPromedio < 0 ? 'var(--error)' : (
-                                        gmpPromedio <= umbralMedioGmp ? 'var(--warning)' : (
-                                            gmpPromedio <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)'
-                                        )
-                                    )
-                                );
+                                const getColorForGmp = (val: number | null) => {
+                                    if (val === null) return 'var(--text-muted)';
+                                    if (val < 0) return 'var(--error)';
+                                    if (val <= umbralMedioGmp) return 'var(--warning)';
+                                    if (val <= umbralAltoGmp) return 'var(--text-light)';
+                                    return 'var(--success)';
+                                };
+                                const gmpColor = getColorForGmp(gmpUltimo);
+                                const gmpHistColor = getColorForGmp(gmpHistorico);
 
                                 return (
                                     <tr key={animal.id} 
@@ -1093,32 +1093,47 @@ export default function Inventory() {
                                             }}>
                                                 Hace {animal.diasDesdeUltimoPesaje} {animal.diasDesdeUltimoPesaje === 1 ? 'día' : 'días'}
                                             </div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ultimoP ? fechaU : 'Ingreso: ' + format(new Date(animal.fecha_ingreso), 'dd/MM/yyyy')}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tienePesajePosterior ? fechaU : 'Ingreso: ' + format(new Date(animal.fecha_ingreso), 'dd/MM/yyyy')}</div>
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: 'bold', fontSize: '1.05rem' }}>{pesoU}</div>
-                                            {(animal.registros_pesaje?.length || 0) > 1 && ultimoP && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>+{(ultimoP.peso - (animal.peso_compra ?? animal.peso_ingreso)).toFixed(1)} kg ganados</div>}
+                                            {tienePesajePosterior && (
+                                                <div style={{ fontSize: '0.75rem', color: gananciaTotal >= 0 ? 'var(--text-muted)' : 'var(--error)' }}>
+                                                    {gananciaTotal >= 0 ? '+' : ''}{gananciaTotal.toFixed(1)} kg ganados
+                                                </div>
+                                            )}
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             {hasRecords ? (
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    color: gmpColor === 'var(--text-light)' ? 'white' : gmpColor,
-                                                    fontWeight: 'bold'
-                                                }}>
-                                                    <div style={{ 
-                                                        width: '10px', 
-                                                        height: '10px', 
-                                                        borderRadius: '50%', 
-                                                        backgroundColor: gmpColor,
-                                                        border: gmpColor === 'var(--text-light)' ? '1px solid rgba(255,255,255,0.4)' : 'none'
-                                                    }}></div>
-                                                    {toDisplayValue(gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        color: gmpColor === 'var(--text-light)' ? 'white' : gmpColor,
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        <div style={{ 
+                                                            width: '10px', 
+                                                            height: '10px', 
+                                                            borderRadius: '50%', 
+                                                            backgroundColor: gmpColor,
+                                                            border: gmpColor === 'var(--text-light)' ? '1px solid rgba(255,255,255,0.4)' : 'none'
+                                                        }}></div>
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Últ:</span>
+                                                        {toDisplayValue(gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
+                                                    </div>
+                                                    {gmpHistorico !== null && (
+                                                        <div style={{ fontSize: '0.76rem', paddingLeft: '18px', color: 'var(--text-muted)' }}>
+                                                            Hist:{' '}
+                                                            <span style={{ color: gmpHistColor === 'var(--text-light)' ? 'rgba(255,255,255,0.9)' : gmpHistColor, fontWeight: 600 }}>
+                                                                {toDisplayValue(gmpHistorico, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
-                                                <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>NA</div>
+                                                <div style={{ color: 'var(--text-muted)', fontWeight: '500', fontSize: '0.85rem' }}>Sin pesajes</div>
                                             )}
                                         </td>
                                     </tr>
@@ -1189,29 +1204,26 @@ export default function Inventory() {
             )}
 
             {selectedAnimal && (() => {
-                const isCebaModal = selectedAnimal.etapa === 'ceba';
-                const pesoBaseModal = isCebaModal ? (selectedAnimal.peso_ingreso_ceba || selectedAnimal.peso_compra || selectedAnimal.peso_ingreso || 0) : (selectedAnimal.peso_compra ?? selectedAnimal.peso_ingreso ?? 0);
-                const fechaInicioModal = isCebaModal ? (selectedAnimal.fecha_ingreso_ceba || selectedAnimal.fecha_ingreso) : selectedAnimal.fecha_ingreso;
+                const pesoBaseModal = selectedAnimal.peso_ingreso ?? selectedAnimal.peso_compra ?? 0;
+                const fechaInicioModal = selectedAnimal.fecha_ingreso;
                 
-                const ultimoP = selectedAnimal.registros_pesaje?.[0];
+                const pesajesPosteriores = (selectedAnimal.registros_pesaje || []).filter(p =>
+                    esPesajePosteriorAIngreso(p.fecha, fechaInicioModal)
+                );
+                const ultimoP = pesajesPosteriores[0];
+                const penultimoP = pesajesPosteriores[1];
                 const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : format(new Date(fechaInicioModal), 'dd/MM/yyyy');
                 const pesoU = ultimoP ? ultimoP.peso : pesoBaseModal;
 
                 const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(fechaInicioModal);
                 const diasHoy = differenceInDays(new Date(), refDate) || 0;
                 
-                // USAR GMP INDIVIDUAL PARA COHERENCIA
-                let gmpIndiv = 0;
-                if (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
-                    gmpIndiv = Number(ultimoP.gmp_calculada);
-                } else if (ultimoP) {
-                    const gainTotal = ultimoP.peso - pesoBaseModal;
-                    const daysTotal = differenceInDays(new Date(ultimoP.fecha), new Date(fechaInicioModal)) || 1;
-                    gmpIndiv = (gainTotal / daysTotal) * 30;
-                }
-                if (gmpIndiv === 0) gmpIndiv = 10.3;
+                const gmpUltimoModal = calcularGmpUltimoPeriodo(ultimoP, fechaInicioModal, pesoBaseModal, penultimoP);
+                const gmpHistoricoModal = calcularGmpAcumulado(ultimoP?.peso, pesoBaseModal, fechaInicioModal, ultimoP?.fecha);
 
-                const estimadoHoy = pesoU + (diasHoy * (gmpIndiv / 30));
+                // Usar GMP histórica acumulada para proyectar peso estimado a hoy con estabilidad
+                const gmpParaProyeccion = (gmpHistoricoModal !== null && gmpHistoricoModal !== 0) ? gmpHistoricoModal : 10.3;
+                const estimadoHoy = pesoU + (diasHoy * (gmpParaProyeccion / 30));
 
                 interface TimelineItem {
                     id: string;
@@ -1224,15 +1236,12 @@ export default function Inventory() {
                 }
 
                 const timeline: TimelineItem[] = [
-                    ...(selectedAnimal.registros_pesaje || []).map((p, i, arr) => {
+                    ...pesajesPosteriores.map((p, i, arr) => {
                         const ant = arr[i + 1] || { peso: pesoBaseModal, fecha: fechaInicioModal };
-                        const d = differenceInDays(new Date(p.fecha), new Date(ant.fecha)) || 1;
+                        const d = Math.max(1, differenceInDays(new Date(p.fecha.split('T')[0] + 'T12:00:00'), new Date(ant.fecha.split('T')[0] + 'T12:00:00')));
                         const ganancia = p.peso - ant.peso;
-                        const gmp = (p.gmp_calculada !== null && p.gmp_calculada !== undefined) ? Number(p.gmp_calculada) : ((ganancia / d) * 30);
-                        let gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined) ? Number(p.gdp_calculada) : (ganancia / d);
-                        if (gdp === 0 && ganancia !== 0) {
-                            gdp = ganancia / d;
-                        }
+                        const gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined && p.gdp_calculada !== 0) ? Number(p.gdp_calculada) : (ganancia / d);
+                        const gmp = (p.gmp_calculada !== null && p.gmp_calculada !== undefined && p.gmp_calculada !== 0) ? Number(p.gmp_calculada) : (gdp * 30);
                         return {
                             id: p.id || p.fecha,
                             pesajeId: p.id,
@@ -1507,7 +1516,7 @@ export default function Inventory() {
                             {/* Metric Cards */}
                             <div style={{ 
                                 display: 'grid', 
-                                gridTemplateColumns: selectedAnimal.peso_compra ? 'repeat(auto-fit, minmax(140px, 1fr))' : 'repeat(2, 1fr)', 
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
                                 gap: '12px', 
                                 marginBottom: '28px' 
                             }}>
@@ -1515,6 +1524,17 @@ export default function Inventory() {
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Último Pesaje</div>
                                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>{pesoU} kg</div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Llegada: '} {fechaU}</div>
+                                </div>
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Última {getModoLabel(modoGanancia)}</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: gmpUltimoModal === null ? 'var(--text-muted)' : (gmpUltimoModal < 0 ? 'var(--error)' : (gmpUltimoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpUltimoModal <= umbralAltoGmp ? 'white' : 'var(--success)'))) }}>
+                                        {gmpUltimoModal !== null ? `${toDisplayValue(gmpUltimoModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'Sin pesajes'}
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                        Histórica: <strong style={{ color: gmpHistoricoModal === null ? 'var(--text-muted)' : (gmpHistoricoModal < 0 ? 'var(--error)' : (gmpHistoricoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpHistoricoModal <= umbralAltoGmp ? 'white' : 'var(--success)'))) }}>
+                                            {gmpHistoricoModal !== null ? `${toDisplayValue(gmpHistoricoModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'N/A'}
+                                        </strong>
+                                    </div>
                                 </div>
                                 {selectedAnimal.peso_compra && (
                                     <div style={{ backgroundColor: 'rgba(255, 193, 7, 0.04)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.18)' }}>

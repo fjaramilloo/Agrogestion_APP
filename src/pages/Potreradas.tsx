@@ -11,7 +11,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Download, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
 import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface Potrerada {
@@ -43,6 +43,7 @@ interface AnimalPotrero {
     estado?: string;
     gdp?: number;
     gmp?: number;
+    gmpAcumulado?: number | null;
     fechaIngresoEtapa?: string | null;
     pesoIngresoEtapa?: number | null;
     peso_compra?: number | null;
@@ -277,42 +278,28 @@ export default function Potreradas() {
                     const registros = a.registros_pesaje || [];
 
                     const lastP = registros[0];
-                    const pesoBase = a.peso_compra ?? a.peso_ingreso;
+                    const penultimoP = registros[1];
+                    const pesoBase = a.peso_ingreso ?? a.peso_compra ?? 0;
+                    const tienePesajePosterior = Boolean(lastP && esPesajePosteriorAIngreso(lastP.fecha, a.fecha_ingreso));
                     
-                    const pesoActual = lastP ? lastP.peso : pesoBase;
+                    const pesoActual = (tienePesajePosterior && lastP) ? lastP.peso : pesoBase;
                     totalPeso += Number(pesoActual);
                     validWeightCount++;
 
-                    // 1. GMP Último Periodo (lo que viene del trigger)
-                    if (lastP) {
-                        const hasGmp = lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined;
-                        const gmpLast = hasGmp ? Number(lastP.gmp_calculada) : (lastP.gdp_calculada ? lastP.gdp_calculada * 30 : 0);
-                        
-                        if (hasGmp || registros.length > 1) {
+                    // 1. GMP Último Periodo (excluyendo pesajes del mismo día de ingreso)
+                    if (tienePesajePosterior && lastP) {
+                        const gmpLast = calcularGmpUltimoPeriodo(lastP, a.fecha_ingreso, pesoBase, penultimoP);
+                        if (gmpLast !== null) {
                             totalGmpLast += Number(gmpLast);
                             validGmpLastCount++;
                         }
 
-                        // 2. GMP Acumulado Histórica: desde ingreso hasta último pesaje
-                        // Siempre se calcula como promedio histórico (NO usa gmp_calculada del último período)
-                        let gmpIndiv = 0;
-                        let isValidGmp = false;
-                        {
-                            const startW = Number(a.peso_ingreso || pesoBase);
-                            const startD = new Date((a.fecha_ingreso || '') + 'T12:00:00');
-                            const endD = new Date(lastP.fecha + 'T12:00:00');
-                            const tGain = Number(lastP.peso) - startW;
-                            const tDays = differenceInDays(endD, startD);
-                            if (tDays > 0) {
-                                gmpIndiv = (tGain / tDays) * 30;
-                                isValidGmp = true;
-                            }
-                        }
+                        // 2. GMP Acumulada Histórica: desde ingreso en finca (peso_ingreso) hasta último pesaje
+                        const gmpIndiv = calcularGmpAcumulado(lastP.peso, pesoBase, a.fecha_ingreso, lastP.fecha);
 
-                        let gmpForEstimation = gmpIndiv;
-                        if (!isValidGmp || gmpForEstimation === 0) gmpForEstimation = 10.3;
+                        let gmpForEstimation = (gmpIndiv !== null && gmpIndiv !== 0) ? gmpIndiv : 10.3;
 
-                        if (isValidGmp) {
+                        if (gmpIndiv !== null) {
                             totalGmpAcc += gmpIndiv;
                             validGmpAccCount++;
                         }
@@ -322,14 +309,14 @@ export default function Potreradas() {
                         const diff = differenceInDays(hoy, fechaRef) || 0;
                         totalPesoEstimado += Number(lastP.peso) + (diff * (gmpForEstimation / 30));
                     } else {
-                        // Sin pesajes
+                        // Sin pesajes posteriores al ingreso
                         const fechaRef = new Date(a.fecha_ingreso);
                         fechaRef.setHours(0,0,0,0);
                         const diff = differenceInDays(hoy, fechaRef) || 0;
                         totalPesoEstimado += Number(pesoBase) + (diff * (10.3 / 30));
                     }
 
-                    const fechaRefP = new Date(lastP ? lastP.fecha : a.fecha_ingreso);
+                    const fechaRefP = new Date((tienePesajePosterior && lastP) ? lastP.fecha : a.fecha_ingreso);
                     fechaRefP.setHours(0,0,0,0);
                     const diffP = differenceInDays(hoy, fechaRefP);
                     totalDiasPesaje += diffP;
@@ -693,29 +680,30 @@ export default function Potreradas() {
             });
 
             const lastP = registros[0];
+            const penultimoP = registros[1];
+            const tienePesajePosterior = Boolean(lastP && esPesajePosteriorAIngreso(lastP.fecha, a.fecha_ingreso));
             let gmp = 0;
             let gdp = 0;
+            let gmpAcumulado: number | null = null;
             let hasCalculatedGmp = false;
 
-            if (lastP) {
-                if (lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined && !showFullHistory) {
-                    gmp = Number(lastP.gmp_calculada);
-                    gdp = Number(lastP.gdp_calculada || 0);
-                    hasCalculatedGmp = true;
-                } else if (fechaIngresoEtapa && pesoIngresoEtapa) {
-                    const startWeight = Number(pesoIngresoEtapa);
-                    const endWeight = Number(lastP.peso);
-                    const startDate = new Date(fechaIngresoEtapa + 'T12:00:00');
-                    const endDate = new Date(lastP.fecha + 'T12:00:00');
-                    
-                    const totalGain = endWeight - startWeight;
-                    const totalDays = differenceInDays(endDate, startDate);
+            if (tienePesajePosterior && lastP) {
+                const gmpUltimo = calcularGmpUltimoPeriodo(lastP, a.fecha_ingreso, pesoBase, penultimoP);
+                gmpAcumulado = calcularGmpAcumulado(
+                    lastP.peso,
+                    pesoIngresoEtapa || pesoBase,
+                    fechaIngresoEtapa || a.fecha_ingreso,
+                    lastP.fecha
+                );
 
-                    if (totalDays > 0) {
-                        gdp = totalGain / totalDays;
-                        gmp = gdp * 30;
-                        hasCalculatedGmp = true;
-                    }
+                if (!showFullHistory && gmpUltimo !== null) {
+                    gmp = gmpUltimo;
+                    gdp = gmpUltimo / 30;
+                    hasCalculatedGmp = true;
+                } else if (gmpAcumulado !== null) {
+                    gmp = gmpAcumulado;
+                    gdp = gmpAcumulado / 30;
+                    hasCalculatedGmp = true;
                 }
             }
 
@@ -725,15 +713,17 @@ export default function Potreradas() {
                 nombre_propietario: a.nombre_propietario,
                 id_potrerada: p.id,
                 estado: a.estado,
-                pesoActual: lastP ? lastP.peso : pesoBase,
+                pesoActual: (tienePesajePosterior && lastP) ? lastP.peso : pesoBase,
                 gdp: gdp,
                 gmp: gmp,
+                gmpAcumulado: gmpAcumulado,
                 fechaIngresoEtapa: fechaIngresoEtapa,
                 pesoIngresoEtapa: pesoIngresoEtapa,
                 peso_ingreso: a.peso_ingreso,
+                peso_compra: a.peso_compra,
                 pesajesFiltrados: pesajesMap,
                 hasCalculatedGmp: hasCalculatedGmp,
-                fechaUltimoPesaje: lastP ? lastP.fecha : (fechaIngresoEtapa || null)
+                fechaUltimoPesaje: (tienePesajePosterior && lastP) ? lastP.fecha : (fechaIngresoEtapa || a.fecha_ingreso || null)
             };
         });
 
@@ -741,6 +731,10 @@ export default function Potreradas() {
         const avgGmp = validGmpAnimals.length > 0 
             ? validGmpAnimals.reduce((acc, curr) => acc + (curr.gmp || 0), 0) / validGmpAnimals.length
             : 0;
+        const validGmpAcumAnimals = processedAnimals.filter(a => a.gmpAcumulado !== null && a.gmpAcumulado !== undefined);
+        const avgGmpAcum = validGmpAcumAnimals.length > 0
+            ? validGmpAcumAnimals.reduce((acc, curr) => acc + (curr.gmpAcumulado || 0), 0) / validGmpAcumAnimals.length
+            : null;
 
         const fechasRegistradasSet = new Set<string>();
         processedAnimals.forEach(a => {
@@ -753,27 +747,37 @@ export default function Potreradas() {
         // 4. Preparar datos para las gráficas (agrupar pesajes por fecha)
         const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
         animals?.forEach(a => {
+            let entryDateForChart: string | null = null;
             // Inyectar el peso inicial
             if (showFullHistory) {
                 if (a.fecha_ingreso && a.peso_ingreso) {
-                    allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: Number(a.peso_ingreso), gdp: 0 });
+                    const f = String(a.fecha_ingreso).split('T')[0];
+                    entryDateForChart = f;
+                    allWeighings.push({ fecha: f, peso: Number(a.peso_ingreso), gdp: 0 });
                 }
             } else if (p.etapa === 'ceba') {
                 const cebaDate = a.fecha_ingreso_ceba || (a.etapa === 'ceba' ? a.fecha_ingreso : null);
-                const cebaWeight = a.peso_ingreso_ceba || (a.etapa === 'ceba' ? (a.peso_compra ?? a.peso_ingreso) : null);
+                const cebaWeight = a.peso_ingreso_ceba || (a.etapa === 'ceba' ? (a.peso_ingreso ?? a.peso_compra) : null);
                 if (cebaDate && cebaWeight) {
-                    allWeighings.push({ fecha: cebaDate.split('T')[0], peso: Number(cebaWeight), gdp: 0 });
+                    const f = String(cebaDate).split('T')[0];
+                    entryDateForChart = f;
+                    allWeighings.push({ fecha: f, peso: Number(cebaWeight), gdp: 0 });
                 }
             } else {
                 if (a.fecha_ingreso && a.peso_ingreso) {
-                    allWeighings.push({ fecha: a.fecha_ingreso.split('T')[0], peso: Number(a.peso_ingreso), gdp: 0 });
+                    const f = String(a.fecha_ingreso).split('T')[0];
+                    entryDateForChart = f;
+                    allWeighings.push({ fecha: f, peso: Number(a.peso_ingreso), gdp: 0 });
                 }
             }
 
             const registrosEtapaChrono = (showFullHistory
                 ? (a.registros_pesaje || [])
                 : (a.registros_pesaje || []).filter((r: any) => r.etapa?.toLowerCase() === p.etapa.toLowerCase())
-            ).slice().sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+            )
+                .filter((r: any) => esPesajePosteriorAIngreso(r.fecha, entryDateForChart || a.fecha_ingreso))
+                .slice()
+                .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
 
             // Para calcular GDP secuencial cuando se muestra historial completo
             // (los registros de etapas anteriores tienen gdp_calculada=null)
@@ -822,7 +826,7 @@ export default function Potreradas() {
             }));
 
         setDetailData({
-            potrerada: p,
+            potrerada: { ...p, gmpAcumulado: avgGmpAcum ?? p.gmpAcumulado },
             potreroActual: potreroName,
             animales: processedAnimals,
             fechasColumnas: fechasColumnas,
@@ -1904,7 +1908,18 @@ export default function Potreradas() {
                                                     <MapPin size={14} color="var(--primary)" /> <span className="mobile-hide">Potrero:</span> <strong style={{color: 'var(--text)'}}>{detailData.potreroActual}</strong>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                    <TrendingUp size={14} color={detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))} /> <span className="mobile-hide">{getModoLabel(modoGanancia)}:</span> <strong style={{color: detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))}}>{toDisplayValue(detailData.gmpPromedioGrupo, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}</strong>
+                                                    <TrendingUp size={14} color={detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))} />
+                                                    <span className="mobile-hide">{getModoLabel(modoGanancia)} Últ:</span>
+                                                    <strong style={{color: detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))}}>
+                                                        {toDisplayValue(detailData.gmpPromedioGrupo, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                    </strong>
+                                                    {detailData.potrerada.gmpAcumulado !== null && detailData.potrerada.gmpAcumulado !== undefined && (
+                                                        <span style={{ marginLeft: '4px', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                                                            (Hist: <strong style={{ color: detailData.potrerada.gmpAcumulado < 0 ? 'var(--error)' : (detailData.potrerada.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (detailData.potrerada.gmpAcumulado <= umbralAlto ? 'var(--text-light)' : 'var(--success)')) }}>
+                                                                {toDisplayValue(detailData.potrerada.gmpAcumulado, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                            </strong>)
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 {(() => {
                                                     const productivity = (detailData.animales.length * detailData.potrerada.gmpPromedio) / (detailData.areaTotalSistema || 1);
@@ -2149,13 +2164,33 @@ export default function Potreradas() {
                                                             );
                                                         })}
                                                         <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                            <span style={{ 
-                                                                color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((a.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
-                                                                fontWeight: 'bold',
-                                                                textShadow: ((a.gmp || 0) > umbralMedio && (a.gmp || 0) <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
-                                                            }}>
-                                                                {toDisplayValue(a.gmp || 0, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
-                                                            </span>
+                                                            {a.hasCalculatedGmp ? (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                                                    <div>
+                                                                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginRight: '4px' }}>Últ:</span>
+                                                                        <span style={{ 
+                                                                            color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((a.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
+                                                                            fontWeight: 'bold',
+                                                                            textShadow: ((a.gmp || 0) > umbralMedio && (a.gmp || 0) <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                                                        }}>
+                                                                            {toDisplayValue(a.gmp || 0, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                                        </span>
+                                                                    </div>
+                                                                    {a.gmpAcumulado !== undefined && a.gmpAcumulado !== null && (
+                                                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                                                            Hist:{' '}
+                                                                            <span style={{
+                                                                                color: a.gmpAcumulado < 0 ? 'var(--error)' : (a.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (a.gmpAcumulado <= umbralAlto ? 'rgba(255,255,255,0.85)' : 'var(--success)')),
+                                                                                fontWeight: 600
+                                                                            }}>
+                                                                                {toDisplayValue(a.gmpAcumulado, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))}

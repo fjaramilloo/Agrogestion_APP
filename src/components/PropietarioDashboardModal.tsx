@@ -8,7 +8,7 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
 
 interface Pesaje {
     peso: number;
@@ -103,35 +103,27 @@ export default function PropietarioDashboardModal({
         let valorizacionTotal = 0;
 
         animales.forEach(a => {
-            const pesoBase = a.peso_compra ?? a.peso_ingreso;
+            const pesoBaseFinanciero = a.peso_compra ?? a.peso_ingreso;
+            const pesoBaseFinca = a.peso_ingreso ?? a.peso_compra;
             const ultimoP = a.registros_pesaje?.[0];
-            const pesoU = ultimoP ? ultimoP.peso : pesoBase;
+            const penultimoP = a.registros_pesaje?.[1];
+            const tienePesajePosterior = Boolean(ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, a.fecha_ingreso));
+            const pesoU = (tienePesajePosterior && ultimoP) ? ultimoP.peso : pesoBaseFinca;
             
-            const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
+            const refDate = (tienePesajePosterior && ultimoP) ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
             const diasHoy = differenceInDays(new Date(), refDate) || 0;
             
-            let gmpUltimo = 0;
-            if (ultimoP && ultimoP.gmp_calculada !== null && ultimoP.gmp_calculada !== undefined) {
-                gmpUltimo = Number(ultimoP.gmp_calculada);
-            } else if (ultimoP) {
-                const gainTotal = ultimoP.peso - pesoBase;
-                const daysTotal = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso)) || 1;
-                gmpUltimo = (gainTotal / daysTotal) * 30;
-            }
+            const gmpUltimoVal = calcularGmpUltimoPeriodo(ultimoP, a.fecha_ingreso, pesoBaseFinca, penultimoP);
+            const gmpHistoricoVal = calcularGmpAcumulado(ultimoP?.peso, pesoBaseFinca, a.fecha_ingreso, ultimoP?.fecha);
+            const gmpUltimo = gmpUltimoVal ?? 0;
+            const gmpHistorico = gmpHistoricoVal ?? 0;
 
-            let gmpHistorico = 0;
-            if (ultimoP) {
-                const gainAcumulada = ultimoP.peso - pesoBase;
-                const diasAcumulados = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso)) || 1;
-                gmpHistorico = (gainAcumulada / diasAcumulados) * 30;
-            }
-
-            const gmpIndiv = gmpUltimo;
-            const estimadoHoy = pesoU + (diasHoy * (gmpIndiv / 30));
+            const gmpParaProyeccion = (gmpHistoricoVal !== null && gmpHistoricoVal !== 0) ? gmpHistoricoVal : 10.3;
+            const estimadoHoy = pesoU + (diasHoy * (gmpParaProyeccion / 30));
             totalPeso += estimadoHoy;
 
-            if (gmpIndiv > 0) {
-                sumaGmp += gmpIndiv;
+            if (gmpHistoricoVal !== null) {
+                sumaGmp += gmpHistoricoVal;
                 animalesConGmp++;
             }
 
@@ -146,20 +138,20 @@ export default function PropietarioDashboardModal({
             const ubiData = ubicacionesMap.get(ubiKey)!;
             ubiData.count++;
             ubiData.peso += estimadoHoy;
-            if (gmpUltimo !== 0) { ubiData.sumGmpUltimo += gmpUltimo; ubiData.countGmpUltimo++; }
-            if (gmpHistorico !== 0) { ubiData.sumGmpHistorico += gmpHistorico; ubiData.countGmpHistorico++; }
+            if (gmpUltimoVal !== null) { ubiData.sumGmpUltimo += gmpUltimo; ubiData.countGmpUltimo++; }
+            if (gmpHistoricoVal !== null) { ubiData.sumGmpHistorico += gmpHistorico; ubiData.countGmpHistorico++; }
 
-            if (ultimoP && gmpIndiv > 0) {
+            if (tienePesajePosterior && ultimoP && gmpUltimoVal !== null) {
                 const mesAnio = format(new Date(ultimoP.fecha), 'MMM yyyy', { locale: es });
                 if (!mesesGmpMap.has(mesAnio)) mesesGmpMap.set(mesAnio, { sum: 0, count: 0 });
-                mesesGmpMap.get(mesAnio)!.sum += gmpIndiv;
+                mesesGmpMap.get(mesAnio)!.sum += gmpUltimoVal;
                 mesesGmpMap.get(mesAnio)!.count++;
             }
 
             // ---- CÁLCULOS FINANCIEROS ----
             if (capitalInvertido > 0 && precioVentaPromedio > 0 && precioPorKiloCompra > 0) {
                 // PASO 4: Valor unitario de compra del animal
-                const valorCompra = pesoBase * precioPorKiloCompra;
+                const valorCompra = pesoBaseFinanciero * precioPorKiloCompra;
 
                 // PASO 5: Valor estimado actual del animal
                 const valorEstimadoAnimal = estimadoHoy * precioVentaPromedio;

@@ -103,40 +103,30 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           const marca = a.nombre_propietario ? a.nombre_propietario.trim() : 'ND';
           marcasSet.add(marca);
 
-          // GDP para estimado
+          // GDP para estimado (excluyendo pesajes del mismo día de ingreso)
+          const pesoBaseFinca = a.peso_ingreso ?? a.peso_compra;
           if (registros.length > 1) {
               const ant = registros[1];
-              const d = differenceInDays(new Date(ultimoP.fecha), new Date(ant.fecha)) || 1;
-              const gan = ultimoP.peso - ant.peso;
-              let gdpV = (ultimoP.gdp_calculada !== null && ultimoP.gdp_calculada !== undefined) ? Number(ultimoP.gdp_calculada) : (gan/d);
-              if (gdpV === 0 && gan !== 0) gdpV = gan/d;
-              gdpsTotales.push(gdpV);
+              const d = differenceInDays(new Date(ultimoP.fecha), new Date(ant.fecha));
+              if (d > 0) {
+                  const gan = ultimoP.peso - ant.peso;
+                  let gdpV = (ultimoP.gdp_calculada !== null && ultimoP.gdp_calculada !== undefined) ? Number(ultimoP.gdp_calculada) : (gan/d);
+                  if (gdpV === 0 && gan !== 0) gdpV = gan/d;
+                  gdpsTotales.push(gdpV);
+              }
           } else if (registros.length === 1) {
-              const pesoBase = a.peso_compra ?? a.peso_ingreso;
-              const d = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso)) || 1;
-              const gan = ultimoP.peso - pesoBase;
-              gdpsTotales.push(gan/d);
+              const d = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso));
+              if (d > 0) {
+                  const gan = ultimoP.peso - pesoBaseFinca;
+                  gdpsTotales.push(gan/d);
+              }
           }
 
-          // GMP Total del animal: Respetando lógica de etapa (Ceba vs Levante) para mostrar el ACUMULADO
+          // GMP Total del animal: Acumulado desde ingreso a la finca (peso_ingreso)
           let gmpTotalAnimal = 0;
           if (ultimoP) {
-              const registrosEtapa = (a.registros_pesaje || [])
-                  .filter((r: any) => (r.etapa || '').toLowerCase() === (a.etapa || '').toLowerCase())
-                  .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
-
-              let fechaIngresoEtapa = null;
-              let pesoIngresoEtapa = null;
-              const pesoBase = a.peso_compra ?? a.peso_ingreso;
-
-              if ((a.etapa || '').toLowerCase() === 'ceba') {
-                  fechaIngresoEtapa = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
-                  pesoIngresoEtapa = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? pesoBase : null));
-              } else {
-                  // Para levante y cría, el ingreso a la etapa es siempre el ingreso a la finca real (no la compra)
-                  fechaIngresoEtapa = a.fecha_ingreso;
-                  pesoIngresoEtapa = a.peso_ingreso;
-              }
+              const fechaIngresoEtapa = a.fecha_ingreso;
+              const pesoIngresoEtapa = pesoBaseFinca;
 
               if (fechaIngresoEtapa && pesoIngresoEtapa) {
                   const startWeight = Number(pesoIngresoEtapa);

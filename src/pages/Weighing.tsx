@@ -221,6 +221,7 @@ export default function Weighing() {
                     .from('registros_pesaje')
                     .select('peso, fecha, gmp_calculada, gdp_calculada')
                     .eq('id_animal', data.id)
+                    .or('is_deleted.is.null,is_deleted.eq.false')
                     .order('fecha', { ascending: false });
                 if (psjs) pesajes = psjs;
             }
@@ -245,12 +246,8 @@ export default function Weighing() {
             }
             const etapaEfectiva: string = potreradaEtapa || data.etapa;
 
-            let pesoBase = data.peso_compra || data.peso_ingreso;
-            let fechaBase = data.fecha_ingreso;
-            if (etapaEfectiva === 'ceba') {
-                pesoBase = data.peso_ingreso_ceba || pesoBase;
-                fechaBase = data.fecha_ingreso_ceba || fechaBase;
-            }
+            const pesoBase = data.peso_ingreso || data.peso_compra;
+            const fechaBase = data.fecha_ingreso;
 
             let ultimoPeso = pesoBase;
             let fechaUltimoPeso = fechaBase;
@@ -260,17 +257,23 @@ export default function Weighing() {
                 ultimoPeso = ultimo.peso;
                 fechaUltimoPeso = ultimo.fecha;
 
-                if (ultimo.gmp_calculada !== null && ultimo.gmp_calculada !== undefined) {
-                    gmp = ultimo.gmp_calculada;
-                } else if (ultimo.gdp_calculada !== null && ultimo.gdp_calculada !== undefined) {
-                    gmp = ultimo.gdp_calculada * 30;
-                } else if (pesajes.length > 1) {
-                    const penultimo = pesajes[1];
-                    const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(penultimo.fecha)) || 1;
-                    gmp = ((ultimo.peso - penultimo.peso) / diffDias) * 30;
-                } else {
-                    const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(fechaBase)) || 1;
-                    gmp = ((ultimo.peso - pesoBase) / diffDias) * 30;
+                const diasDesdeIngreso = differenceInDays(
+                    new Date(String(ultimo.fecha).split('T')[0] + 'T12:00:00'),
+                    new Date(String(fechaBase).split('T')[0] + 'T12:00:00')
+                );
+
+                if (diasDesdeIngreso > 0) {
+                    if (ultimo.gmp_calculada !== null && ultimo.gmp_calculada !== undefined) {
+                        gmp = ultimo.gmp_calculada;
+                    } else if (ultimo.gdp_calculada !== null && ultimo.gdp_calculada !== undefined) {
+                        gmp = ultimo.gdp_calculada * 30;
+                    } else if (pesajes.length > 1) {
+                        const penultimo = pesajes[1];
+                        const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(penultimo.fecha)) || 1;
+                        gmp = ((ultimo.peso - penultimo.peso) / diffDias) * 30;
+                    } else {
+                        gmp = ((ultimo.peso - pesoBase) / diasDesdeIngreso) * 30;
+                    }
                 }
             }
 

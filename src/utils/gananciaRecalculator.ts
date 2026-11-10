@@ -58,13 +58,8 @@ export async function recalcularHistorialPesajesAnimal(
             return { success: true, pesajes: [] };
         }
 
-        const isCeba = animal.etapa === 'ceba';
-        const pesoBaseInicial = isCeba
-            ? (animal.peso_ingreso_ceba || animal.peso_compra || animal.peso_ingreso || 0)
-            : (animal.peso_compra ?? animal.peso_ingreso ?? 0);
-        const fechaBaseInicial = isCeba
-            ? (animal.fecha_ingreso_ceba || animal.fecha_ingreso)
-            : animal.fecha_ingreso;
+        const pesoBaseInicial = Number(animal.peso_ingreso ?? animal.peso_compra ?? 0);
+        const fechaBaseInicial = String(animal.fecha_ingreso || '');
 
         const pesajesRecalculados: PesajeCalculado[] = [];
         let pesoAnterior = Number(pesoBaseInicial);
@@ -77,11 +72,11 @@ export async function recalcularHistorialPesajesAnimal(
             const fechaActual = p.fecha.includes('T') ? p.fecha.split('T')[0] : p.fecha;
             const fechaRef = fechaAnterior.includes('T') ? fechaAnterior.split('T')[0] : fechaAnterior;
 
-            const diasDiff = Math.max(1, differenceInDays(new Date(fechaActual), new Date(fechaRef)));
+            const diasDiff = fechaRef ? differenceInDays(new Date(fechaActual + 'T12:00:00'), new Date(fechaRef + 'T12:00:00')) : 0;
             const gananciaKilos = pesoActual - pesoAnterior;
 
-            // GDP en kg/día, GMP en kg/mes (30 días)
-            const gdp = parseFloat((gananciaKilos / diasDiff).toFixed(4));
+            // GDP en kg/día, GMP en kg/mes (30 días). Si es el mismo día de ingreso (diasDiff <= 0), queda en 0.
+            const gdp = (diasDiff > 0 && pesoAnterior > 0) ? parseFloat((gananciaKilos / diasDiff).toFixed(4)) : 0;
             const gmp = parseFloat((gdp * 30).toFixed(4));
 
             pesajesRecalculados.push({
