@@ -45,39 +45,47 @@ function promptPassword(promptText) {
   });
 }
 
-function getGoogleCredentials(env) {
-  if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+function getGoogleAuthClient() {
+  const credentialsPath = path.join(__dirname, 'google-oauth-credentials.json');
+  const tokenPath = path.join(__dirname, 'google-oauth-token.json');
+
+  let clientId = process.env.GOOGLE_CLIENT_ID;
+  let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  let refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+  if (fs.existsSync(credentialsPath)) {
     try {
-      return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+      const creds = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+      clientId = clientId || creds.client_id;
+      clientSecret = clientSecret || creds.client_secret;
     } catch (e) {
-      console.warn('⚠️ No se pudo parsear GOOGLE_SERVICE_ACCOUNT_KEY de variables de entorno.');
+      console.warn('⚠️ Error al leer credentials:', e.message);
     }
   }
 
-  const localKeyPath = path.join(__dirname, 'google-service-account.json');
-  if (fs.existsSync(localKeyPath)) {
+  if (fs.existsSync(tokenPath)) {
     try {
-      const content = fs.readFileSync(localKeyPath, 'utf-8');
-      return JSON.parse(content);
+      const token = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'));
+      refreshToken = refreshToken || token.refresh_token;
     } catch (e) {
-      console.warn('⚠️ No se pudo leer scripts/google-service-account.json:', e.message);
+      console.warn('⚠️ Error al leer token:', e.message);
     }
   }
 
-  return null;
+  if (!clientId || !clientSecret || !refreshToken) {
+    return null;
+  }
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+  return oauth2Client;
 }
 
-async function uploadToGoogleDrive(filePath, filename, folderId, credentials) {
+async function uploadToGoogleDrive(filePath, filename, folderId, authClient) {
   console.log(`\n☁️  Subiendo backup a Google Drive...`);
   console.log(`📂 Carpeta destino ID: ${folderId}`);
-  console.log(`🤖 Cuenta de Servicio: ${credentials.client_email}`);
 
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/drive.file']
-  });
-
-  const drive = google.drive({ version: 'v3', auth });
+  const drive = google.drive({ version: 'v3', auth: authClient });
 
   const fileMetadata = {
     name: filename,
@@ -101,7 +109,7 @@ async function uploadToGoogleDrive(filePath, filename, folderId, credentials) {
   console.log(`🆔 File ID: ${response.data.id}`);
   console.log(`📦 Tamaño en Drive: ${fileSizeMB} MB`);
   if (response.data.webViewLink) {
-    console.log(`🔗 Enlace: ${response.data.webViewLink}`);
+    console.log(`🔗 Enlace en Drive: ${response.data.webViewLink}`);
   }
 }
 
@@ -182,7 +190,7 @@ async function runBackup() {
     const jsonString = JSON.stringify(backupData, null, 2);
     fs.writeFileSync(jsonFilePath, jsonString, 'utf-8');
 
-    // 2. Comprimir con Gzip para reducir espacio (9 MB -> ~800 KB)
+    // 2. Comprimir con Gzip para reducir espacio (9 MB -> ~0.8 MB)
     const gzFilename = `${baseFilename}.json.gz`;
     const gzFilePath = path.join(backupsDir, gzFilename);
     const gzippedBuffer = zlib.gzipSync(Buffer.from(jsonString, 'utf-8'));
@@ -198,21 +206,18 @@ async function runBackup() {
     console.log(`📊 Total tablas: ${tables.length} | Registros: ${totalRegistros}`);
     console.log('======================================================');
 
-    // 3. Subir a Google Drive si las credenciales están configuradas
+    // 3. Subir a Google Drive
     const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || env.GOOGLE_DRIVE_FOLDER_ID;
-    const googleCredentials = getGoogleCredentials(env);
+    const authClient = getGoogleAuthClient();
 
-    if (folderId && googleCredentials) {
+    if (folderId && authClient) {
       try {
-        await uploadToGoogleDrive(gzFilePath, gzFilename, folderId, googleCredentials);
+        await uploadToGoogleDrive(gzFilePath, gzFilename, folderId, authClient);
       } catch (driveErr) {
         console.error('❌ Error al subir a Google Drive:', driveErr.message);
-        if (driveErr.message.includes('notFound') || driveErr.message.includes('File not found')) {
-          console.error('👉 Asegúrate de haber compartido la carpeta con el correo:', googleCredentials.client_email);
-        }
       }
     } else {
-      console.log('\nℹ️ Para subir a Google Drive, asegúrate de tener configurado GOOGLE_DRIVE_FOLDER_ID y las credenciales de servicio.');
+      console.log('\nℹ️ Para subir a Google Drive, asegúrate de tener configurado GOOGLE_DRIVE_FOLDER_ID y autorizar OAuth.');
     }
 
   } catch (err) {

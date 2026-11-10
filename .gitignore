@@ -40,5 +40,6 @@ plantilla_*.html
 scripts/sql_runner.sh
 scripts/check_animal.mjs
 scripts/google-service-account.json
+scripts/google-oauth-*.json
 *.json.gz
 test-*.mjs
