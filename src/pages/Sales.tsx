@@ -172,7 +172,8 @@ export default function Sales() {
                     registros_pesaje (
                         peso,
                         fecha,
-                        etapa
+                        etapa,
+                        is_deleted
                     )
                 `)
                 .eq('id_finca', fincaId)
@@ -207,11 +208,13 @@ export default function Sales() {
             if (!animalEncontrado) {
                 newAnimales[index] = { ...a, validado: false, error: 'No encontrado o no está activo', id_animal: undefined };
             } else {
+                const registrosActivos = (animalEncontrado.registros_pesaje || []).filter((r: any) => !r.is_deleted);
                 // Obtener el último peso disponible
-                const registros = (animalEncontrado.registros_pesaje || []).sort((x: any, y: any) => 
+                const registros = [...registrosActivos].sort((x: any, y: any) => 
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                 );
-                const ultimoPeso = registros.length > 0 ? registros[0].peso : (animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso);
+                const pesoBaseIngreso = animalEncontrado.peso_ingreso ?? animalEncontrado.peso_compra;
+                const ultimoPeso = registros.length > 0 ? registros[0].peso : pesoBaseIngreso;
                 const ultimaFecha = registros.length > 0 ? registros[0].fecha : animalEncontrado.fecha_ingreso;
 
                 // Datos adicionales para reporte solicitado
@@ -219,14 +222,13 @@ export default function Sales() {
                 const potrero = Array.isArray(potreroObj) ? potreroObj[0]?.nombre : potreroObj?.nombre || 'Sin potrero';
                 
                 // Buscar fecha de inicio en ceba
-                const registroCeba = (animalEncontrado.registros_pesaje || [])
+                const registroCeba = registrosActivos
                     .filter((r: any) => r.etapa === 'ceba')
                     .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
                 
                 let fechaInicioCeba = animalEncontrado.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (animalEncontrado.etapa === 'ceba' ? animalEncontrado.fecha_ingreso : null));
-                let pesoInicioCeba = animalEncontrado.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (animalEncontrado.etapa === 'ceba' ? (animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso) : null));
+                let pesoInicioCeba = animalEncontrado.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (animalEncontrado.etapa === 'ceba' ? pesoBaseIngreso : null));
 
-                const pesoBaseIngreso = animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso;
                 const gmp = a.peso_salida ? calculateGMP(a.peso_salida, pesoBaseIngreso, animalEncontrado.fecha_ingreso, fechaVenta) : 0;
 
                 newAnimales[index] = { 
@@ -241,29 +243,22 @@ export default function Sales() {
                     // Extensiones para el reporte
                     potreroNombre: potrero,
                     fecha_ingreso: animalEncontrado.fecha_ingreso,
-                    peso_ingreso: animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso,
+                    peso_ingreso: pesoBaseIngreso,
                     fecha_inicio_ceba: fechaInicioCeba,
                     peso_inicio_ceba: pesoInicioCeba
                 };
 
                 // Si es Carnicero y no han puesto peso, estimar basado en GMP
                 if (isCarnicero && !newAnimales[index].peso_salida) {
-                    // Calculamos GMP histórico (ciclo actual)
+                    // Calculamos GMP histórico (ciclo actual) desde peso_ingreso hasta el último pesaje
                     let gmpCalculado = 12.5; // Default razonable si no hay datos
-                    const registrosGmp = (animalEncontrado.registros_pesaje || []).sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
-                    if (registrosGmp.length >= 2) {
-                        const r1 = registrosGmp[0];
-                        const r2 = registrosGmp[registrosGmp.length - 1];
-                        const dGmp = differenceInDays(new Date(r2.fecha), new Date(r1.fecha));
-                        if (dGmp > 0) {
-                            gmpCalculado = ((r2.peso - r1.peso) / dGmp) * 30;
+                    const registrosGmp = [...registrosActivos].sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+                    if (registrosGmp.length >= 1) {
+                        const rUltimo = registrosGmp[registrosGmp.length - 1];
+                        const dGmp = differenceInDays(new Date(rUltimo.fecha), new Date(animalEncontrado.fecha_ingreso));
+                        if (dGmp > 0 && pesoBaseIngreso > 0) {
+                            gmpCalculado = ((rUltimo.peso - pesoBaseIngreso) / dGmp) * 30;
                         }
-                    } else if (registrosGmp.length === 1) {
-                         const r1 = registrosGmp[0];
-                         const dGmp = differenceInDays(new Date(r1.fecha), new Date(animalEncontrado.fecha_ingreso));
-                         if (dGmp > 0) {
-                             gmpCalculado = ((r1.peso - (animalEncontrado.peso_compra ?? animalEncontrado.peso_ingreso)) / dGmp) * 30;
-                         }
                     }
 
                     const diasDesdeUltimo = differenceInDays(new Date(fechaVenta), new Date(ultimaFecha));

@@ -69,7 +69,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             id_potrerada, id_potrero_actual,
             potreros ( nombre ),
             potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-            registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
+            registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
           `)
           .eq('id_finca', fincaId)
           .eq('estado', 'activo')
@@ -90,7 +90,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             potreros ( nombre ),
             potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
             registros_pesaje (
-                id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
+                id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted
             )
           `)
           .eq('id_finca', fincaId)
@@ -123,7 +123,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
                 peso,
                 fecha,
                 etapa,
-                gdp_calculada
+                gdp_calculada,
+                is_deleted
             )
           `)
           .eq('id_finca', fincaId)
@@ -165,7 +166,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             registros_pesaje (
                 peso,
                 fecha,
-                gdp_calculada
+                gdp_calculada,
+                is_deleted
             )
           `)
           .eq('id_finca', fincaId)
@@ -414,6 +416,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
 
     if (animalesRes?.data && animalesRes.data.length > 0) {
       animalesRes.data.forEach((a: any) => {
+        const pesajesActivos = (a.registros_pesaje || []).filter((r: any) => !r.is_deleted);
+        const ultP = [...pesajesActivos].sort((x: any, y: any) => new Date(y.fecha || 0).getTime() - new Date(x.fecha || 0).getTime())[0];
         mapaAnimales.set(a.id, {
           id: a.id,
           id_finca: fincaId,
@@ -426,9 +430,12 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           fecha_ingreso: a.fecha_ingreso,
           fecha_ingreso_ceba: a.fecha_ingreso_ceba,
           peso_ingreso_ceba: a.peso_ingreso_ceba,
+          ultimo_peso: ultP ? ultP.peso : (a.peso_ingreso ?? a.peso_compra),
+          fecha_ultimo_pesaje: ultP ? ultP.fecha : a.fecha_ingreso,
           id_potrerada: a.id_potrerada,
           potrero_nombre: a.potreros?.nombre || '',
           potrerada_nombre: a.potreradas?.nombre || '',
+          registros_pesaje: pesajesActivos,
           updated_at: ahora
         });
       });
@@ -437,6 +444,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
     if (animalesVendidosRes?.data && animalesVendidosRes.data.length > 0) {
       animalesVendidosRes.data.forEach((a: any) => {
         const prev = mapaAnimales.get(a.id);
+        const pesajesActivos = (a.registros_pesaje || []).filter((r: any) => !r.is_deleted);
         mapaAnimales.set(a.id, {
           id: a.id,
           id_finca: fincaId,
@@ -457,6 +465,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           comprador_venta: a.comprador_venta,
           observaciones_venta: a.observaciones_venta,
           precio_venta: a.precio_venta,
+          registros_pesaje: pesajesActivos,
           updated_at: ahora
         });
       });
@@ -465,6 +474,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
     if (animalesComprasRes?.data && animalesComprasRes.data.length > 0) {
       animalesComprasRes.data.forEach((a: any) => {
         const prev = mapaAnimales.get(a.id);
+        const pesajesActivos = (a.registros_pesaje || []).filter((r: any) => !r.is_deleted);
         mapaAnimales.set(a.id, {
           ...(prev || {}),
           id: a.id,
@@ -478,7 +488,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           fecha_ingreso: a.fecha_ingreso || prev?.fecha_ingreso,
           proveedor_compra: a.proveedor_compra,
           potrero_nombre: a.potreros?.nombre || prev?.potrero_nombre || '',
-          registros_pesaje: a.registros_pesaje || prev?.registros_pesaje || [],
+          registros_pesaje: pesajesActivos.length > 0 ? pesajesActivos : (prev?.registros_pesaje || []),
           updated_at: ahora
         });
       });

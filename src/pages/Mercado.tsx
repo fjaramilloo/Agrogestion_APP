@@ -86,7 +86,7 @@ export default function Mercado() {
                 id, numero_chapeta, nombre_propietario, etapa,
                 peso_ingreso, peso_compra, fecha_ingreso, id_potrerada, id_potrero_actual,
                 potreros (nombre),
-                registros_pesaje (peso, fecha)
+                registros_pesaje (peso, fecha, is_deleted)
             `)
             .eq('id_finca', fincaId)
             .eq('ok_ceba', true)
@@ -129,10 +129,13 @@ export default function Mercado() {
         hoy.setHours(0, 0, 0, 0);
 
         const processed = (animData || []).map((a: any) => {
-            const registros = (a.registros_pesaje || []).sort((x: any, y: any) =>
-                new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-            );
+            const registros = (a.registros_pesaje || [])
+                .filter((r: any) => !r.is_deleted)
+                .sort((x: any, y: any) =>
+                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+                );
             const last = registros[0];
+            const pesoBase = a.peso_ingreso ?? a.peso_compra;
             const fechaRef = last ? new Date(last.fecha) : new Date(a.fecha_ingreso);
             fechaRef.setHours(0, 0, 0, 0);
             return {
@@ -140,12 +143,12 @@ export default function Mercado() {
                 numero_chapeta: a.numero_chapeta,
                 nombre_propietario: a.nombre_propietario,
                 etapa: a.etapa,
-                peso_ingreso: a.peso_compra ?? a.peso_ingreso,
+                peso_ingreso: pesoBase,
                 fecha_ingreso: a.fecha_ingreso,
                 id_potrerada: a.id_potrerada,
                 id_potrero_actual: a.id_potrero_actual,
                 nombre_potrero: a.potreros?.nombre || 'N/A',
-                ultimo_peso: last ? last.peso : (a.peso_compra ?? a.peso_ingreso),
+                ultimo_peso: last ? last.peso : pesoBase,
                 fecha_ultimo_peso: last ? last.fecha : a.fecha_ingreso,
                 diasUltimoPesaje: differenceInDays(hoy, fechaRef)
             };

@@ -46,8 +46,8 @@ const PantallaCargando = ({ fullScreen = false }: { fullScreen?: boolean }) => (
   </div>
 );
 
-const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
-  const { user, role, loading } = useAuth();
+const ProtectedRoute = ({ children, allowedRoles, requireSuperAdmin }: { children: React.ReactNode; allowedRoles?: string[]; requireSuperAdmin?: boolean }) => {
+  const { user, role, isSuperAdmin, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = React.useState(window.innerWidth > 1200);
 
   React.useEffect(() => {
@@ -68,7 +68,11 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
 
   if (!user) return <Navigate to="/login" replace />;
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  if (requireSuperAdmin && !isSuperAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (allowedRoles && role && !allowedRoles.includes(role) && !isSuperAdmin) {
     return <Navigate to="/" replace />;
   }
 
@@ -250,7 +254,7 @@ const AppRoutes = () => {
       <Route
         path="/superadmin"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireSuperAdmin>
             <SuperAdmin />
           </ProtectedRoute>
         }

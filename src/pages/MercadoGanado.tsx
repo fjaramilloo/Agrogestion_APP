@@ -124,7 +124,7 @@ export default function MercadoGanado() {
                 const animsCached = await localDB.animalesCache.where('id_finca').equals(fincaId).toArray();
                 if (animsCached && animsCached.length > 0) {
                     const processed: AnimalCategorizado[] = animsCached.map((a: any) => {
-                        const weight = Number(a.ultimo_peso ?? (a.peso_compra ?? a.peso_ingreso ?? 0));
+                        const weight = Number(a.ultimo_peso ?? (a.peso_ingreso ?? a.peso_compra ?? 0));
                         let category = 'ML';
                         if (a.etapa === 'levante' || a.etapa === 'cria') {
                             category = 'ML';
@@ -169,17 +169,19 @@ export default function MercadoGanado() {
                     .from('animales')
                     .select(`
                         id, sexo, etapa, peso_ingreso, peso_compra,
-                        registros_pesaje (peso, fecha)
+                        registros_pesaje (peso, fecha, is_deleted)
                     `)
                     .eq('id_finca', fincaId)
                     .eq('estado', 'activo');
 
                 if (animData) {
                     processedAnimals = animData.map((a: any) => {
-                        const registros = (a.registros_pesaje || []).sort((x: any, y: any) =>
-                            new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-                        );
-                        const weight = registros[0]?.peso ?? (a.peso_compra ?? a.peso_ingreso ?? 0);
+                        const registros = (a.registros_pesaje || [])
+                            .filter((r: any) => !r.is_deleted)
+                            .sort((x: any, y: any) =>
+                                new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+                            );
+                        const weight = registros[0]?.peso ?? (a.peso_ingreso ?? a.peso_compra ?? 0);
 
                         // Clasificación zootécnica
                         let category = 'ML';

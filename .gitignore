@@ -31,6 +31,7 @@ backups/
 DOSSIER_AGROGESTION_PARA_IA.md
 INFORME_AUDITORIA_SEGURIDAD_SENTINELA.md
 INFORME_AUDITORIA_Y_PLAN_DE_ACCION_CALCULOS.md
+ANALISIS_INTEGRAL_Y_PLAN_MEJORAS.md
 
 # Plantillas de correo (uso local para Gmail)
 plantilla_*.html
@@ -38,4 +39,6 @@ plantilla_*.html
 # Scripts locales temporales
 scripts/sql_runner.sh
 scripts/check_animal.mjs
+scripts/google-service-account.json
+*.json.gz
 test-*.mjs

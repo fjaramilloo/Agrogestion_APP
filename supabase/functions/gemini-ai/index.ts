@@ -39,13 +39,29 @@ serve(async (req: Request) => {
   }
 
   try {
-    // 1. Validar que exista header de autorización
+    // 1. Validar criptográficamente el JWT del usuario autenticado
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "No autorizado: se requiere sesión activa" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (supabaseUrl && supabaseAnonKey) {
+      const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      const { data: userData, error: authError } = await authClient.auth.getUser(token);
+      if (authError || !userData?.user) {
+        return new Response(
+          JSON.stringify({ error: "No autorizado: token inválido o expirado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const apiKey = await getGeminiKey();

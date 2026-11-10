@@ -3,9 +3,10 @@
 // Notificación de bienvenida y credenciales para nuevos trabajadores/vaqueros y observadores
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const FN_SECRET = Deno.env.get("FUNCTION_SECRET") ?? "agrogestion_notify_2026";
+const FN_SECRET = Deno.env.get("FUNCTION_SECRET") ?? "";
 
 function escapeHtml(text: unknown): string {
   if (text === null || text === undefined) return "";
@@ -34,16 +35,32 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Verificación de autorización: por JWT de usuario autenticado o secret interno
+    // Verificación criptográfica de autorización: por JWT de usuario autenticado o secret interno configurado
     const authHeader = req.headers.get("authorization") ?? "";
-    const receivedSecret = req.headers.get("x-function-secret");
+    const receivedSecret = req.headers.get("x-function-secret") ?? "";
 
-    const isAuthorized = (authHeader && authHeader.startsWith("Bearer ")) || (receivedSecret === FN_SECRET);
+    let isAuthorized = Boolean(FN_SECRET && receivedSecret && receivedSecret === FN_SECRET);
+
+    if (!isAuthorized && authHeader.startsWith("Bearer ")) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+      const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+      if (supabaseUrl && supabaseKey) {
+        const authClient = createClient(supabaseUrl, supabaseKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+        const { data: userData, error: authError } = await authClient.auth.getUser(token);
+        if (!authError && userData?.user) {
+          isAuthorized = true;
+        }
+      }
+    }
+
     if (!isAuthorized) {
       console.warn("[notify-worker-invite] Petición no autorizada rechazada");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     }
 
