@@ -242,14 +242,16 @@ export default function Mercado() {
 
             const ids = Array.from(animalesSeleccionados);
 
-            // 2. Actualizar los animales: cambiar etapa a ceba, asignar potrerada y potrero, limpiar ok_ceba
+            // 2. Actualizar los animales: cambiar etapa a ceba, asignar potrerada, potrero y fecha_ingreso_ceba (el trigger en BD asigna peso_ingreso_ceba individualmente)
+            const hoyCeba = getLocalIsoDate();
             const { error: errUpdate } = await supabase
                 .from('animales')
                 .update({
                     etapa: 'ceba',
                     id_potrerada: targetPotreradaId,
                     id_potrero_actual: targetPotreroId || null,
-                    ok_ceba: false
+                    ok_ceba: false,
+                    fecha_ingreso_ceba: hoyCeba
                 })
                 .in('id', ids);
 

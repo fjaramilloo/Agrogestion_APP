@@ -68,11 +68,20 @@ export default function Sales() {
     const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalVenta[], comprador: string, observaciones?: string } | null>(null);
 
     useEffect(() => {
-        const saved = localStorage.getItem('agrogestion_ventas_offline');
-        if (saved) {
-            try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
-        }
+        const loadQueue = () => {
+            const saved = localStorage.getItem('agrogestion_ventas_offline');
+            if (saved) {
+                try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
+            } else {
+                setOfflineQueue([]);
+            }
+        };
+        loadQueue();
+        window.addEventListener('offline-queue-changed', loadQueue);
+        return () => window.removeEventListener('offline-queue-changed', loadQueue);
+    }, []);
 
+    useEffect(() => {
         if (!fincaId) return;
 
         const fetchConfigAndCompradores = async () => {

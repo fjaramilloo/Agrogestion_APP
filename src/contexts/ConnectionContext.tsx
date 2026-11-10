@@ -242,14 +242,16 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       let procesados = 0;
       let errores = 0;
 
-      // a) Pesajes y aforos guardados en cola dedicada
+      // a) Pesajes, aforos, compras y ventas guardados en colas dedicadas
       if (fincaId) {
         const r1 = await procesarSincronizacionOffline(fincaId);
         procesados += r1.procesados;
         errores += r1.errores;
         if (r1.pesajes) lineas.push({ etiqueta: 'Creados · pesajes', cantidad: r1.pesajes, ok: true });
         if (r1.aforos) lineas.push({ etiqueta: 'Creados · aforos', cantidad: r1.aforos, ok: true });
-        if (r1.errores) lineas.push({ etiqueta: 'Pesajes/aforos con error', cantidad: r1.errores, ok: false });
+        if (r1.compras) lineas.push({ etiqueta: 'Creados · lotes de compra', cantidad: r1.compras, ok: true });
+        if (r1.ventas) lineas.push({ etiqueta: 'Procesadas · ventas', cantidad: r1.ventas, ok: true });
+        if (r1.errores) lineas.push({ etiqueta: 'Registros offline con error', cantidad: r1.errores, ok: false });
       }
 
       // b) Todo lo demás (rotaciones, movimientos de lotes, animales, etc.)
@@ -295,10 +297,8 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const intentar = async () => {
       if (syncingRef.current) return;
       try {
-        const enCola = await contarEscriturasPendientes();
-        const pesajes = await localDB.pesajesOfflineQueue.where('status_sync').anyOf('pending', 'failed').count();
-        const aforos = await localDB.aforosOfflineQueue.where('status_sync').anyOf('pending', 'failed').count();
-        if (enCola + pesajes + aforos > 0) {
+        const totalPendientes = await actualizarConteo();
+        if (totalPendientes > 0) {
           await sincronizarRef.current(fincaIdAuth || '');
         }
       } catch (e) {

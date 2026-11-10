@@ -77,10 +77,17 @@ export default function Aforos() {
     const [calcDias, setCalcDias] = useState('0');
 
     useEffect(() => {
-        const saved = localStorage.getItem('agrogestion_aforos_offline');
-        if (saved) {
-            try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
-        }
+        const loadQueue = () => {
+            const saved = localStorage.getItem('agrogestion_aforos_offline');
+            if (saved) {
+                try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
+            } else {
+                setOfflineQueue([]);
+            }
+        };
+        loadQueue();
+        window.addEventListener('offline-queue-changed', loadQueue);
+        return () => window.removeEventListener('offline-queue-changed', loadQueue);
     }, []);
 
     useEffect(() => {

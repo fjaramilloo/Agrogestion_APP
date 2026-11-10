@@ -800,14 +800,25 @@ export async function obtenerConteoPendienteOffline(fincaId: string): Promise<{ 
 /**
  * 5. Procesa la cola de sincronización offline enviando los datos a Supabase en lotes (batch upsert).
  */
-export async function procesarSincronizacionOffline(fincaId: string): Promise<{ procesados: number; errores: number; pesajes: number; aforos: number }> {
+export async function procesarSincronizacionOffline(fincaId: string): Promise<{
+  procesados: number;
+  errores: number;
+  pesajes: number;
+  aforos: number;
+  compras: number;
+  ventas: number;
+}> {
   const isModoCampo = typeof window !== 'undefined' && localStorage.getItem('agrogestion_modo_campo') === 'true';
-  if (!fincaId || !navigator.onLine || isModoCampo) return { procesados: 0, errores: 0, pesajes: 0, aforos: 0 };
+  if (!fincaId || !navigator.onLine || isModoCampo) {
+    return { procesados: 0, errores: 0, pesajes: 0, aforos: 0, compras: 0, ventas: 0 };
+  }
 
   let procesados = 0;
   let errores = 0;
   let pesajesOk = 0;
   let aforosOk = 0;
+  let comprasOk = 0;
+  let ventasOk = 0;
 
   // --- Sincronizar Pesajes ---
   const pesajesPendientes = await localDB.pesajesOfflineQueue
@@ -880,7 +891,195 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{ 
     }
   }
 
+  // --- Sincronizar Aforos en localStorage (agrogestion_aforos_offline) ---
+  if (typeof window !== 'undefined') {
+    try {
+      const aforosRaw = localStorage.getItem('agrogestion_aforos_offline');
+      if (aforosRaw) {
+        const aforosQueue: any[] = JSON.parse(aforosRaw);
+        if (Array.isArray(aforosQueue) && aforosQueue.length > 0) {
+          let remainingAforos = [...aforosQueue];
+          for (const payload of aforosQueue) {
+            try {
+              const aforoToInsert = { ...payload };
+              delete aforoToInsert.id_temp;
+              delete aforoToInsert.potrero;
+              const { error } = await supabase.from('registros_aforo').insert(aforoToInsert);
+              if (error) throw error;
+              remainingAforos = remainingAforos.filter(item => item.id_temp !== payload.id_temp);
+              procesados++;
+              aforosOk++;
+            } catch (err) {
+              console.error('[OfflineSync] Error al sincronizar aforo de localStorage:', err);
+              errores++;
+            }
+          }
+          localStorage.setItem('agrogestion_aforos_offline', JSON.stringify(remainingAforos));
+        }
+      }
+    } catch (e) {
+      console.warn('[OfflineSync] Error leyendo agrogestion_aforos_offline:', e);
+    }
+
+    // --- Sincronizar Compras en localStorage (agrogestion_compras_offline) ---
+    try {
+      const comprasRaw = localStorage.getItem('agrogestion_compras_offline');
+      if (comprasRaw) {
+        const comprasQueue: any[] = JSON.parse(comprasRaw);
+        if (Array.isArray(comprasQueue) && comprasQueue.length > 0) {
+          let remainingCompras = [...comprasQueue];
+          for (const payload of comprasQueue) {
+            try {
+              const chapetas = (payload.animales || []).map((a: any) => String(a.numero_chapeta || '').trim().toUpperCase());
+              if (new Set(chapetas).size !== chapetas.length) {
+                throw new Error(`Chapetas duplicadas en lote de compra del ${payload.fechaIngreso}`);
+              }
+
+              const { data: existentes } = await supabase
+                .from('animales')
+                .select('numero_chapeta')
+                .eq('id_finca', fincaId)
+                .in('numero_chapeta', chapetas);
+
+              if (existentes && existentes.length > 0) {
+                throw new Error(`Chapetas ya existentes: ${existentes.map((e: any) => e.numero_chapeta).join(', ')}`);
+              }
+
+              const uniquePropietarios = Array.from(new Set((payload.animales || []).map((a: any) => String(a.propietario || '').trim())));
+              const potreradasPayload = uniquePropietarios.map(prop => ({
+                id_finca: fincaId,
+                nombre: `Levante ${prop}`,
+                etapa: 'levante'
+              }));
+
+              const { data: potreradasCreadas, error: potError } = await supabase
+                .from('potreradas')
+                .upsert(potreradasPayload, { onConflict: 'id_finca,nombre' })
+                .select('id, nombre');
+              if (potError) throw potError;
+
+              const potreradaIdPorPropietario = new Map();
+              (potreradasCreadas || []).forEach((p: any) => {
+                const propMatch = uniquePropietarios.find(prop => p.nombre === `Levante ${prop}`);
+                if (propMatch) potreradaIdPorPropietario.set(propMatch, p.id);
+              });
+
+              const pesoCompTotalNum = payload.incluirPesoCompra ? parseFloat(payload.pesoCompraTotal) : 0;
+              const totalPesoIngresoLote = (payload.animales || []).reduce((acc: number, a: any) => acc + (parseFloat(a.peso_ingreso) || 0), 0);
+              const ratioPesoCompra = (payload.incluirPesoCompra && pesoCompTotalNum > 0 && totalPesoIngresoLote > 0)
+                ? (pesoCompTotalNum / totalPesoIngresoLote)
+                : 1;
+
+              const records = (payload.animales || []).map((a: any) => {
+                const propTrim = String(a.propietario || '').trim();
+                return {
+                  id_finca: fincaId,
+                  numero_chapeta: String(a.numero_chapeta || '').trim().toUpperCase(),
+                  nombre_propietario: propTrim,
+                  id_potrerada: payload.selectedPotrerada ? payload.selectedPotrerada : (potreradaIdPorPropietario.get(propTrim) || null),
+                  peso_ingreso: parseFloat(a.peso_ingreso),
+                  peso_compra: payload.incluirPesoCompra ? Math.round(parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
+                  fecha_ingreso: payload.fechaIngreso,
+                  proveedor_compra: payload.selectedProveedor,
+                  observaciones_compra: payload.observaciones,
+                  etapa: 'levante',
+                  especie: 'bovino',
+                  sexo: 'M',
+                  estado: 'activo'
+                };
+              });
+
+              const { error: insErr } = await supabase.from('animales').insert(records);
+              if (insErr) throw insErr;
+
+              remainingCompras = remainingCompras.filter(q => q.id !== payload.id);
+              procesados++;
+              comprasOk++;
+            } catch (err) {
+              console.error('[OfflineSync] Error al sincronizar compra de localStorage:', err);
+              errores++;
+            }
+          }
+          localStorage.setItem('agrogestion_compras_offline', JSON.stringify(remainingCompras));
+        }
+      }
+    } catch (e) {
+      console.warn('[OfflineSync] Error leyendo agrogestion_compras_offline:', e);
+    }
+
+    // --- Sincronizar Ventas en localStorage (agrogestion_ventas_offline) ---
+    try {
+      const ventasRaw = localStorage.getItem('agrogestion_ventas_offline');
+      if (ventasRaw) {
+        const ventasQueue: any[] = JSON.parse(ventasRaw);
+        if (Array.isArray(ventasQueue) && ventasQueue.length > 0) {
+          let remainingVentas = [...ventasQueue];
+          for (const payload of ventasQueue) {
+            try {
+              const registrosInsert: any[] = [];
+              for (const a of (payload.animales || [])) {
+                const { data, error } = await supabase
+                  .from('animales')
+                  .select('id, etapa')
+                  .eq('id_finca', fincaId)
+                  .eq('numero_chapeta', String(a.numero_chapeta || '').trim())
+                  .eq('estado', 'activo')
+                  .single();
+
+                if (error || !data) {
+                  throw new Error(`Animal ${a.numero_chapeta} en venta del ${payload.fechaVenta} no encontrado o inactivo.`);
+                }
+
+                const pesoSalidaNum = parseFloat(a.peso_salida);
+                registrosInsert.push({
+                  id_animal: data.id,
+                  peso: pesoSalidaNum,
+                  fecha: payload.fechaVenta,
+                  etapa: data.etapa || 'ceba'
+                });
+
+                const { error: errorAnimal } = await supabase
+                  .from('animales')
+                  .update({
+                    estado: 'vendido',
+                    comprador_venta: payload.selectedComprador,
+                    fecha_venta: payload.fechaVenta,
+                    peso_venta: pesoSalidaNum,
+                    observaciones_venta: payload.observaciones,
+                    es_emergencia: String(payload.selectedComprador || '').toLowerCase().includes('carnicero'),
+                    precio_venta: a.precio_venta ? parseFloat(a.precio_venta) : null
+                  })
+                  .eq('id', data.id);
+
+                if (errorAnimal) throw errorAnimal;
+
+                try {
+                  await localDB.animalesCache.delete(data.id);
+                } catch { /* noop */ }
+              }
+
+              if (registrosInsert.length > 0) {
+                const { error: errorPesaje } = await supabase.from('registros_pesaje').insert(registrosInsert);
+                if (errorPesaje) throw errorPesaje;
+              }
+
+              remainingVentas = remainingVentas.filter(q => q.id !== payload.id);
+              procesados++;
+              ventasOk++;
+            } catch (err) {
+              console.error('[OfflineSync] Error al sincronizar venta de localStorage:', err);
+              errores++;
+            }
+          }
+          localStorage.setItem('agrogestion_ventas_offline', JSON.stringify(remainingVentas));
+        }
+      }
+    } catch (e) {
+      console.warn('[OfflineSync] Error leyendo agrogestion_ventas_offline:', e);
+    }
+  }
+
   notificarCambioColaOffline();
-  return { procesados, errores, pesajes: pesajesOk, aforos: aforosOk };
+  return { procesados, errores, pesajes: pesajesOk, aforos: aforosOk, compras: comprasOk, ventas: ventasOk };
 }
 

@@ -75,11 +75,20 @@ export default function Purchase() {
     const [quickReportData, setQuickReportData] = useState<{ proveedor: string; fecha: string; animales: { numero_chapeta: string; peso_ingreso: number }[]; pesoCompraTotal: number } | null>(null);
 
     useEffect(() => {
-        const saved = localStorage.getItem('agrogestion_compras_offline');
-        if (saved) {
-            try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
-        }
+        const loadQueue = () => {
+            const saved = localStorage.getItem('agrogestion_compras_offline');
+            if (saved) {
+                try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
+            } else {
+                setOfflineQueue([]);
+            }
+        };
+        loadQueue();
+        window.addEventListener('offline-queue-changed', loadQueue);
+        return () => window.removeEventListener('offline-queue-changed', loadQueue);
+    }, []);
 
+    useEffect(() => {
         if (!fincaId) return;
         const fetchPropietarios = async () => {
             const { data } = await supabase
