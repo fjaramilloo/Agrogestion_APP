@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
+import { setConexionDegradada } from '../lib/httpOffline';
 import {
   sincronizarCacheFinca,
   procesarSincronizacionOffline
@@ -69,11 +70,12 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     if (!navigator.onLine) {
       setIsRealOnline(false);
+      setConexionDegradada(true);
       return false;
     }
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
 
       // Ping directo (fuera de la capa offline) para que una copia guardada nunca simule que hay internet
       const base = import.meta.env.VITE_SUPABASE_URL as string;
@@ -87,9 +89,11 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       const online = res.status < 500;
       setIsRealOnline(online);
+      setConexionDegradada(!online);
       return online;
     } catch {
       setIsRealOnline(false);
+      setConexionDegradada(true);
       return false;
     }
   }, []);
@@ -121,7 +125,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Si Modo Campo está activado, la app es 100% OFFLINE para todas las pantallas
   const isOnline = !modoCampo && isRealOnline;
 
-  // 5. Escuchar cambios de conectividad del navegador
+  // 5. Escuchar cambios de conectividad del navegador y red degradada
   useEffect(() => {
     if (modoCampo) supabase.auth.stopAutoRefresh();
     const handleOnline = async () => {
@@ -132,10 +136,21 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const handleOffline = () => {
       setIsRealOnline(false);
+      setConexionDegradada(true);
+    };
+
+    const handleNetworkStatus = (e: any) => {
+      const degradada = Boolean(e.detail?.degradada);
+      if (degradada) {
+        setIsRealOnline(false);
+      } else if (!modoCampo) {
+        setIsRealOnline(true);
+      }
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('offline-network-status', handleNetworkStatus);
 
     // Verificación inicial de conectividad real si no está en modo campo
     if (!modoCampo) {
@@ -145,8 +160,21 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('offline-network-status', handleNetworkStatus);
     };
   }, [modoCampo, checkRealOnline]);
+
+  // Si la red se marcó como degradada pero el navegador dice que hay conexión física (1 rayita),
+  // revisar periódicamente (cada 20s) si ya volvió internet real para recuperar el modo online
+  useEffect(() => {
+    if (modoCampo || isRealOnline) return;
+    const interval = setInterval(() => {
+      if (navigator.onLine) {
+        checkRealOnline();
+      }
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [modoCampo, isRealOnline, checkRealOnline]);
 
   // 6. Conteo unificado de registros pendientes offline (Pesajes, Aforos, Compras, Ventas)
   const actualizarConteo = useCallback(async (): Promise<number> => {
@@ -345,6 +373,36 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
     }
   };
+
+  // 9. Auto-precarga silenciosa en segundo plano:
+  // Al iniciar sesión o entrar a la app con buena conexión, se descargan y refrescan
+  // animales, potreros y lotes automáticamente sin molestar al usuario ni bloquear la pantalla.
+  const ultimoPrecacheRef = useRef<number>(0);
+  const precargandoRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!user || !fincaIdAuth || !isOnline || precargandoRef.current) return;
+
+    const ahora = Date.now();
+    // Ejecutar máximo una vez cada 15 minutos en segundo plano
+    if (ahora - ultimoPrecacheRef.current < 15 * 60 * 1000) return;
+
+    const timer = setTimeout(async () => {
+      if (precargandoRef.current || !isOnline) return;
+      precargandoRef.current = true;
+      try {
+        await sincronizarCacheFinca(fincaIdAuth);
+        await refrescarCacheLecturas();
+        ultimoPrecacheRef.current = Date.now();
+      } catch (e) {
+        console.warn('[AutoPrecache] Descarga silenciosa omitida:', e);
+      } finally {
+        precargandoRef.current = false;
+      }
+    }, 2000); // 2 segundos después de montar para dar prioridad a la pantalla actual
+
+    return () => clearTimeout(timer);
+  }, [user, fincaIdAuth, isOnline]);
 
   return (
     <ConnectionContext.Provider

@@ -22,8 +22,22 @@ export const isModoCampoActivo = (): boolean => {
 
 const MAX_BODY_CHARS = 6_000_000;
 const MAX_ENTRADAS_CACHE = 800;
-const TIMEOUT_LECTURA_MS = 15000;
-const TIMEOUT_ESCRITURA_MS = 20000;
+const TIMEOUT_LECTURA_MS = 2500; // Reducido de 15000 a 2500ms para no bloquear la pantalla en potrero
+const TIMEOUT_ESCRITURA_MS = 3000; // Reducido de 20000 a 3000ms para asegurar escrituras en cola rápido
+const FAST_CACHE_RACE_MS = 800; // Si la red no responde en 800ms y tenemos caché, responde de inmediato con caché
+
+let isRedDegradada = false;
+
+export const isConexionDegradada = (): boolean => isRedDegradada;
+
+export const setConexionDegradada = (val: boolean) => {
+  if (isRedDegradada !== val) {
+    isRedDegradada = val;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('offline-network-status', { detail: { degradada: val } }));
+    }
+  }
+};
 
 // Tablas cuyo `id` es uuid con default: se puede generar en el cliente (hace seguro reintentar un insert)
 const TABLAS_CON_ID_UUID = new Set([
@@ -617,6 +631,7 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
   const method = (init.method || (esRequest ? (input as Request).method : 'GET')).toUpperCase();
   const info = parseRest(url);
   const modoCampo = isModoCampoActivo();
+  const sinSenalEfectiva = modoCampo || (typeof navigator !== 'undefined' && !navigator.onLine) || isRedDegradada;
 
   // Auth / Storage / Functions: no se pueden usar sin red
   if (!info) {
@@ -638,7 +653,7 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
   const esLecturaRpc = info.isRpc && method === 'POST' && /^get_/.test(info.fn);
   const esLectura = method === 'GET' || method === 'HEAD' || esLecturaRpc;
 
-  // ── LECTURAS ──
+  // ── LECTURAS (CACHE-FIRST CON REVALIDACIÓN RÁPIDA) ──
   if (esLectura) {
     const key = `${method} ${url}${esLecturaRpc ? ' ' + bodyStr : ''}`;
     const deCache = async () => {
@@ -651,10 +666,8 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
       return null;
     };
 
-    if (modoCampo) {
-      const r = await deCache();
-      if (r) return r;
-      // Blindaje de último recurso para evitar romper páginas con promesas en Modo Campo
+    const respuestaSeguraFallback = () => {
+      // Blindaje de último recurso para evitar romper páginas con promesas en Modo Campo o sin red
       if (method === 'GET' && !headers.get('accept')?.includes('vnd.pgrst.object')) {
         return new Response('[]', {
           status: 200,
@@ -694,23 +707,82 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
           message: 'JSON object requested, multiple (or no) rows returned'
         }), { status: 406, headers: { 'Content-Type': 'application/json; charset=utf-8', 'x-offline-cache': 'empty-single-fallback' } });
       }
-      throw new TypeError('Failed to fetch (Modo Campo activo, sin datos guardados)');
+      return null;
+    };
+
+    // Caso A: Modo Campo activo, o navegador sin red, o conexión previamente degradada
+    if (sinSenalEfectiva) {
+      const r = await deCache();
+      if (r) return r;
+      const fb = respuestaSeguraFallback();
+      if (fb) return fb;
+      throw new TypeError('Failed to fetch (Sin conexión ni datos guardados)');
     }
 
+    // Caso B: En línea con red (Stale-While-Revalidate / Cache-First)
+    // 1. Verificamos si ya tenemos una copia guardada en caché local
+    const cachedResp = await deCache();
+
+    if (cachedResp) {
+      // Disparamos la petición a la red con timeout corto (2.5s)
+      const fetchRed = conTimeout(url, init, TIMEOUT_LECTURA_MS)
+        .then(async (res) => {
+          if (res.ok) {
+            setConexionDegradada(false);
+            void guardarCache(key, url, method, bodyStr, headers, res.clone(), info.tabla);
+            return res;
+          }
+          if (res.status >= 500) {
+            setConexionDegradada(true);
+          }
+          return null;
+        })
+        .catch((e) => {
+          if (esErrorDeRed(e)) {
+            setConexionDegradada(true);
+          }
+          return null;
+        });
+
+      // Carrera: si la red responde súper rápido (<800ms, ej. Wi-Fi de alta velocidad), devolvemos la respuesta fresca.
+      // Si la red tarda más de 800ms (típico potrero con 1 rayita), devolvemos de INMEDIATO la caché local (0 ms de espera).
+      const redRapida = await Promise.race([
+        fetchRed,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), FAST_CACHE_RACE_MS))
+      ]);
+
+      if (redRapida && redRapida.ok) {
+        return redRapida;
+      }
+
+      // Devolver de inmediato los datos de la memoria local
+      return cachedResp;
+    }
+
+    // Si aún no hay nada en caché para esta consulta:
     try {
       const res = await conTimeout(url, init, TIMEOUT_LECTURA_MS);
       if (res.ok) {
+        setConexionDegradada(false);
         void guardarCache(key, url, method, bodyStr, headers, res.clone(), info.tabla);
         return res;
       }
       if (res.status >= 500) {
+        setConexionDegradada(true);
         const r = await deCache();
         if (r) return r;
+        const fb = respuestaSeguraFallback();
+        if (fb) return fb;
       }
       return res;
     } catch (e) {
+      if (esErrorDeRed(e)) {
+        setConexionDegradada(true);
+      }
       const r = await deCache();
       if (r) return r;
+      const fb = respuestaSeguraFallback();
+      if (fb) return fb;
       throw e;
     }
   }
@@ -722,11 +794,16 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
       if (modoCampo) throw new TypeError('Failed to fetch (Modo Campo activo)');
       return conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
     }
-    if (modoCampo) return encolarEscritura(method, url, info.tabla, info.u, headers, bodyStr);
+    if (sinSenalEfectiva) return encolarEscritura(method, url, info.tabla, info.u, headers, bodyStr);
     try {
-      return await conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
+      const res = await conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
+      if (res.ok) setConexionDegradada(false);
+      return res;
     } catch (e) {
-      if (esErrorDeRed(e)) return encolarEscritura(method, url, info.tabla, info.u, headers, bodyStr);
+      if (esErrorDeRed(e)) {
+        setConexionDegradada(true);
+        return encolarEscritura(method, url, info.tabla, info.u, headers, bodyStr);
+      }
       throw e;
     }
   }
@@ -744,12 +821,17 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
     }
   }
 
-  if (modoCampo) return encolarEscritura(method, url, info.tabla, info.u, headers, cuerpoFinal);
+  if (sinSenalEfectiva) return encolarEscritura(method, url, info.tabla, info.u, headers, cuerpoFinal);
 
   try {
-    return await conTimeout(url, { ...init, body: cuerpoFinal ?? init.body }, TIMEOUT_ESCRITURA_MS);
+    const res = await conTimeout(url, { ...init, body: cuerpoFinal ?? init.body }, TIMEOUT_ESCRITURA_MS);
+    if (res.ok) setConexionDegradada(false);
+    return res;
   } catch (e) {
-    if (esErrorDeRed(e)) return encolarEscritura(method, url, info.tabla, info.u, headers, cuerpoFinal);
+    if (esErrorDeRed(e)) {
+      setConexionDegradada(true);
+      return encolarEscritura(method, url, info.tabla, info.u, headers, cuerpoFinal);
+    }
     throw e;
   }
 }

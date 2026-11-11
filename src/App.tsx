@@ -15,6 +15,9 @@ const loadDashboard = () => import('./pages/Dashboard');
 const loadInventory = () => import('./pages/Inventory');
 const loadWeighing = () => import('./pages/Weighing');
 const loadPotreradas = () => import('./pages/Potreradas');
+const loadMovements = () => import('./pages/Movements');
+const loadRotations = () => import('./pages/Rotations');
+const loadAforos = () => import('./pages/Aforos');
 
 const Login = lazyWithRetry(() => import('./pages/Login'));
 const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'));
@@ -25,11 +28,11 @@ const Weighing = lazyWithRetry(loadWeighing);
 const Potreradas = lazyWithRetry(loadPotreradas);
 const Purchase = lazyWithRetry(() => import('./pages/Purchase'));
 const Sales = lazyWithRetry(() => import('./pages/Sales'));
-const Movements = lazyWithRetry(() => import('./pages/Movements'));
-const Rotations = lazyWithRetry(() => import('./pages/Rotations'));
+const Movements = lazyWithRetry(loadMovements);
+const Rotations = lazyWithRetry(loadRotations);
 const Mercado = lazyWithRetry(() => import('./pages/Mercado'));
 const MercadoGanado = lazyWithRetry(() => import('./pages/MercadoGanado'));
-const Aforos = lazyWithRetry(() => import('./pages/Aforos'));
+const Aforos = lazyWithRetry(loadAforos);
 const Rainfall = lazyWithRetry(() => import('./pages/Rainfall'));
 const Suscripcion = lazyWithRetry(() => import('./pages/Suscripcion'));
 const FarmMapPage = lazyWithRetry(() => import('./pages/FarmMap').then(m => ({ default: m.FarmMapPage })));
@@ -115,7 +118,15 @@ const AppRoutes = () => {
   // para que abrirlas sea instantáneo (y queden disponibles sin señal).
   React.useEffect(() => {
     if (!userId) return;
-    prefetchWhenIdle([loadDashboard, loadInventory, loadWeighing, loadPotreradas]);
+    prefetchWhenIdle([
+      loadDashboard,
+      loadInventory,
+      loadWeighing,
+      loadPotreradas,
+      loadMovements,
+      loadRotations,
+      loadAforos
+    ]);
   }, [userId]);
 
   return (

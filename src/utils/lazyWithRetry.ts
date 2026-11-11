@@ -9,19 +9,29 @@ const RELOAD_KEY = 'agrogestion_chunk_reload';
  */
 export function lazyWithRetry<T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) {
   return lazy(async () => {
-    try {
-      const mod = await factory();
-      sessionStorage.removeItem(RELOAD_KEY);
-      return mod;
-    } catch (err) {
-      if (navigator.onLine && !sessionStorage.getItem(RELOAD_KEY)) {
-        sessionStorage.setItem(RELOAD_KEY, '1');
-        window.location.reload();
-        // Promesa que nunca resuelve: la página se está recargando
-        return new Promise<{ default: T }>(() => {});
+    let intentos = 0;
+    while (intentos < 3) {
+      try {
+        const mod = await factory();
+        sessionStorage.removeItem(RELOAD_KEY);
+        return mod;
+      } catch (err) {
+        intentos++;
+        if (intentos < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          continue;
+        }
+        // Solo recargar si el navegador indica conexión y no hemos recargado en esta sesión
+        if (typeof navigator !== 'undefined' && navigator.onLine && !sessionStorage.getItem(RELOAD_KEY)) {
+          sessionStorage.setItem(RELOAD_KEY, '1');
+          window.location.reload();
+          // Promesa que nunca resuelve: la página se está recargando
+          return new Promise<{ default: T }>(() => {});
+        }
+        throw err;
       }
-      throw err;
     }
+    throw new Error('No se pudo cargar la pantalla tras reintentos');
   });
 }
 

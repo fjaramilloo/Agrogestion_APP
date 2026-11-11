@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, Wifi, WifiOff, RefreshCw, DownloadCloud } from 'lucide-react';
+import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import NotificationCenter from './NotificationCenter';
@@ -17,37 +16,13 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         isOnline,
         syncing,
         conteoPendienteTotal,
-        sincronizarTodo,
-        prepararFincaOffline
+        sincronizarTodo
     } = useConnection();
-
-    const [preparando, setPreparando] = useState(false);
-    const [msjPreparado, setMsjPreparado] = useState<string | null>(null);
 
     // Disparar sincronización manual
     const handleSync = async () => {
         if (!fincaId || syncing || !isOnline) return;
         await sincronizarTodo(fincaId);
-    };
-
-    // Descargar datos de la finca antes de salir al potrero
-    const handlePrepararFinca = async () => {
-        if (!fincaId || preparando) return;
-        setPreparando(true);
-        setMsjPreparado(null);
-        try {
-            const res = await prepararFincaOffline(fincaId);
-            if (res.success) {
-                setMsjPreparado(`✅ Finca lista: animales (${res.animales}), potreros (${res.potreros}), rotaciones, lotes, lluvias e historial guardados para campo.`);
-            } else {
-                setMsjPreparado(`⚠️ ${res.error || 'No se pudo completar la preparación'}`);
-            }
-        } catch {
-            setMsjPreparado('⚠️ Error preparando datos para campo');
-        } finally {
-            setPreparando(false);
-            setTimeout(() => setMsjPreparado(null), 5000);
-        }
     };
 
     const getUserDisplay = () => {
@@ -82,19 +57,21 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             </div>
 
             <div className="topbar-right">
-                {/* Botón interactivo global de Modo Campo */}
+                {/* Indicador de estado de conexión (Automático con opción de forzar Modo Campo) */}
                 <button
                     onClick={toggleModoCampo}
                     className={`topbar-btn-modo-campo ${modoCampo ? 'modo-campo-active' : isOnline ? 'modo-online' : 'modo-offline'}`}
                     title={modoCampo 
-                        ? 'Modo Campo activo: La app opera 100% desconectada de forma rápida y estable. Clic para volver a En Línea.'
-                        : 'Clic para activar Modo Campo (trabajar desconectado en potrero)'}
+                        ? 'Modo Campo forzado: Clic para volver a detección automática.'
+                        : isOnline
+                        ? 'Conectado a la nube. Clic si deseas forzar Modo Campo.'
+                        : 'Sin señal estable: Guardando datos en el celular automáticamente.'}
                 >
                     {modoCampo ? (
                         <>
                             <span style={{ fontSize: '0.95rem' }}>🚜</span>
                             <span>Modo Campo</span>
-                            <span className="topbar-btn-subtext">(Offline)</span>
+                            <span className="topbar-btn-subtext">(Forzado)</span>
                         </>
                     ) : isOnline ? (
                         <>
@@ -110,33 +87,18 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                     )}
                 </button>
 
-                {/* Botón para preparar/descargar la finca antes de salir al potrero */}
-                {isOnline && (
-                    <button
-                        onClick={handlePrepararFinca}
-                        disabled={preparando}
-                        className="topbar-btn-action topbar-btn-preparar"
-                        title="Descargar todos los datos de la finca en el celular para trabajar en el potrero sin conexión"
-                    >
-                        <DownloadCloud size={15} className={preparando ? 'animate-spin' : ''} />
-                        <span className="topbar-btn-label">
-                            {preparando ? 'Preparando...' : 'Guardar Finca'}
-                        </span>
-                    </button>
-                )}
-
                 {/* Badge y botón para sincronizar registros pendientes */}
                 {conteoPendienteTotal > 0 && (
                     <button
                         onClick={handleSync}
                         disabled={syncing || !isOnline}
                         className={`topbar-btn-action topbar-btn-sync ${isOnline ? 'can-sync' : 'cannot-sync'}`}
-                        title={isOnline ? 'Clic para subir todos los registros acumulados' : 'Conéctate a internet para sincronizar'}
+                        title={isOnline ? 'Clic para subir todos los registros acumulados' : 'Se sincronizarán automáticamente al recuperar la señal'}
                     >
                         <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
                         <span className="topbar-sync-badge">{conteoPendienteTotal}</span>
                         <span className="topbar-btn-label">
-                            {syncing ? 'Subiendo...' : isOnline ? 'Sincronizar' : 'pendientes'}
+                            {syncing ? 'Subiendo...' : isOnline ? 'Sincronizar' : 'en celular'}
                         </span>
                     </button>
                 )}
@@ -152,13 +114,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                     </div>
                 </div>
             </div>
-
-            {/* Notificación flotante de preparación para campo */}
-            {msjPreparado && (
-                <div className="topbar-toast">
-                    {msjPreparado}
-                </div>
-            )}
         </header>
     );
 }
