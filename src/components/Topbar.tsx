@@ -1,4 +1,4 @@
-import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, WifiOff, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import NotificationCenter from './NotificationCenter';
@@ -57,35 +57,29 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             </div>
 
             <div className="topbar-right">
-                {/* Indicador de estado de conexión (Automático con opción de forzar Modo Campo) */}
-                <button
-                    onClick={toggleModoCampo}
-                    className={`topbar-btn-modo-campo ${modoCampo ? 'modo-campo-active' : isOnline ? 'modo-online' : 'modo-offline'}`}
-                    title={modoCampo 
-                        ? 'Modo Campo forzado: Clic para volver a detección automática.'
-                        : isOnline
-                        ? 'Conectado a la nube. Clic si deseas forzar Modo Campo.'
-                        : 'Sin señal estable: Guardando datos en el celular automáticamente.'}
-                >
-                    {modoCampo ? (
-                        <>
-                            <span style={{ fontSize: '0.95rem' }}>🚜</span>
-                            <span>Modo Campo</span>
-                            <span className="topbar-btn-subtext">(Forzado)</span>
-                        </>
-                    ) : isOnline ? (
-                        <>
-                            <Wifi size={13} />
-                            <span>En Línea</span>
-                        </>
-                    ) : (
-                        <>
-                            <WifiOff size={13} />
-                            <span>Sin Señal</span>
-                            <span className="topbar-btn-subtext">(Auto)</span>
-                        </>
-                    )}
-                </button>
+                {/* Solo se muestra si no hay señal o si se activó Modo Campo forzado (Silencio visual en línea) */}
+                {(!isOnline || modoCampo) && (
+                    <div
+                        className={`topbar-btn-modo-campo ${modoCampo ? 'modo-campo-active' : 'modo-offline'}`}
+                        title={modoCampo ? 'Modo Campo forzado: Clic para volver a detección automática' : 'Sin señal de internet: la app está guardando los datos en la memoria del celular de forma segura'}
+                        style={{ cursor: modoCampo ? 'pointer' : 'default' }}
+                        onClick={modoCampo ? toggleModoCampo : undefined}
+                    >
+                        {modoCampo ? (
+                            <>
+                                <span style={{ fontSize: '0.95rem' }}>🚜</span>
+                                <span>Modo Campo</span>
+                                <span className="topbar-btn-subtext">(Forzado)</span>
+                            </>
+                        ) : (
+                            <>
+                                <WifiOff size={13} />
+                                <span>Sin Señal</span>
+                                <span className="topbar-btn-subtext">(En cel)</span>
+                            </>
+                        )}
+                    </div>
+                )}
 
                 {/* Badge y botón para sincronizar registros pendientes */}
                 {conteoPendienteTotal > 0 && (
