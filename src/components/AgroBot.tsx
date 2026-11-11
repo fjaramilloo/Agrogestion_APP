@@ -218,7 +218,11 @@ export default function AgroBot() {
                 } else if (!data || (Array.isArray(data) && data.length === 0)) {
                     dbResult = 'La consulta no devolvió resultados (sin registros para el filtro o periodo solicitado).';
                 } else {
-                    dbResult = JSON.stringify(data);
+                    const cleanData = Array.isArray(data) && data.length > 50 ? data.slice(0, 50) : data;
+                    dbResult = JSON.stringify(cleanData);
+                    if (Array.isArray(data) && data.length > 50) {
+                        dbResult += `\n(Nota: Se muestran los primeros 50 registros de un total de ${data.length})`;
+                    }
                 }
 
                 // Paso 3: Enviar los resultados de vuelta para que la IA los interprete zootécnicamente
@@ -257,6 +261,8 @@ export default function AgroBot() {
                 errorMsg = '🐄 ¡Ups! He alcanzado mi límite de consultas rápidas por ahora (límite de uso gratuito). Por favor, dame un minuto de descanso e inténtalo de nuevo.';
             } else if (error.message?.includes('503')) {
                 errorMsg = '🐄 Mis servidores están un poco saturados en este momento. Dame unos segunditos e intenta de nuevo.';
+            } else if (error.message?.includes('Failed to send a request to the Edge Function') || error.name === 'TimeoutError' || error.name === 'AbortError') {
+                errorMsg = '🐄 La consulta tomó más tiempo del esperado o hubo intermitencia de red. Por favor intenta preguntarme de nuevo.';
             }
             
             setMessages(prev => [...prev, { role: 'model', text: errorMsg }]);

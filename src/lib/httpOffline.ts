@@ -24,6 +24,9 @@ const MAX_BODY_CHARS = 6_000_000;
 const MAX_ENTRADAS_CACHE = 800;
 const TIMEOUT_LECTURA_MS = 2500; // Reducido de 15000 a 2500ms para no bloquear la pantalla en potrero
 const TIMEOUT_ESCRITURA_MS = 3000; // Reducido de 20000 a 3000ms para asegurar escrituras en cola rápido
+const TIMEOUT_FUNCTIONS_MS = 60_000; // Edge Functions (Gemini AI AgroBot, invitaciones por correo, tareas de servidor)
+const TIMEOUT_STORAGE_MS = 60_000; // Subida y descarga de archivos e imágenes
+const TIMEOUT_AUTH_MS = 15_000; // Autenticación y gestión de sesiones
 const FAST_CACHE_RACE_MS = 800; // Si la red no responde en 800ms y tenemos caché, responde de inmediato con caché
 
 let isRedDegradada = false;
@@ -641,10 +644,21 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
       if (url.includes('/auth/v1/token') || url.includes('/auth/v1/signup') || url.includes('/auth/v1/recover')) {
         try { localStorage.removeItem('agrogestion_modo_campo'); } catch {}
       }
-      return conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
+      return conTimeout(url, init, TIMEOUT_AUTH_MS);
     }
 
     if (modoCampo) throw new TypeError('Failed to fetch (Modo Campo activo)');
+
+    // Invocaciones a Supabase Edge Functions (AgroBot Gemini AI, notificaciones, etc.)
+    if (url.includes('/functions/v1/')) {
+      return conTimeout(url, init, TIMEOUT_FUNCTIONS_MS);
+    }
+
+    // Almacenamiento Supabase (imágenes, reportes)
+    if (url.includes('/storage/v1/')) {
+      return conTimeout(url, init, TIMEOUT_STORAGE_MS);
+    }
+
     return conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
   }
 
@@ -789,6 +803,11 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
 
   // ── ESCRITURAS ──
   if (info.isRpc) {
+    // Consulta analítica de AgroBot a la base de datos: dar tiempo suficiente
+    if (info.fn === 'execute_ai_query') {
+      if (modoCampo) throw new TypeError('Failed to fetch (Modo Campo activo)');
+      return conTimeout(url, init, TIMEOUT_FUNCTIONS_MS);
+    }
     // Solo los recálculos de historial se pueden diferir; el resto exige conexión
     if (!/^recalcular_/.test(info.fn)) {
       if (modoCampo) throw new TypeError('Failed to fetch (Modo Campo activo)');
