@@ -295,7 +295,7 @@ export default function Weighing() {
         setMsjError('');
 
         try {
-            const pesoFloat = parseFloat(pesoIngresoNuevo);
+            const pesoFloat = Math.round(parseFloat(pesoIngresoNuevo));
             if (isNaN(pesoFloat) || pesoFloat <= 0) {
                 throw new Error('El peso inicial debe ser mayor a 0');
             }
@@ -359,7 +359,7 @@ export default function Weighing() {
         setMarcadoCeba(false);
 
         try {
-            const pesoFloat = parseFloat(nuevoPeso);
+            const pesoFloat = Math.round(parseFloat(nuevoPeso));
             if (isNaN(pesoFloat) || pesoFloat <= 0) {
                 throw new Error('El peso debe ser un número mayor a 0');
             }

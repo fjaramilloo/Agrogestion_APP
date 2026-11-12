@@ -303,7 +303,7 @@ export default function HistorialCompras() {
         try {
             const updates = detalleCompra.animalesDetalle.map(a => ({
                 id: a.id,
-                peso_compra: a.peso_ingreso * factor
+                peso_compra: Math.round(a.peso_ingreso * factor)
             }));
 
             // Actualizar en lotes de 50 para no sobrecargar

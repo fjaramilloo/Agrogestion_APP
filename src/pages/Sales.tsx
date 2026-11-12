@@ -330,7 +330,7 @@ export default function Sales() {
         try {
             const registrosInsert = animales.filter(a => a.id_animal).map(a => ({
                 id_animal: a.id_animal,
-                peso: parseFloat(a.peso_salida),
+                peso: Math.round(parseFloat(a.peso_salida)),
                 fecha: fechaVenta,
                 etapa: 'ceba'
             }));
@@ -344,7 +344,7 @@ export default function Sales() {
 
             for (const a of animales) {
                 if (!a.id_animal) continue;
-                const pesoFloat = parseFloat(a.peso_salida);
+                const pesoNum = Math.round(parseFloat(a.peso_salida));
                 
                 // 2. Marcar animal como vendido y guardar datos de venta
                 const { error: errorAnimal } = await supabase
@@ -353,7 +353,7 @@ export default function Sales() {
                         estado: 'vendido',
                         comprador_venta: selectedComprador,
                         fecha_venta: fechaVenta,
-                        peso_venta: pesoFloat,
+                        peso_venta: isNaN(pesoNum) ? null : pesoNum,
                         observaciones_venta: observaciones,
                         es_emergencia: isCarnicero,
                         precio_venta: a.precio_venta ? parseFloat(a.precio_venta) : null
