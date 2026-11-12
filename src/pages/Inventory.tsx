@@ -93,7 +93,7 @@ export default function Inventory() {
 
     // Modal Historial Animal
     const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
-    const [potreradasDisponibles, setPotreradasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
+    const [potreradasDisponibles, setPotreradasDisponibles] = useState<{ id: string; nombre: string; etapa?: string }[]>([]);
     const [propietariosLista, setPropietariosLista] = useState<{ id: string; nombre: string }[]>([]);
 
 
@@ -519,7 +519,7 @@ export default function Inventory() {
                 supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000),
                 supabase
                     .from('potreradas')
-                    .select('id, nombre')
+                    .select('id, nombre, etapa')
                     .eq('id_finca', fincaId)
                     .order('nombre', { ascending: true })
                     .limit(10000),
@@ -1777,9 +1777,20 @@ export default function Inventory() {
 
                         <div style={{ marginBottom: '24px' }}>
                             <label>Asignar a Lote (Opcional)</label>
-                            <select value={nuevoAnimal.id_potrerada} onChange={e => setNuevoAnimal({...nuevoAnimal, id_potrerada: e.target.value})}>
+                            <select 
+                                value={nuevoAnimal.id_potrerada} 
+                                onChange={e => {
+                                    const selectedPotId = e.target.value;
+                                    const selectedPot = potreradasDisponibles.find(p => p.id === selectedPotId);
+                                    setNuevoAnimal({
+                                        ...nuevoAnimal,
+                                        id_potrerada: selectedPotId,
+                                        ...(selectedPot?.etapa === 'ceba' ? { etapa: 'ceba' } : {})
+                                    });
+                                }}
+                            >
                                 <option value="">-- Sin Lote --</option>
-                                {potreradasDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                                {potreradasDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}{p.etapa ? ` (${p.etapa.toUpperCase()})` : ''}</option>)}
                             </select>
                         </div>
 

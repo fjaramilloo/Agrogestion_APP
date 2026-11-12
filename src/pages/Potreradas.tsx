@@ -481,9 +481,14 @@ export default function Potreradas() {
         if (!managingPotrerada) return;
         setUpdatingAnimal(animalId);
         try {
+            const updatePayload: any = { id_potrerada: managingPotrerada.id };
+            if (managingPotrerada.etapa === 'ceba') {
+                updatePayload.etapa = 'ceba';
+                updatePayload.ok_ceba = false;
+            }
             const { error } = await supabase
                 .from('animales')
-                .update({ id_potrerada: managingPotrerada.id })
+                .update(updatePayload)
                 .eq('id', animalId);
             
             if (error) throw error;
