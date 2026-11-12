@@ -407,22 +407,12 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                             <div className="stat-value" style={{ color: gmpLevanteFinal < 0 ? '#d32f2f' : (gmpLevanteFinal <= umbralMedio ? '#f57c00' : (gmpLevanteFinal <= umbralAlto ? '#000000' : '#2e7d32')) }}>
                                 {gmpLevanteFinal !== 0 ? toDisplayValue(gmpLevanteFinal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2) : '-'} {gmpLevanteFinal !== 0 ? getUnidadLabel(modoGanancia) : ''}
                             </div>
-                            {countGMPLevante > 0 && countGMPLevante !== totalAnimales && (
-                                <span style={{ fontSize: '10px', color: '#666', marginTop: '2px', display: 'block' }}>
-                                    ({countGMPLevante} de {totalAnimales} animales)
-                                </span>
-                            )}
                         </div>
                         <div className="stat-card">
                             <span className="stat-label">{getModoLabel(modoGanancia)} en Ceba</span>
                             <div className="stat-value" style={{ color: gmpCebaFinal < 0 ? '#d32f2f' : (gmpCebaFinal <= umbralMedio ? '#f57c00' : (gmpCebaFinal <= umbralAlto ? '#000000' : '#2e7d32')) }}>
                                 {gmpCebaFinal !== 0 ? toDisplayValue(gmpCebaFinal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2) : '-'} {gmpCebaFinal !== 0 ? getUnidadLabel(modoGanancia) : ''}
                             </div>
-                            {countGMPCeba > 0 && countGMPCeba !== totalAnimales && (
-                                <span style={{ fontSize: '10px', color: '#666', marginTop: '2px', display: 'block' }}>
-                                    ({countGMPCeba} de {totalAnimales} animales)
-                                </span>
-                            )}
                         </div>
                         <div className="stat-card">
                             <span className="stat-label">{getModoLabel(modoGanancia)} Total (Vida)</span>
