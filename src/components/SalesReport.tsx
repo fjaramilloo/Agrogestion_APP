@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { format } from 'date-fns';
 import { Printer, X } from 'lucide-react';
 import { es } from 'date-fns/locale';
@@ -124,7 +125,21 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
         promedioGMP: porMarca[marca].gmpCount > 0 ? porMarca[marca].gmpSum / porMarca[marca].gmpCount : 0
     }));
 
+    useEffect(() => {
+        const originalTitle = document.title;
+        const nombreComprador = (comprador || 'Comprador').trim();
+        const fecha = (fechaVenta || '').trim().replace(/\//g, '-');
+        document.title = `Venta-${nombreComprador}-${fecha}`.replace(/[\\/:*?"<>|]/g, '-');
+
+        return () => {
+            document.title = originalTitle;
+        };
+    }, [comprador, fechaVenta]);
+
     const handlePrint = () => {
+        const nombreComprador = (comprador || 'Comprador').trim();
+        const fecha = (fechaVenta || '').trim().replace(/\//g, '-');
+        document.title = `Venta-${nombreComprador}-${fecha}`.replace(/[\\/:*?"<>|]/g, '-');
         window.print();
     };
 

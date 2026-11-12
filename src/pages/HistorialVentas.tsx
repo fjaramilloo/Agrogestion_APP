@@ -417,7 +417,10 @@ export default function HistorialVentas() {
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
             pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Venta_${detalleVenta.titulo.replace(/\s+/g, '_')}_${formatFecha(detalleVenta.fechaVenta).replace(/\s+/g, '_')}.pdf`);
+            const nombreComprador = (detalleVenta.comprador || 'Comprador').trim();
+            const fecha = (detalleVenta.fechaVenta || '').trim().replace(/\//g, '-');
+            const filename = `Venta-${nombreComprador}-${fecha}.pdf`.replace(/[\\/:*?"<>|]/g, '-');
+            pdf.save(filename);
         } catch (error) {
             console.error('Error al exportar PDF:', error);
         } finally {

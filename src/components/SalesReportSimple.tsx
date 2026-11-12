@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { format } from 'date-fns';
 import { Printer, X } from 'lucide-react';
 import { es } from 'date-fns/locale';
@@ -20,7 +21,23 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
     const totalAnimales = animales.length;
     const pesoPromedio = totalAnimales > 0 ? totalKilos / totalAnimales : 0;
 
-    const handlePrint = () => window.print();
+    useEffect(() => {
+        const originalTitle = document.title;
+        const nombreComprador = (comprador || 'Comprador').trim();
+        const fecha = (fechaVenta || '').trim().replace(/\//g, '-');
+        document.title = `Venta-${nombreComprador}-${fecha}`.replace(/[\\/:*?"<>|]/g, '-');
+
+        return () => {
+            document.title = originalTitle;
+        };
+    }, [comprador, fechaVenta]);
+
+    const handlePrint = () => {
+        const nombreComprador = (comprador || 'Comprador').trim();
+        const fecha = (fechaVenta || '').trim().replace(/\//g, '-');
+        document.title = `Venta-${nombreComprador}-${fecha}`.replace(/[\\/:*?"<>|]/g, '-');
+        window.print();
+    };
 
     return (
         <div className="report-modal-overlay">
