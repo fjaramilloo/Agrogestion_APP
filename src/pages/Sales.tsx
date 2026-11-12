@@ -4,7 +4,7 @@ import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { differenceInDays } from 'date-fns';
-import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud, AlertOctagon } from 'lucide-react';
+import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud, AlertOctagon, AlertTriangle } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
 import ModalUpsell from '../components/ModalUpsell';
 import { getLocalIsoDate } from '../utils/dateUtils';
@@ -24,6 +24,7 @@ interface AnimalVenta {
     id_animal?: string;
     validado: boolean;
     error?: string;
+    advertencia_fecha?: string;
     // Datos para cálculo de GMP
     ultimo_peso?: number;
     ultima_fecha?: string;
@@ -133,6 +134,36 @@ export default function Sales() {
         return gdp * 30;
     };
 
+    const handleFechaVentaChange = (nuevaFecha: string) => {
+        setFechaVenta(nuevaFecha);
+        if (animales.length > 0) {
+            const fVentaNorm = nuevaFecha.split('T')[0];
+            const updated = animales.map(a => {
+                if (!a.validado) return a;
+                const fUltimaNorm = a.ultima_fecha ? a.ultima_fecha.split('T')[0] : '';
+                const fIngresoNorm = a.fecha_ingreso ? a.fecha_ingreso.split('T')[0] : '';
+                let advertencia: string | undefined = undefined;
+
+                if (fUltimaNorm && fVentaNorm < fUltimaNorm) {
+                    advertencia = `Fecha de salida (${fVentaNorm}) es anterior a su último pesaje registrado (${fUltimaNorm} con ${a.ultimo_peso} kg).`;
+                } else if (fIngresoNorm && fVentaNorm < fIngresoNorm) {
+                    advertencia = `Fecha de salida (${fVentaNorm}) es anterior a su fecha de ingreso (${fIngresoNorm}).`;
+                }
+
+                const nuevoGmp = a.peso_salida && a.peso_ingreso && a.fecha_ingreso
+                    ? calculateGMP(a.peso_salida, a.peso_ingreso, a.fecha_ingreso, nuevaFecha)
+                    : a.gmp;
+
+                return {
+                    ...a,
+                    advertencia_fecha: advertencia,
+                    gmp: nuevoGmp
+                };
+            });
+            setAnimales(updated);
+        }
+    };
+
     const isCarnicero = selectedComprador.toLowerCase().includes('carnicero');
 
     const formatCurrency = (val: string) => {
@@ -240,10 +271,23 @@ export default function Sales() {
 
                 const gmp = a.peso_salida ? calculateGMP(a.peso_salida, pesoBaseIngreso, animalEncontrado.fecha_ingreso, fechaVenta) : 0;
 
+                // Validar si la fecha de venta es anterior al último pesaje o fecha de ingreso
+                const fVentaNorm = fechaVenta.split('T')[0];
+                const fUltimaNorm = ultimaFecha ? String(ultimaFecha).split('T')[0] : '';
+                const fIngresoNorm = animalEncontrado.fecha_ingreso ? String(animalEncontrado.fecha_ingreso).split('T')[0] : '';
+                let advertenciaFecha: string | undefined = undefined;
+
+                if (fUltimaNorm && fVentaNorm < fUltimaNorm) {
+                    advertenciaFecha = `Fecha de salida (${fVentaNorm}) es anterior a su último pesaje registrado (${fUltimaNorm} con ${ultimoPeso} kg).`;
+                } else if (fIngresoNorm && fVentaNorm < fIngresoNorm) {
+                    advertenciaFecha = `Fecha de salida (${fVentaNorm}) es anterior a su fecha de ingreso (${fIngresoNorm}).`;
+                }
+
                 newAnimales[index] = { 
                     ...a, 
                     validado: true, 
                     error: undefined, 
+                    advertencia_fecha: advertenciaFecha,
                     id_animal: animalEncontrado.id, 
                     propietario: animalEncontrado.nombre_propietario,
                     ultimo_peso: ultimoPeso,
@@ -499,11 +543,22 @@ export default function Sales() {
                     <div className="card" style={{ maxWidth: '450px', width: '100%', textAlign: 'center', border: '1px solid var(--error)' }}>
                         <Tag size={40} color="var(--error)" style={{ marginBottom: '16px' }} />
                         <h2 style={{ marginBottom: '12px' }}>Confirmar Venta</h2>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
                             ¿Estás seguro de marcar estos <b>{animales.length} animales</b> como VENDIDOS? <br />
                             Comprador: <b>{selectedComprador}</b><br />
+                            Fecha de salida: <b>{fechaVenta}</b><br />
                             Esto creará un registro de pesaje de salida y los quitará del inventario activo.
                         </p>
+                        {animales.some(a => a.advertencia_fecha) && (
+                            <div style={{ backgroundColor: 'rgba(255, 152, 0, 0.15)', border: '1px solid #ff9800', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', textAlign: 'left', fontSize: '0.85rem' }}>
+                                <div style={{ color: '#ff9800', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                    <AlertTriangle size={18} /> Atención: Advertencia de Fechas
+                                </div>
+                                <div style={{ color: 'var(--text-main)', fontSize: '0.82rem' }}>
+                                    Hay <b>{animales.filter(a => a.advertencia_fecha).length} animales</b> con pesajes registrados posteriores al <b>{fechaVenta}</b>. Asegúrate de que la fecha de salida sea la correcta antes de confirmar.
+                                </div>
+                            </div>
+                        )}
                         <div style={{ display: 'flex', gap: '16px' }}>
                             <button onClick={() => setShowConfirm(false)} style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)' }}>
                                 Regresar
@@ -633,9 +688,9 @@ export default function Sales() {
                                 <input
                                     type="date"
                                     value={fechaVenta}
-                                    onChange={e => setFechaVenta(e.target.value)}
+                                    onChange={e => handleFechaVentaChange(e.target.value)}
                                     style={{ paddingLeft: '40px' }}
-                                    disabled={loading || animales.length > 0}
+                                    disabled={loading}
                                 />
                             </div>
                         </div>
@@ -696,49 +751,95 @@ export default function Sales() {
             </div>
 
             {animales.length > 0 && (
-                <div className="glass-panel" style={{ padding: 0, overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                                <th style={{ padding: '16px', color: 'var(--text-muted)', width: '60px' }}>#</th>
-                                <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Chapeta</th>
-                                <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Peso Salida (kg)</th>
-                                {isCarnicero && <th style={{ padding: '16px', color: 'var(--error)', fontSize: '0.7rem' }}>VALOR VENTA ($)</th>}
-                                <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Marca</th>
-                                <th style={{ padding: '16px', width: '50px' }}></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {animales.map((a, index) => {
-                                const tagTrimmed = a.numero_chapeta.trim().toUpperCase();
-                                const isDuplicateInList = tagTrimmed !== '' && animales.filter(item => item.numero_chapeta.trim().toUpperCase() === tagTrimmed).length > 1;
-                                const finalError = isDuplicateInList ? 'Repetido en la lista' : a.error;
+                <>
+                    {animales.some(a => a.advertencia_fecha) && (
+                        <div style={{
+                            backgroundColor: 'rgba(255, 152, 0, 0.12)',
+                            border: '1px solid #ff9800',
+                            borderRadius: '10px',
+                            padding: '16px 20px',
+                            marginBottom: '20px',
+                            display: 'flex',
+                            gap: '14px',
+                            alignItems: 'flex-start'
+                        }}>
+                            <AlertTriangle size={24} color="#ff9800" style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <div>
+                                <div style={{ fontWeight: 'bold', color: '#ff9800', fontSize: '0.95rem' }}>
+                                    ⚠️ Advertencia: Fecha de salida anterior al último pesaje
+                                </div>
+                                <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', marginTop: '4px', lineHeight: '1.4' }}>
+                                    Hay {animales.filter(a => a.advertencia_fecha).length} animal(es) con pesajes o registros posteriores a la fecha de salida (<strong>{fechaVenta}</strong>):
+                                    <ul style={{ margin: '6px 0 0 16px', padding: 0 }}>
+                                        {animales.filter(a => a.advertencia_fecha).map(a => (
+                                            <li key={a.numero_chapeta} style={{ color: '#ff9800', fontSize: '0.82rem' }}>
+                                                Chapeta <strong>{a.numero_chapeta}</strong>: {a.advertencia_fecha}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <div style={{ marginTop: '8px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                        Verifica la <strong>Fecha de Salida</strong> en el formulario superior para que los cálculos de ganancia y etapas no se distorsionen.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                                return (
-                                <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{index + 1}</td>
-                                    <td style={{ padding: '8px 16px' }}>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            <input
-                                                type="text"
-                                                placeholder="Chapeta"
-                                                value={a.numero_chapeta}
-                                                onChange={e => updateAnimalField(index, 'numero_chapeta', e.target.value)}
-                                                onBlur={() => validarAnimal(index)}
-                                                style={{ 
-                                                    marginBottom: 0, 
-                                                    padding: '10px', 
-                                                    width: '120px', 
-                                                    borderColor: finalError ? 'var(--error)' : (a.validado ? 'var(--success)' : ''),
-                                                    backgroundColor: isDuplicateInList ? 'rgba(244, 67, 54, 0.05)' : 'transparent'
-                                                }}
-                                            />
-                                            {a.validado && !isDuplicateInList && <CheckCircle2 size={18} color="var(--success)" />}
-                                            {finalError && <div style={{ color: 'var(--error)', fontSize: '0.7rem' }} title={finalError}><AlertCircle size={18} /></div>}
-                                            {isDuplicateInList && <div style={{ color: 'var(--error)', fontSize: '0.7rem', marginTop: '4px' }}>Repetido en la lista</div>}
-                                            {!a.validado && !finalError && a.numero_chapeta && <button onClick={() => validarAnimal(index)} className="btn-icon" style={{ width: 'auto' }}><Search size={14} /></button>}
-                                        </div>
-                                    </td>
+                    <div className="glass-panel" style={{ padding: 0, overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <th style={{ padding: '16px', color: 'var(--text-muted)', width: '60px' }}>#</th>
+                                    <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Chapeta</th>
+                                    <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Peso Salida (kg)</th>
+                                    {isCarnicero && <th style={{ padding: '16px', color: 'var(--error)', fontSize: '0.7rem' }}>VALOR VENTA ($)</th>}
+                                    <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Marca</th>
+                                    <th style={{ padding: '16px', width: '50px' }}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {animales.map((a, index) => {
+                                    const tagTrimmed = a.numero_chapeta.trim().toUpperCase();
+                                    const isDuplicateInList = tagTrimmed !== '' && animales.filter(item => item.numero_chapeta.trim().toUpperCase() === tagTrimmed).length > 1;
+                                    const finalError = isDuplicateInList ? 'Repetido en la lista' : a.error;
+
+                                    return (
+                                    <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{index + 1}</td>
+                                        <td style={{ padding: '8px 16px' }}>
+                                            <div>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Chapeta"
+                                                        value={a.numero_chapeta}
+                                                        onChange={e => updateAnimalField(index, 'numero_chapeta', e.target.value)}
+                                                        onBlur={() => validarAnimal(index)}
+                                                        style={{ 
+                                                            marginBottom: 0, 
+                                                            padding: '10px', 
+                                                            width: '120px', 
+                                                            borderColor: finalError ? 'var(--error)' : (a.advertencia_fecha ? '#ff9800' : (a.validado ? 'var(--success)' : '')),
+                                                            backgroundColor: isDuplicateInList ? 'rgba(244, 67, 54, 0.05)' : 'transparent'
+                                                        }}
+                                                    />
+                                                    {a.validado && !isDuplicateInList && !a.advertencia_fecha && <CheckCircle2 size={18} color="var(--success)" />}
+                                                    {a.validado && !isDuplicateInList && a.advertencia_fecha && (
+                                                        <div style={{ color: '#ff9800', display: 'flex', alignItems: 'center' }} title={a.advertencia_fecha}>
+                                                            <AlertTriangle size={18} />
+                                                        </div>
+                                                    )}
+                                                    {finalError && <div style={{ color: 'var(--error)', fontSize: '0.7rem' }} title={finalError}><AlertCircle size={18} /></div>}
+                                                    {isDuplicateInList && <div style={{ color: 'var(--error)', fontSize: '0.7rem', marginTop: '4px' }}>Repetido en la lista</div>}
+                                                    {!a.validado && !finalError && a.numero_chapeta && <button onClick={() => validarAnimal(index)} className="btn-icon" style={{ width: 'auto' }}><Search size={14} /></button>}
+                                                </div>
+                                                {a.advertencia_fecha && (
+                                                    <div style={{ color: '#ff9800', fontSize: '0.68rem', marginTop: '3px', maxWidth: '170px', lineHeight: 1.2 }}>
+                                                        ⚠️ Salida &lt; último pesaje ({a.ultima_fecha ? String(a.ultima_fecha).split('T')[0] : ''})
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
                                     <td style={{ padding: '8px 16px' }}>
                                         <div style={{ position: 'relative' }}>
                                             <input
@@ -808,6 +909,7 @@ export default function Sales() {
                         </button>
                     </div>
                 </div>
+            </>
             )}
 
             {showReport && reportData && (
