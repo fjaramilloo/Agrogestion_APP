@@ -80,7 +80,16 @@ TABLAS DISPONIBLES EN LA BASE DE DATOS:
 
 9. registros_pesaje (Historial de pesajes de los animales):
    - Columnas: id, id_animal, peso, fecha, etapa, id_potrero, peso_anterior, gdp_calculada (ganancia diaria en kg/día), gmp_calculada (ganancia mensual en kg/mes), is_deleted (boolean)
-   - REGLA: Filtrar 'is_deleted = false'. Join: registros_pesaje.id_animal = animales.id
+   - REGLA CRÍTICA: Filtrar 'is_deleted = false'. Join: registros_pesaje.id_animal = animales.id
+   - SI EL USUARIO PREGUNTA POR 'ganado de [nombre]', 'lote [nombre]', 'pesajes', 'ganancia de peso', 'GDP', 'GMP', 'caída de peso', o el rendimiento de un grupo de animales, DEBES consultar prioritariamente 'registros_pesaje' haciendo JOIN con 'animales' y 'potreradas':
+     SELECT a.numero_chapeta, pot.nombre as lote, p.nombre as potrero, rp.fecha, rp.peso, rp.peso_anterior, rp.gdp_calculada, rp.gmp_calculada
+     FROM registros_pesaje rp
+     JOIN animales a ON rp.id_animal = a.id
+     LEFT JOIN potreradas pot ON a.id_potrerada = pot.id
+     LEFT JOIN potreros p ON a.id_potrero_actual = p.id
+     WHERE a.id_finca = '[fincaId]' AND a.is_deleted = false AND rp.is_deleted = false
+       AND (pot.nombre ILIKE '%[nombre]%' OR p.nombre ILIKE '%[nombre]%')
+     ORDER BY rp.fecha DESC LIMIT 40
 
 10. fincas (Datos de la finca):
     - Columnas: id, nombre, ubicacion, municipio, area_total, area_aprovechable, proposito
@@ -110,6 +119,16 @@ JOINS HABITUALES:
 - Pesajes con animal: registros_pesaje rp JOIN animales a ON rp.id_animal = a.id WHERE a.id_finca = '[fincaId]' AND rp.is_deleted = false
 - Aforos con potrero: registros_aforo ra LEFT JOIN potreros p ON ra.id_potrero = p.id WHERE ra.id_finca = '[fincaId]'`;
 
+// Prompt para la fase de interpretación (Paso 3): prohíbe tajantemente el código técnico
+const ZOOTECNIA_INTERPRET_PROMPT = `Eres AgroBot, mentor y consultor ganadero experto en zootecnia y agronomía tropical en Colombia.
+Tu misión AHORA es interpretar los datos numéricos obtenidos de la base de datos de la finca y responder al ganadero de forma clara, profesional, estructurada y empática en español.
+
+REGLAS INFALIBLES:
+1. TOTALMENTE PROHIBIDO mostrar código SQL, sintaxis técnica, nombres de tablas/columnas o bloques entre comillas invertidas. Eres un asesor zootécnico en persona, no una consola de base de datos.
+2. Explica qué significan los números: ganancias de peso (GDP diaria en kg/día, GMP mensual en kg/mes), historial entre fechas, carga animal, aforos de pasto, balance hídrico y lluvias.
+3. Si los datos muestran caídas de peso o problemas, brinda hipótesis zootécnicas sólidas (ej: calidad y lignificación de la pastura, déficit de proteína en época seca, transición de potreros, estrés térmico, problemas sanitarios o sobrepastoreo) y recomendaciones prácticas claras.
+4. Si la consulta arrojó pocos o ningún dato, explícaselo amablemente al ganadero con naturalidad campesina sin jerga informática.`;
+
 function extractSql(text: string): string | null {
     let result: string | null = null;
     // 1. Intentar sacar lo que esté entre ```sql (o ```SQL) y ```
@@ -117,10 +136,16 @@ function extractSql(text: string): string | null {
     if (match) {
         result = match[1].trim();
     } else {
-        // 2. Si no hay comillas, pero el texto empieza con SELECT
-        const trimmed = text.trim();
-        if (trimmed.toUpperCase().startsWith('SELECT')) {
-            result = trimmed;
+        // 2. Si contiene un bloque SELECT ... FROM en cualquier parte
+        const selectMatch = text.match(/\b(SELECT[\s\S]+?FROM[\s\S]+?WHERE[\s\S]+?)(?:;|$)/i);
+        if (selectMatch) {
+            result = selectMatch[1].trim();
+        } else {
+            // 3. Si el texto empieza con SELECT
+            const trimmed = text.trim();
+            if (trimmed.toUpperCase().startsWith('SELECT')) {
+                result = trimmed;
+            }
         }
     }
     
@@ -239,14 +264,23 @@ export default function AgroBot() {
 
                 const { data: step2Data, error: step2Err } = await supabase.functions.invoke('gemini-ai', {
                     body: {
-                        systemInstruction: SYSTEM_PROMPT,
+                        systemInstruction: ZOOTECNIA_INTERPRET_PROMPT,
                         contents: interpretContents,
                         model: 'gemini-3.5-flash-lite'
                     }
                 });
 
                 if (step2Err) throw new Error(step2Err.message || 'Error al interpretar resultados');
-                const botMsg = step2Data?.text ?? '';
+                let botMsg = step2Data?.text ?? '';
+
+                // Blindaje total: bajo ninguna circunstancia se debe mostrar código SQL al usuario
+                if (extractSql(botMsg)) {
+                    botMsg = botMsg.replace(/```(?:sql)?[\s\S]*?```/gi, '').trim();
+                    if (!botMsg || botMsg.toUpperCase().startsWith('SELECT')) {
+                        botMsg = 'He consultado la base de datos de tu finca. En resumen, los registros muestran variaciones importantes en el periodo evaluado. ¿Deseas que profundice en los pesajes, la rotación de potreros o las lluvias?';
+                    }
+                }
+
                 setMessages(prev => [...prev, { role: 'model', text: botMsg }]);
             } else {
                 // No necesitaba SQL: respuesta directa
