@@ -209,8 +209,9 @@ export default function HistorialVentas() {
                 const grouped = dataFiltrada.reduce((acc: any, animal: any) => {
                     const fecha = animal.fecha_venta ? animal.fecha_venta.split('T')[0] : 'Sin fecha';
                     const comprador = (animal.comprador_venta && animal.comprador_venta.trim()) ? animal.comprador_venta.trim() : 'Venta General';
+                    const obs = (animal.observaciones_venta && animal.observaciones_venta.trim()) ? animal.observaciones_venta.trim() : '';
                     
-                    const key = `${fecha}-${comprador}`;
+                    const key = obs ? `${fecha}-${comprador}-${obs}` : `${fecha}-${comprador}`;
                     
                     const registros = (animal.registros_pesaje || [])
                         .filter((r: any) => !r.is_deleted)
@@ -299,7 +300,7 @@ export default function HistorialVentas() {
                     if (!acc[key]) {
                         acc[key] = {
                             id: key,
-                            titulo: `Venta - ${fecha} - ${comprador}`,
+                            titulo: obs ? `Venta - ${fecha} - ${comprador} (${obs})` : `Venta - ${fecha} - ${comprador}`,
                             fechaVenta: fecha,
                             comprador: comprador,
                             observaciones: animal.observaciones_venta,
@@ -536,7 +537,12 @@ export default function HistorialVentas() {
                                             </div>
                                         </td>
                                         <td style={{ padding: '16px 24px' }}>
-                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{venta.comprador}</div>
+                                            <div style={{ color: 'white', fontWeight: '500', fontSize: '0.95rem' }}>{venta.comprador}</div>
+                                            {venta.observaciones && (
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                    {venta.observaciones}
+                                                </div>
+                                            )}
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             <span style={{ fontWeight: 'bold', color: 'white' }}>{venta.animalesCount}</span>
