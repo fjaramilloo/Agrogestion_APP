@@ -22,12 +22,14 @@ import { supabase } from '../lib/supabase';
 import { format, subDays, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { detectarRegionClimatica, generarRecomendacion, type PerfilClimatico } from '../utils/climateRegions';
+import { consolidarLluviasPorFecha } from '../utils/rainfallUtils';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 export interface RegistroLluviaMinimo {
     fecha: string;       // 'YYYY-MM-DD'
     milimetros: number;
+    id_pluviometro?: string | null;
 }
 
 export interface DiagnosticoClimatico {
@@ -72,9 +74,13 @@ interface BalancesHidricos {
 }
 
 function calcularBalances(
-    registros: RegistroLluviaMinimo[],
+    registrosRaw: RegistroLluviaMinimo[],
     perfil: PerfilClimatico
 ): BalancesHidricos {
+    const registros = consolidarLluviasPorFecha(registrosRaw).map(r => ({
+        fecha: r.fecha,
+        milimetros: r.milimetros,
+    }));
     const hoy = new Date();
     const hace7 = subDays(hoy, 7);
     const hace15 = subDays(hoy, 15);

@@ -10,6 +10,7 @@ import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, Shop
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
+import { consolidarLluviasPorFecha } from '../utils/rainfallUtils';
 import { useNavigate } from 'react-router-dom';
 // El reporte trae xlsx + jsPDF (pesados): se descarga solo cuando el usuario lo abre
 const ReporteInventarioExcel = lazy(() => import('../components/ReporteInventarioExcel'));
@@ -177,7 +178,7 @@ export default function Dashboard() {
                 ]);
 
                 const pDetalle = Promise.all([
-                    safePromise(supabase.from('registros_lluvia').select('fecha, milimetros').eq('id_finca', fincaId).order('fecha', { ascending: true }).limit(50000), { data: [], error: null }),
+                    safePromise(supabase.from('registros_lluvia').select('fecha, milimetros, id_pluviometro').eq('id_finca', fincaId).order('fecha', { ascending: true }).limit(50000), { data: [], error: null }),
                     safePromise(supabase.from('animales').select(`
                         id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
                         fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
@@ -415,9 +416,10 @@ export default function Dashboard() {
                 muertesCompletas.sort((a, b) => new Date(b.fecha_baja || 0).getTime() - new Date(a.fecha_baja || 0).getTime());
                 setMuertesData(muertesCompletas);
 
-                // Agrupar lluvias por mes
+                // Agrupar lluvias por mes (consolidando primero por fecha como promedio diario si hay varios pluviómetros)
+                const lluviasConsolidadas = consolidarLluviasPorFecha(lluvias || []);
                 const gruposLluvia: Record<string, number> = {};
-                (lluvias || []).forEach((r: any) => {
+                lluviasConsolidadas.forEach((r) => {
                     if (r && r.fecha) {
                         const mes = r.fecha.substring(0, 7);
                         gruposLluvia[mes] = (gruposLluvia[mes] || 0) + (Number(r.milimetros) || 0);

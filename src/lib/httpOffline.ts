@@ -90,7 +90,7 @@ export const setConexionDegradada = (val: boolean) => {
 const TABLAS_CON_ID_UUID = new Set([
   'analisis_climatico_finca', 'animales', 'auditoria_cambios', 'cargas_masivas', 'compradores',
   'configuracion_kpi', 'fincas', 'mapas_finca', 'mediciones_pasto', 'movimientos_potreros',
-  'organizaciones', 'permisos_finca', 'potreradas', 'potreros', 'precios_mercado_ganado',
+  'organizaciones', 'permisos_finca', 'pluviometros_finca', 'potreradas', 'potreros', 'precios_mercado_ganado',
   'propietarios', 'proveedores', 'registros_aforo', 'registros_cria', 'registros_lluvia',
   'registros_pesaje', 'rotaciones'
 ]);
@@ -103,6 +103,7 @@ const NOMBRES_TABLA: Record<string, string> = {
   rotaciones: 'rotaciones',
   movimientos_potreros: 'movimientos de lote',
   registros_aforo: 'aforos',
+  pluviometros_finca: 'pluviómetros',
   registros_lluvia: 'registros de lluvia',
   registros_cria: 'registros de cría',
   compradores: 'compradores',

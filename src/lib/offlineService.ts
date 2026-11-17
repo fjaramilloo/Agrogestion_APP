@@ -287,14 +287,23 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
       safe(
         supabase
           .from('registros_lluvia')
-          .select('fecha, milimetros')
+          .select('fecha, milimetros, id_pluviometro')
           .eq('id_finca', fincaId)
           .order('fecha', { ascending: true })
           .limit(50000),
         'lluvias_dashboard'
       ),
 
-      // 14. Registros de lluvia (Pluviometría module exact query)
+      // 14. Pluviómetros de la finca y registros (Pluviometría module exact queries)
+      safe(
+        supabase
+          .from('pluviometros_finca')
+          .select('*')
+          .eq('id_finca', fincaId)
+          .order('orden', { ascending: true })
+          .order('creado_en', { ascending: true }),
+        'pluviometros_finca'
+      ),
       safe(
         supabase
           .from('registros_lluvia')

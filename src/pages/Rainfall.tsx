@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
     CloudRain, Plus, Trash2, Calendar, Droplets,
-    ChevronDown, ChevronUp, Lock, TrendingUp, Sun, AlertTriangle, BarChart2, RefreshCw
+    ChevronDown, ChevronUp, Lock, TrendingUp, Sun, AlertTriangle, BarChart2, RefreshCw, Pencil, CheckCircle2
 } from 'lucide-react';
 import { format, subDays, parseISO, differenceInDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -21,15 +21,16 @@ import {
     generarYGuardarAnalisisClimatico,
     leerCacheLocal,
 } from '../services/climateAiService';
+import {
+    type PluviometroFinca,
+    type RegistroLluviaRaw,
+    type RegistroLluviaConsolidado,
+    consolidarLluviasPorFecha,
+    calcularMilimetrosRegistro,
+    obtenerUltimaLecturaAcumulada,
+} from '../utils/rainfallUtils';
 
-interface RegistroLluvia {
-    id: string;
-    fecha: string;
-    milimetros: number;
-    lectura_acumulada?: number;
-    notas: string;
-    creado_en: string;
-}
+type RegistroLluvia = RegistroLluviaConsolidado;
 
 interface MesGroup {
     key: string; // 'YYYY-MM'
@@ -68,7 +69,9 @@ export default function Rainfall() {
     const esDemo = licenciaInfo?.licencia === 'demo';
     const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
 
-    const [registros, setRegistros] = useState<RegistroLluvia[]>([]);
+    const [registrosRaw, setRegistrosRaw] = useState<RegistroLluviaRaw[]>([]);
+    const [pluviometros, setPluviometros] = useState<PluviometroFinca[]>([]);
+    const [filtroPluviometro, setFiltroPluviometro] = useState<string>('todos');
     const [ubicacionFinca, setUbicacionFinca] = useState<string | null>(null);
     const [municipioFinca, setMunicipioFinca] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -84,6 +87,11 @@ export default function Rainfall() {
     const [fecha, setFecha] = useState(getLocalIsoDate());
     const [modoEntrada, setModoEntrada] = useState<'diaria' | 'acumulada'>('diaria');
     const [valorEntrada, setValorEntrada] = useState('');
+    const [reiniciarLegacy, setReiniciarLegacy] = useState(false);
+    // Entradas por pluviómetro (cuando la finca tiene ≥1 pluviómetro configurado)
+    const [valoresPorPluv, setValoresPorPluv] = useState<Record<string, string>>({});
+    const [editandoPluv, setEditandoPluv] = useState<Record<string, boolean>>({});
+    const [reiniciarPorPluv, setReiniciarPorPluv] = useState<Record<string, boolean>>({});
     const [notas, setNotas] = useState('');
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
@@ -91,6 +99,34 @@ export default function Rainfall() {
     // Tabla agrupada
     const [anoSeleccionado, setAnoSeleccionado] = useState<number>(new Date().getFullYear());
     const [mesGroups, setMesGroups] = useState<MesGroup[]>([]);
+
+    // ── Pluviómetros activos & consolidación ──────────────────────────
+    const pluviometrosActivos = useMemo(
+        () => pluviometros.filter(p => p.activo),
+        [pluviometros]
+    );
+
+    const pluviometrosMap = useMemo(() => {
+        const m = new Map<string, PluviometroFinca>();
+        pluviometros.forEach(p => m.set(p.id, p));
+        return m;
+    }, [pluviometros]);
+
+    const esMultiPluviometro = useMemo(() => {
+        if (pluviometrosActivos.length >= 2) return true;
+        const idsEnUso = new Set(registrosRaw.map(r => r.id_pluviometro).filter(Boolean));
+        return idsEnUso.size >= 2 || (pluviometros.length >= 2);
+    }, [pluviometrosActivos, pluviometros, registrosRaw]);
+
+    const registros = useMemo(
+        () => consolidarLluviasPorFecha(registrosRaw, filtroPluviometro === 'todos' ? null : filtroPluviometro),
+        [registrosRaw, filtroPluviometro]
+    );
+
+    const registrosConsolidadosFinca = useMemo(
+        () => consolidarLluviasPorFecha(registrosRaw, null),
+        [registrosRaw]
+    );
 
     // ── Región climática ──────────────────────────────────────────────
     const perfil = useMemo(() => detectarRegionClimatica(ubicacionFinca), [ubicacionFinca]);
@@ -277,6 +313,26 @@ export default function Rainfall() {
     // ── Fetch ─────────────────────────────────────────────────────────
     useEffect(() => { fetchTodo(); }, [fincaId]);
 
+    const openRegistroModal = (fechaInicial?: string) => {
+        setFecha(fechaInicial || getLocalIsoDate());
+        setValorEntrada('');
+        setReiniciarLegacy(false);
+        setValoresPorPluv({});
+        setEditandoPluv({});
+        setReiniciarPorPluv({});
+        setNotas('');
+        setError('');
+        setShowModal(true);
+    };
+
+    const handleChangeFechaModal = (nuevaFecha: string) => {
+        setFecha(nuevaFecha);
+        setValoresPorPluv({});
+        setEditandoPluv({});
+        setReiniciarPorPluv({});
+        setError('');
+    };
+
     const fetchTodo = async () => {
         if (!fincaId) return;
         setLoading(true);
@@ -286,12 +342,18 @@ export default function Rainfall() {
         if (cacheLocal) setDiagnosticoIA(cacheLocal);
 
         try {
-            const [lluviasRes, fincaRes, diagRes] = await Promise.all([
+            const [lluviasRes, pluvRes, fincaRes, diagRes] = await Promise.all([
                 supabase
                     .from('registros_lluvia')
                     .select('*')
                     .eq('id_finca', fincaId)
                     .order('fecha', { ascending: false }),
+                supabase
+                    .from('pluviometros_finca')
+                    .select('*')
+                    .eq('id_finca', fincaId)
+                    .order('orden', { ascending: true })
+                    .order('creado_en', { ascending: true }),
                 supabase
                     .from('fincas')
                     .select('ubicacion, municipio')
@@ -301,10 +363,12 @@ export default function Rainfall() {
                 obtenerUltimoAnalisisClimatico(fincaId),
             ]);
             if (lluviasRes.error) throw lluviasRes.error;
-            const regs = lluviasRes.data || [];
+            const regs = (lluviasRes.data || []) as RegistroLluviaRaw[];
+            const pluvs = (pluvRes.data || []) as PluviometroFinca[];
             const ubicacion = fincaRes.data?.ubicacion || null;
             const municipio = fincaRes.data?.municipio || null;
-            setRegistros(regs);
+            setRegistrosRaw(regs);
+            setPluviometros(pluvs);
             setUbicacionFinca(ubicacion);
             setMunicipioFinca(municipio);
             // Preferir diagnóstico de Supabase sobre caché local
@@ -323,59 +387,117 @@ export default function Rainfall() {
 
     const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!fincaId || !valorEntrada) return;
+        if (!fincaId) return;
         setSaving(true);
         setError('');
         try {
-            const valorNum = parseFloat(valorEntrada);
-            if (isNaN(valorNum) || valorNum < 0) {
-                throw new Error('Por favor ingresa un valor numérico válido (≥ 0 mm).');
-            }
+            const notasFinal = notas.trim() || null;
 
-            const registrosAnteriores = registros.filter(r => new Date(r.fecha) < new Date(fecha));
-            const ultimoRegistro = registrosAnteriores[0];
-
-            let milimetrosDia = 0;
-            let lecturaAcumuladaFinal: number | null = null;
-
-            if (modoEntrada === 'diaria') {
-                milimetrosDia = valorNum;
-                if (ultimoRegistro && ultimoRegistro.lectura_acumulada !== undefined && ultimoRegistro.lectura_acumulada !== null) {
-                    lecturaAcumuladaFinal = parseFloat((ultimoRegistro.lectura_acumulada + milimetrosDia).toFixed(1));
+            if (pluviometrosActivos.length === 0) {
+                if (!valorEntrada) {
+                    throw new Error('Ingresa la lectura de lluvia.');
                 }
-            } else {
-                const nuevaLectura = valorNum;
-                let lecturaAnterior = 0;
-                if (ultimoRegistro && ultimoRegistro.lectura_acumulada !== undefined && ultimoRegistro.lectura_acumulada !== null) {
-                    lecturaAnterior = ultimoRegistro.lectura_acumulada;
-                } else if (registrosAnteriores.length > 0) {
-                    lecturaAnterior = registrosAnteriores.reduce((s, r) => s + r.milimetros, 0);
-                }
-                milimetrosDia = nuevaLectura - lecturaAnterior;
-                if (milimetrosDia < 0) {
-                    throw new Error(`La lectura ingresada (${nuevaLectura} mm) no puede ser menor a la lectura anterior (${lecturaAnterior} mm).`);
-                }
-                lecturaAcumuladaFinal = nuevaLectura;
-            }
-
-            const { error: insertErr } = await supabase
-                .from('registros_lluvia')
-                .insert({
-                    id_finca: fincaId,
+                const valorNum = parseFloat(valorEntrada);
+                const calc = calcularMilimetrosRegistro({
+                    modo: modoEntrada,
+                    valorNum,
                     fecha,
-                    lectura_acumulada: lecturaAcumuladaFinal,
-                    milimetros: parseFloat(milimetrosDia.toFixed(1)),
-                    notas: notas.trim() || null,
+                    registros: registrosRaw,
+                    idPluviometro: null,
+                    reiniciarContador: reiniciarLegacy,
                 });
-            if (insertErr) throw insertErr;
+
+                const { error: insertErr } = await supabase
+                    .from('registros_lluvia')
+                    .insert({
+                        id_finca: fincaId,
+                        fecha,
+                        lectura_acumulada: calc.lectura_acumulada,
+                        milimetros: calc.milimetros,
+                        tipo_medicion: calc.tipo_medicion,
+                        notas: notasFinal,
+                    });
+                if (insertErr) throw insertErr;
+            } else {
+                const inserts: any[] = [];
+                const updates: { id: string; payload: any }[] = [];
+
+                for (const pluv of pluviometrosActivos) {
+                    const existente = registrosRaw.find(
+                        r => String(r.fecha).split('T')[0] === fecha && r.id_pluviometro === pluv.id
+                    );
+                    const enEdicion = Boolean(editandoPluv[pluv.id]);
+                    if (existente && !enEdicion) continue;
+
+                    const valStr = (valoresPorPluv[pluv.id] || '').trim();
+                    if (!valStr) continue;
+
+                    const valorNum = parseFloat(valStr);
+                    const calc = calcularMilimetrosRegistro({
+                        modo: pluv.tipo_medicion,
+                        valorNum,
+                        fecha,
+                        registros: registrosRaw,
+                        idPluviometro: pluv.id,
+                        excluirId: existente?.id ?? null,
+                        reiniciarContador: Boolean(reiniciarPorPluv[pluv.id]),
+                    });
+
+                    if (existente?.id) {
+                        updates.push({
+                            id: existente.id,
+                            payload: {
+                                lectura_acumulada: calc.lectura_acumulada,
+                                milimetros: calc.milimetros,
+                                tipo_medicion: calc.tipo_medicion,
+                                ...(notasFinal !== null ? { notas: notasFinal } : {}),
+                            },
+                        });
+                    } else {
+                        inserts.push({
+                            id_finca: fincaId,
+                            id_pluviometro: pluv.id,
+                            fecha,
+                            lectura_acumulada: calc.lectura_acumulada,
+                            milimetros: calc.milimetros,
+                            tipo_medicion: calc.tipo_medicion,
+                            notas: notasFinal,
+                        });
+                    }
+                }
+
+                if (inserts.length === 0 && updates.length === 0) {
+                    throw new Error('Ingresa al menos una lectura para guardar.');
+                }
+
+                if (inserts.length > 0) {
+                    const { error: insertErr } = await supabase
+                        .from('registros_lluvia')
+                        .insert(inserts);
+                    if (insertErr) throw insertErr;
+                }
+
+                for (const upd of updates) {
+                    const { error: updErr } = await supabase
+                        .from('registros_lluvia')
+                        .update(upd.payload)
+                        .eq('id', upd.id);
+                    if (updErr) throw updErr;
+                }
+            }
+
             setShowModal(false);
             setValorEntrada('');
+            setValoresPorPluv({});
+            setEditandoPluv({});
+            setReiniciarPorPluv({});
+            setReiniciarLegacy(false);
             setNotas('');
-            // Recargar datos y disparar análisis IA en background
+
             await fetchTodo();
             const regsActualizados = await supabase
                 .from('registros_lluvia')
-                .select('fecha, milimetros')
+                .select('fecha, milimetros, id_pluviometro')
                 .eq('id_finca', fincaId)
                 .order('fecha', { ascending: false });
             if (regsActualizados.data) {
@@ -388,8 +510,11 @@ export default function Rainfall() {
         }
     };
 
-    const handleEliminar = async (id: string) => {
-        if (!confirm('¿Estás seguro de eliminar este registro?')) return;
+    const handleEliminar = async (id: string, nombreEstacion?: string) => {
+        const msg = nombreEstacion
+            ? `¿Estás seguro de eliminar el registro de "${nombreEstacion}"?`
+            : '¿Estás seguro de eliminar este registro?';
+        if (!confirm(msg)) return;
         try {
             const { error } = await supabase.from('registros_lluvia').delete().eq('id', id);
             if (error) throw error;
@@ -397,7 +522,7 @@ export default function Rainfall() {
             // Disparar análisis IA actualizado tras eliminar
             const regsActualizados = await supabase
                 .from('registros_lluvia')
-                .select('fecha, milimetros')
+                .select('fecha, milimetros, id_pluviometro')
                 .eq('id_finca', fincaId)
                 .order('fecha', { ascending: false });
             if (regsActualizados.data) {
@@ -421,14 +546,14 @@ export default function Rainfall() {
     }, [perfil, kpis]);
 
     // ── Disparo asíncrono del análisis IA ─────────────────────────────
-    const dispararAnalisisIA = useCallback(async (regs: RegistroLluvia[], ubicacion: string | null, municipio: string | null) => {
+    const dispararAnalisisIA = useCallback(async (regs: RegistroLluviaRaw[], ubicacion: string | null, municipio: string | null) => {
         if (!fincaId || esDemo) return;
         setAnalysisLoading(true);
         setAnalysisError(null);
         try {
             const diag = await generarYGuardarAnalisisClimatico(
                 fincaId,
-                regs.map(r => ({ fecha: r.fecha, milimetros: r.milimetros })),
+                regs.map(r => ({ fecha: r.fecha, milimetros: r.milimetros, id_pluviometro: r.id_pluviometro })),
                 ubicacion,
                 municipio
             );
@@ -509,13 +634,62 @@ export default function Rainfall() {
                     <button
                         className="btn btn-primary"
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', width: 'auto' }}
-                        onClick={() => setShowModal(true)}
+                        onClick={() => openRegistroModal()}
                     >
                         <Plus size={20} />
                         Nuevo Registro
                     </button>
                 )}
             </div>
+
+            {/* Filtro por estación cuando la finca tiene múltiples pluviómetros */}
+            {!loading && esMultiPluviometro && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '4px' }}>Vista:</span>
+                    <button
+                        type="button"
+                        onClick={() => setFiltroPluviometro('todos')}
+                        style={{
+                            width: 'auto',
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            fontSize: '0.82rem',
+                            textTransform: 'none',
+                            letterSpacing: 0,
+                            fontWeight: filtroPluviometro === 'todos' ? 700 : 400,
+                            background: filtroPluviometro === 'todos' ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${filtroPluviometro === 'todos' ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                            color: filtroPluviometro === 'todos' ? '#7dd3fc' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        📊 Promedio Finca ({pluviometrosActivos.length || pluviometros.length})
+                    </button>
+                    {pluviometros.map(pluv => (
+                        <button
+                            key={pluv.id}
+                            type="button"
+                            onClick={() => setFiltroPluviometro(pluv.id)}
+                            style={{
+                                width: 'auto',
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                fontSize: '0.82rem',
+                                textTransform: 'none',
+                                letterSpacing: 0,
+                                fontWeight: filtroPluviometro === pluv.id ? 700 : 400,
+                                background: filtroPluviometro === pluv.id ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.04)',
+                                border: `1px solid ${filtroPluviometro === pluv.id ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                                color: filtroPluviometro === pluv.id ? '#7dd3fc' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                                opacity: pluv.activo ? 1 : 0.7,
+                            }}
+                        >
+                            📍 {pluv.nombre}{!pluv.activo ? ' (Inactivo)' : ''}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
@@ -525,10 +699,16 @@ export default function Rainfall() {
             ) : registros.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
                     <Droplets size={48} style={{ marginBottom: '16px', opacity: 0.3, color: 'var(--primary-light)' }} />
-                    <p style={{ color: 'var(--text-muted)' }}>No hay registros de lluvia para esta finca.</p>
-                    <button className="btn btn-primary" style={{ marginTop: '20px', width: 'auto', padding: '12px 28px' }} onClick={() => setShowModal(true)}>
-                        Registrar Primera Lluvia
-                    </button>
+                    <p style={{ color: 'var(--text-muted)' }}>
+                        {filtroPluviometro === 'todos'
+                            ? 'No hay registros de lluvia para esta finca.'
+                            : 'Este pluviómetro aún no tiene registros.'}
+                    </p>
+                    {isAdminOrCowboy && (
+                        <button className="btn btn-primary" style={{ marginTop: '20px', width: 'auto', padding: '12px 28px' }} onClick={() => openRegistroModal()}>
+                            Registrar Primera Lluvia
+                        </button>
+                    )}
                 </div>
             ) : (
                 <>
@@ -821,7 +1001,7 @@ export default function Rainfall() {
                                     {/* Botón reanalizar + error */}
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                                         <button
-                                            onClick={() => dispararAnalisisIA(registros, ubicacionFinca, municipioFinca)}
+                                            onClick={() => dispararAnalisisIA(registrosConsolidadosFinca, ubicacionFinca, municipioFinca)}
                                             disabled={analysisLoading}
                                             title="Solicitar análisis completo a la IA"
                                             style={{
@@ -1031,6 +1211,8 @@ export default function Rainfall() {
                                                 <tbody>
                                                     {grupo.registros.map(r => {
                                                         const intensidad = clasificarIntensidad(r.milimetros, perfil.umbralRegistroMm, perfil.umbralEfectivoMm);
+                                                        const detalles = r.detalles || [];
+                                                        const esPromedioMulti = filtroPluviometro === 'todos' && detalles.length > 1;
                                                         return (
                                                             <tr key={r.id}
                                                                 style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}
@@ -1046,13 +1228,61 @@ export default function Rainfall() {
                                                                     </div>
                                                                 </td>
                                                                 <td style={{ padding: '14px 20px', color: 'var(--text-muted)' }}>
-                                                                    {r.lectura_acumulada ? `${r.lectura_acumulada} mm` : '—'}
+                                                                    {esPromedioMulti ? (
+                                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                            {detalles.map((d, idx) => {
+                                                                                const pluvNombre = d.id_pluviometro ? (pluviometrosMap.get(d.id_pluviometro)?.nombre || 'Estación') : 'General';
+                                                                                return (
+                                                                                    <span
+                                                                                        key={d.id || idx}
+                                                                                        style={{
+                                                                                            display: 'inline-flex',
+                                                                                            alignItems: 'center',
+                                                                                            gap: '6px',
+                                                                                            padding: '2px 8px',
+                                                                                            borderRadius: '10px',
+                                                                                            fontSize: '0.75rem',
+                                                                                            background: 'rgba(255,255,255,0.05)',
+                                                                                            border: '1px solid rgba(255,255,255,0.09)',
+                                                                                            color: '#cbd5e1',
+                                                                                        }}
+                                                                                    >
+                                                                                        <span>{pluvNombre}: <strong>{d.milimetros} mm</strong></span>
+                                                                                        {isAdminOrCowboy && d.id && (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={() => handleEliminar(d.id!, pluvNombre)}
+                                                                                                title={`Eliminar lectura de ${pluvNombre}`}
+                                                                                                style={{ background: 'none', border: 'none', color: 'var(--error)', opacity: 0.7, padding: 0, width: 'auto', cursor: 'pointer', fontSize: '0.75rem', lineHeight: 1 }}
+                                                                                            >
+                                                                                                ✕
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </span>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div>
+                                                                            <span>{r.lectura_acumulada ? `${r.lectura_acumulada} mm` : '—'}</span>
+                                                                            {esMultiPluviometro && filtroPluviometro === 'todos' && (
+                                                                                <div style={{ fontSize: '0.73rem', color: '#94a3b8', marginTop: '2px' }}>
+                                                                                    📍 {r.id_pluviometro ? (pluviometrosMap.get(r.id_pluviometro)?.nombre || 'Estación') : 'Registro general'}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
                                                                 </td>
                                                                 <td style={{ padding: '14px 20px' }}>
                                                                     <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#60a5fa' }}>
                                                                         {r.milimetros > 0 ? '+' : ''}{r.milimetros}
                                                                     </span>
                                                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>mm</span>
+                                                                    {esPromedioMulti && (
+                                                                        <div style={{ fontSize: '0.7rem', color: '#7dd3fc' }}>
+                                                                            Prom. ({detalles.length} est.)
+                                                                        </div>
+                                                                    )}
                                                                 </td>
                                                                 <td style={{ padding: '14px 20px' }}>
                                                                     <span style={{
@@ -1066,15 +1296,30 @@ export default function Rainfall() {
                                                                 <td style={{ padding: '14px 20px', color: 'var(--text-muted)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.88rem' }}>
                                                                     {r.notas ? `"${r.notas}"` : '—'}
                                                                 </td>
-                                                                <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                                                                <td style={{ padding: '14px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                                     {isAdminOrCowboy && (
-                                                                        <button
-                                                                            onClick={() => handleEliminar(r.id)}
-                                                                            style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', opacity: 0.6, padding: '4px', width: 'auto' }}
-                                                                            title="Eliminar registro"
-                                                                        >
-                                                                            <Trash2 size={16} />
-                                                                        </button>
+                                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                            {pluviometrosActivos.length >= 1 && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => openRegistroModal(r.fecha)}
+                                                                                    style={{ background: 'none', border: 'none', color: '#7dd3fc', cursor: 'pointer', opacity: 0.75, padding: '4px', width: 'auto' }}
+                                                                                    title="Completar o editar lecturas de este día"
+                                                                                >
+                                                                                    <Pencil size={15} />
+                                                                                </button>
+                                                                            )}
+                                                                            {!esPromedioMulti && detalles[0]?.id && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleEliminar(detalles[0].id!)}
+                                                                                    style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', opacity: 0.6, padding: '4px', width: 'auto' }}
+                                                                                    title="Eliminar registro"
+                                                                                >
+                                                                                    <Trash2 size={16} />
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
                                                                     )}
                                                                 </td>
                                                             </tr>
@@ -1094,95 +1339,242 @@ export default function Rainfall() {
             {/* ── MODAL REGISTRO ── */}
             {showModal && (
                 <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
-                    <div className="card" style={{ width: '100%', maxWidth: '460px', padding: '32px' }}>
+                    <div className="card" style={{ width: '100%', maxWidth: pluviometrosActivos.length >= 2 ? '520px' : '460px', padding: '28px', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h2 style={{ margin: 0, fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <CloudRain size={22} color="var(--primary-light)" />
                                 Registrar Lluvia
                             </h2>
-                            <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', width: 'auto', padding: '4px 8px', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setShowModal(false)}>✕</button>
+                            <button type="button" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', width: 'auto', padding: '4px 8px', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setShowModal(false)}>✕</button>
                         </div>
                         <form onSubmit={handleGuardar}>
                             {/* Fecha */}
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Fecha</label>
-                                <input type="date" className="input-field" value={fecha} onChange={e => setFecha(e.target.value)} required />
+                                <input type="date" className="input-field" value={fecha} onChange={e => handleChangeFechaModal(e.target.value)} required />
                             </div>
 
-                            {/* Selector de Modo de Pluviómetro */}
-                            <div style={{ marginBottom: '18px' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                    Tipo de Medición
-                                </label>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => { setModoEntrada('diaria'); setError(''); }}
-                                        style={{
-                                            padding: '9px 10px',
-                                            fontSize: '0.82rem',
-                                            borderRadius: '8px',
-                                            border: modoEntrada === 'diaria' ? '1px solid rgba(56,189,248,0.5)' : '1px solid transparent',
-                                            background: modoEntrada === 'diaria' ? 'rgba(56,189,248,0.15)' : 'transparent',
-                                            color: modoEntrada === 'diaria' ? '#38bdf8' : 'var(--text-muted)',
-                                            fontWeight: modoEntrada === 'diaria' ? 600 : 400,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                            cursor: 'pointer', transition: 'all 0.2s', width: '100%', textTransform: 'none', letterSpacing: 0,
-                                        }}
-                                    >
-                                        <Droplets size={15} color={modoEntrada === 'diaria' ? '#38bdf8' : '#94a3b8'} />
-                                        Lluvia del Día
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => { setModoEntrada('acumulada'); setError(''); }}
-                                        style={{
-                                            padding: '9px 10px',
-                                            fontSize: '0.82rem',
-                                            borderRadius: '8px',
-                                            border: modoEntrada === 'acumulada' ? '1px solid rgba(168,85,247,0.5)' : '1px solid transparent',
-                                            background: modoEntrada === 'acumulada' ? 'rgba(168,85,247,0.15)' : 'transparent',
-                                            color: modoEntrada === 'acumulada' ? '#c084fc' : 'var(--text-muted)',
-                                            fontWeight: modoEntrada === 'acumulada' ? 600 : 400,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                            cursor: 'pointer', transition: 'all 0.2s', width: '100%', textTransform: 'none', letterSpacing: 0,
-                                        }}
-                                    >
-                                        <TrendingUp size={15} color={modoEntrada === 'acumulada' ? '#c084fc' : '#94a3b8'} />
-                                        Acumulada Digital
-                                    </button>
+                            {pluviometrosActivos.length === 0 ? (
+                                <>
+                                    {/* Modo clásico sin pluviómetros configurados en Ajustes */}
+                                    <div style={{ marginBottom: '18px' }}>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                            Tipo de Medición
+                                        </label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setModoEntrada('diaria'); setError(''); }}
+                                                style={{
+                                                    padding: '9px 10px',
+                                                    fontSize: '0.82rem',
+                                                    borderRadius: '8px',
+                                                    border: modoEntrada === 'diaria' ? '1px solid rgba(56,189,248,0.5)' : '1px solid transparent',
+                                                    background: modoEntrada === 'diaria' ? 'rgba(56,189,248,0.15)' : 'transparent',
+                                                    color: modoEntrada === 'diaria' ? '#38bdf8' : 'var(--text-muted)',
+                                                    fontWeight: modoEntrada === 'diaria' ? 600 : 400,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                    cursor: 'pointer', transition: 'all 0.2s', width: '100%', textTransform: 'none', letterSpacing: 0,
+                                                }}
+                                            >
+                                                <Droplets size={15} color={modoEntrada === 'diaria' ? '#38bdf8' : '#94a3b8'} />
+                                                Lluvia del Día
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setModoEntrada('acumulada'); setError(''); }}
+                                                style={{
+                                                    padding: '9px 10px',
+                                                    fontSize: '0.82rem',
+                                                    borderRadius: '8px',
+                                                    border: modoEntrada === 'acumulada' ? '1px solid rgba(168,85,247,0.5)' : '1px solid transparent',
+                                                    background: modoEntrada === 'acumulada' ? 'rgba(168,85,247,0.15)' : 'transparent',
+                                                    color: modoEntrada === 'acumulada' ? '#c084fc' : 'var(--text-muted)',
+                                                    fontWeight: modoEntrada === 'acumulada' ? 600 : 400,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                    cursor: 'pointer', transition: 'all 0.2s', width: '100%', textTransform: 'none', letterSpacing: 0,
+                                                }}
+                                            >
+                                                <TrendingUp size={15} color={modoEntrada === 'acumulada' ? '#c084fc' : '#94a3b8'} />
+                                                Acumulada Digital
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '18px' }}>
+                                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>
+                                            {modoEntrada === 'diaria' ? 'Lluvia caída hoy (mm)' : 'Lectura acumulada del pluviómetro (mm)'}
+                                        </label>
+                                        <input
+                                            type="number" step="0.1" min="0" className="input-field"
+                                            placeholder={modoEntrada === 'diaria' ? "Ej: 18.5" : "Ej: 1520.5"}
+                                            value={valorEntrada}
+                                            onChange={e => setValorEntrada(e.target.value)}
+                                            required
+                                            autoFocus
+                                        />
+                                        <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                                            {modoEntrada === 'diaria'
+                                                ? '💧 Pluviómetro manual / probeta: ingresa directamente los mm caídos.'
+                                                : (() => {
+                                                    const prev = obtenerUltimaLecturaAcumulada(registrosRaw, fecha, null);
+                                                    return prev !== null
+                                                        ? `📟 Última lectura acumulada: ${prev} mm. El sistema calculará la diferencia.`
+                                                        : '📟 Pluviómetro digital: ingresa la lectura acumulada actual.';
+                                                })()}
+                                        </p>
+                                        {modoEntrada === 'acumulada' && obtenerUltimaLecturaAcumulada(registrosRaw, fecha, null) !== null && (
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '0.76rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={reiniciarLegacy}
+                                                    onChange={e => setReiniciarLegacy(e.target.checked)}
+                                                    style={{ width: 'auto', margin: 0 }}
+                                                />
+                                                El pluviómetro se reinició a 0 desde la última lectura
+                                            </label>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                /* Opción A: Tarjetas juntas por cada pluviómetro configurado por el admin */
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '18px' }}>
+                                    {pluviometrosActivos.length >= 2 && (
+                                        <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                                            Puedes registrar ambos ahora o llenar uno y dejar el otro pendiente para más tarde.
+                                        </p>
+                                    )}
+                                    {pluviometrosActivos.map((pluv, idx) => {
+                                        const existente = registrosRaw.find(
+                                            r => String(r.fecha).split('T')[0] === fecha && r.id_pluviometro === pluv.id
+                                        );
+                                        const enEdicion = Boolean(editandoPluv[pluv.id]);
+                                        const esAcum = pluv.tipo_medicion === 'acumulada';
+                                        const prevAcum = esAcum
+                                            ? obtenerUltimaLecturaAcumulada(registrosRaw, fecha, pluv.id, existente?.id ?? null)
+                                            : null;
+
+                                        return (
+                                            <div
+                                                key={pluv.id}
+                                                style={{
+                                                    padding: '14px',
+                                                    borderRadius: '10px',
+                                                    background: existente && !enEdicion ? 'rgba(76,175,80,0.08)' : 'rgba(255,255,255,0.03)',
+                                                    border: `1px solid ${existente && !enEdicion ? 'rgba(76,175,80,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: existente && !enEdicion ? '6px' : '10px', flexWrap: 'wrap' }}>
+                                                    <span style={{ fontWeight: 700, color: 'white', fontSize: '0.92rem' }}>
+                                                        📍 {pluv.nombre}
+                                                    </span>
+                                                    <span style={{
+                                                        fontSize: '0.7rem',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '12px',
+                                                        background: esAcum ? 'rgba(168,85,247,0.15)' : 'rgba(56,189,248,0.15)',
+                                                        color: esAcum ? '#c084fc' : '#7dd3fc',
+                                                        border: `1px solid ${esAcum ? 'rgba(168,85,247,0.35)' : 'rgba(56,189,248,0.35)'}`,
+                                                    }}>
+                                                        {esAcum ? '📟 Acumulada Digital' : '💧 Lluvia del Día'}
+                                                    </span>
+                                                </div>
+
+                                                {existente && !enEdicion ? (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#81c784', fontSize: '0.84rem', fontWeight: 600 }}>
+                                                            <CheckCircle2 size={16} />
+                                                            <span>
+                                                                Ya registrado: {existente.milimetros} mm
+                                                                {existente.lectura_acumulada != null ? ` (lectura: ${existente.lectura_acumulada} mm)` : ''}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setEditandoPluv(prev => ({ ...prev, [pluv.id]: true }));
+                                                                const valorPrevio = esAcum && existente.lectura_acumulada != null
+                                                                    ? String(existente.lectura_acumulada)
+                                                                    : String(existente.milimetros);
+                                                                setValoresPorPluv(prev => ({ ...prev, [pluv.id]: valorPrevio }));
+                                                                if (!notas && existente.notas) setNotas(existente.notas);
+                                                            }}
+                                                            style={{
+                                                                width: 'auto',
+                                                                padding: '4px 10px',
+                                                                fontSize: '0.75rem',
+                                                                background: 'rgba(255,255,255,0.06)',
+                                                                border: '1px solid rgba(255,255,255,0.15)',
+                                                                color: 'white',
+                                                                borderRadius: '8px',
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            Editar
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <input
+                                                            type="number"
+                                                            step="0.1"
+                                                            min="0"
+                                                            className="input-field"
+                                                            placeholder={esAcum ? 'Lectura acumulada (ej: 1520.5)' : 'Milímetros caídos (ej: 18.5)'}
+                                                            value={valoresPorPluv[pluv.id] || ''}
+                                                            onChange={e => setValoresPorPluv(prev => ({ ...prev, [pluv.id]: e.target.value }))}
+                                                            style={{ marginBottom: '6px' }}
+                                                            autoFocus={idx === 0}
+                                                        />
+                                                        {esAcum && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                                                    {prevAcum !== null
+                                                                        ? `Última lectura anterior: ${prevAcum} mm`
+                                                                        : 'Primera lectura acumulada de este pluviómetro'}
+                                                                </p>
+                                                                {prevAcum !== null && (
+                                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={Boolean(reiniciarPorPluv[pluv.id])}
+                                                                            onChange={e => setReiniciarPorPluv(prev => ({ ...prev, [pluv.id]: e.target.checked }))}
+                                                                            style={{ width: 'auto', margin: 0 }}
+                                                                        />
+                                                                        Contador reiniciado a 0
+                                                                    </label>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        {enEdicion && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setEditandoPluv(prev => ({ ...prev, [pluv.id]: false }));
+                                                                    setValoresPorPluv(prev => ({ ...prev, [pluv.id]: '' }));
+                                                                }}
+                                                                style={{ width: 'auto', padding: '2px 8px', fontSize: '0.72rem', marginTop: '4px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                                            >
+                                                                Cancelar edición
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            </div>
-
-                            {/* Campo de Entrada Dinámico */}
-                            <div style={{ marginBottom: '18px' }}>
-                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>
-                                    {modoEntrada === 'diaria' ? 'Lluvia caída hoy (mm)' : 'Lectura acumulada del pluviómetro (mm)'}
-                                </label>
-                                <input
-                                    type="number" step="0.1" min="0" className="input-field"
-                                    placeholder={modoEntrada === 'diaria' ? "Ej: 18.5" : "Ej: 1520.5"}
-                                    value={valorEntrada}
-                                    onChange={e => setValorEntrada(e.target.value)}
-                                    required
-                                    autoFocus
-                                />
-                                <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                                    {modoEntrada === 'diaria'
-                                        ? '💧 Pluviómetro manual / probeta: ingresa directamente los mm caídos.'
-                                        : '📟 Pluviómetro digital / estación: el sistema calculará la diferencia respecto a la lectura anterior.'}
-                                </p>
-                            </div>
+                            )}
 
                             {/* Notas */}
-                            <div style={{ marginBottom: '24px' }}>
+                            <div style={{ marginBottom: '20px' }}>
                                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Notas (Opcional)</label>
                                 <textarea
                                     className="input-field"
                                     placeholder="Ej: Aguacero fuerte en la tarde"
                                     value={notas}
                                     onChange={e => setNotas(e.target.value)}
-                                    rows={3}
+                                    rows={2}
                                     style={{ resize: 'none', marginBottom: 0 }}
                                 />
                             </div>

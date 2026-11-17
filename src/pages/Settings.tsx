@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award } from 'lucide-react';
+import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award, CloudRain } from 'lucide-react';
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
+import { type PluviometroFinca, type TipoMedicionPluviometro } from '../utils/rainfallUtils';
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 // @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
@@ -185,6 +186,12 @@ export default function Settings() {
     const [compradores, setCompradores] = useState<{ id: string, nombre: string }[]>([]);
     const [nuevoComprador, setNuevoComprador] = useState('');
 
+    // Estados para Pluviómetros de la Finca
+    const [pluviometros, setPluviometros] = useState<PluviometroFinca[]>([]);
+    const [nuevoPluvNombre, setNuevoPluvNombre] = useState('');
+    const [nuevoPluvModo, setNuevoPluvModo] = useState<TipoMedicionPluviometro>('diaria');
+    const [savingPluv, setSavingPluv] = useState(false);
+
     // Estados para Potreradas (Movidos a Potreradas.tsx)
 
     // Estados para Rotaciones y Potreros (Eliminados, movidos a Rotations.tsx)
@@ -273,6 +280,18 @@ export default function Settings() {
             .order('nombre');
 
         if (!error && data) setCompradores(data);
+    };
+
+    const fetchPluviometros = async () => {
+        if (!fincaId) return;
+        const { data, error } = await supabase
+            .from('pluviometros_finca')
+            .select('*')
+            .eq('id_finca', fincaId)
+            .order('orden', { ascending: true })
+            .order('creado_en', { ascending: true });
+
+        if (!error && data) setPluviometros(data as PluviometroFinca[]);
     };
 
     const fetchCargasMasivasHoy = async () => {
@@ -437,6 +456,7 @@ export default function Settings() {
         fetchPropietarios();
         fetchProveedores();
         fetchCompradores();
+        fetchPluviometros();
         fetchFincaInfo();
         fetchCargasMasivasHoy();
 
@@ -735,6 +755,88 @@ export default function Settings() {
             setMsjError('Error al eliminar: ' + err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAddPluviometro = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!fincaId || !nuevoPluvNombre.trim()) return;
+        setSavingPluv(true);
+        setMsjError('');
+        setMsjExito('');
+        try {
+            const nextOrden = pluviometros.length > 0
+                ? Math.max(...pluviometros.map(p => p.orden || 0)) + 1
+                : 0;
+            const { error } = await supabase
+                .from('pluviometros_finca')
+                .insert({
+                    id_finca: fincaId,
+                    nombre: nuevoPluvNombre.trim(),
+                    tipo_medicion: nuevoPluvModo,
+                    activo: true,
+                    orden: nextOrden,
+                });
+            if (error) throw error;
+            setNuevoPluvNombre('');
+            setNuevoPluvModo('diaria');
+            await fetchPluviometros();
+            setMsjExito('Pluviómetro agregado correctamente.');
+        } catch (err: any) {
+            setMsjError('Error al agregar pluviómetro: ' + (err.code === '23505' ? 'Ya existe un pluviómetro con ese nombre en la finca.' : err.message));
+        } finally {
+            setSavingPluv(false);
+        }
+    };
+
+    const handleUpdatePluviometro = async (id: string, changes: Partial<Pick<PluviometroFinca, 'nombre' | 'tipo_medicion' | 'activo'>>) => {
+        setSavingPluv(true);
+        setMsjError('');
+        setMsjExito('');
+        try {
+            const { error } = await supabase
+                .from('pluviometros_finca')
+                .update(changes)
+                .eq('id', id);
+            if (error) throw error;
+            await fetchPluviometros();
+            setMsjExito('Pluviómetro actualizado. Los registros históricos permanecen intactos.');
+        } catch (err: any) {
+            setMsjError('Error al actualizar pluviómetro: ' + (err.code === '23505' ? 'Ya existe otro pluviómetro con ese nombre.' : err.message));
+        } finally {
+            setSavingPluv(false);
+        }
+    };
+
+    const handleRemovePluviometro = async (pluv: PluviometroFinca) => {
+        setSavingPluv(true);
+        setMsjError('');
+        setMsjExito('');
+        try {
+            const { count } = await supabase
+                .from('registros_lluvia')
+                .select('id', { count: 'exact', head: true })
+                .eq('id_pluviometro', pluv.id);
+
+            if ((count || 0) > 0) {
+                const desactivar = confirm(
+                    `"${pluv.nombre}" ya tiene ${count} registros históricos de lluvia.\n\nPara conservar el desglose histórico te recomendamos desactivarlo en lugar de eliminarlo.\n\n¿Deseas DESACTIVARLO ahora? (No aparecerá al mayordomo para nuevos registros, pero sus datos pasados se conservan intactos).`
+                );
+                if (desactivar) {
+                    await handleUpdatePluviometro(pluv.id, { activo: false });
+                }
+                return;
+            }
+
+            if (!confirm(`¿Eliminar el pluviómetro "${pluv.nombre}"?`)) return;
+            const { error } = await supabase.from('pluviometros_finca').delete().eq('id', pluv.id);
+            if (error) throw error;
+            await fetchPluviometros();
+            setMsjExito('Pluviómetro eliminado.');
+        } catch (err: any) {
+            setMsjError('Error al eliminar pluviómetro: ' + err.message);
+        } finally {
+            setSavingPluv(false);
         }
     };
 
@@ -2028,6 +2130,126 @@ export default function Settings() {
                                             {loading ? 'Guardando...' : 'Guardar Información'}
                                         </button>
                                     </form>
+
+                                    {/* Estaciones / Pluviómetros de la Finca */}
+                                    <div style={{
+                                        marginTop: '28px',
+                                        paddingTop: '24px',
+                                        borderTop: '1px solid rgba(255,255,255,0.08)'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                                            <h4 style={{ color: 'white', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <CloudRain size={18} color="#38bdf8" />
+                                                Pluviómetros de la Finca
+                                            </h4>
+                                            <span style={{ fontSize: '0.75rem', color: '#7dd3fc', background: 'rgba(56,189,248,0.1)', padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.25)' }}>
+                                                {pluviometros.filter(p => p.activo).length <= 1
+                                                    ? 'Modo Estándar (1 pluviómetro)'
+                                                    : `Multi-pluviómetro (${pluviometros.filter(p => p.activo).length} activos · Promedio Finca)`}
+                                            </span>
+                                        </div>
+                                        <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
+                                            Si la finca solo tiene 1 pluviómetro, no necesitas agregar ninguno aquí. Si manejas 2 o más (ej. Casa y Sector Alto), agrégalos abajo: el mayordomo los verá juntos al registrar y la app calculará automáticamente el <strong style={{ color: 'white' }}>promedio diario de la finca</strong>. Cambiar el tipo de medición solo afecta lecturas futuras y <strong style={{ color: 'white' }}>nunca altera registros anteriores</strong>.
+                                        </p>
+
+                                        <form onSubmit={handleAddPluviometro} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 2fr) minmax(150px, 1.5fr) auto', gap: '10px', marginBottom: '16px', alignItems: 'end' }}>
+                                            <div>
+                                                <label style={{ fontSize: '0.78rem' }}>Nombre del Pluviómetro</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Ej: Casa Principal o Potrero Alto"
+                                                    value={nuevoPluvNombre}
+                                                    onChange={e => setNuevoPluvNombre(e.target.value)}
+                                                    style={{ marginBottom: 0 }}
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ fontSize: '0.78rem' }}>Tipo de Medición</label>
+                                                <select
+                                                    value={nuevoPluvModo}
+                                                    onChange={e => setNuevoPluvModo(e.target.value as TipoMedicionPluviometro)}
+                                                    style={{ marginBottom: 0 }}
+                                                >
+                                                    <option value="diaria">💧 Diaria (Probeta / Manual)</option>
+                                                    <option value="acumulada">📟 Acumulada Digital</option>
+                                                </select>
+                                            </div>
+                                            <button
+                                                type="submit"
+                                                disabled={savingPluv || !nuevoPluvNombre.trim()}
+                                                style={{ width: 'auto', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(56,189,248,0.18)', border: '1px solid rgba(56,189,248,0.4)', color: '#7dd3fc' }}
+                                            >
+                                                <Plus size={16} /> Agregar
+                                            </button>
+                                        </form>
+
+                                        {pluviometros.length > 0 && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                {pluviometros.map(pluv => (
+                                                    <div
+                                                        key={pluv.id}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            flexWrap: 'wrap',
+                                                            gap: '10px',
+                                                            padding: '10px 14px',
+                                                            borderRadius: '10px',
+                                                            background: pluv.activo ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)',
+                                                            border: `1px solid ${pluv.activo ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'}`,
+                                                            opacity: pluv.activo ? 1 : 0.65,
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 180px' }}>
+                                                            <span style={{ fontWeight: 600, color: 'white' }}>📍 {pluv.nombre}</span>
+                                                            {!pluv.activo && (
+                                                                <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(148,163,184,0.15)', color: '#94a3b8' }}>
+                                                                    Inactivo
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                            <select
+                                                                value={pluv.tipo_medicion}
+                                                                disabled={savingPluv}
+                                                                onChange={e => handleUpdatePluviometro(pluv.id, { tipo_medicion: e.target.value as TipoMedicionPluviometro })}
+                                                                style={{ width: 'auto', marginBottom: 0, padding: '6px 10px', fontSize: '0.8rem' }}
+                                                            >
+                                                                <option value="diaria">💧 Diaria (Manual)</option>
+                                                                <option value="acumulada">📟 Acumulada Digital</option>
+                                                            </select>
+                                                            <button
+                                                                type="button"
+                                                                disabled={savingPluv}
+                                                                onClick={() => handleUpdatePluviometro(pluv.id, { activo: !pluv.activo })}
+                                                                style={{
+                                                                    width: 'auto',
+                                                                    padding: '6px 12px',
+                                                                    fontSize: '0.78rem',
+                                                                    background: pluv.activo ? 'rgba(76,175,80,0.12)' : 'rgba(255,255,255,0.05)',
+                                                                    border: `1px solid ${pluv.activo ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                                                                    color: pluv.activo ? '#81c784' : 'var(--text-muted)',
+                                                                }}
+                                                            >
+                                                                {pluv.activo ? 'Activo' : 'Activar'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={savingPluv}
+                                                                onClick={() => handleRemovePluviometro(pluv)}
+                                                                title="Eliminar o desactivar pluviómetro"
+                                                                style={{ width: 'auto', padding: '6px 8px', background: 'transparent', border: 'none', color: 'var(--error)', opacity: 0.75 }}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 

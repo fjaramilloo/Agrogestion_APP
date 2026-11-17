@@ -27,16 +27,17 @@ SELECT ... FROM ... WHERE id_finca = '[fincaId]' ...
 
 TABLAS DISPONIBLES EN LA BASE DE DATOS:
 
-1. registros_lluvia (Pluviometría e historial de precipitaciones):
-   - Columnas: id, id_finca, fecha (date), milimetros (numeric, mm de lluvia caída), notas (text, observaciones del clima), lectura_acumulada (numeric)
-   - Uso: Consultar cuánto ha llovido, acumulado mensual/anual, historial de días lluviosos, lluvias del último fin de semana o mes.
+1. registros_lluvia y pluviometros_finca (Pluviometría e historial de precipitaciones):
+   - pluviometros_finca: id, id_finca, nombre, tipo_medicion ('diaria' | 'acumulada'), activo, orden
+   - registros_lluvia: id, id_finca, id_pluviometro (nullable), fecha (date), milimetros (numeric, mm de lluvia caída), tipo_medicion ('diaria' | 'acumulada'), notas (text), lectura_acumulada (numeric)
+   - REGLA IMPORTANTE: Si una finca tiene múltiples pluviómetros en un mismo día, la lluvia oficial de la finca para ese día es el PROMEDIO diario (AVG(milimetros) agrupado por fecha) antes de sumar por mes o período.
    - Ejemplos de consulta:
-     * Lluvia reciente o en un rango:
-       SELECT fecha, milimetros, notas FROM registros_lluvia WHERE id_finca = '[fincaId]' AND fecha >= CURRENT_DATE - INTERVAL '30 days' ORDER BY fecha DESC
-     * Acumulado total y días de lluvia:
-       SELECT COALESCE(SUM(milimetros), 0) as total_mm, COUNT(CASE WHEN milimetros > 0 THEN 1 END) as dias_lluvia, MAX(milimetros) as max_dia FROM registros_lluvia WHERE id_finca = '[fincaId]' AND fecha BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
-     * Lluvia agrupada por mes:
-       SELECT DATE_TRUNC('month', fecha) as mes, SUM(milimetros) as total_mm FROM registros_lluvia WHERE id_finca = '[fincaId]' GROUP BY mes ORDER BY mes DESC
+     * Lluvia diaria consolidada (promedio finca) reciente:
+       SELECT fecha, ROUND(AVG(milimetros)::numeric, 1) as milimetros, STRING_AGG(notas, ' · ') as notas FROM registros_lluvia WHERE id_finca = '[fincaId]' AND fecha >= CURRENT_DATE - INTERVAL '30 days' GROUP BY fecha ORDER BY fecha DESC
+     * Acumulado total y días de lluvia (sobre promedio diario de finca):
+       WITH lluvia_dia AS (SELECT fecha, AVG(milimetros) as mm_dia FROM registros_lluvia WHERE id_finca = '[fincaId]' AND fecha BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD' GROUP BY fecha) SELECT COALESCE(ROUND(SUM(mm_dia)::numeric, 1), 0) as total_mm, COUNT(CASE WHEN mm_dia > 0 THEN 1 END) as dias_lluvia, MAX(mm_dia) as max_dia FROM lluvia_dia
+     * Lluvia agrupada por mes (sobre promedio diario de finca):
+       WITH lluvia_dia AS (SELECT fecha, AVG(milimetros) as mm_dia FROM registros_lluvia WHERE id_finca = '[fincaId]' GROUP BY fecha) SELECT DATE_TRUNC('month', fecha) as mes, ROUND(SUM(mm_dia)::numeric, 1) as total_mm FROM lluvia_dia GROUP BY mes ORDER BY mes DESC
 
 2. registros_aforo (Aforos de pasturas, disponibilidad forrajera y capacidad de carga):
    - Columnas: id, id_finca, id_potrero, fecha (date), promedio_muestras_kg (numeric, kg/m² forraje verde), viabilidad (numeric, % aprovechamiento), aforo_real_kg (numeric, kg de forraje aprovechable total), id_potrerada (uuid), animales_presentes (integer), dias_pastoreo_estimados (numeric)
