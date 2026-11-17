@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { isConexionDegradada, isModoCampoActivo } from './httpOffline';
 import {
   localDB,
   type AnimalCacheItem,
@@ -11,22 +12,47 @@ import {
 
 /**
  * 1. Sincroniza la caché local del teléfono/navegador con los animales y potreros de la finca.
- * Debe ejecutarse cuando la app tiene conexión a internet.
+ * Se ejecuta con límite de 2 peticiones simultáneas para NUNCA saturar las 6 conexiones del navegador
+ * y se detiene de inmediato si detecta señal débil de potrero.
  */
 export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
   if (!fincaId) return;
 
   // Si el usuario tiene activo el Modo Campo forzado o el navegador está offline, no consultar red
-  const isModoCampo = typeof window !== 'undefined' && localStorage.getItem('agrogestion_modo_campo') === 'true';
-  if (isModoCampo || !navigator.onLine) return;
+  if (isModoCampoActivo() || !navigator.onLine || isConexionDegradada()) return;
+
+  // Semáforo de máximo 2 consultas en paralelo: deja siempre 4 canales libres para el uso interactivo (Pesaje, Inventario, etc.)
+  let enVuelo = 0;
+  const MAX_CONCURRENCIA = 2;
+  const esperaCola: Array<() => void> = [];
+
+  const adquirirTurno = (): Promise<void> => {
+    if (enVuelo < MAX_CONCURRENCIA) {
+      enVuelo++;
+      return Promise.resolve();
+    }
+    return new Promise<void>(resolve => esperaCola.push(() => { enVuelo++; resolve(); }));
+  };
+
+  const liberarTurno = () => {
+    enVuelo--;
+    const sig = esperaCola.shift();
+    if (sig) sig();
+  };
 
   const safe = async <T>(promise: PromiseLike<T>, tag: string): Promise<T | null> => {
+    await adquirirTurno();
     try {
+      if (isModoCampoActivo() || !navigator.onLine || isConexionDegradada()) {
+        return null;
+      }
       const res = await promise;
       return res;
     } catch (err) {
       console.warn(`[OfflineService] Query ${tag} omitida:`, err);
       return null;
+    } finally {
+      liberarTurno();
     }
   };
 

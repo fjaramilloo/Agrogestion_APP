@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
@@ -26,7 +26,59 @@ interface AnimalPreview {
     fecha_castracion?: string | null;
     nombre_propietario?: string;
     potrerada_nombre?: string;
+    id_potrerada?: string | null;
 }
+
+const calcularGmpDesdePesajes = (
+    pesajesRaw: any[] | undefined,
+    pesoBase: number,
+    fechaBase: string,
+    ultimoPesoFallback?: number,
+    fechaUltimoFallback?: string
+): { ultimoPeso: number; fechaUltimoPeso: string; gmp: number } => {
+    const pesajes = (pesajesRaw || [])
+        .filter((p: any) => !p.is_deleted)
+        .sort((a: any, b: any) => new Date(b.fecha || 0).getTime() - new Date(a.fecha || 0).getTime());
+
+    let ultimoPeso = ultimoPesoFallback ?? pesoBase;
+    let fechaUltimoPeso = fechaUltimoFallback ?? fechaBase;
+    let gmp = 0;
+
+    if (pesajes.length > 0) {
+        const ultimo = pesajes[0];
+        ultimoPeso = Number(ultimo.peso) || ultimoPeso;
+        fechaUltimoPeso = ultimo.fecha || fechaUltimoPeso;
+
+        const diasDesdeIngreso = differenceInDays(
+            new Date(String(ultimo.fecha).split('T')[0] + 'T12:00:00'),
+            new Date(String(fechaBase).split('T')[0] + 'T12:00:00')
+        );
+
+        if (diasDesdeIngreso > 0) {
+            if (ultimo.gmp_calculada !== null && ultimo.gmp_calculada !== undefined) {
+                gmp = Number(ultimo.gmp_calculada);
+            } else if (ultimo.gdp_calculada !== null && ultimo.gdp_calculada !== undefined) {
+                gmp = Number(ultimo.gdp_calculada) * 30;
+            } else if (pesajes.length > 1) {
+                const penultimo = pesajes[1];
+                const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(penultimo.fecha)) || 1;
+                gmp = ((ultimo.peso - penultimo.peso) / diffDias) * 30;
+            } else {
+                gmp = ((ultimo.peso - pesoBase) / diasDesdeIngreso) * 30;
+            }
+        }
+    } else if (ultimoPeso && fechaUltimoPeso && fechaBase && fechaUltimoPeso !== fechaBase) {
+        const dias = differenceInDays(
+            new Date(String(fechaUltimoPeso).split('T')[0] + 'T12:00:00'),
+            new Date(String(fechaBase).split('T')[0] + 'T12:00:00')
+        );
+        if (dias > 0) {
+            gmp = ((ultimoPeso - pesoBase) / dias) * 30;
+        }
+    }
+
+    return { ultimoPeso, fechaUltimoPeso, gmp };
+};
 
 export default function Weighing() {
     const { fincaId, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
@@ -40,6 +92,13 @@ export default function Weighing() {
     const [nuevoPeso, setNuevoPeso] = useState('');
     const [fechaPesaje, setFechaPesaje] = useState(getLocalIsoDate());
     const [castrarHoy, setCastrarHoy] = useState(false);
+
+    // Referencias para enfoque instantáneo en báscula (Chapeta -> Peso -> Chapeta)
+    const chapetaInputRef = useRef<HTMLInputElement | null>(null);
+    const pesoInputRef = useRef<HTMLInputElement | null>(null);
+
+    // Diccionario en memoria RAM de todos los animales activos de la finca para búsqueda en 0.001s
+    const animalesRamRef = useRef<Map<string, AnimalPreview>>(new Map());
 
     // Estados para la creación
     const [animalNoEncontrado, setAnimalNoEncontrado] = useState(false);
@@ -69,24 +128,137 @@ export default function Weighing() {
     const [sortColHoy, setSortColHoy] = useState<'chapeta' | 'marca' | 'potrerada' | 'peso'>('chapeta');
     const [sortDirHoy, setSortDirHoy] = useState<'asc' | 'desc'>('asc');
 
+    // 1. Precargar el hato activo en memoria RAM desde IndexedDB (en 5ms) y actualizar en silencio desde la nube
+    const cargarHatoEnRam = useCallback(async () => {
+        if (!fincaId) return;
+        try {
+            const [cachedAnimales, cachedPots] = await Promise.all([
+                localDB.animalesCache.where('id_finca').equals(fincaId).toArray(),
+                localDB.potreradasCache.where('id_finca').equals(fincaId).toArray()
+            ]);
+            const potsMap = new Map<string, string>();
+            cachedPots.forEach(p => potsMap.set(p.id, p.nombre));
+
+            const nuevoMapa = new Map<string, AnimalPreview>();
+            for (const a of cachedAnimales) {
+                if (a.estado && a.estado !== 'activo') continue;
+                const pesoBase = a.peso_ingreso || a.peso_compra || 0;
+                const fechaBase = a.fecha_ingreso;
+                const { ultimoPeso, fechaUltimoPeso, gmp } = calcularGmpDesdePesajes(
+                    a.registros_pesaje,
+                    pesoBase,
+                    fechaBase,
+                    a.ultimo_peso,
+                    a.fecha_ultimo_pesaje
+                );
+                const potNombre = a.potrerada_nombre || (a.id_potrerada ? potsMap.get(a.id_potrerada) : undefined);
+                const preview: AnimalPreview = {
+                    id: a.id,
+                    numero_chapeta: a.numero_chapeta,
+                    peso_ingreso: pesoBase,
+                    peso_compra: a.peso_compra,
+                    fecha_ingreso: fechaBase,
+                    etapa: a.etapa,
+                    ultimo_peso: ultimoPeso,
+                    fecha_ultimo_peso: fechaUltimoPeso,
+                    gmp,
+                    nombre_propietario: a.nombre_propietario,
+                    potrerada_nombre: potNombre || undefined,
+                    id_potrerada: a.id_potrerada
+                };
+                nuevoMapa.set(a.numero_chapeta.trim().toLowerCase(), preview);
+            }
+            if (nuevoMapa.size > 0) {
+                animalesRamRef.current = nuevoMapa;
+            }
+        } catch { /* noop */ }
+
+        // Si hay conexión, refrescar el diccionario en memoria en una sola consulta ligera en segundo plano
+        if (isOnline && !modoCampo) {
+            try {
+                const [animRes, ultRes] = await Promise.all([
+                    supabase
+                        .from('animales')
+                        .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada, potreradas:potreradas!animales_id_potrerada_fkey(nombre, etapa)')
+                        .eq('id_finca', fincaId)
+                        .eq('estado', 'activo')
+                        .or('is_deleted.is.null,is_deleted.eq.false')
+                        .limit(10000),
+                    supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(20000)
+                ]);
+
+                if (animRes.data && animRes.data.length > 0) {
+                    const ultMap = new Map<string, any>();
+                    if (ultRes.data) {
+                        for (const u of ultRes.data) ultMap.set(u.id_animal, u);
+                    }
+                    const mapaFresco = new Map<string, AnimalPreview>();
+                    for (const a of animRes.data as any[]) {
+                        const ult = ultMap.get(a.id);
+                        const pesoBase = a.peso_ingreso || a.peso_compra || 0;
+                        const fechaBase = a.fecha_ingreso;
+                        const ultimoPeso = ult?.peso ?? pesoBase;
+                        const fechaUltimoPeso = ult?.fecha ?? fechaBase;
+                        let gmp = 0;
+                        if (ult?.gmp_calculada != null) gmp = Number(ult.gmp_calculada);
+                        else if (ult?.gdp_calculada != null) gmp = Number(ult.gdp_calculada) * 30;
+                        else if (ultimoPeso && fechaUltimoPeso && fechaBase && fechaUltimoPeso !== fechaBase) {
+                            const d = differenceInDays(
+                                new Date(String(fechaUltimoPeso).split('T')[0] + 'T12:00:00'),
+                                new Date(String(fechaBase).split('T')[0] + 'T12:00:00')
+                            );
+                            if (d > 0) gmp = ((ultimoPeso - pesoBase) / d) * 30;
+                        }
+                        const potObj = Array.isArray(a.potreradas) ? a.potreradas[0] : a.potreradas;
+                        const preview: AnimalPreview = {
+                            id: a.id,
+                            numero_chapeta: a.numero_chapeta,
+                            peso_ingreso: pesoBase,
+                            peso_compra: a.peso_compra,
+                            fecha_ingreso: fechaBase,
+                            etapa: potObj?.etapa || a.etapa,
+                            ultimo_peso: ultimoPeso,
+                            fecha_ultimo_peso: fechaUltimoPeso,
+                            gmp,
+                            ok_ceba: a.ok_ceba,
+                            sexo: a.sexo,
+                            tipo_macho: a.tipo_macho,
+                            fecha_castracion: a.fecha_castracion,
+                            nombre_propietario: a.nombre_propietario,
+                            potrerada_nombre: potObj?.nombre || undefined,
+                            id_potrerada: a.id_potrerada
+                        };
+                        mapaFresco.set(String(a.numero_chapeta).trim().toLowerCase(), preview);
+                    }
+                    animalesRamRef.current = mapaFresco;
+                }
+            } catch { /* noop */ }
+        }
+    }, [fincaId, isOnline, modoCampo]);
+
+    useEffect(() => {
+        void cargarHatoEnRam();
+    }, [cargarHatoEnRam]);
+
     useEffect(() => {
         if (!fincaId) return;
         const fetchConfig = async () => {
-            const { data: config } = await supabase
-                .from('configuracion_kpi')
-                .select('peso_entrada_ceba, umbral_alto_gmp, umbral_medio_gmp')
-                .eq('id_finca', fincaId)
-                .single();
-            if (config?.peso_entrada_ceba) setPesoEntradaCeba(config.peso_entrada_ceba);
-            if (config?.umbral_alto_gmp) setUmbralAlto(config.umbral_alto_gmp);
-            if (config?.umbral_medio_gmp) setUmbralMedio(config.umbral_medio_gmp);
-
-            const { data } = await supabase
-                .from('propietarios')
-                .select('id, nombre')
-                .eq('id_finca', fincaId)
-                .order('nombre');
-            if (data) setPropietarios(data);
+            const [configRes, propRes] = await Promise.all([
+                supabase
+                    .from('configuracion_kpi')
+                    .select('peso_entrada_ceba, umbral_alto_gmp, umbral_medio_gmp')
+                    .eq('id_finca', fincaId)
+                    .single(),
+                supabase
+                    .from('propietarios')
+                    .select('id, nombre')
+                    .eq('id_finca', fincaId)
+                    .order('nombre')
+            ]);
+            if (configRes.data?.peso_entrada_ceba) setPesoEntradaCeba(configRes.data.peso_entrada_ceba);
+            if (configRes.data?.umbral_alto_gmp) setUmbralAlto(configRes.data.umbral_alto_gmp);
+            if (configRes.data?.umbral_medio_gmp) setUmbralMedio(configRes.data.umbral_medio_gmp);
+            if (propRes.data) setPropietarios(propRes.data);
         };
         fetchConfig();
     }, [fincaId]);
@@ -136,10 +308,8 @@ export default function Weighing() {
         e.preventDefault();
         if (!fincaId || !chapeta.trim()) return;
 
-        setLoading(true);
         setMsjError('');
         setMsjExito('');
-        setAnimal(null);
         setAnimalNoEncontrado(false);
         setShowCrearAnimal(false);
         setMarcadoCeba(false);
@@ -147,146 +317,122 @@ export default function Weighing() {
         setFechaPesaje(getLocalIsoDate());
 
         const targetChapeta = chapeta.trim();
-        let data: any = null;
-        let isOfflineResult = false;
+        const keyChapeta = targetChapeta.toLowerCase();
 
-        // Si estamos en Modo Campo o sin conexión, buscar de inmediato en la memoria local (IndexedDB)
-        if (modoCampo || !isOnline) {
+        // PASO 1: Búsqueda instantánea en RAM (0.001 segundos, cero esperas de red)
+        const enRam = animalesRamRef.current.get(keyChapeta);
+        if (enRam) {
+            setAnimal(enRam);
+            setTimeout(() => pesoInputRef.current?.focus(), 20);
+            return;
+        }
+
+        // PASO 2: Búsqueda en IndexedDB local (<10ms)
+        setLoading(true);
+        try {
             const cached = await localDB.animalesCache
                 .where('id_finca').equals(fincaId)
-                .filter(a => a.numero_chapeta === targetChapeta)
+                .filter(a => a.numero_chapeta?.trim().toLowerCase() === keyChapeta && a.estado !== 'vendido' && a.estado !== 'muerto')
                 .first();
 
             if (cached) {
-                data = {
+                const pesoBase = cached.peso_ingreso || cached.peso_compra || 0;
+                const fechaBase = cached.fecha_ingreso;
+                const { ultimoPeso, fechaUltimoPeso, gmp } = calcularGmpDesdePesajes(
+                    cached.registros_pesaje,
+                    pesoBase,
+                    fechaBase,
+                    cached.ultimo_peso,
+                    cached.fecha_ultimo_pesaje
+                );
+                let potNombre = cached.potrerada_nombre || undefined;
+                if (!potNombre && cached.id_potrerada) {
+                    const potCached = await localDB.potreradasCache.get(cached.id_potrerada);
+                    potNombre = potCached?.nombre || undefined;
+                }
+                const encontrado: AnimalPreview = {
                     id: cached.id,
                     numero_chapeta: cached.numero_chapeta,
-                    peso_ingreso: cached.peso_ingreso || 0,
+                    peso_ingreso: pesoBase,
                     peso_compra: cached.peso_compra,
-                    fecha_ingreso: cached.fecha_ingreso,
+                    fecha_ingreso: fechaBase,
                     etapa: cached.etapa,
-                    peso_ingreso_ceba: cached.peso_ingreso_ceba,
-                    fecha_ingreso_ceba: cached.fecha_ingreso_ceba,
+                    ultimo_peso: ultimoPeso,
+                    fecha_ultimo_peso: fechaUltimoPeso,
+                    gmp,
                     nombre_propietario: cached.nombre_propietario,
+                    potrerada_nombre: potNombre,
                     id_potrerada: cached.id_potrerada
                 };
-                isOfflineResult = true;
+                animalesRamRef.current.set(keyChapeta, encontrado);
+                setAnimal(encontrado);
+                setLoading(false);
+                setTimeout(() => pesoInputRef.current?.focus(), 20);
+                return;
             }
-        } else {
-            try {
-                const res = await supabase
+
+            // PASO 3: Si no estaba en caché local y hay señal, hacer UNA SOLA consulta unificada (con joins)
+            if (!modoCampo && isOnline) {
+                const { data } = await supabase
                     .from('animales')
-                    .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada')
+                    .select(`
+                        id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba,
+                        fecha_ingreso_ceba, peso_ingreso_ceba, sexo, tipo_macho, fecha_castracion,
+                        nombre_propietario, id_potrerada,
+                        potreradas:potreradas!animales_id_potrerada_fkey(nombre, etapa),
+                        registros_pesaje(peso, fecha, gmp_calculada, gdp_calculada, is_deleted)
+                    `)
                     .eq('id_finca', fincaId)
                     .eq('numero_chapeta', targetChapeta)
+                    .eq('estado', 'activo')
                     .or('is_deleted.is.null,is_deleted.eq.false')
                     .maybeSingle();
-                data = res.data;
-            } catch (e) {
-                data = null;
-            }
 
-            // Fallback a Caché Local si falló la consulta o no hubo respuesta
-            if (!data) {
-                const cached = await localDB.animalesCache
-                    .where('id_finca').equals(fincaId)
-                    .filter(a => a.numero_chapeta === targetChapeta)
-                    .first();
-
-                if (cached) {
-                    data = {
-                        id: cached.id,
-                        numero_chapeta: cached.numero_chapeta,
-                        peso_ingreso: cached.peso_ingreso || 0,
-                        peso_compra: cached.peso_compra,
-                        fecha_ingreso: cached.fecha_ingreso,
-                        etapa: cached.etapa,
-                        peso_ingreso_ceba: cached.peso_ingreso_ceba,
-                        fecha_ingreso_ceba: cached.fecha_ingreso_ceba,
-                        nombre_propietario: cached.nombre_propietario,
-                        id_potrerada: cached.id_potrerada
+                if (data) {
+                    const pesoBase = data.peso_ingreso || data.peso_compra || 0;
+                    const fechaBase = data.fecha_ingreso;
+                    const { ultimoPeso, fechaUltimoPeso, gmp } = calcularGmpDesdePesajes(
+                        (data as any).registros_pesaje,
+                        pesoBase,
+                        fechaBase
+                    );
+                    const potObj = Array.isArray((data as any).potreradas) ? (data as any).potreradas[0] : (data as any).potreradas;
+                    const encontrado: AnimalPreview = {
+                        id: data.id,
+                        numero_chapeta: data.numero_chapeta,
+                        peso_ingreso: pesoBase,
+                        peso_compra: data.peso_compra,
+                        fecha_ingreso: fechaBase,
+                        etapa: potObj?.etapa || data.etapa,
+                        ultimo_peso: ultimoPeso,
+                        fecha_ultimo_peso: fechaUltimoPeso,
+                        gmp,
+                        ok_ceba: data.ok_ceba,
+                        sexo: data.sexo as any,
+                        tipo_macho: data.tipo_macho as any,
+                        fecha_castracion: data.fecha_castracion,
+                        nombre_propietario: data.nombre_propietario,
+                        potrerada_nombre: potObj?.nombre || undefined,
+                        id_potrerada: data.id_potrerada
                     };
-                    isOfflineResult = true;
+                    animalesRamRef.current.set(keyChapeta, encontrado);
+                    setAnimal(encontrado);
+                    setLoading(false);
+                    setTimeout(() => pesoInputRef.current?.focus(), 20);
+                    return;
                 }
             }
-        }
 
-        if (!data) {
+            setAnimal(null);
             setAnimalNoEncontrado(true);
             setMsjError('Animal no encontrado. Puede revisar la chapeta o crear uno nuevo.');
-        } else {
-            let pesajes: any[] = [];
-            if (isOnline && !isOfflineResult) {
-                const { data: psjs } = await supabase
-                    .from('registros_pesaje')
-                    .select('peso, fecha, gmp_calculada, gdp_calculada')
-                    .eq('id_animal', data.id)
-                    .or('is_deleted.is.null,is_deleted.eq.false')
-                    .order('fecha', { ascending: false });
-                if (psjs) pesajes = psjs;
-            }
-
-            let gmp = 0;
-            let potreradaEtapa: string | null = null;
-            let potreradaNombre: string | null = null;
-
-            if ((data as any).id_potrerada) {
-                if (isOnline) {
-                    const { data: pot } = await supabase
-                        .from('potreradas')
-                        .select('etapa, nombre')
-                        .eq('id', (data as any).id_potrerada)
-                        .single();
-                    potreradaEtapa = pot?.etapa || null;
-                    potreradaNombre = pot?.nombre || null;
-                } else {
-                    const potCached = await localDB.potreradasCache.get((data as any).id_potrerada);
-                    potreradaNombre = potCached?.nombre || null;
-                }
-            }
-            const etapaEfectiva: string = potreradaEtapa || data.etapa;
-
-            const pesoBase = data.peso_ingreso || data.peso_compra;
-            const fechaBase = data.fecha_ingreso;
-
-            let ultimoPeso = pesoBase;
-            let fechaUltimoPeso = fechaBase;
-
-            if (pesajes && pesajes.length > 0) {
-                const ultimo = pesajes[0];
-                ultimoPeso = ultimo.peso;
-                fechaUltimoPeso = ultimo.fecha;
-
-                const diasDesdeIngreso = differenceInDays(
-                    new Date(String(ultimo.fecha).split('T')[0] + 'T12:00:00'),
-                    new Date(String(fechaBase).split('T')[0] + 'T12:00:00')
-                );
-
-                if (diasDesdeIngreso > 0) {
-                    if (ultimo.gmp_calculada !== null && ultimo.gmp_calculada !== undefined) {
-                        gmp = ultimo.gmp_calculada;
-                    } else if (ultimo.gdp_calculada !== null && ultimo.gdp_calculada !== undefined) {
-                        gmp = ultimo.gdp_calculada * 30;
-                    } else if (pesajes.length > 1) {
-                        const penultimo = pesajes[1];
-                        const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(penultimo.fecha)) || 1;
-                        gmp = ((ultimo.peso - penultimo.peso) / diffDias) * 30;
-                    } else {
-                        gmp = ((ultimo.peso - pesoBase) / diasDesdeIngreso) * 30;
-                    }
-                }
-            }
-
-            setAnimal({
-                ...data,
-                etapa: etapaEfectiva,
-                potrerada_nombre: potreradaNombre || undefined,
-                ultimo_peso: ultimoPeso,
-                fecha_ultimo_peso: fechaUltimoPeso,
-                gmp: gmp
-            });
+        } catch {
+            setAnimal(null);
+            setAnimalNoEncontrado(true);
+            setMsjError('Animal no encontrado en la memoria local.');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const crearRegistroAnimal = async () => {
@@ -319,7 +465,7 @@ export default function Weighing() {
 
             setMsjExito(`¡Animal #${chapeta} creado exitosamente con peso inicial de ${data.peso_ingreso} kg! Ingrese un nuevo peso si desea registrar un pesaje de hoy.`);
 
-            setAnimal({
+            const nuevoPreview: AnimalPreview = {
                 id: data.id,
                 numero_chapeta: data.numero_chapeta,
                 peso_ingreso: data.peso_ingreso,
@@ -327,12 +473,16 @@ export default function Weighing() {
                 etapa: data.etapa,
                 ultimo_peso: data.peso_ingreso,
                 fecha_ultimo_peso: data.fecha_ingreso,
-                gmp: 0
-            });
+                gmp: 0,
+                nombre_propietario: propietarioNuevo
+            };
+            animalesRamRef.current.set(String(data.numero_chapeta).trim().toLowerCase(), nuevoPreview);
+            setAnimal(nuevoPreview);
             setAnimalNoEncontrado(false);
             setShowCrearAnimal(false);
-            if (refreshLicencia) await refreshLicencia();
+            if (refreshLicencia) void refreshLicencia();
             setNuevoPeso('');
+            setTimeout(() => pesoInputRef.current?.focus(), 20);
 
         } catch (err: any) {
             setMsjError(err.message || 'Error al crear el animal.');
@@ -354,134 +504,173 @@ export default function Weighing() {
             return;
         }
 
-        setLoading(true);
         setMsjError('');
         setMarcadoCeba(false);
 
-        try {
-            const pesoFloat = Math.round(parseFloat(nuevoPeso));
-            if (isNaN(pesoFloat) || pesoFloat <= 0) {
-                throw new Error('El peso debe ser un número mayor a 0');
-            }
+        const pesoFloat = Math.round(parseFloat(nuevoPeso));
+        if (isNaN(pesoFloat) || pesoFloat <= 0) {
+            setMsjError('El peso debe ser un número mayor a 0');
+            return;
+        }
 
-            let gdpCalculada = 0;
-            if (animal.ultimo_peso && animal.fecha_ultimo_peso) {
-                const fechaUltimo = animal.fecha_ultimo_peso.split('T')[0];
-                
-                if (fechaPesaje === fechaUltimo) {
-                    throw new Error(`Este animal ya tiene un pesaje registrado para la fecha ${fechaPesaje}.`);
-                }
-
-                if (fechaPesaje !== fechaUltimo) {
-                    const diffDias = differenceInDays(new Date(fechaPesaje + 'T12:00:00'), new Date(fechaUltimo + 'T12:00:00'));
-                    if (diffDias > 0) {
-                        gdpCalculada = (pesoFloat - animal.ultimo_peso) / diffDias;
-                    }
-                }
-            }
-
-            // Verificar si el peso supera el umbral de entrada a ceba o castración
-            let marcaOkCeba = false;
-            let updateAnimalData: any = {};
-            
-            if (animal.etapa === 'levante' && pesoFloat >= pesoEntradaCeba) {
-                marcaOkCeba = true;
-                updateAnimalData.ok_ceba = true;
-                setMarcadoCeba(true);
-            }
-
-            if (castrarHoy) {
-                updateAnimalData.tipo_macho = 'novillo';
-                updateAnimalData.fecha_castracion = fechaPesaje;
-            }
-
-            if (Object.keys(updateAnimalData).length > 0) {
-                await supabase
-                    .from('animales')
-                    .update(updateAnimalData)
-                    .eq('id', animal.id);
-
-                try {
-                    const cached = await localDB.animalesCache.get(animal.id);
-                    if (cached) {
-                        await localDB.animalesCache.update(animal.id, {
-                            ...updateAnimalData
-                        });
-                    }
-                } catch { /* noop */ }
-            }
-
-            const msgCeba = marcaOkCeba
-                ? ` 🟢 Marcado para pasar a Ceba (${pesoFloat}kg ≥ ${pesoEntradaCeba}kg).`
-                : '';
-            const msgCastrado = castrarHoy ? ` ✂️ Registrado como Novillo.` : '';
-
-            // MODO OFFLINE: Si estamos en Modo Campo o no hay conexión efectiva
-            if (modoCampo || !isOnline) {
-                await guardarPesajeOffline({
-                    id_finca: fincaId,
-                    id_animal: animal.id,
-                    chapeta_ref: animal.numero_chapeta,
-                    peso: pesoFloat,
-                    fecha: fechaPesaje,
-                    etapa: animal.etapa,
-                    gdp_calculada: gdpCalculada,
-                    gmp_calculada: gdpCalculada * 30
-                });
-
-                setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente (Modo Campo / Offline).${msgCeba}${msgCastrado} Se sincronizará al conectar.`);
-                setAnimal(null);
-                setChapeta('');
-                setNuevoPeso('');
-                setFechaPesaje(getLocalIsoDate());
-                setLoading(false);
+        let gdpCalculada = 0;
+        if (animal.ultimo_peso && animal.fecha_ultimo_peso) {
+            const fechaUltimo = animal.fecha_ultimo_peso.split('T')[0];
+            if (fechaPesaje === fechaUltimo) {
+                setMsjError(`Este animal ya tiene un pesaje registrado para la fecha ${fechaPesaje}.`);
                 return;
             }
+            const diffDias = differenceInDays(new Date(fechaPesaje + 'T12:00:00'), new Date(fechaUltimo + 'T12:00:00'));
+            if (diffDias > 0) {
+                gdpCalculada = (pesoFloat - animal.ultimo_peso) / diffDias;
+            }
+        }
 
-            // MODO ONLINE
-            const { error } = await supabase.from('registros_pesaje').insert({
-                id_animal: animal.id,
-                peso: pesoFloat,
-                fecha: fechaPesaje,
-                etapa: animal.etapa,
-                gdp_calculada: gdpCalculada
-            });
+        // Verificar si el peso supera el umbral de entrada a ceba o castración
+        let marcaOkCeba = false;
+        const updateAnimalData: any = {};
 
-            if (error) {
-                // Si ocurre un error de red al intentar insertar en Supabase
-                if (error.message?.includes('fetch') || error.message?.includes('network') || !isOnline) {
+        if (animal.etapa === 'levante' && pesoFloat >= pesoEntradaCeba) {
+            marcaOkCeba = true;
+            updateAnimalData.ok_ceba = true;
+            setMarcadoCeba(true);
+        }
+
+        if (castrarHoy) {
+            updateAnimalData.tipo_macho = 'novillo';
+            updateAnimalData.fecha_castracion = fechaPesaje;
+        }
+
+        const msgCeba = marcaOkCeba
+            ? ` 🟢 Marcado para pasar a Ceba (${pesoFloat}kg ≥ ${pesoEntradaCeba}kg).`
+            : '';
+        const msgCastrado = castrarHoy ? ` ✂️ Registrado como Novillo.` : '';
+
+        // ── GUARDADO INSTANTÁNEO EN PANTALLA (OPTIMISTIC UI: 0.01 SEGUNDOS) ──
+        // Actualizamos en el acto la memoria RAM, la lista de Pesajes de Hoy y limpiamos la casilla
+        // para que el mayordomo pueda pesar el siguiente animal sin esperar ni un milisegundo a la red.
+        const animalSnapshot = { ...animal };
+        const fechaSnapshot = fechaPesaje;
+        const pesajeId = crypto.randomUUID();
+        const keyChapeta = animalSnapshot.numero_chapeta.trim().toLowerCase();
+
+        animalesRamRef.current.set(keyChapeta, {
+            ...animalSnapshot,
+            ultimo_peso: pesoFloat,
+            fecha_ultimo_peso: fechaSnapshot,
+            gmp: gdpCalculada * 30,
+            ...(marcaOkCeba ? { ok_ceba: true } : {}),
+            ...(castrarHoy ? { tipo_macho: 'novillo', fecha_castracion: fechaSnapshot } : {})
+        });
+
+        const hoyIso = getLocalIsoDate();
+        if (fechaSnapshot === hoyIso) {
+            setPesajesHoy(prev => [
+                {
+                    id: pesajeId,
+                    peso: pesoFloat,
+                    fecha: fechaSnapshot,
+                    numero_chapeta: animalSnapshot.numero_chapeta,
+                    nombre_propietario: animalSnapshot.nombre_propietario || '-',
+                    potrerada_nombre: animalSnapshot.potrerada_nombre || 'Sin lote'
+                },
+                ...prev.filter(p => p.numero_chapeta !== animalSnapshot.numero_chapeta)
+            ]);
+        }
+
+        setMsjExito(
+            modoCampo || !isOnline
+                ? `📱 Pesaje de ${pesoFloat}kg guardado para #${animalSnapshot.numero_chapeta}.${msgCeba}${msgCastrado}`
+                : `¡Pesaje de ${pesoFloat}kg guardado para la chapeta #${animalSnapshot.numero_chapeta}!${msgCeba}${msgCastrado}`
+        );
+        setAnimal(null);
+        setChapeta('');
+        setNuevoPeso('');
+        setCastrarHoy(false);
+        setFechaPesaje(hoyIso);
+        setTimeout(() => chapetaInputRef.current?.focus(), 20);
+
+        // ── PERSISTENCIA EN SEGUNDO PLANO (INDEXEDDB + SUPABASE) ──
+        void (async () => {
+            try {
+                // 1. Actualizar caché local de animales en el teléfono
+                const cached = await localDB.animalesCache.get(animalSnapshot.id);
+                if (cached) {
+                    const nuevosPesajes = [
+                        { peso: pesoFloat, fecha: fechaSnapshot, etapa: animalSnapshot.etapa, gdp_calculada: gdpCalculada, gmp_calculada: gdpCalculada * 30 },
+                        ...(cached.registros_pesaje || [])
+                    ];
+                    await localDB.animalesCache.update(animalSnapshot.id, {
+                        ...updateAnimalData,
+                        ultimo_peso: pesoFloat,
+                        fecha_ultimo_pesaje: fechaSnapshot,
+                        registros_pesaje: nuevosPesajes
+                    });
+                }
+
+                // 2. Si está en Modo Campo o sin señal, guardar en cola local dedicada
+                if (modoCampo || !isOnline) {
+                    if (Object.keys(updateAnimalData).length > 0) {
+                        await supabase.from('animales').update(updateAnimalData).eq('id', animalSnapshot.id);
+                    }
                     await guardarPesajeOffline({
                         id_finca: fincaId,
-                        id_animal: animal.id,
-                        chapeta_ref: animal.numero_chapeta,
+                        id_animal: animalSnapshot.id,
+                        chapeta_ref: animalSnapshot.numero_chapeta,
                         peso: pesoFloat,
-                        fecha: fechaPesaje,
-                        etapa: animal.etapa,
+                        fecha: fechaSnapshot,
+                        etapa: animalSnapshot.etapa,
                         gdp_calculada: gdpCalculada,
                         gmp_calculada: gdpCalculada * 30
                     });
-
-                    setMsjExito(`📱 Pesaje de ${pesoFloat}kg guardado localmente por fallo de red.${msgCeba}${msgCastrado} Se sincronizará al conectar.`);
-                    setAnimal(null);
-                    setChapeta('');
-                    setNuevoPeso('');
-                    setFechaPesaje(getLocalIsoDate());
                     return;
                 }
-                throw error;
-            }
 
-            setMsjExito(`¡Pesaje de ${pesoFloat}kg guardado para la chapeta #${animal.numero_chapeta}!${msgCeba}${msgCastrado}`);
-            setAnimal(null);
-            setChapeta('');
-            setNuevoPeso('');
-            setFechaPesaje(getLocalIsoDate());
-            fetchPesajesHoy();
-        } catch (err: any) {
-            setMsjError(err.message || 'Error al guardar el pesaje');
-        } finally {
-            setLoading(false);
-        }
+                // 3. Si hay señal, enviar en paralelo (no en serie) a Supabase
+                const promesas: PromiseLike<any>[] = [
+                    supabase.from('registros_pesaje').insert({
+                        id: pesajeId,
+                        id_animal: animalSnapshot.id,
+                        peso: pesoFloat,
+                        fecha: fechaSnapshot,
+                        etapa: animalSnapshot.etapa,
+                        gdp_calculada: gdpCalculada
+                    })
+                ];
+                if (Object.keys(updateAnimalData).length > 0) {
+                    promesas.push(
+                        supabase.from('animales').update(updateAnimalData).eq('id', animalSnapshot.id)
+                    );
+                }
+
+                const [{ error }] = await Promise.all(promesas);
+                if (error) {
+                    await guardarPesajeOffline({
+                        id_finca: fincaId,
+                        id_animal: animalSnapshot.id,
+                        chapeta_ref: animalSnapshot.numero_chapeta,
+                        peso: pesoFloat,
+                        fecha: fechaSnapshot,
+                        etapa: animalSnapshot.etapa,
+                        gdp_calculada: gdpCalculada,
+                        gmp_calculada: gdpCalculada * 30
+                    });
+                }
+            } catch {
+                try {
+                    await guardarPesajeOffline({
+                        id_finca: fincaId,
+                        id_animal: animalSnapshot.id,
+                        chapeta_ref: animalSnapshot.numero_chapeta,
+                        peso: pesoFloat,
+                        fecha: fechaSnapshot,
+                        etapa: animalSnapshot.etapa,
+                        gdp_calculada: gdpCalculada,
+                        gmp_calculada: gdpCalculada * 30
+                    });
+                } catch { /* noop */ }
+            }
+        })();
     };
 
     const handleEliminarPesaje = async (pesaje: typeof pesajesHoy[0]) => {
@@ -601,6 +790,7 @@ export default function Weighing() {
                     <div style={{ flex: '1 1 200px', position: 'relative' }}>
                         <Search size={24} style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-muted)' }} />
                         <input
+                            ref={chapetaInputRef}
                             type="text"
                             placeholder="Nro. Chapeta"
                             value={chapeta}
@@ -829,12 +1019,19 @@ export default function Weighing() {
                                 />
                             </div>
                             <input
+                                ref={pesoInputRef}
                                 type="number"
                                 inputMode="decimal"
                                 step="0.1"
                                 placeholder="Ej. 350.5"
                                 value={nuevoPeso}
                                 onChange={(e) => setNuevoPeso(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && nuevoPeso && animal.fecha_ultimo_peso?.split('T')[0] !== fechaPesaje) {
+                                        e.preventDefault();
+                                        void guardarPesaje();
+                                    }
+                                }}
                                 style={{ fontSize: '2rem', padding: '20px', textAlign: 'center', marginBottom: 0, flex: '1 1 200px' }}
                                 disabled={loading}
                             />

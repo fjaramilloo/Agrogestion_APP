@@ -289,11 +289,11 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       lineas.push(...r2.lineas);
       mensajesError.push(...r2.mensajesError);
 
-      // c) Dejar la memoria local al día con lo que ya quedó en la nube
-      if (procesados > 0 || errores > 0) {
-        await refrescarCacheLecturas();
+      // c) Dejar la memoria local al día con lo que ya quedó en la nube (lote ligero sin saturar red)
+      if (procesados > 0) {
+        if (fincaId) await sincronizarCacheFinca(fincaId);
+        await refrescarCacheLecturas(30);
       }
-      if (fincaId) await sincronizarCacheFinca(fincaId);
       await actualizarConteo();
 
       if (procesados > 0 || errores > 0) {
@@ -375,31 +375,29 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // 9. Auto-precarga silenciosa en segundo plano:
-  // Al iniciar sesión o entrar a la app con buena conexión, se descargan y refrescan
-  // animales, potreros y lotes automáticamente sin molestar al usuario ni bloquear la pantalla.
-  const ultimoPrecacheRef = useRef<number>(0);
+  // Se ejecuta con pausa de 8s para dejar libre la red a la pantalla actual y guarda marca de tiempo
+  // en localStorage (máximo cada 30 min) para no saturar la antena del celular en el corral.
   const precargandoRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!user || !fincaIdAuth || !isOnline || precargandoRef.current) return;
 
-    const ahora = Date.now();
-    // Ejecutar máximo una vez cada 15 minutos en segundo plano
-    if (ahora - ultimoPrecacheRef.current < 15 * 60 * 1000) return;
+    const stampKey = `agrogestion_last_precache_${fincaIdAuth}`;
+    const ultimo = Number(localStorage.getItem(stampKey) || '0');
+    if (Date.now() - ultimo < 30 * 60 * 1000) return;
 
     const timer = setTimeout(async () => {
-      if (precargandoRef.current || !isOnline) return;
+      if (precargandoRef.current || !isOnline || localStorage.getItem('agrogestion_modo_campo') === 'true') return;
       precargandoRef.current = true;
       try {
         await sincronizarCacheFinca(fincaIdAuth);
-        await refrescarCacheLecturas();
-        ultimoPrecacheRef.current = Date.now();
+        try { localStorage.setItem(stampKey, String(Date.now())); } catch {}
       } catch (e) {
         console.warn('[AutoPrecache] Descarga silenciosa omitida:', e);
       } finally {
         precargandoRef.current = false;
       }
-    }, 2000); // 2 segundos después de montar para dar prioridad a la pantalla actual
+    }, 8000); // 8 segundos después de montar para dar prioridad total al trabajo del usuario
 
     return () => clearTimeout(timer);
   }, [user, fincaIdAuth, isOnline]);

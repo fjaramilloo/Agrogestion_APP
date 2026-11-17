@@ -28,7 +28,7 @@ const TIMEOUT_FUNCTIONS_MS = 60_000; // Edge Functions (Gemini AI AgroBot, invit
 const TIMEOUT_STORAGE_MS = 60_000; // Subida y descarga de archivos e imágenes
 const TIMEOUT_AUTH_MS = 15_000; // Login manual con correo/contraseña
 const TIMEOUT_AUTH_REFRESH_MS = 2200; // Renovación automática de token: máximo 2.2s para no congelar el arranque en potrero
-const FAST_CACHE_RACE_MS = 800; // Si la red no responde en 800ms y tenemos caché, responde de inmediato con caché
+const FAST_CACHE_RACE_MS = 350; // Si la red no responde en 350ms y tenemos caché, responde de inmediato con caché local
 const SESSION_BACKUP_KEY = 'agrogestion_cached_session_backup';
 
 /**
@@ -357,7 +357,7 @@ async function smartTableFallback(
             precio_venta: a.precio_venta,
             potreros: a.potrero_nombre ? { nombre: a.potrero_nombre } : null,
             potreradas: a.potrerada_nombre ? { nombre: a.potrerada_nombre } : null,
-            registros_pesaje: []
+            registros_pesaje: a.registros_pesaje || []
           });
         }
       }

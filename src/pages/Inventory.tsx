@@ -12,7 +12,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
-import { sincronizarCacheFinca } from '../lib/offlineService';
 import { getLocalIsoDate } from '../utils/dateUtils';
 
 interface Pesaje {
@@ -574,8 +573,34 @@ export default function Inventory() {
             if (potsRes.data && potsRes.data.length > 0) setPotreradasDisponibles(potsRes.data);
             if (propRes.data && propRes.data.length > 0) setPropietariosLista(propRes.data);
 
-            // Actualizar la memoria IndexedDB en segundo plano de manera segura
-            sincronizarCacheFinca(fincaId);
+            // Actualizar la caché local directamente con los datos ya descargados (0 peticiones extra a la red)
+            if (!animalesRes.error && animalesRes.data && animalesRes.data.length > 0) {
+                const ahoraIso = new Date().toISOString();
+                const itemsCache = animalesRes.data.map((a: any) => {
+                    const ult = ultimosPesajesMap.get(a.id);
+                    return {
+                        id: a.id,
+                        id_finca: fincaId,
+                        numero_chapeta: a.numero_chapeta,
+                        nombre_propietario: a.nombre_propietario,
+                        etapa: a.etapa,
+                        estado: 'activo',
+                        peso_ingreso: a.peso_ingreso,
+                        peso_compra: a.peso_compra,
+                        fecha_ingreso: a.fecha_ingreso,
+                        fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+                        peso_ingreso_ceba: a.peso_ingreso_ceba,
+                        ultimo_peso: ult ? ult.peso : (a.peso_ingreso ?? a.peso_compra),
+                        fecha_ultimo_pesaje: ult ? ult.fecha : a.fecha_ingreso,
+                        id_potrerada: a.id_potrerada,
+                        potrero_nombre: a.potreros?.nombre || '',
+                        potrerada_nombre: a.potreradas?.nombre || '',
+                        registros_pesaje: ult ? [ult] : [],
+                        updated_at: ahoraIso
+                    };
+                });
+                void localDB.animalesCache.bulkPut(itemsCache).catch(() => {});
+            }
         } catch (err) {
             console.warn('[Inventario] Revalidación en segundo plano falló por red. Manteniendo datos locales.');
         } finally {
