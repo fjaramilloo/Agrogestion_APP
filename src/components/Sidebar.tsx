@@ -231,11 +231,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     cursor: 'pointer' 
                                 }}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Briefcase size={16} style={{ opacity: 0.5 }} />
-                                    <span className="section-title" style={{ fontSize: '0.75rem', opacity: 0.5, margin: 0 }}>TRABAJO DE CAMPO</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af' }}>
+                                    <Briefcase size={16} />
+                                    <span className="section-title" style={{ fontSize: '0.75rem', margin: 0 }}>TRABAJO DE CAMPO</span>
                                 </div>
-                                {showTrabajoCampo ? <ChevronUp size={14} style={{ opacity: 0.5 }} /> : <ChevronDown size={14} style={{ opacity: 0.5 }} />}
+                                {showTrabajoCampo ? <ChevronUp size={14} color="#9ca3af" /> : <ChevronDown size={14} color="#9ca3af" />}
                             </div>
                             
                             {showTrabajoCampo && (
@@ -296,11 +296,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 cursor: 'pointer' 
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Info size={16} style={{ opacity: 0.5 }} />
-                                <span className="section-title" style={{ fontSize: '0.75rem', opacity: 0.5, margin: 0 }}>INFORMACIÓN</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af' }}>
+                                <Info size={16} />
+                                <span className="section-title" style={{ fontSize: '0.75rem', margin: 0 }}>INFORMACIÓN</span>
                             </div>
-                            {showInformacion ? <ChevronUp size={14} style={{ opacity: 0.5 }} /> : <ChevronDown size={14} style={{ opacity: 0.5 }} />}
+                            {showInformacion ? <ChevronUp size={14} color="#9ca3af" /> : <ChevronDown size={14} color="#9ca3af" />}
                         </div>
 
                         {showInformacion && (

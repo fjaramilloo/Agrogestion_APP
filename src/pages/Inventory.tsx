@@ -1430,7 +1430,9 @@ export default function Inventory() {
                                                 setIsEditChapetaTaken(false);
                                             }}
                                             title="Editar número de chapeta"
+                                            aria-label="Editar número de chapeta"
                                             style={{
+                                                width: 'auto',
                                                 background: 'rgba(255, 255, 255, 0.05)',
                                                 border: '1px solid rgba(255, 255, 255, 0.1)',
                                                 borderRadius: '8px',
@@ -1458,7 +1460,9 @@ export default function Inventory() {
                                         <button
                                             onClick={handleEliminarAnimalPorError}
                                             title="Eliminar animal (por error de digitación)"
+                                            aria-label="Eliminar animal"
                                             style={{
+                                                width: 'auto',
                                                 background: 'rgba(239, 68, 68, 0.08)',
                                                 border: '1px solid rgba(239, 68, 68, 0.2)',
                                                 borderRadius: '8px',
@@ -1485,7 +1489,9 @@ export default function Inventory() {
                                     <button 
                                         onClick={() => setSelectedAnimal(null)}
                                         title="Cerrar"
+                                        aria-label="Cerrar detalle del animal"
                                         style={{ 
+                                            width: 'auto',
                                             background: 'rgba(255, 255, 255, 0.05)', 
                                             border: '1px solid rgba(255, 255, 255, 0.1)', 
                                             borderRadius: '8px',
@@ -1725,7 +1731,7 @@ export default function Inventory() {
                     <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--primary)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ color: 'white', margin: 0 }}>Crear Nuevo Animal</h2>
-                            <button onClick={() => setShowCrearModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)' }}><X /></button>
+                            <button type="button" aria-label="Cerrar" onClick={() => setShowCrearModal(false)} className="btn-icon" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)' }}><X /></button>
                         </div>
 
                         {msjErrorCrear && (

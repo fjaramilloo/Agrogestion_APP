@@ -978,8 +978,8 @@ export default function Aforos() {
             {modalCalcOpen.open && modalCalcOpen.aforo && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                     <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '24px', position: 'relative' }}>
-                        <button onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', padding: '4px', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                            <X size={24} />
+                        <button type="button" aria-label="Cerrar calculadora" onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })} style={{ position: 'absolute', top: '12px', right: '12px', width: 'auto', minWidth: '44px', minHeight: '44px', background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                            <X size={24} aria-hidden="true" />
                         </button>
                         
                         <h3 style={{ margin: '0 0 20px 0', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px', paddingRight: '40px' }}>

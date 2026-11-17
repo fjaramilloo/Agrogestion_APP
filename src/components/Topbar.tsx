@@ -59,26 +59,28 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             <div className="topbar-right">
                 {/* Solo se muestra si no hay señal o si se activó Modo Campo forzado (Silencio visual en línea) */}
                 {(!isOnline || modoCampo) && (
-                    <div
-                        className={`topbar-btn-modo-campo ${modoCampo ? 'modo-campo-active' : 'modo-offline'}`}
-                        title={modoCampo ? 'Modo Campo forzado: Clic para volver a detección automática' : 'Sin señal de internet: la app está guardando los datos en la memoria del celular de forma segura'}
-                        style={{ cursor: modoCampo ? 'pointer' : 'default' }}
-                        onClick={modoCampo ? toggleModoCampo : undefined}
-                    >
-                        {modoCampo ? (
-                            <>
-                                <span style={{ fontSize: '0.95rem' }}>🚜</span>
-                                <span>Modo Campo</span>
-                                <span className="topbar-btn-subtext">(Forzado)</span>
-                            </>
-                        ) : (
-                            <>
-                                <WifiOff size={13} />
-                                <span>Sin Señal</span>
-                                <span className="topbar-btn-subtext">(En cel)</span>
-                            </>
-                        )}
-                    </div>
+                    modoCampo ? (
+                        <button
+                            type="button"
+                            className="topbar-btn-modo-campo modo-campo-active"
+                            title="Modo Campo forzado: Clic para volver a detección automática"
+                            onClick={toggleModoCampo}
+                        >
+                            <span aria-hidden="true" style={{ fontSize: '0.95rem' }}>🚜</span>
+                            <span>Modo Campo</span>
+                            <span className="topbar-btn-subtext">(Forzado)</span>
+                        </button>
+                    ) : (
+                        <div
+                            className="topbar-btn-modo-campo modo-offline"
+                            title="Sin señal de internet: la app está guardando los datos en la memoria del celular de forma segura"
+                            style={{ cursor: 'default' }}
+                        >
+                            <WifiOff size={13} aria-hidden="true" />
+                            <span>Sin Señal</span>
+                            <span className="topbar-btn-subtext">(En cel)</span>
+                        </div>
+                    )
                 )}
 
                 {/* Badge y botón para sincronizar registros pendientes */}

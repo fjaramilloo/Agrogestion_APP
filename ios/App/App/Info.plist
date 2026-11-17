@@ -47,5 +47,7 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>AgroGestión utiliza tu ubicación GPS para mostrar en qué potrero te encuentras dentro del mapa de la finca.</string>
 </dict>
 </plist>

@@ -414,15 +414,15 @@ export default function NotificationCenter() {
         }
     };
 
-    // Cerrar al hacer clic fuera
+    // Cerrar al hacer clic/tocar fuera
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
+        const handleClickOutside = (event: PointerEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('pointerdown', handleClickOutside);
+        return () => document.removeEventListener('pointerdown', handleClickOutside);
     }, []);
 
     const getIcon = (type: string) => {
@@ -436,7 +436,14 @@ export default function NotificationCenter() {
 
     return (
         <div className="notification-center" ref={dropdownRef}>
-            <button className="notification-btn" onClick={toggleDropdown} title="Notificaciones">
+            <button
+                type="button"
+                className="notification-btn"
+                onClick={toggleDropdown}
+                title="Notificaciones"
+                aria-label="Notificaciones"
+                aria-expanded={isOpen}
+            >
                 {loading ? <Loader2 size={20} className="animate-spin" /> : <Bell size={20} />}
                 {unreadCount > 0 && <span className="notification-badge" />}
             </button>

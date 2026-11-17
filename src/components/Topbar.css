@@ -3,12 +3,12 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 64px;
+    height: calc(var(--topbar-height, 64px) + env(safe-area-inset-top, 0px));
     z-index: 200;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 24px;
+    padding: env(safe-area-inset-top, 0px) 24px 0;
     background: rgba(18, 18, 18, 0.88);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -32,6 +32,7 @@
 
 .topbar-menu-btn {
     display: flex;
+    width: auto;
     background: transparent;
     border: none;
     color: white;
@@ -77,6 +78,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    width: auto;
     padding: 6px 12px;
     border-radius: 20px;
     font-size: 0.8rem;
@@ -86,6 +88,8 @@
     user-select: none;
     white-space: nowrap;
     border: none;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .topbar-btn-modo-campo.modo-campo-active {
@@ -111,6 +115,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    width: auto;
     padding: 6px 12px;
     border-radius: 10px;
     font-size: 0.78rem;
@@ -206,8 +211,15 @@
    ======================================================== */
 @media (max-width: 768px) {
     .topbar {
-        padding: 0 10px;
-        height: 58px;
+        padding: env(safe-area-inset-top, 0px) max(10px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px));
+        height: calc(var(--topbar-height, 58px) + env(safe-area-inset-top, 0px));
+    }
+
+    .topbar-menu-btn {
+        min-width: 48px;
+        min-height: 48px;
+        padding: 0;
+        margin-left: -4px;
     }
 
     .topbar-right {
@@ -229,20 +241,23 @@
     }
 
     .topbar-btn-action {
-        padding: 6px 8px;
-        border-radius: 8px;
+        min-height: 44px;
+        min-width: 44px;
+        padding: 8px 10px;
+        border-radius: 10px;
     }
 
     .topbar-btn-modo-campo {
-        padding: 4px 8px;
-        font-size: 0.72rem;
+        min-height: 44px;
+        padding: 6px 12px;
+        font-size: 0.76rem;
         gap: 4px;
     }
 
     .topbar-toast {
         left: 10px;
         right: 10px;
-        top: 62px;
+        top: calc(var(--topbar-height, 58px) + env(safe-area-inset-top, 0px) + 6px);
         max-width: none;
         text-align: center;
     }
@@ -259,16 +274,17 @@
     }
 
     .topbar-right {
-        gap: 5px;
+        gap: 4px;
     }
 
     .topbar-avatar {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
     }
 
     .topbar-btn-modo-campo {
-        padding: 4px 6px;
-        font-size: 0.7rem;
+        min-height: 44px;
+        padding: 6px 10px;
+        font-size: 0.74rem;
     }
 }

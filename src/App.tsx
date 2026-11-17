@@ -52,7 +52,7 @@ const PantallaCargando = ({ fullScreen = false }: { fullScreen?: boolean }) => {
       justifyContent: 'center',
       alignItems: 'center',
       gap: '16px',
-      height: fullScreen ? '100vh' : undefined,
+      height: fullScreen ? '100dvh' : undefined,
       padding: fullScreen ? '24px' : '80px',
       color: 'var(--primary-light)',
       textAlign: 'center'
@@ -118,9 +118,9 @@ const ProtectedRoute = ({ children, allowedRoles, requireSuperAdmin }: { childre
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <Topbar onToggleSidebar={toggleSidebar} />
-      <div style={{ display: 'flex', flex: 1, paddingTop: '64px' }}>
+      <div style={{ display: 'flex', flex: 1, paddingTop: 'calc(var(--topbar-height, 64px) + env(safe-area-inset-top, 0px))' }}>
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main className={`main-content-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
           {/* Suspense aquí para que las páginas lazy muestren un loader mientras cargan */}

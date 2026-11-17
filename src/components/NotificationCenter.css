@@ -52,12 +52,39 @@
 }
 
 /* Ajustes específicos para móviles */
+@media (max-width: 768px) {
+    .notification-center {
+        margin-right: 4px;
+    }
+
+    .notification-btn {
+        width: 48px;
+        height: 48px;
+    }
+
+    .notification-badge {
+        top: 10px;
+        right: 10px;
+    }
+
+    .notification-dropdown {
+        top: calc(var(--topbar-height, 58px) + env(safe-area-inset-top, 0px) + 8px);
+        max-height: calc(100dvh - 100px);
+    }
+
+    .notification-footer-btn {
+        min-height: 44px;
+        padding: 8px 12px;
+        width: auto;
+    }
+}
+
 @media (max-width: 480px) {
     .notification-dropdown {
         position: fixed; /* En móviles muy pequeños, mejor fijarlo relativo a la pantalla */
-        top: 70px;
-        right: 16px;
-        left: 16px;
+        top: calc(var(--topbar-height, 58px) + env(safe-area-inset-top, 0px) + 8px);
+        right: max(12px, env(safe-area-inset-right, 0px));
+        left: max(12px, env(safe-area-inset-left, 0px));
         width: auto;
         max-width: none;
     }
@@ -147,12 +174,16 @@
 }
 
 .notification-footer-btn {
+    width: auto;
     background: transparent;
     border: none;
     color: var(--primary-light);
     font-size: 0.8rem;
     cursor: pointer;
     font-weight: 500;
+    padding: 6px 10px;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .notification-footer-btn:hover {

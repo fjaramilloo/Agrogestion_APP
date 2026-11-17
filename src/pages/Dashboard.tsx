@@ -1075,9 +1075,11 @@ export default function Dashboard() {
                                     <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Proyección de Animales por Rango de Peso (Estimado Hoy)</h3>
                                 </div>
                                 <button 
+                                    type="button"
                                     onClick={() => navigate('/configuracion')}
                                     title="Personalizar rangos de peso según el modelo de esta finca"
                                     style={{
+                                        width: 'auto',
                                         background: 'rgba(255,255,255,0.04)',
                                         border: '1px solid rgba(255,255,255,0.1)',
                                         borderRadius: '6px',
@@ -1608,7 +1610,7 @@ export default function Dashboard() {
                             }} onClick={e => e.stopPropagation()}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                                     <h2 style={{ margin: 0, color: 'white' }}>Registro de Muertes y Descartes</h2>
-                                    <button onClick={() => setMuertesModalVisible(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 8px' }}>&times;</button>
+                                    <button type="button" aria-label="Cerrar modal de muertes" onClick={() => setMuertesModalVisible(false)} className="btn-icon" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 8px' }}>&times;</button>
                                 </div>
                                 <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
                                     {muertesData.length === 0 ? (

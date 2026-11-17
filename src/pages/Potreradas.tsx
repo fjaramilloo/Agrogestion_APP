@@ -1697,7 +1697,7 @@ export default function Potreradas() {
                     <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ margin: 0 }}>Editar Nombre</h2>
-                            <button onClick={() => setEditingPotrerada(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                            <button type="button" aria-label="Cerrar" onClick={() => setEditingPotrerada(null)} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                                 <X size={24} />
                             </button>
                         </div>
@@ -1751,7 +1751,7 @@ export default function Potreradas() {
                                 <h2 style={{ margin: 0, color: 'var(--primary-light)', fontSize: '1.4rem' }}>
                                     Gestionar: {managingPotrerada.nombre}
                                 </h2>
-                                <button onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                                <button type="button" aria-label="Cerrar" onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
                                     <X size={20} />
                                 </button>
                             </div>
@@ -2410,8 +2410,10 @@ export default function Potreradas() {
                                 />
                                 {searchMoveAnimals && (
                                     <button
+                                        type="button"
+                                        aria-label="Limpiar búsqueda"
                                         onClick={() => setSearchMoveAnimals('')}
-                                        style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                                        style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
                                     >
                                         <X size={13} />
                                     </button>
@@ -2647,15 +2649,17 @@ export default function Potreradas() {
                         {/* Footer */}
                         <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                             <button
+                                type="button"
                                 onClick={() => { setShowWeighingForm(false); setWeighingData({}); }}
-                                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', padding: '9px 20px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                style={{ width: 'auto', background: 'rgba(255,255,255,0.05)', border: 'none', padding: '9px 20px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}
                             >
                                 Cancelar
                             </button>
                             <button
+                                type="button"
                                 onClick={handleSaveWeighings}
                                 disabled={savingWeighings}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 24px' }}
+                                style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 24px' }}
                             >
                                 {savingWeighings ? 'Guardando...' : <><Save size={16} /> Guardar Pesajes</>}
                             </button>
@@ -2671,7 +2675,7 @@ export default function Potreradas() {
                             <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <Plus size={24} color="var(--primary)" /> Nueva Potrerada / Lote
                             </h2>
-                            <button onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                            <button type="button" aria-label="Cerrar" onClick={() => setShowAddModal(false)} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                                 <X size={24} />
                             </button>
                         </div>
@@ -2736,7 +2740,7 @@ export default function Potreradas() {
                             <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <Edit2 size={24} color="var(--primary)" /> Editar Potrerada
                             </h2>
-                            <button onClick={() => setEditingPotrerada(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                            <button type="button" aria-label="Cerrar" onClick={() => setEditingPotrerada(null)} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                                 <X size={24} />
                             </button>
                         </div>

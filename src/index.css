@@ -1,16 +1,25 @@
 :root {
   --primary: #2e7d32;
+  --primary-rgb: 46, 125, 50;
   --primary-light: #60ad5e;
   --primary-dark: #005005;
   --secondary: #ffb300;
   --bg-dark: #121212;
   --bg-dark-paper: #1e1e1e;
+  --surface: #1e1e1e;
+  --bg-card: #1e1e1e;
+  --card-bg: #1e1e1e;
+  --text: #ffffff;
+  --text-main: #ffffff;
   --text-light: #ffffff;
   --text-muted: #aaaaaa;
 
   --error: #f44336;
+  --danger: #f44336;
   --warning: #ff9800;
   --success: #4caf50;
+
+  --topbar-height: 64px;
 
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -26,6 +35,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  scroll-padding-top: calc(var(--topbar-height) + env(safe-area-inset-top, 0px) + 12px);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -35,6 +48,7 @@ body {
   display: flex;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--bg-dark);
   color: var(--text-light);
 }
@@ -57,7 +71,8 @@ body {
 
 /* Form Styles */
 input:not([type="radio"]):not([type="checkbox"]),
-select {
+select,
+textarea {
   width: 100%;
   padding: 14px 16px;
   border-radius: 8px;
@@ -66,7 +81,19 @@ select {
   color: white;
   margin-bottom: 20px;
   font-size: 16px;
+  font-family: inherit;
   transition: all 0.3s ease;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 input[type="radio"],
@@ -79,11 +106,21 @@ input[type="checkbox"] {
 }
 
 input:not([type="radio"]):not([type="checkbox"]):focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: var(--primary);
   background: rgba(0, 0, 0, 0.4);
   box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+}
+
+input:not([type="radio"]):not([type="checkbox"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
 }
 
 label {
@@ -116,7 +153,7 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background-color: var(--primary-light);
+  background-color: #388e3c;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(46, 125, 50, 0.4);
 }
@@ -213,6 +250,37 @@ button:disabled {
 
   .title {
     font-size: 1.6rem;
+  }
+}
+
+/* Ajustes exclusivos para teléfonos móviles (no afectan PC ni Tablet) */
+@media (max-width: 768px) {
+  :root {
+    --topbar-height: 58px;
+  }
+
+  .main-content-layout {
+    padding: 16px max(12px, env(safe-area-inset-right, 0px)) max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px)) max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .page-container {
+    padding: 12px;
+  }
+
+  /* Evita auto-zoom en iOS/Android cuando un input/select inline usa texto < 16px */
+  input:not([type="radio"]):not([type="checkbox"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+    min-height: 48px;
+  }
+
+  /* Garantiza objetivos táctiles cómodos (>= 48px) en móvil */
+  .btn-icon,
+  .topbar-menu-btn,
+  .notification-btn {
+    min-width: 48px;
+    min-height: 48px;
   }
 }
 
@@ -430,12 +498,12 @@ table {
 
 @media (max-width: 768px) {
   .modal-overlay {
-    padding: 10px;
+    padding: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
   }
   
   .modal-content {
-    height: 95vh;
-    max-height: 95vh;
+    height: 92dvh;
+    max-height: 92dvh;
   }
 }
 
