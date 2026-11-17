@@ -8,46 +8,84 @@ import VersionNotifier from './components/VersionNotifier';
 import SyncSummaryModal from './components/SyncSummaryModal';
 import { lazyWithRetry, prefetchWhenIdle } from './utils/lazyWithRetry';
 
-// RENDIMIENTO: todas las pantallas se cargan bajo demanda. Antes se descargaba y procesaba
-// TODO el código de la app (~2.5 MB) antes de mostrar algo; ahora el arranque solo carga el
-// "esqueleto" (sesión, barra superior y menú) y la pantalla que se va a ver.
-const loadDashboard = () => import('./pages/Dashboard');
-const loadInventory = () => import('./pages/Inventory');
-const loadWeighing = () => import('./pages/Weighing');
-const loadPotreradas = () => import('./pages/Potreradas');
-const loadMovements = () => import('./pages/Movements');
-const loadRotations = () => import('./pages/Rotations');
-const loadAforos = () => import('./pages/Aforos');
+// PANTALLAS OPERATIVAS DE CAMPO (Cargadas de fábrica en memoria):
+// Garantiza que en potreros sin señal NUNCA falte un archivo ni aparezca "Cargando..." al navegar.
+import Login from './pages/Login';
+import UpdatePassword from './pages/UpdatePassword';
+import Dashboard from './pages/Dashboard';
+import Inventory from './pages/Inventory';
+import Weighing from './pages/Weighing';
+import Potreradas from './pages/Potreradas';
+import Purchase from './pages/Purchase';
+import Sales from './pages/Sales';
+import Movements from './pages/Movements';
+import Rotations from './pages/Rotations';
+import Mercado from './pages/Mercado';
+import MercadoGanado from './pages/MercadoGanado';
+import Aforos from './pages/Aforos';
+import Rainfall from './pages/Rainfall';
+import HistorialVentas from './pages/HistorialVentas';
+import HistorialCompras from './pages/HistorialCompras';
+import Settings from './pages/Settings';
 
-const Login = lazyWithRetry(() => import('./pages/Login'));
+// Módulos secundarios o pesados que se precargan en segundo plano
+const loadFarmMap = () => import('./pages/FarmMap').then(m => ({ default: m.FarmMapPage }));
+const loadSuscripcion = () => import('./pages/Suscripcion');
 const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'));
-const UpdatePassword = lazyWithRetry(() => import('./pages/UpdatePassword'));
-const Dashboard = lazyWithRetry(loadDashboard);
-const Inventory = lazyWithRetry(loadInventory);
-const Weighing = lazyWithRetry(loadWeighing);
-const Potreradas = lazyWithRetry(loadPotreradas);
-const Purchase = lazyWithRetry(() => import('./pages/Purchase'));
-const Sales = lazyWithRetry(() => import('./pages/Sales'));
-const Movements = lazyWithRetry(loadMovements);
-const Rotations = lazyWithRetry(loadRotations);
-const Mercado = lazyWithRetry(() => import('./pages/Mercado'));
-const MercadoGanado = lazyWithRetry(() => import('./pages/MercadoGanado'));
-const Aforos = lazyWithRetry(loadAforos);
-const Rainfall = lazyWithRetry(() => import('./pages/Rainfall'));
-const Suscripcion = lazyWithRetry(() => import('./pages/Suscripcion'));
-const FarmMapPage = lazyWithRetry(() => import('./pages/FarmMap').then(m => ({ default: m.FarmMapPage })));
-const HistorialVentas = lazyWithRetry(() => import('./pages/HistorialVentas'));
-const HistorialCompras = lazyWithRetry(() => import('./pages/HistorialCompras'));
-const Settings = lazyWithRetry(() => import('./pages/Settings'));
+const Suscripcion = lazyWithRetry(loadSuscripcion);
+const FarmMapPage = lazyWithRetry(loadFarmMap);
 const SuperAdmin = lazyWithRetry(() => import('./pages/SuperAdmin'));
-// AgroBot trae librerías de markdown pesadas: se carga después de mostrar la pantalla
 const AgroBot = lazyWithRetry(() => import('./components/AgroBot'));
 
-const PantallaCargando = ({ fullScreen = false }: { fullScreen?: boolean }) => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: fullScreen ? '100vh' : undefined, padding: fullScreen ? undefined : '80px', color: 'var(--primary-light)' }}>
-    Cargando...
-  </div>
-);
+const PantallaCargando = ({ fullScreen = false }: { fullScreen?: boolean }) => {
+  const [mostrarRescate, setMostrarRescate] = React.useState(false);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setMostrarRescate(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: '16px',
+      height: fullScreen ? '100vh' : undefined,
+      padding: fullScreen ? '24px' : '80px',
+      color: 'var(--primary-light)',
+      textAlign: 'center'
+    }}>
+      <div style={{ fontSize: '1.05rem', fontWeight: 600 }}>Cargando AgroGestión...</div>
+      {mostrarRescate && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', maxWidth: '300px' }}>
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            Detectamos señal débil o nula en el potrero.
+          </span>
+          <button
+            onClick={() => {
+              try { localStorage.setItem('agrogestion_modo_campo', 'true'); } catch {}
+              window.location.reload();
+            }}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: '1px solid var(--primary)',
+              backgroundColor: 'rgba(46, 125, 50, 0.25)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              cursor: 'pointer'
+            }}
+          >
+            Entrar en Modo Campo (Sin Señal)
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ProtectedRoute = ({ children, allowedRoles, requireSuperAdmin }: { children: React.ReactNode; allowedRoles?: string[]; requireSuperAdmin?: boolean }) => {
   const { user, role, isSuperAdmin, loading } = useAuth();
@@ -114,18 +152,13 @@ const AppRoutes = () => {
   const { user } = useAuth();
   const userId = user?.id;
 
-  // Con sesión iniciada, descargar en segundo plano las pantallas de campo más usadas
-  // para que abrirlas sea instantáneo (y queden disponibles sin señal).
+  // Con sesión iniciada, precargar en segundo plano el mapa satelital y suscripción
+  // (las demás pantallas operativas ya están cargadas de fábrica en memoria).
   React.useEffect(() => {
     if (!userId) return;
     prefetchWhenIdle([
-      loadDashboard,
-      loadInventory,
-      loadWeighing,
-      loadPotreradas,
-      loadMovements,
-      loadRotations,
-      loadAforos
+      loadFarmMap,
+      loadSuscripcion
     ]);
   }, [userId]);
 

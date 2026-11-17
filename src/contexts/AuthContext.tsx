@@ -1,6 +1,13 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { limpiarCacheLecturas } from '../lib/httpOffline';
+import {
+    limpiarCacheLecturas,
+    leerSesionLocalSupabase,
+    guardarBackupSesionLocal,
+    limpiarBackupSesionLocal,
+    isModoCampoActivo,
+    isConexionDegradada
+} from '../lib/httpOffline';
 import type { Session, User } from '@supabase/supabase-js';
 import type { ModoGanancia } from '../utils/ganancia';
 
@@ -70,6 +77,7 @@ const defaultLicenciaInfo: LicenciaInfo = {
 
 // Claves de caché local para arrancar al instante (se validan contra el id del usuario)
 const CACHE_USER_ID = 'agrogestion_cached_user_id';
+const CACHE_USER_OBJ = 'agrogestion_cached_user_obj';
 const CACHE_LICENCIA = 'agrogestion_cached_licencia';
 const CACHE_EXTRA = 'agrogestion_cached_extra';
 
@@ -90,6 +98,49 @@ const guardarJSON = (key: string, value: unknown) => {
 const siCambio = <T,>(nuevo: T) => (prev: T): T =>
     JSON.stringify(prev) === JSON.stringify(nuevo) ? prev : nuevo;
 
+/**
+ * Hidratación síncrona en 0.0 milisegundos desde localStorage.
+ * Si el celular ya tenía sesión y finca guardadas, la app entra DIRECTO sin pasar por "Cargando...".
+ */
+const leerEstadoInicialSincrono = () => {
+    try {
+        const sesionLocal = leerSesionLocalSupabase();
+        const userLocal: User | null = sesionLocal?.user || leerJSON<User>(CACHE_USER_OBJ);
+        if (!userLocal?.id) return null;
+
+        const cachedUid = localStorage.getItem(CACHE_USER_ID);
+        if (cachedUid && cachedUid !== userLocal.id) return null;
+
+        const fincas = leerJSON<UserFinca[]>('agrogestion_cached_user_fincas');
+        const savedFincaId = localStorage.getItem('lastFincaId') || localStorage.getItem('agrogestion_cached_finca_id');
+        if (!fincas || fincas.length === 0) return null;
+        const finca = fincas.find(f => f.id_finca === savedFincaId) || fincas[0];
+
+        const perfil = leerJSON<UserProfile>('agrogestion_cached_profile');
+        const licRaw = leerJSON<LicenciaInfo>(CACHE_LICENCIA);
+        let lic = defaultLicenciaInfo;
+        if (licRaw) {
+            const isVencida = isLicenciaExpirada(licRaw.licencia, licRaw.fechaVencimientoLicencia);
+            lic = { ...licRaw, isVencida, isBloqueada: isVencida || licRaw.isSobrecupo };
+        }
+        const extra = leerJSON<{ modoGanancia?: ModoGanancia; isSuperAdmin?: boolean }>(CACHE_EXTRA);
+
+        return {
+            user: userLocal,
+            session: (sesionLocal as Session) || null,
+            role: finca.rol,
+            fincaId: finca.id_finca,
+            userFincas: fincas,
+            profile: perfil || null,
+            isSuperAdmin: Boolean(extra?.isSuperAdmin),
+            licenciaInfo: lic,
+            modoGanancia: (extra?.modoGanancia || 'GMP') as ModoGanancia
+        };
+    } catch {
+        return null;
+    }
+};
+
 const AuthContext = createContext<AuthState>({
     user: null,
     session: null,
@@ -109,35 +160,70 @@ const AuthContext = createContext<AuthState>({
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [session, setSession] = useState<Session | null>(null);
-    const [role, setRole] = useState<UserRole>(null);
-    const [fincaId, setFincaId] = useState<string | null>(null);
-    const [userFincas, setUserFincas] = useState<UserFinca[]>([]);
-    const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-    const [licenciaInfo, setLicenciaInfo] = useState<LicenciaInfo>(defaultLicenciaInfo);
-    const [modoGanancia, setModoGanancia] = useState<ModoGanancia>('GMP');
-    const [loading, setLoading] = useState(true);
+    const inicial = useMemo(() => leerEstadoInicialSincrono(), []);
+
+    const [user, setUser] = useState<User | null>(inicial?.user ?? null);
+    const [session, setSession] = useState<Session | null>(inicial?.session ?? null);
+    const [role, setRole] = useState<UserRole>(inicial?.role ?? null);
+    const [fincaId, setFincaId] = useState<string | null>(inicial?.fincaId ?? null);
+    const [userFincas, setUserFincas] = useState<UserFinca[]>(inicial?.userFincas ?? []);
+    const [profile, setProfile] = useState<UserProfile | null>(inicial?.profile ?? null);
+    const [isSuperAdmin, setIsSuperAdmin] = useState(inicial?.isSuperAdmin ?? false);
+    const [licenciaInfo, setLicenciaInfo] = useState<LicenciaInfo>(inicial?.licenciaInfo ?? defaultLicenciaInfo);
+    const [modoGanancia, setModoGanancia] = useState<ModoGanancia>(inicial?.modoGanancia ?? 'GMP');
+    // Si ya había datos en el teléfono, loading arranca en FALSE desde el milisegundo cero (0 pantalla negra)
+    const [loading, setLoading] = useState<boolean>(!inicial);
     // Usuario cuyos datos ya se cargaron: evita descargarlos otra vez en cada renovación de token
-    const usuarioCargadoRef = useRef<string | null>(null);
+    const usuarioCargadoRef = useRef<string | null>(inicial?.user?.id ?? null);
+    const cerrandoSesionManualRef = useRef<boolean>(false);
 
     useEffect(() => {
         let activo = true;
 
-        const procesarSesion = (session: Session | null, event?: string) => {
+        // Seguro anti-bloqueo (Watchdog de 1.5s): jamás permitir que la pantalla se quede en "Cargando..."
+        const watchdog = setTimeout(() => {
+            if (activo) setLoading(false);
+        }, 1500);
+
+        // Si arrancamos desde caché instantánea, refrescar datos en segundo plano sin bloquear la UI
+        if (inicial?.user?.id) {
+            void fetchUserData(inicial.user.id);
+        }
+
+        const procesarSesion = (newSession: Session | null, event?: string) => {
             if (!activo) return;
-            setSession(session);
-            setUser(prev => (event === 'TOKEN_REFRESHED' && prev && prev.id === session?.user?.id ? prev : session?.user ?? null));
-            if (session?.user) {
-                const uid = session.user.id;
-                if (usuarioCargadoRef.current === uid) return; // Ya cargado o refresco de token, no duplicar
+            if (newSession?.user) {
+                cerrandoSesionManualRef.current = false;
+                guardarBackupSesionLocal(newSession);
+                guardarJSON(CACHE_USER_OBJ, newSession.user);
+                setSession(newSession);
+                setUser(prev => (prev && prev.id === newSession.user.id ? prev : newSession.user));
+                const uid = newSession.user.id;
+                if (usuarioCargadoRef.current === uid) {
+                    setLoading(false);
+                    return;
+                }
                 usuarioCargadoRef.current = uid;
-                // Arranque instantáneo con lo guardado de la última vez; se refresca en segundo plano
                 if (restaurarDesdeCache(uid)) setLoading(false);
-                fetchUserData(uid);
+                void fetchUserData(uid);
             } else {
+                // PROTECCIÓN CRÍTICA DE POTRERO:
+                // Si no hay señal (o el fallo de red impidió refrescar el token) y el usuario NO cerró sesión manualmente,
+                // NUNCA expulsar al usuario ni borrar sus datos en medio del campo.
+                const respaldo = leerEstadoInicialSincrono();
+                const sinSenal = (typeof navigator !== 'undefined' && !navigator.onLine) || isModoCampoActivo() || isConexionDegradada();
+                if (!cerrandoSesionManualRef.current && respaldo && (sinSenal || event !== 'SIGNED_OUT')) {
+                    setUser(prev => prev ?? respaldo.user);
+                    setFincaId(prev => prev ?? respaldo.fincaId);
+                    setRole(prev => prev ?? respaldo.role);
+                    setUserFincas(prev => (prev.length > 0 ? prev : respaldo.userFincas));
+                    setLoading(false);
+                    return;
+                }
+
                 usuarioCargadoRef.current = null;
+                setSession(null);
+                setUser(null);
                 setRole(null);
                 setFincaId(null);
                 setUserFincas([]);
@@ -149,11 +235,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         };
 
-        // Doble garantía: getSession() resuelve inmediatamente en cualquier navegador/webview
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (!usuarioCargadoRef.current && session?.user) {
-                procesarSesion(session);
-            } else if (!session) {
+        // Doble garantía: getSession() resuelve en segundo plano
+        supabase.auth.getSession().then(({ data: { session: s } }) => {
+            if (!usuarioCargadoRef.current && s?.user) {
+                procesarSesion(s);
+            } else if (!s) {
+                procesarSesion(null, 'INITIAL_SESSION');
+            } else {
                 setLoading(false);
             }
         }).catch(() => {
@@ -161,16 +249,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event, session) => {
+            (event, s) => {
                 setTimeout(() => {
-                    procesarSesion(session, event);
+                    procesarSesion(s, event);
                 }, 0);
             }
         );
 
+        // Si al volver del potrero una petición detecta JWT expirado, renovarlo en silencio
+        const handleJwtExpired = () => {
+            if (!isModoCampoActivo() && navigator.onLine) {
+                supabase.auth.refreshSession().catch(() => {});
+            }
+        };
+        window.addEventListener('offline-jwt-expired', handleJwtExpired);
+
         return () => {
             activo = false;
+            clearTimeout(watchdog);
             subscription.unsubscribe();
+            window.removeEventListener('offline-jwt-expired', handleJwtExpired);
         };
     }, []);
 
@@ -388,11 +486,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const signOut = async () => {
-        try { await supabase.auth.signOut(); } catch {}
-        await limpiarCacheLecturas();
+        cerrandoSesionManualRef.current = true;
+        limpiarBackupSesionLocal();
         localStorage.removeItem('lastFincaId');
         localStorage.removeItem(CACHE_USER_ID);
+        localStorage.removeItem(CACHE_USER_OBJ);
         try { localStorage.removeItem('agrogestion_modo_campo'); } catch {}
+        try { await supabase.auth.signOut(); } catch {}
+        await limpiarCacheLecturas();
     };
 
     return (

@@ -67,18 +67,36 @@ export async function sincronizarColaHttp(): Promise<{
   const pendientes = await localDB.httpWriteQueue.orderBy('ts').toArray();
   if (pendientes.length === 0) return { procesados: 0, errores: 0, lineas: [], mensajesError };
 
-  const token = await obtenerToken();
+  let token = await obtenerToken();
   const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
   if (!token) return { procesados: 0, errores: 0, lineas: [], mensajesError };
+  let yaRefrescoToken = false;
 
   for (const op of pendientes) {
     try {
-      const res = await fetch(op.url, {
+      let res = await fetch(op.url, {
         method: op.method,
         headers: { ...op.headers, apikey, Authorization: `Bearer ${token}` },
         body: op.body,
         signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(30000) : undefined
       });
+
+      // Si el JWT expiró mientras estábamos en potrero, renovarlo con el servidor real y reintentar
+      if (res.status === 401 && !yaRefrescoToken) {
+        yaRefrescoToken = true;
+        try {
+          const { data } = await supabase.auth.refreshSession();
+          if (data.session?.access_token) {
+            token = data.session.access_token;
+            res = await fetch(op.url, {
+              method: op.method,
+              headers: { ...op.headers, apikey, Authorization: `Bearer ${token}` },
+              body: op.body,
+              signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(30000) : undefined
+            });
+          }
+        } catch { /* noop */ }
+      }
 
       // 409 en un insert = ya se había guardado antes (reintento): se da por subido
       if (res.ok || (op.method === 'POST' && res.status === 409)) {

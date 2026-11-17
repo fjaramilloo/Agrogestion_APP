@@ -40,6 +40,10 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        navigateFallback: '/index.html',
         // Excluir PDFs del navegateFallback para que no sean interceptados por el SW
         // cuando el usuario tiene la app abierta (evita que redirija al login)
         navigateFallbackDenylist: [/\.pdf$/i, /\/manual-de-usuario\.pdf/, /\/guia-inicio-rapido\.pdf/],
@@ -83,9 +87,15 @@ export default defineConfig({
           if (id.includes('node_modules/date-fns/')) {
             return 'vendor-date';
           }
+          if (id.includes('node_modules/jspdf') || id.includes('node_modules/html2canvas') || id.includes('node_modules/xlsx')) {
+            return 'vendor-export';
+          }
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
+            return 'vendor-charts';
+          }
         }
       }
     },
-    chunkSizeWarningLimit: 650
+    chunkSizeWarningLimit: 750
   }
 })

@@ -26,8 +26,52 @@ const TIMEOUT_LECTURA_MS = 2500; // Reducido de 15000 a 2500ms para no bloquear 
 const TIMEOUT_ESCRITURA_MS = 3000; // Reducido de 20000 a 3000ms para asegurar escrituras en cola rápido
 const TIMEOUT_FUNCTIONS_MS = 60_000; // Edge Functions (Gemini AI AgroBot, invitaciones por correo, tareas de servidor)
 const TIMEOUT_STORAGE_MS = 60_000; // Subida y descarga de archivos e imágenes
-const TIMEOUT_AUTH_MS = 15_000; // Autenticación y gestión de sesiones
+const TIMEOUT_AUTH_MS = 15_000; // Login manual con correo/contraseña
+const TIMEOUT_AUTH_REFRESH_MS = 2200; // Renovación automática de token: máximo 2.2s para no congelar el arranque en potrero
 const FAST_CACHE_RACE_MS = 800; // Si la red no responde en 800ms y tenemos caché, responde de inmediato con caché
+const SESSION_BACKUP_KEY = 'agrogestion_cached_session_backup';
+
+/**
+ * Lee sincrónicamente la sesión de Supabase guardada en localStorage (o su copia de respaldo).
+ * Permite arrancar en 0ms sin esperar a la red y mantener viva la sesión en el potrero cuando vence la hora del JWT.
+ */
+export function leerSesionLocalSupabase(): any | null {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.user && parsed.access_token) {
+          return parsed;
+        }
+      }
+    }
+    const backupRaw = localStorage.getItem(SESSION_BACKUP_KEY);
+    if (backupRaw) {
+      const parsed = JSON.parse(backupRaw);
+      if (parsed && parsed.user && parsed.access_token) {
+        return parsed;
+      }
+    }
+  } catch { /* noop */ }
+  return null;
+}
+
+export function guardarBackupSesionLocal(sessionObj: any) {
+  try {
+    if (sessionObj && sessionObj.user && sessionObj.access_token) {
+      localStorage.setItem(SESSION_BACKUP_KEY, JSON.stringify(sessionObj));
+    }
+  } catch { /* noop */ }
+}
+
+export function limpiarBackupSesionLocal() {
+  try {
+    localStorage.removeItem(SESSION_BACKUP_KEY);
+  } catch { /* noop */ }
+}
 
 let isRedDegradada = false;
 
@@ -636,15 +680,100 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
   const modoCampo = isModoCampoActivo();
   const sinSenalEfectiva = modoCampo || (typeof navigator !== 'undefined' && !navigator.onLine) || isRedDegradada;
 
-  // Auth / Storage / Functions: no se pueden usar sin red
+  // Auth / Storage / Functions: manejo blindado para campo
   if (!info) {
-    // Las peticiones de autenticación (login, registro, recuperación de contraseña)
-    // NUNCA se bloquean por Modo Campo; si el usuario se autentica, debe conectar normalmente.
     if (url.includes('/auth/v1/')) {
-      if (url.includes('/auth/v1/token') || url.includes('/auth/v1/signup') || url.includes('/auth/v1/recover')) {
+      // 1. Renovación automática de token (grant_type=refresh_token):
+      // NUNCA debe apagar el Modo Campo ni bloquear el arranque por 15s cuando el celular no tiene señal.
+      if (url.includes('/auth/v1/token') && url.includes('grant_type=refresh_token')) {
+        const responderRefreshLocal = (): Response | null => {
+          const sesionLocal = leerSesionLocalSupabase();
+          if (!sesionLocal) return null;
+          const extendida = {
+            ...sesionLocal,
+            expires_in: 3600,
+            expires_at: Math.floor(Date.now() / 1000) + 3600
+          };
+          return new Response(JSON.stringify(extendida), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json; charset=utf-8', 'x-offline-auth': 'refresh-local' }
+          });
+        };
+
+        if (sinSenalEfectiva) {
+          const localResp = responderRefreshLocal();
+          if (localResp) return localResp;
+        }
+
+        try {
+          const res = await conTimeout(url, init, TIMEOUT_AUTH_REFRESH_MS);
+          if (res.ok) {
+            setConexionDegradada(false);
+            res.clone().json().then(d => guardarBackupSesionLocal(d)).catch(() => {});
+            return res;
+          }
+          // Si falla el servidor o hay portal cautivo/error en campo, conservar sesión local
+          const localResp = responderRefreshLocal();
+          if (localResp) return localResp;
+          return res;
+        } catch (e) {
+          if (esErrorDeRed(e)) setConexionDegradada(true);
+          const localResp = responderRefreshLocal();
+          if (localResp) return localResp;
+          throw e;
+        }
+      }
+
+      // 2. Consulta de usuario actual (/auth/v1/user): responder desde sesión local si no hay señal
+      if (url.includes('/auth/v1/user') && method === 'GET') {
+        const responderUserLocal = (): Response | null => {
+          const sesionLocal = leerSesionLocalSupabase();
+          if (!sesionLocal?.user) return null;
+          return new Response(JSON.stringify(sesionLocal.user), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json; charset=utf-8', 'x-offline-auth': 'user-local' }
+          });
+        };
+
+        if (sinSenalEfectiva) {
+          const localResp = responderUserLocal();
+          if (localResp) return localResp;
+        }
+
+        try {
+          const res = await conTimeout(url, init, TIMEOUT_AUTH_REFRESH_MS);
+          if (res.ok) return res;
+          const localResp = responderUserLocal();
+          if (localResp) return localResp;
+          return res;
+        } catch (e) {
+          if (esErrorDeRed(e)) setConexionDegradada(true);
+          const localResp = responderUserLocal();
+          if (localResp) return localResp;
+          throw e;
+        }
+      }
+
+      // 3. Cierre de sesión (/auth/v1/logout): no bloquear si está sin señal
+      if (url.includes('/auth/v1/logout')) {
+        limpiarBackupSesionLocal();
+        if (sinSenalEfectiva) return new Response(null, { status: 204 });
+        try {
+          return await conTimeout(url, init, TIMEOUT_AUTH_REFRESH_MS);
+        } catch {
+          return new Response(null, { status: 204 });
+        }
+      }
+
+      // 4. Login explícito con correo/contraseña, registro o recuperación de clave:
+      if (url.includes('grant_type=password') || url.includes('/auth/v1/signup') || url.includes('/auth/v1/recover') || url.includes('/auth/v1/otp')) {
         try { localStorage.removeItem('agrogestion_modo_campo'); } catch {}
       }
-      return conTimeout(url, init, TIMEOUT_AUTH_MS);
+      const resAuth = await conTimeout(url, init, TIMEOUT_AUTH_MS);
+      if (resAuth.ok && url.includes('/auth/v1/token')) {
+        resAuth.clone().json().then(d => guardarBackupSesionLocal(d)).catch(() => {});
+      }
+      return resAuth;
     }
 
     if (modoCampo) throw new TypeError('Failed to fetch (Modo Campo activo)');
@@ -748,6 +877,8 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
           }
           if (res.status >= 500) {
             setConexionDegradada(true);
+          } else if (res.status === 401 && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('offline-jwt-expired'));
           }
           return null;
         })
@@ -781,8 +912,11 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
         void guardarCache(key, url, method, bodyStr, headers, res.clone(), info.tabla);
         return res;
       }
-      if (res.status >= 500) {
-        setConexionDegradada(true);
+      if (res.status >= 500 || res.status === 401) {
+        if (res.status >= 500) setConexionDegradada(true);
+        if (res.status === 401 && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('offline-jwt-expired'));
+        }
         const r = await deCache();
         if (r) return r;
         const fb = respuestaSeguraFallback();
@@ -844,7 +978,17 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
 
   try {
     const res = await conTimeout(url, { ...init, body: cuerpoFinal ?? init.body }, TIMEOUT_ESCRITURA_MS);
-    if (res.ok) setConexionDegradada(false);
+    if (res.ok) {
+      setConexionDegradada(false);
+      return res;
+    }
+    if (res.status === 401 || res.status >= 500) {
+      if (res.status >= 500) setConexionDegradada(true);
+      if (res.status === 401 && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('offline-jwt-expired'));
+      }
+      return encolarEscritura(method, url, info.tabla, info.u, headers, cuerpoFinal);
+    }
     return res;
   } catch (e) {
     if (esErrorDeRed(e)) {
