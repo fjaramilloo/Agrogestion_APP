@@ -13,6 +13,7 @@ import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo,
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import './Inventory.css';
 
 interface Pesaje {
     id?: string;
@@ -69,6 +70,14 @@ export default function Inventory() {
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [umbralAltoGmp, setUmbralAltoGmp] = useState(20);
     const [umbralMedioGmp, setUmbralMedioGmp] = useState(10);
+    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 768px)');
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
 
     // Efecto para capturar filtros desde notificaciones
     useEffect(() => {
@@ -835,14 +844,16 @@ export default function Inventory() {
 
 
     return (
-        <div className="page-container">
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '16px' }}>
-                <h1 className="title" style={{ margin: 0 }}>Inventario</h1>
+        <div className="page-container inventory-page">
+            <div className="inventory-header">
+                <h1 className="title">Inventario</h1>
 
                 {role !== 'observador' && (
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div className="inventory-header-actions">
                         {(role === 'administrador' || role === 'vaquero') && (
                             <button
+                                type="button"
+                                className="inventory-header-btn"
                                 onClick={() => {
                                     if (isBloqueado || (licenciaInfo && licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales)) {
                                         setShowUpsellModal(true);
@@ -850,16 +861,17 @@ export default function Inventory() {
                                         setShowCrearModal(true);
                                     }
                                 }}
-                                style={{ width: 'auto', backgroundColor: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                style={{ backgroundColor: 'var(--primary)' }}
                             >
-                                <Plus size={18} /> Crear Animal
+                                <Plus size={18} aria-hidden="true" /> Crear Animal
                             </button>
                         )}
                         <button
+                            type="button"
+                            className="inventory-header-btn inventory-header-btn--danger"
                             onClick={() => setShowMuerteModal(true)}
-                            style={{ width: 'auto', backgroundColor: 'var(--error)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
                         >
-                            <Skull size={18} /> Reportar muerte
+                            <Skull size={18} aria-hidden="true" /> Reportar muerte
                         </button>
                     </div>
                 )}
@@ -913,128 +925,185 @@ export default function Inventory() {
                 </div>
             )}
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(46, 125, 50, 0.1)', border: '1px solid rgba(46, 125, 50, 0.2)' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Total Animales</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{statsFiltrados.total}</div>
+            <div className="inventory-kpi-grid">
+                <div className="card inventory-kpi-card" style={{ background: 'rgba(46, 125, 50, 0.1)', border: '1px solid rgba(46, 125, 50, 0.2)' }}>
+                    <div className="inventory-kpi-label">Total Animales</div>
+                    <div className="inventory-kpi-value" style={{ color: 'var(--primary-light)' }}>{statsFiltrados.total}</div>
                 </div>
-                <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(255, 179, 0, 0.05)', border: '1px solid rgba(255, 179, 0, 0.1)' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Potreradas</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{statsFiltrados.potreradas}</div>
+                <div className="card inventory-kpi-card" style={{ background: 'rgba(255, 179, 0, 0.05)', border: '1px solid rgba(255, 179, 0, 0.1)' }}>
+                    <div className="inventory-kpi-label">Potreradas</div>
+                    <div className="inventory-kpi-value" style={{ color: 'var(--secondary)' }}>{statsFiltrados.potreradas}</div>
                 </div>
-                <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Potreros en Uso</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{statsFiltrados.potreros}</div>
+                <div className="card inventory-kpi-card" style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <div className="inventory-kpi-label">Potreros en Uso</div>
+                    <div className="inventory-kpi-value">{statsFiltrados.potreros}</div>
                 </div>
-                <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(244, 67, 54, 0.05)', border: '1px solid rgba(244, 67, 54, 0.1)' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Alertas ({getModoLabel(modoGanancia)} Bajo)</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--error)' }}>
+                <div className="card inventory-kpi-card" style={{ background: 'rgba(244, 67, 54, 0.05)', border: '1px solid rgba(244, 67, 54, 0.1)' }}>
+                    <div className="inventory-kpi-label">Alertas ({getModoLabel(modoGanancia)} Bajo)</div>
+                    <div className="inventory-kpi-value" style={{ color: 'var(--error)' }}>
                         {statsFiltrados.alertas}
                     </div>
                 </div>
             </div>
 
-            <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
-                <div style={{ flex: '2 1 300px', position: 'relative' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
+            <div className="glass-panel inventory-filters-panel">
+                <search className="inventory-search-wrap" role="search">
+                    <Search size={18} aria-hidden="true" className="inventory-search-icon" />
                     <input
-                        type="text"
-                        placeholder="Buscar por chapeta, propietario o potrerada..."
+                        type="search"
+                        aria-label="Buscar por chapeta, propietario o potrerada"
+                        placeholder="Buscar chapeta, propietario o lote..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ marginBottom: 0, paddingLeft: '40px' }}
+                        className="inventory-search-input"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
                     />
-                </div>
-                <div style={{ flex: '1 1 140px' }}>
-                    <select
-                        value={filterEtapa}
-                        onChange={(e) => setFilterEtapa(e.target.value)}
-                        style={{ marginBottom: 0 }}
-                    >
-                        <option value="">-- Etapa --</option>
-                        <option value="cria">Cría</option>
-                        <option value="levante">Levante</option>
-                        <option value="ceba">Ceba</option>
-                    </select>
-                </div>
-                <div style={{ flex: '1 1 140px' }}>
-                    <select
-                        value={filterPotrerada}
-                        onChange={(e) => setFilterPotrerada(e.target.value)}
-                        style={{ marginBottom: 0 }}
-                    >
-                        <option value="">-- Potrerada --</option>
-                        <option value="Sin potrerada">Sin Potrerada</option>
-                        {uniquePotreradas.sort().map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
-                    </select>
-                </div>
-                <div style={{ flex: '1 1 140px' }}>
-                    <select
-                        value={filterPotrero}
-                        onChange={(e) => setFilterPotrero(e.target.value)}
-                        style={{ marginBottom: 0 }}
-                    >
-                        <option value="">-- Potrero --</option>
-                        <option value="Sin potrero">Sin Potrero</option>
-                        {uniquePotreros.sort().map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
-                    </select>
-                </div>
-                <div style={{ flex: '1 1 140px' }}>
-                    <select
-                        value={filterPropietario}
-                        onChange={(e) => setFilterPropietario(e.target.value)}
-                        style={{ marginBottom: 0 }}
-                    >
-                        <option value="">-- Propietario --</option>
-                        {uniquePropietarios.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
-                    </select>
+                    {searchTerm && (
+                        <button
+                            type="button"
+                            className="inventory-clear-btn"
+                            aria-label="Limpiar búsqueda"
+                            onClick={() => setSearchTerm('')}
+                        >
+                            <X size={18} aria-hidden="true" />
+                        </button>
+                    )}
+                </search>
+                <div className="inventory-selects-group">
+                    <div className="inventory-filter-field">
+                        <select
+                            aria-label="Filtrar por etapa"
+                            value={filterEtapa}
+                            onChange={(e) => setFilterEtapa(e.target.value)}
+                            style={{ marginBottom: 0 }}
+                        >
+                            <option value="">-- Etapa --</option>
+                            <option value="cria">Cría</option>
+                            <option value="levante">Levante</option>
+                            <option value="ceba">Ceba</option>
+                        </select>
+                    </div>
+                    <div className="inventory-filter-field">
+                        <select
+                            aria-label="Filtrar por potrerada"
+                            value={filterPotrerada}
+                            onChange={(e) => setFilterPotrerada(e.target.value)}
+                            style={{ marginBottom: 0 }}
+                        >
+                            <option value="">-- Potrerada --</option>
+                            <option value="Sin potrerada">Sin Potrerada</option>
+                            {uniquePotreradas.sort().map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
+                        </select>
+                    </div>
+                    <div className="inventory-filter-field">
+                        <select
+                            aria-label="Filtrar por potrero"
+                            value={filterPotrero}
+                            onChange={(e) => setFilterPotrero(e.target.value)}
+                            style={{ marginBottom: 0 }}
+                        >
+                            <option value="">-- Potrero --</option>
+                            <option value="Sin potrero">Sin Potrero</option>
+                            {uniquePotreros.sort().map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
+                        </select>
+                    </div>
+                    <div className="inventory-filter-field">
+                        <select
+                            aria-label="Filtrar por propietario"
+                            value={filterPropietario}
+                            onChange={(e) => setFilterPropietario(e.target.value)}
+                            style={{ marginBottom: 0 }}
+                        >
+                            <option value="">-- Propietario --</option>
+                            {uniquePropietarios.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
+                        </select>
+                    </div>
                 </div>
                 {(searchTerm || filterEtapa || filterPotrero || filterPotrerada || filterPropietario) && (
-                    <button 
-                        onClick={() => {
-                            setSearchTerm('');
-                            setFilterEtapa('');
-                            setFilterPotrero('');
-                            setFilterPotrerada('');
-                            setFilterPropietario('');
-                        }}
-                        style={{ width: 'auto', background: 'transparent', color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px' }}
-                    >
-                        Limpiar
-                    </button>
-                )}
-                {filterPropietario && (
-                    <button
-                        onClick={() => { setCapitalInvertido(''); setShowCapitalModal(true); }}
-                        style={{ width: 'auto', background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                        <BarChart2 size={18} /> Informe de Propietario
-                    </button>
+                    <div className="inventory-filter-actions">
+                        {(searchTerm || filterEtapa || filterPotrero || filterPotrerada || filterPropietario) && (
+                            <button
+                                type="button"
+                                className="inventory-btn-ghost"
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setFilterEtapa('');
+                                    setFilterPotrero('');
+                                    setFilterPotrerada('');
+                                    setFilterPropietario('');
+                                }}
+                            >
+                                Limpiar
+                            </button>
+                        )}
+                        {filterPropietario && (
+                            <button
+                                type="button"
+                                className="inventory-btn-informe"
+                                onClick={() => { setCapitalInvertido(''); setShowCapitalModal(true); }}
+                            >
+                                <BarChart2 size={18} aria-hidden="true" /> Informe de Propietario
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
 
-            <div className="table-container" style={{ padding: 0 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            {isMobile && !loading && sortedAndFilteredAnimals.length > 0 && (
+                <div className="inventory-mobile-sort-bar" aria-label="Ordenar animales">
+                    {[
+                        { col: 'dias_pesaje', label: 'Último Pesaje' },
+                        { col: 'chapeta', label: 'Chapeta' },
+                        { col: 'propietario', label: 'Propietario' },
+                    ].map(opt => {
+                        const active = sortBy === opt.col;
+                        return (
+                            <button
+                                key={opt.col}
+                                type="button"
+                                className={`inventory-mobile-sort-chip${active ? ' is-active' : ''}`}
+                                onClick={() => handleSort(opt.col)}
+                            >
+                                {opt.label}{active ? (sortOrder === 'asc' ? ' ↑' : ' ↓') : ''}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            <div className="table-container inventory-table-wrap" style={{ padding: 0 }}>
+                <table className="inventory-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('chapeta')}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Chapeta <ArrowUpDown size={14} opacity={sortBy === 'chapeta' ? 1 : 0.3} /></div>
+                            <th scope="col" aria-sort={sortBy === 'chapeta' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}>
+                                <button type="button" className="inventory-sort-btn" onClick={() => handleSort('chapeta')}>
+                                    <span>Chapeta</span>
+                                    <ArrowUpDown size={14} aria-hidden="true" opacity={sortBy === 'chapeta' ? 1 : 0.3} />
+                                </button>
                             </th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('propietario')}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Propietario / Etapa <ArrowUpDown size={14} opacity={sortBy === 'propietario' ? 1 : 0.3} /></div>
+                            <th scope="col" aria-sort={sortBy === 'propietario' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}>
+                                <button type="button" className="inventory-sort-btn" onClick={() => handleSort('propietario')}>
+                                    <span>Propietario / Etapa</span>
+                                    <ArrowUpDown size={14} aria-hidden="true" opacity={sortBy === 'propietario' ? 1 : 0.3} />
+                                </button>
                             </th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('dias_pesaje')}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Último Pesaje <ArrowUpDown size={14} opacity={sortBy === 'dias_pesaje' ? 1 : 0.3} /></div>
+                            <th scope="col" aria-sort={sortBy === 'dias_pesaje' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}>
+                                <button type="button" className="inventory-sort-btn" onClick={() => handleSort('dias_pesaje')}>
+                                    <span>Último Pesaje</span>
+                                    <ArrowUpDown size={14} aria-hidden="true" opacity={sortBy === 'dias_pesaje' ? 1 : 0.3} />
+                                </button>
                             </th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Último Peso</th>
-                            <th style={{ padding: '16px', color: 'var(--text-muted)' }}>{getModoLabel(modoGanancia)} (Últ. / Hist.)</th>
+                            <th scope="col" style={{ padding: '16px', color: 'var(--text-muted)' }}>Último Peso</th>
+                            <th scope="col" style={{ padding: '16px', color: 'var(--text-muted)' }}>{getModoLabel(modoGanancia)} (Últ. / Hist.)</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan={5} style={{ padding: '44px', textAlign: 'center', color: 'var(--primary)' }}>Cargando datos del hato...</td></tr>
+                            <tr className="is-status-row"><td colSpan={5} style={{ padding: '44px', textAlign: 'center', color: 'var(--primary)' }}>Cargando datos del hato...</td></tr>
                         ) : sortedAndFilteredAnimals.length === 0 ? (
-                            <tr><td colSpan={5} style={{ padding: '44px', textAlign: 'center' }}>No hay animales registrados.</td></tr>
+                            <tr className="is-status-row"><td colSpan={5} style={{ padding: '44px', textAlign: 'center' }}>No hay animales registrados.</td></tr>
                         ) : (
                             sortedAndFilteredAnimals.map((animal) => {
                                 const ultimoP = animal.registros_pesaje?.[0];
@@ -1093,24 +1162,25 @@ export default function Inventory() {
                                                 setSelectedAnimal(prev => prev ? { ...prev, registros_pesaje: dedup } : null);
                                             }
                                         }}
-                                        className="table-row-hover"
+                                        className={`table-row-hover${isAlerta ? ' is-alerta' : ''}`}
                                         style={{
-                                        borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                        backgroundColor: isAlerta ? 'rgba(244, 67, 54, 0.05)' : 'transparent',
-                                        transition: 'background 0.2s',
-                                        cursor: 'pointer'
-                                    }}>
-                                        <td style={{ padding: '16px', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                            transition: 'background 0.2s',
+                                            cursor: 'pointer'
+                                        }}>
+                                        <td className="inventory-col-chapeta" style={{ padding: '16px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                             <span style={{ color: 'var(--primary-light)' }}>#</span>{animal.numero_chapeta}
+                                            <span className="inventory-mobile-cue">Ver ficha ›</span>
                                         </td>
-                                        <td style={{ padding: '16px' }}>
+                                        <td className="inventory-col-meta" style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: '500' }}>{animal.nombre_propietario}</div>
-                                             <div style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                             <div style={{ fontSize: '0.8rem', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                                 {animal.etapa} • <span style={{ color: 'var(--primary-light)', fontStyle: 'italic', textTransform: 'capitalize' }}>{animal.potreradaNombre}</span>
-                                                <span style={{ marginLeft: '8px', opacity: 0.8 }}>({animal.potreroNombre})</span>
+                                                <span style={{ marginLeft: '8px', opacity: 0.85 }}>({animal.potreroNombre})</span>
                                             </div>
                                         </td>
-                                        <td style={{ padding: '16px' }}>
+                                        <td className="inventory-col-pesaje" style={{ padding: '16px' }}>
+                                            <span className="inventory-cell-prefix">Último pesaje</span>
                                             <div style={{ 
                                                 fontWeight: 'bold', 
                                                 fontSize: '1.05rem', 
@@ -1120,7 +1190,7 @@ export default function Inventory() {
                                             </div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tienePesajePosterior ? fechaU : 'Ingreso: ' + format(new Date(animal.fecha_ingreso), 'dd/MM/yyyy')}</div>
                                         </td>
-                                        <td style={{ padding: '16px' }}>
+                                        <td className="inventory-col-peso" style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: 'bold', fontSize: '1.05rem' }}>{pesoU}</div>
                                             {tienePesajePosterior && (
                                                 <div style={{ fontSize: '0.75rem', color: gananciaTotal >= 0 ? 'var(--text-muted)' : 'var(--error)' }}>
@@ -1128,9 +1198,10 @@ export default function Inventory() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td style={{ padding: '16px' }}>
+                                        <td className="inventory-col-gmp" style={{ padding: '16px' }}>
+                                            <span className="inventory-cell-prefix">Ganancia ({getModoLabel(modoGanancia)})</span>
                                             {hasRecords ? (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: isMobile ? 'flex-end' : undefined }}>
                                                     <div style={{
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -1149,7 +1220,7 @@ export default function Inventory() {
                                                         {toDisplayValue(gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
                                                     </div>
                                                     {gmpHistorico !== null && (
-                                                        <div style={{ fontSize: '0.76rem', paddingLeft: '18px', color: 'var(--text-muted)' }}>
+                                                        <div style={{ fontSize: '0.76rem', paddingLeft: isMobile ? 0 : '18px', color: 'var(--text-muted)' }}>
                                                             Hist:{' '}
                                                             <span style={{ color: gmpHistColor === 'var(--text-light)' ? 'rgba(255,255,255,0.9)' : gmpHistColor, fontWeight: 600 }}>
                                                                 {toDisplayValue(gmpHistorico, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
@@ -1170,58 +1241,67 @@ export default function Inventory() {
             </div>
             
             {showMuerteModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowMuerteModal(false)}>
-                    <div className="card" style={{ maxWidth: '450px', width: '100%', border: '1px solid var(--error)' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                            <Skull size={48} color="var(--error)" style={{ marginBottom: '16px' }} />
-                            <h2 style={{ color: 'white' }}>Reportar Fallecimiento</h2>
-                            <p style={{ color: 'var(--text-muted)' }}>Esta acción inactivará al animal permanentemente.</p>
+                <div className="modal-overlay" onClick={() => setShowMuerteModal(false)}>
+                    <div className="card inventory-modal-card" style={{ maxWidth: '450px', border: '1px solid var(--error)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                            <Skull size={48} color="var(--error)" aria-hidden="true" style={{ marginBottom: '12px' }} />
+                            <h2 style={{ color: 'white', margin: '0 0 8px 0' }}>Reportar Fallecimiento</h2>
+                            <p style={{ color: 'var(--text-muted)', margin: 0 }}>Esta acción inactivará al animal permanentemente.</p>
                         </div>
 
                         {msjErrorMuerte && (
-                            <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <AlertCircle size={16} /> {msjErrorMuerte}
+                            <div role="alert" style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <AlertCircle size={16} aria-hidden="true" /> {msjErrorMuerte}
                             </div>
                         )}
 
-                        <div style={{ marginBottom: '20px' }}>
-                            <label>Número de Chapeta</label>
+                        <div style={{ marginBottom: '18px' }}>
+                            <label htmlFor="inventory-muerte-chapeta">Número de Chapeta</label>
                             <input
+                                id="inventory-muerte-chapeta"
                                 type="text"
                                 placeholder="Ej: 1234"
                                 value={chapetaMuerte}
                                 onChange={e => setChapetaMuerte(e.target.value)}
-                                style={{ fontSize: '1.2rem' }}
+                                autoCorrect="off"
+                                autoCapitalize="characters"
+                                spellCheck={false}
+                                style={{ fontSize: '1.2rem', marginBottom: 0 }}
                             />
                         </div>
 
-                        <div style={{ marginBottom: '32px' }}>
-                            <label>Fecha de Fallecimiento</label>
+                        <div style={{ marginBottom: '24px' }}>
+                            <label htmlFor="inventory-muerte-fecha">Fecha de Fallecimiento</label>
                             <div style={{ position: 'relative' }}>
-                                <Calendar size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
+                                <Calendar size={18} aria-hidden="true" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                 <input
+                                    id="inventory-muerte-fecha"
                                     type="date"
                                     value={fechaMuerte}
                                     onChange={e => setFechaMuerte(e.target.value)}
-                                    style={{ paddingLeft: '40px' }}
+                                    style={{ paddingLeft: '40px', marginBottom: 0 }}
                                 />
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '16px' }}>
+                        <div className="inventory-modal-actions-row" style={{ display: 'flex', gap: '12px' }}>
                             <button
+                                type="button"
+                                className="inventory-btn-ghost"
                                 onClick={() => { setShowMuerteModal(false); setMsjErrorMuerte(''); }}
-                                style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)' }}
+                                style={{ flex: 1 }}
                                 disabled={loading}
                             >
                                 Cancelar
                             </button>
                             <button
+                                type="button"
+                                className="inventory-header-btn--danger"
                                 onClick={handleReportarMuerte}
-                                style={{ backgroundColor: 'var(--error)' }}
+                                style={{ flex: 2 }}
                                 disabled={loading || !chapetaMuerte}
                             >
-                                {loading ? 'Procesando...' : 'Confirmar Fallecimiento'}
+                                {loading ? 'Procesando...' : 'Confirmar'}
                             </button>
                         </div>
                     </div>
@@ -1294,20 +1374,20 @@ export default function Inventory() {
                 }));
 
                 return (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setSelectedAnimal(null)}>
-                        <div className="card" style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} onClick={e => e.stopPropagation()}>
-                            
+                    <div className="modal-overlay" onClick={() => setSelectedAnimal(null)}>
+                        <div className="card inventory-modal-card" style={{ maxWidth: '640px', backgroundColor: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} onClick={e => e.stopPropagation()}>
+
                             {/* Modal Header: Title, badges, subtle actions */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
                                 <div style={{ minWidth: 0, flex: 1 }}>
                                     {!isEditingChapeta ? (
-                                        <h2 style={{ 
-                                            color: 'white', 
-                                            margin: 0, 
-                                            fontSize: '1.75rem', 
-                                            fontWeight: 700, 
-                                            display: 'inline-flex', 
-                                            alignItems: 'center', 
+                                        <h2 style={{
+                                            color: 'white',
+                                            margin: 0,
+                                            fontSize: isMobile ? '1.5rem' : '1.75rem',
+                                            fontWeight: 700,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
                                             whiteSpace: 'nowrap',
                                             letterSpacing: '-0.5px'
                                         }}>
@@ -1320,12 +1400,16 @@ export default function Inventory() {
                                                 <span style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '1.4rem' }}>#</span>
                                                 <input
                                                     type="text"
+                                                    aria-label="Nueva chapeta"
                                                     value={editChapetaVal}
                                                     onChange={e => {
                                                         setEditChapetaVal(e.target.value);
                                                         checkEditChapetaUnica(e.target.value);
                                                     }}
                                                     placeholder="Nueva chapeta"
+                                                    autoCorrect="off"
+                                                    autoCapitalize="characters"
+                                                    spellCheck={false}
                                                     style={{
                                                         padding: '6px 10px',
                                                         borderRadius: '6px',
@@ -1334,15 +1418,18 @@ export default function Inventory() {
                                                         color: 'white',
                                                         fontSize: '1.1rem',
                                                         fontWeight: 'bold',
-                                                        width: '140px'
+                                                        width: '140px',
+                                                        marginBottom: 0
                                                     }}
-                                                    autoFocus
+                                                    autoFocus={!isMobile}
                                                 />
                                                 <button
+                                                    type="button"
                                                     onClick={handleGuardarNuevaChapeta}
                                                     disabled={loading || validatingEditChapeta || isEditChapetaTaken || !editChapetaVal.trim()}
                                                     style={{
-                                                        padding: '6px 12px',
+                                                        width: 'auto',
+                                                        padding: '8px 12px',
                                                         borderRadius: '6px',
                                                         backgroundColor: 'var(--primary)',
                                                         color: 'white',
@@ -1351,23 +1438,23 @@ export default function Inventory() {
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                         gap: '4px',
-                                                        fontSize: '0.8rem',
-                                                        fontWeight: 600
+                                                        fontSize: '0.82rem',
+                                                        fontWeight: 600,
+                                                        minHeight: isMobile ? '44px' : undefined
                                                     }}
                                                 >
-                                                    <Check size={14} />
+                                                    <Check size={14} aria-hidden="true" />
                                                     <span>Guardar</span>
                                                 </button>
                                                 <button
+                                                    type="button"
+                                                    className="inventory-btn-ghost"
                                                     onClick={() => { setIsEditingChapeta(false); setEditChapetaError(''); }}
                                                     style={{
-                                                        padding: '6px 10px',
+                                                        padding: '8px 10px',
                                                         borderRadius: '6px',
-                                                        backgroundColor: 'transparent',
-                                                        color: 'var(--text-muted)',
-                                                        border: '1px solid rgba(255,255,255,0.1)',
-                                                        cursor: 'pointer',
-                                                        fontSize: '0.8rem'
+                                                        fontSize: '0.82rem',
+                                                        minHeight: isMobile ? '44px' : undefined
                                                     }}
                                                 >
                                                     Cancelar
@@ -1388,14 +1475,14 @@ export default function Inventory() {
 
                                     {/* Metadata Badges / Info */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-                                        <span style={{ 
-                                            backgroundColor: 'rgba(16, 185, 129, 0.12)', 
-                                            color: '#34d399', 
+                                        <span style={{
+                                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                            color: '#34d399',
                                             border: '1px solid rgba(16, 185, 129, 0.25)',
-                                            padding: '2px 8px', 
-                                            borderRadius: '6px', 
-                                            fontSize: '0.72rem', 
-                                            fontWeight: 600, 
+                                            padding: '2px 8px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.72rem',
+                                            fontWeight: 600,
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px'
                                         }}>
@@ -1423,6 +1510,8 @@ export default function Inventory() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                                     {isAdmin && !isEditingChapeta && (
                                         <button
+                                            type="button"
+                                            className="inventory-icon-btn inventory-icon-btn--edit"
                                             onClick={() => {
                                                 setIsEditingChapeta(true);
                                                 setEditChapetaVal(selectedAnimal.numero_chapeta);
@@ -1431,99 +1520,40 @@ export default function Inventory() {
                                             }}
                                             title="Editar número de chapeta"
                                             aria-label="Editar número de chapeta"
-                                            style={{
-                                                width: 'auto',
-                                                background: 'rgba(255, 255, 255, 0.05)',
-                                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                                borderRadius: '8px',
-                                                color: 'var(--primary-light)',
-                                                cursor: 'pointer',
-                                                padding: '8px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                            onMouseEnter={e => {
-                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                                e.currentTarget.style.borderColor = 'var(--primary)';
-                                            }}
-                                            onMouseLeave={e => {
-                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                                            }}
                                         >
-                                            <Pencil size={16} />
+                                            <Pencil size={16} aria-hidden="true" />
                                         </button>
                                     )}
                                     {isAdmin && (
                                         <button
+                                            type="button"
+                                            className="inventory-icon-btn inventory-icon-btn--delete"
                                             onClick={handleEliminarAnimalPorError}
                                             title="Eliminar animal (por error de digitación)"
                                             aria-label="Eliminar animal"
-                                            style={{
-                                                width: 'auto',
-                                                background: 'rgba(239, 68, 68, 0.08)',
-                                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                                borderRadius: '8px',
-                                                color: '#f87171',
-                                                cursor: 'pointer',
-                                                padding: '8px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                            onMouseEnter={e => {
-                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)';
-                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                                            }}
-                                            onMouseLeave={e => {
-                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
-                                            }}
                                         >
-                                            <Trash2 size={16} />
+                                            <Trash2 size={16} aria-hidden="true" />
                                         </button>
                                     )}
-                                    <button 
+                                    <button
+                                        type="button"
+                                        className="inventory-icon-btn inventory-icon-btn--close"
                                         onClick={() => setSelectedAnimal(null)}
                                         title="Cerrar"
                                         aria-label="Cerrar detalle del animal"
-                                        style={{ 
-                                            width: 'auto',
-                                            background: 'rgba(255, 255, 255, 0.05)', 
-                                            border: '1px solid rgba(255, 255, 255, 0.1)', 
-                                            borderRadius: '8px',
-                                            color: 'var(--text-muted)', 
-                                            cursor: 'pointer', 
-                                            padding: '8px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                            e.currentTarget.style.color = 'white';
-                                        }}
-                                        onMouseLeave={e => {
-                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                                            e.currentTarget.style.color = 'var(--text-muted)';
-                                        }}
                                     >
-                                        <X size={16} />
+                                        <X size={16} aria-hidden="true" />
                                     </button>
                                 </div>
                             </div>
 
                             {/* Location / Potrerada Bar */}
-                            <div style={{ 
-                                backgroundColor: 'rgba(255,255,255,0.02)', 
-                                padding: '10px 14px', 
-                                borderRadius: '10px', 
+                            <div style={{
+                                backgroundColor: 'rgba(255,255,255,0.02)',
+                                padding: '10px 14px',
+                                borderRadius: '10px',
                                 border: '1px solid rgba(255,255,255,0.06)',
-                                marginBottom: '20px',
+                                marginBottom: '16px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
@@ -1533,7 +1563,7 @@ export default function Inventory() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Potrerada Actual:</span>
                                     <span style={{ fontWeight: '600', color: selectedAnimal.id_potrerada ? 'var(--primary-light)' : 'var(--text-muted)', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                        <MapPin size={13} style={{ opacity: 0.8 }} />
+                                        <MapPin size={13} style={{ opacity: 0.8 }} aria-hidden="true" />
                                         {selectedAnimal.potreradaNombre || 'Sin potrerada'}
                                     </span>
                                 </div>
@@ -1545,20 +1575,20 @@ export default function Inventory() {
                             </div>
 
                             {/* Metric Cards */}
-                            <div style={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
-                                gap: '12px', 
-                                marginBottom: '28px' 
+                            <div className="inventory-detail-metrics" style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                                gap: '12px',
+                                marginBottom: '28px'
                             }}>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Último Pesaje</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>{pesoU} kg</div>
+                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: 'white' }}>{pesoU} kg</div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Llegada: '} {fechaU}</div>
                                 </div>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Última {getModoLabel(modoGanancia)}</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: gmpUltimoModal === null ? 'var(--text-muted)' : (gmpUltimoModal < 0 ? 'var(--error)' : (gmpUltimoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpUltimoModal <= umbralAltoGmp ? 'white' : 'var(--success)'))) }}>
+                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: gmpUltimoModal === null ? 'var(--text-muted)' : (gmpUltimoModal < 0 ? 'var(--error)' : (gmpUltimoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpUltimoModal <= umbralAltoGmp ? 'white' : 'var(--success)'))) }}>
                                         {gmpUltimoModal !== null ? `${toDisplayValue(gmpUltimoModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'Sin pesajes'}
                                     </div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -1570,13 +1600,13 @@ export default function Inventory() {
                                 {selectedAnimal.peso_compra && (
                                     <div style={{ backgroundColor: 'rgba(255, 193, 7, 0.04)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.18)' }}>
                                         <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso de Compra</div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ffc107' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
+                                        <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: '#ffc107' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
                                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Llegada: {selectedAnimal.peso_ingreso} kg</div>
                                     </div>
                                 )}
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
                                         {estimadoHoy.toFixed(1)} kg
                                     </div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -1585,14 +1615,14 @@ export default function Inventory() {
                                 </div>
                             </div>
 
-                            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Evolución de Peso</h3>
-                            <div style={{ height: '240px', width: '100%', marginBottom: '32px' }}>
+                            <h3 style={{ fontSize: '1.05rem', marginBottom: '12px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Evolución de Peso</h3>
+                            <div className="inventory-detail-chart" style={{ height: '240px', width: '100%', marginBottom: '28px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                                         <XAxis dataKey="fechaStr" stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
                                         <YAxis stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
-                                        <RechartsTooltip 
+                                        <RechartsTooltip
                                             contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
                                             itemStyle={{ color: 'var(--primary-light)' }}
                                             labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
@@ -1602,17 +1632,17 @@ export default function Inventory() {
                                 </ResponsiveContainer>
                             </div>
 
-                            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Historial de Registros</h3>
-                            <div style={{ overflowX: 'auto', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <h3 style={{ fontSize: '1.05rem', marginBottom: '12px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Historial de Registros</h3>
+                            <div className="inventory-history-wrap" style={{ overflowX: 'auto', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <table className="inventory-history-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                     <thead style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
                                         <tr>
-                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                            <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
+                                            <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
+                                            <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                                                 {modoGanancia === 'GDP' ? 'Ganancia Diaria' : 'Ganancia Mensual'}
                                             </th>
-                                            {isAdmin && <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'right' }}>Acciones</th>}
+                                            {isAdmin && <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'right' }}>Acciones</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1620,39 +1650,45 @@ export default function Inventory() {
                                             const isEditingThis = Boolean(editingPesaje && item.pesajeId && editingPesaje.id === item.pesajeId);
                                             if (isEditingThis && editingPesaje) {
                                                 return (
-                                                    <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(16, 185, 129, 0.06)' }}>
+                                                    <tr key={index} className="is-editing" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(16, 185, 129, 0.06)' }}>
                                                         <td colSpan={4} style={{ padding: '14px 16px' }}>
                                                             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
-                                                                <div>
-                                                                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Fecha Pesaje</label>
+                                                                <div style={{ flex: '1 1 130px' }}>
+                                                                    <label htmlFor={`hist-edit-date-${index}`} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Fecha Pesaje</label>
                                                                     <input
+                                                                        id={`hist-edit-date-${index}`}
                                                                         type="date"
                                                                         value={editingPesaje.fecha}
                                                                         onChange={e => setEditingPesaje(prev => prev ? { ...prev, fecha: e.target.value } : null)}
-                                                                        style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.85rem' }}
+                                                                        style={{ padding: '6px 10px', marginBottom: 0, borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.85rem' }}
                                                                     />
                                                                 </div>
-                                                                <div>
-                                                                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Peso (kg)</label>
+                                                                <div style={{ flex: '1 1 100px' }}>
+                                                                    <label htmlFor={`hist-edit-peso-${index}`} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Peso (kg)</label>
                                                                     <input
+                                                                        id={`hist-edit-peso-${index}`}
                                                                         type="number"
+                                                                        inputMode="decimal"
                                                                         step="0.1"
                                                                         value={editingPesaje.peso}
                                                                         onChange={e => setEditingPesaje(prev => prev ? { ...prev, peso: e.target.value } : null)}
-                                                                        style={{ width: '100px', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.85rem' }}
+                                                                        style={{ width: isMobile ? '100%' : '100px', marginBottom: 0, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.85rem' }}
                                                                     />
                                                                 </div>
-                                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                                <div style={{ display: 'flex', gap: '8px', flex: isMobile ? '1 1 100%' : undefined }}>
                                                                     <button
+                                                                        type="button"
                                                                         onClick={handleGuardarEdicionPesaje}
                                                                         disabled={loading}
-                                                                        style={{ padding: '7px 14px', borderRadius: '6px', backgroundColor: 'var(--primary)', border: 'none', color: 'white', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                                        style={{ padding: '7px 14px', minHeight: isMobile ? '44px' : undefined, flex: isMobile ? 1 : undefined, borderRadius: '6px', backgroundColor: 'var(--primary)', border: 'none', color: 'white', fontSize: '0.82rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                                                                     >
-                                                                        <Check size={14} /> Guardar
+                                                                        <Check size={14} aria-hidden="true" /> Guardar
                                                                     </button>
                                                                     <button
+                                                                        type="button"
+                                                                        className="inventory-btn-ghost"
                                                                         onClick={() => setEditingPesaje(null)}
-                                                                        style={{ padding: '7px 12px', borderRadius: '6px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer' }}
+                                                                        style={{ padding: '7px 12px', minHeight: isMobile ? '44px' : undefined, flex: isMobile ? 1 : undefined, borderRadius: '6px', fontSize: '0.82rem' }}
                                                                     >
                                                                         Cancelar
                                                                     </button>
@@ -1668,48 +1704,51 @@ export default function Inventory() {
 
                                             return (
                                                 <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                    <td style={{ padding: '12px 16px' }}>
+                                                    <td className="inventory-hist-fecha" style={{ padding: '12px 16px' }}>
                                                         <div style={{ fontWeight: '500' }}>{format(new Date(item.fecha), 'dd/MM/yyyy')}</div>
                                                         {item.esIngreso && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 'bold' }}>INGRESO</div>}
                                                     </td>
-                                                    <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
+                                                    <td className="inventory-hist-peso" style={{ padding: '12px 16px', fontWeight: 'bold' }}>
                                                         {item.peso}
                                                     </td>
-                                                    <td style={{ padding: '12px 16px' }}>
+                                                    <td className="inventory-hist-gmp" style={{ padding: '12px 16px' }}>
                                                         {item.esIngreso ? (
                                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
                                                         ) : (
-                                                            <>
-                                                                <div style={{ 
-                                                                    color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedioGmp ? 'var(--warning)' : (item.gmp <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)')), 
-                                                                    fontWeight: 'bold',
-                                                                    textShadow: (item.gmp > umbralMedioGmp && item.gmp <= umbralAltoGmp) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
-                                                                }}>
-                                                                    {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
-                                                                </div>
-
-                                                            </>
+                                                            <div style={{
+                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedioGmp ? 'var(--warning)' : (item.gmp <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)')),
+                                                                fontWeight: 'bold',
+                                                                textShadow: (item.gmp > umbralMedioGmp && item.gmp <= umbralAltoGmp) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
+                                                            }}>
+                                                                {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
+                                                            </div>
                                                         )}
                                                     </td>
                                                     {isAdmin && (
-                                                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                                        <td className="inventory-hist-actions" style={{ padding: '12px 16px', textAlign: 'right' }}>
                                                             {item.esIngreso || !item.pesajeId ? (
                                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic' }}>Base</span>
                                                             ) : (
                                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                                                                     <button
+                                                                        type="button"
+                                                                        className="inventory-history-action-btn"
                                                                         onClick={() => setEditingPesaje({ id: item.pesajeId!, fecha: item.fecha.split('T')[0], peso: item.peso.toString() })}
                                                                         title="Editar este pesaje"
-                                                                        style={{ padding: '5px 7px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--primary-light)', cursor: 'pointer' }}
+                                                                        aria-label={`Editar pesaje del ${format(new Date(item.fecha), 'dd/MM/yyyy')}`}
+                                                                        style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--primary-light)' }}
                                                                     >
-                                                                        <Pencil size={13} />
+                                                                        <Pencil size={14} aria-hidden="true" />
                                                                     </button>
                                                                     <button
+                                                                        type="button"
+                                                                        className="inventory-history-action-btn"
                                                                         onClick={() => handleEliminarPesaje(item.pesajeId!, format(new Date(item.fecha), 'dd/MM/yyyy'))}
                                                                         title="Eliminar este pesaje"
-                                                                        style={{ padding: '5px 7px', borderRadius: '4px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#f87171', cursor: 'pointer' }}
+                                                                        aria-label={`Eliminar pesaje del ${format(new Date(item.fecha), 'dd/MM/yyyy')}`}
+                                                                        style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#f87171' }}
                                                                     >
-                                                                        <Trash2 size={13} />
+                                                                        <Trash2 size={14} aria-hidden="true" />
                                                                     </button>
                                                                 </div>
                                                             )}
@@ -1727,30 +1766,31 @@ export default function Inventory() {
             })()}
 
             {showCrearModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowCrearModal(false)}>
-                    <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--primary)' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div className="modal-overlay" onClick={() => setShowCrearModal(false)}>
+                    <div className="card inventory-modal-card" style={{ maxWidth: '600px', border: '1px solid var(--primary)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h2 style={{ color: 'white', margin: 0 }}>Crear Nuevo Animal</h2>
-                            <button type="button" aria-label="Cerrar" onClick={() => setShowCrearModal(false)} className="btn-icon" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)' }}><X /></button>
+                            <button type="button" aria-label="Cerrar" onClick={() => setShowCrearModal(false)} className="btn-icon" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)' }}><X aria-hidden="true" /></button>
                         </div>
 
                         {msjErrorCrear && (
-                            <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem' }}>
+                            <div role="alert" style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem' }}>
                                 {msjErrorCrear}
                             </div>
                         )}
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div className="inventory-create-grid-2">
                             <div>
-                                <label>Número de Chapeta*</label>
-                                <input type="text" value={nuevoAnimal.numero_chapeta} onChange={e => setNuevoAnimal({...nuevoAnimal, numero_chapeta: e.target.value})} placeholder="Ej: 1234" />
+                                <label htmlFor="inv-new-chapeta">Número de Chapeta*</label>
+                                <input id="inv-new-chapeta" type="text" value={nuevoAnimal.numero_chapeta} onChange={e => setNuevoAnimal({...nuevoAnimal, numero_chapeta: e.target.value})} placeholder="Ej: 1234" autoCorrect="off" autoCapitalize="characters" spellCheck={false} />
                                 {validatingChapeta && <span style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>Validando...</span>}
                                 {isChapetaTaken && <span style={{fontSize: '0.75rem', color: 'var(--danger)', display: 'block', marginTop: '4px'}}>Esta chapeta ya está en uso por un animal activo.</span>}
                             </div>
                             <div>
-                                <label>Propietario*</label>
-                                <select 
-                                    value={nuevoAnimal.nombre_propietario} 
+                                <label htmlFor="inv-new-prop">Propietario*</label>
+                                <select
+                                    id="inv-new-prop"
+                                    value={nuevoAnimal.nombre_propietario}
                                     onChange={e => setNuevoAnimal({...nuevoAnimal, nombre_propietario: e.target.value})}
                                 >
                                     <option value="">Seleccionar propietario...</option>
@@ -1761,33 +1801,33 @@ export default function Inventory() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div className="inventory-create-grid-3">
                             <div>
-                                <label>Especie*</label>
-                                <select value={nuevoAnimal.especie} onChange={e => setNuevoAnimal({...nuevoAnimal, especie: e.target.value})}>
+                                <label htmlFor="inv-new-especie">Especie*</label>
+                                <select id="inv-new-especie" value={nuevoAnimal.especie} onChange={e => setNuevoAnimal({...nuevoAnimal, especie: e.target.value})}>
                                     <option value="bovino">Bovino</option>
                                     <option value="bufalino">Bufalino</option>
                                 </select>
                             </div>
                             <div>
-                                <label>Sexo*</label>
-                                <select value={nuevoAnimal.sexo} onChange={e => setNuevoAnimal({...nuevoAnimal, sexo: e.target.value})}>
+                                <label htmlFor="inv-new-sexo">Sexo*</label>
+                                <select id="inv-new-sexo" value={nuevoAnimal.sexo} onChange={e => setNuevoAnimal({...nuevoAnimal, sexo: e.target.value})}>
                                     <option value="M">Macho</option>
                                     <option value="H">Hembra</option>
                                 </select>
                             </div>
                             {nuevoAnimal.sexo === 'M' && (
                                 <div>
-                                    <label>Tipo Macho*</label>
-                                    <select value={nuevoAnimal.tipo_macho} onChange={e => setNuevoAnimal({...nuevoAnimal, tipo_macho: e.target.value})}>
+                                    <label htmlFor="inv-new-tipo-macho">Tipo Macho*</label>
+                                    <select id="inv-new-tipo-macho" value={nuevoAnimal.tipo_macho} onChange={e => setNuevoAnimal({...nuevoAnimal, tipo_macho: e.target.value})}>
                                         <option value="Toro">Toro</option>
                                         <option value="Novillo">Novillo</option>
                                     </select>
                                 </div>
                             )}
                             <div>
-                                <label>Etapa*</label>
-                                <select value={nuevoAnimal.etapa} onChange={e => setNuevoAnimal({...nuevoAnimal, etapa: e.target.value})}>
+                                <label htmlFor="inv-new-etapa">Etapa*</label>
+                                <select id="inv-new-etapa" value={nuevoAnimal.etapa} onChange={e => setNuevoAnimal({...nuevoAnimal, etapa: e.target.value})}>
                                     <option value="cria">Cría</option>
                                     <option value="levante">Levante</option>
                                     <option value="ceba">Ceba</option>
@@ -1795,21 +1835,22 @@ export default function Inventory() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div className="inventory-create-grid-2">
                             <div>
-                                <label>Peso Ingreso (kg)*</label>
-                                <input type="number" value={nuevoAnimal.peso_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, peso_ingreso: e.target.value})} placeholder="0" />
+                                <label htmlFor="inv-new-peso">Peso Ingreso (kg)*</label>
+                                <input id="inv-new-peso" type="number" inputMode="decimal" value={nuevoAnimal.peso_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, peso_ingreso: e.target.value})} placeholder="0" />
                             </div>
                             <div>
-                                <label>Fecha Ingreso*</label>
-                                <input type="date" value={nuevoAnimal.fecha_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, fecha_ingreso: e.target.value})} />
+                                <label htmlFor="inv-new-fecha">Fecha Ingreso*</label>
+                                <input id="inv-new-fecha" type="date" value={nuevoAnimal.fecha_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, fecha_ingreso: e.target.value})} />
                             </div>
                         </div>
 
-                        <div style={{ marginBottom: '24px' }}>
-                            <label>Asignar a Lote (Opcional)</label>
-                            <select 
-                                value={nuevoAnimal.id_potrerada} 
+                        <div style={{ marginBottom: '20px' }}>
+                            <label htmlFor="inv-new-lote">Asignar a Lote (Opcional)</label>
+                            <select
+                                id="inv-new-lote"
+                                value={nuevoAnimal.id_potrerada}
                                 onChange={e => {
                                     const selectedPotId = e.target.value;
                                     const selectedPot = potreradasDisponibles.find(p => p.id === selectedPotId);
@@ -1825,37 +1866,38 @@ export default function Inventory() {
                             </select>
                         </div>
 
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', marginBottom: '20px' }}>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '18px', marginBottom: '20px' }}>
+                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '8px', flexWrap: 'wrap' }}>
                                 <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--primary-light)' }}>Historial de Pesajes</h3>
-                                <button 
+                                <button
+                                    type="button"
+                                    className="inventory-btn-add-weighing"
                                     onClick={() => setNuevosPesajes([...nuevosPesajes, { fecha: getLocalIsoDate(), peso: '', etapa: nuevoAnimal.etapa }])}
-                                    style={{ width: 'auto', padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)' }}
                                 >
                                     + Agregar Pesaje
                                 </button>
                             </div>
                                  {nuevosPesajes.map((p, idx) => (
-                                <div key={idx} style={{ display: 'flex', gap: '12px', marginBottom: '8px', alignItems: 'flex-end' }}>
+                                <div key={idx} className="inventory-extra-weighing-row">
                                     <div style={{ flex: 1.5 }}>
-                                        <label style={{ fontSize: '0.7rem' }}>Fecha</label>
-                                        <input type="date" value={p.fecha} onChange={e => {
+                                        <label htmlFor={`inv-extra-date-${idx}`} style={{ fontSize: '0.72rem' }}>Fecha</label>
+                                        <input id={`inv-extra-date-${idx}`} type="date" value={p.fecha} onChange={e => {
                                             const up = [...nuevosPesajes];
                                             up[idx].fecha = e.target.value;
                                             setNuevosPesajes(up);
                                         }} style={{ marginBottom: 0 }} />
                                     </div>
                                     <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: '0.7rem' }}>Peso (kg)</label>
-                                        <input type="number" value={p.peso} onChange={e => {
+                                        <label htmlFor={`inv-extra-peso-${idx}`} style={{ fontSize: '0.72rem' }}>Peso (kg)</label>
+                                        <input id={`inv-extra-peso-${idx}`} type="number" inputMode="decimal" value={p.peso} onChange={e => {
                                             const up = [...nuevosPesajes];
                                             up[idx].peso = e.target.value;
                                             setNuevosPesajes(up);
                                         }} style={{ marginBottom: 0 }} placeholder="0" />
                                     </div>
                                     <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: '0.7rem' }}>Etapa</label>
-                                        <select value={p.etapa} onChange={e => {
+                                        <label htmlFor={`inv-extra-etapa-${idx}`} style={{ fontSize: '0.72rem' }}>Etapa</label>
+                                        <select id={`inv-extra-etapa-${idx}`} value={p.etapa} onChange={e => {
                                             const up = [...nuevosPesajes];
                                             up[idx].etapa = e.target.value;
                                             setNuevosPesajes(up);
@@ -1865,23 +1907,28 @@ export default function Inventory() {
                                             <option value="ceba">Ceba</option>
                                         </select>
                                     </div>
-                                    <button 
+                                    <button
+                                        type="button"
+                                        className="inventory-history-action-btn"
+                                        aria-label={`Eliminar pesaje adicional ${idx + 1}`}
                                         onClick={() => setNuevosPesajes(nuevosPesajes.filter((_, i) => i !== idx))}
-                                        style={{ backgroundColor: 'transparent', color: 'var(--error)', width: 'auto', padding: '8px', marginBottom: '2px' }}
+                                        style={{ backgroundColor: 'transparent', border: '1px solid rgba(244,67,54,0.3)', color: 'var(--error)', padding: '8px', marginBottom: '2px' }}
                                     >
-                                        <Trash2 size={18} />
+                                        <Trash2 size={18} aria-hidden="true" />
                                     </button>
                                 </div>
                             ))}
                             {nuevosPesajes.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>No se han agregado pesajes adicionales.</p>}
                         </div>
 
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                            <button onClick={() => setShowCrearModal(false)} style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }}>
+                        <div className="inventory-modal-actions-row" style={{ display: 'flex', gap: '12px' }}>
+                            <button type="button" className="inventory-btn-ghost" onClick={() => setShowCrearModal(false)} style={{ flex: 1 }}>
                                 CANCELAR
                             </button>
-                            <button 
-                                onClick={handleCrearAnimal} 
+                            <button
+                                type="button"
+                                onClick={handleCrearAnimal}
+                                style={{ flex: 2 }}
                                 disabled={loading || !nuevoAnimal.numero_chapeta || !nuevoAnimal.peso_ingreso || !nuevoAnimal.nombre_propietario || !nuevoAnimal.especie || !nuevoAnimal.sexo || !nuevoAnimal.etapa || !nuevoAnimal.fecha_ingreso || isChapetaTaken}
                             >
                                 {loading ? 'GUARDANDO...' : 'GUARDAR ANIMAL'}
@@ -1893,24 +1940,26 @@ export default function Inventory() {
 
             {/* Modal para ingresar capital invertido antes de generar el informe */}
             {showCapitalModal && filterPropietario && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '20px' }} onClick={() => setShowCapitalModal(false)}>
-                    <div className="card" style={{ maxWidth: '480px', width: '100%', border: '1px solid rgba(76,175,80,0.3)' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>💰</div>
+                <div className="modal-overlay" onClick={() => setShowCapitalModal(false)}>
+                    <div className="card inventory-modal-card" style={{ maxWidth: '480px', border: '1px solid rgba(76,175,80,0.3)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '10px' }} aria-hidden="true">💰</div>
                             <h2 style={{ color: 'white', margin: '0 0 8px 0' }}>Capital Invertido</h2>
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
                                 Ingresa el valor total que tiene <strong style={{ color: 'var(--primary-light)' }}>{filterPropietario}</strong> invertido en la finca (valor de compra total de sus animales).
                             </p>
                         </div>
                         <div style={{ marginBottom: '8px' }}>
-                            <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Capital Invertido (COP $)</label>
+                            <label htmlFor="inv-capital-invertido" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Capital Invertido (COP $)</label>
                             <input
+                                id="inv-capital-invertido"
                                 type="number"
+                                inputMode="numeric"
                                 placeholder="Ej: 50000000"
                                 value={capitalInvertido}
                                 onChange={e => setCapitalInvertido(e.target.value)}
                                 style={{ fontSize: '1.2rem', fontWeight: 'bold', textAlign: 'right' }}
-                                autoFocus
+                                autoFocus={!isMobile}
                             />
                             {capitalInvertido && parseFloat(capitalInvertido) > 0 && (
                                 <div style={{ fontSize: '0.8rem', color: 'var(--primary-light)', marginTop: '6px', textAlign: 'right' }}>
@@ -1918,17 +1967,20 @@ export default function Inventory() {
                                 </div>
                             )}
                         </div>
-                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '24px' }}>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '20px' }}>
                             Este dato solo se usa para calcular la rentabilidad del informe y no se guarda en la base de datos.
                         </p>
-                        <div style={{ display: 'flex', gap: '12px' }}>
+                        <div className="inventory-modal-actions-row" style={{ display: 'flex', gap: '12px' }}>
                             <button
+                                type="button"
+                                className="inventory-btn-ghost"
                                 onClick={() => setShowCapitalModal(false)}
-                                style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)', flex: 1 }}
+                                style={{ flex: 1 }}
                             >
                                 Cancelar
                             </button>
                             <button
+                                type="button"
                                 onClick={() => {
                                     setShowCapitalModal(false);
                                     setShowPropietarioDashboard(true);
