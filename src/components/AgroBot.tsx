@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import './AgroBot.css';
 
 // Prompt del sistema con conocimiento integral de la base de datos de la finca
 const SYSTEM_PROMPT = `Eres AgroBot, un asistente y mentor ganadero inteligente integrado en una plataforma de gestión ganadera colombiana. Tu propósito principal es ayudar al usuario a consultar, analizar e interpretar TODOS los datos de su finca: animales, pesajes, aforos de pasturas, registros pluviométricos (lluvias), rotación de potreros, compras, ventas, crías y análisis climático. Además, actúas como consultor zootécnico y agronómico: respondes con criterio experto sobre manejo de praderas, nutrición, balance hídrico, sanidad y mejores prácticas ganaderas en el trópico.
@@ -307,16 +308,16 @@ export default function AgroBot() {
     };
 
     return (
-        <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+        <div className={`agrobot-container${isOpen ? ' agrobot-container--open' : ''}`}>
             {isOpen && (
-                <div className="card" style={{ width: '350px', height: '500px', marginBottom: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div className="card agrobot-panel" role="dialog" aria-label="Asistente AgroBot">
                     <div style={{ padding: '16px', background: 'var(--bg-dark-paper)', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Bot size={20} color="var(--primary-light)" />
+                            <Bot size={20} color="var(--primary-light)" aria-hidden="true" />
                             <h3 style={{ margin: 0, fontSize: '1rem' }}>AgroBot</h3>
                         </div>
-                        <button onClick={() => setIsOpen(false)} className="btn-icon" style={{ padding: '4px' }}>
-                            <X size={18} />
+                        <button type="button" onClick={() => setIsOpen(false)} className="btn-icon agrobot-close-btn" aria-label="Cerrar AgroBot">
+                            <X size={18} aria-hidden="true" />
                         </button>
                     </div>
 
@@ -394,18 +395,26 @@ export default function AgroBot() {
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <input 
                                         type="text"
+                                        aria-label="Consulta para AgroBot"
+                                        enterKeyHint="send"
                                         value={input}
                                         onChange={e => setInput(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && handleSend()}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                                                handleSend();
+                                            }
+                                        }}
                                         placeholder="Escribe tu consulta..."
-                                        style={{ flex: 1, padding: '10px', fontSize: '0.9rem', marginBottom: 0 }}
+                                        style={{ flex: 1, padding: '10px', fontSize: '1rem', marginBottom: 0 }}
                                     />
                                     <button 
+                                        type="button"
                                         onClick={handleSend}
                                         disabled={isLoading || !input.trim()}
-                                        style={{ padding: '0 16px', width: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        aria-label="Enviar consulta"
+                                        className="agrobot-send-btn"
                                     >
-                                        <Send size={16} />
+                                        <Send size={16} aria-hidden="true" />
                                     </button>
                                 </div>
                             </div>
@@ -416,10 +425,12 @@ export default function AgroBot() {
             
             {!isOpen && (
                 <button 
+                    type="button"
                     onClick={() => setIsOpen(true)}
-                    style={{ width: '56px', height: '56px', borderRadius: '50%', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(46, 204, 113, 0.4)' }}
+                    aria-label="Abrir asistente AgroBot"
+                    className="agrobot-fab"
                 >
-                    <Bot size={28} color="white" />
+                    <Bot size={28} color="white" aria-hidden="true" />
                 </button>
             )}
         </div>

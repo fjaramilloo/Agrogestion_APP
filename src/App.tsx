@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 import Topbar from './components/Topbar';
 import Sidebar from './components/Sidebar';
+import BottomNav from './components/BottomNav';
 import VersionNotifier from './components/VersionNotifier';
 import SyncSummaryModal from './components/SyncSummaryModal';
 import { lazyWithRetry, prefetchWhenIdle } from './utils/lazyWithRetry';
@@ -129,6 +130,11 @@ const ProtectedRoute = ({ children, allowedRoles, requireSuperAdmin }: { childre
           </Suspense>
         </main>
       </div>
+      <BottomNav
+        isSidebarOpen={sidebarOpen}
+        onToggleMore={toggleSidebar}
+        onNavigate={() => setSidebarOpen(false)}
+      />
     </div>
   );
 };

@@ -1,0 +1,87 @@
+.agrobot-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 130;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.agrobot-container.agrobot-container--open {
+    z-index: 1100;
+}
+
+.agrobot-panel {
+    width: 350px;
+    height: 500px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.agrobot-fab {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+}
+
+.agrobot-close-btn {
+    width: auto;
+    padding: 4px;
+}
+
+.agrobot-send-btn {
+    padding: 0 16px;
+    width: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 1024px) {
+    .agrobot-container {
+        bottom: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 12px);
+        right: max(12px, env(safe-area-inset-right, 0px));
+    }
+
+    .agrobot-container.agrobot-container--open {
+        left: max(8px, env(safe-area-inset-left, 0px));
+        right: max(8px, env(safe-area-inset-right, 0px));
+        bottom: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 8px);
+        align-items: stretch;
+    }
+
+    .agrobot-panel {
+        width: 100%;
+        padding: 0;
+        height: min(72dvh, 520px);
+        max-height: calc(
+            100dvh
+            - var(--topbar-height, 58px)
+            - var(--bottom-nav-height, 68px)
+            - env(safe-area-inset-top, 0px)
+            - env(safe-area-inset-bottom, 0px)
+            - 24px
+        );
+        margin-bottom: 0;
+    }
+
+    .agrobot-fab {
+        width: 52px;
+        height: 52px;
+    }
+
+    .agrobot-send-btn {
+        min-width: 48px;
+        min-height: 48px;
+    }
+}

@@ -21,6 +21,10 @@
 
 /* Sombras y overlays para móviles */
 @media (max-width: 1024px) {
+    .sidebar {
+        padding-bottom: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 24px);
+    }
+
     .sidebar.isOpen {
         box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
     }
