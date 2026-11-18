@@ -8,6 +8,8 @@ import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, W
 import SalesReport from '../components/SalesReport';
 import ModalUpsell from '../components/ModalUpsell';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { useModalDialog } from '../hooks/useModalDialog';
+import './TradeOperations.css';
 
 interface OfflineSalesPayload {
     id: string;
@@ -64,6 +66,7 @@ export default function Sales() {
 
     // Reporte
     const [showConfirm, setShowConfirm] = useState(false);
+    const confirmDialogProps = useModalDialog(showConfirm, () => setShowConfirm(false), false);
 
     const [showReport, setShowReport] = useState(false);
     const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalVenta[], comprador: string, observaciones?: string } | null>(null);
@@ -362,6 +365,9 @@ export default function Sales() {
             setMsjError('');
         } catch (err: any) {
             setMsjError(err.message);
+        } finally {
+            // Libera estado de carga tras validar preconfirmación
+            setLoading(false);
         }
     };
 
@@ -536,13 +542,17 @@ export default function Sales() {
     };
 
     return (
-        <div className="page-container">
-            {/* Modal de Confirmación */}
-            {showConfirm && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-                    <div className="card" style={{ maxWidth: '450px', width: '100%', textAlign: 'center', border: '1px solid var(--error)' }}>
-                        <Tag size={40} color="var(--error)" style={{ marginBottom: '16px' }} />
-                        <h2 style={{ marginBottom: '12px' }}>Confirmar Venta</h2>
+        <div className="page-container trade-page sales-page">
+            {/* Modal nativo de Confirmación */}
+            <dialog
+                {...confirmDialogProps}
+                aria-labelledby="sales-confirm-title"
+                className="trade-dialog trade-dialog--danger"
+            >
+                {showConfirm && (
+                    <div className="trade-dialog-confirm-body">
+                        <Tag size={40} color="var(--error)" aria-hidden="true" style={{ marginBottom: '16px' }} />
+                        <h2 id="sales-confirm-title" style={{ marginBottom: '12px' }}>Confirmar Venta</h2>
                         <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
                             ¿Estás seguro de marcar estos <b>{animales.length} animales</b> como VENDIDOS? <br />
                             Comprador: <b>{selectedComprador}</b><br />
@@ -552,64 +562,68 @@ export default function Sales() {
                         {animales.some(a => a.advertencia_fecha) && (
                             <div style={{ backgroundColor: 'rgba(255, 152, 0, 0.15)', border: '1px solid #ff9800', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', textAlign: 'left', fontSize: '0.85rem' }}>
                                 <div style={{ color: '#ff9800', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                    <AlertTriangle size={18} /> Atención: Advertencia de Fechas
+                                    <AlertTriangle size={18} aria-hidden="true" /> Atención: Advertencia de Fechas
                                 </div>
                                 <div style={{ color: 'var(--text-main)', fontSize: '0.82rem' }}>
                                     Hay <b>{animales.filter(a => a.advertencia_fecha).length} animales</b> con pesajes registrados posteriores al <b>{fechaVenta}</b>. Asegúrate de que la fecha de salida sea la correcta antes de confirmar.
                                 </div>
                             </div>
                         )}
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                            <button onClick={() => setShowConfirm(false)} style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)' }}>
+                        <div className="trade-dialog-confirm-actions">
+                            <button
+                                type="button"
+                                autoFocus
+                                onClick={() => setShowConfirm(false)}
+                                className="trade-dialog-cancel-btn"
+                            >
                                 Regresar
                             </button>
-                            <button onClick={handleProcesarVenta} style={{ backgroundColor: 'var(--error)' }}>
+                            <button
+                                type="button"
+                                onClick={handleProcesarVenta}
+                                style={{ backgroundColor: 'var(--error)' }}
+                            >
                                 Confirmar Venta
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </dialog>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
-                <div>
-                    <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                        <Tag size={32} /> Registrar Venta
+            <div className="trade-header">
+                <div className="trade-header-main">
+                    <h1 className="title">
+                        <Tag size={32} aria-hidden="true" /> Registrar Venta
                     </h1>
-                    <p style={{ color: 'var(--text-muted)', margin: '8px 0 0 0' }}>Módulo para dar de baja animales vendidos y registrar su peso final.</p>
+                    <p className="trade-subtitle">Módulo para dar de baja animales vendidos y registrar su peso final.</p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div 
+                <div className="trade-header-actions">
+                    <button
+                        type="button"
                         onClick={toggleModoCampo}
                         title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
-                        style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '6px', 
-                            padding: '6px 12px', 
-                            borderRadius: '20px', 
-                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
-                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800', 
-                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
-                            fontWeight: 'bold', 
-                            fontSize: '0.82rem',
-                            cursor: 'pointer',
-                            userSelect: 'none'
+                        className="trade-status-pill"
+                        style={{
+                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
+                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800',
+                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.08)',
                         }}
                     >
-                        {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} /> Online</> : <><WifiOff size={14} /> Offline</>}
-                    </div>
+                        {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} aria-hidden="true" /> Online</> : <><WifiOff size={14} aria-hidden="true" /> Offline</>}
+                    </button>
                     {offlineQueue.length > 0 && isOnline && (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            <button 
-                                onClick={syncOfflineQueue} 
-                                disabled={syncing} 
-                                style={{ backgroundColor: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.82rem', width: 'auto' }}
+                        <div className="trade-queue-actions">
+                            <button
+                                type="button"
+                                onClick={syncOfflineQueue}
+                                disabled={syncing}
+                                className="trade-sync-btn trade-sync-btn--danger"
                             >
-                                <UploadCloud size={15} /> {syncing ? 'Validando...' : `Sincronizar (${offlineQueue.length})`}
+                                <UploadCloud size={15} aria-hidden="true" /> {syncing ? 'Validando...' : `Sincronizar (${offlineQueue.length})`}
                             </button>
-                            <button 
+                            <button
+                                type="button"
                                 onClick={() => {
                                     if (window.confirm('¿Estás seguro de limpiar la cola de ventas pendientes? Esto borrará los lotes que no se han subido.')) {
                                         setOfflineQueue([]);
@@ -617,10 +631,11 @@ export default function Sales() {
                                         setMsjExito('Cola de ventas pendientes limpiada correctamente.');
                                     }
                                 }}
-                                style={{ backgroundColor: 'transparent', color: 'var(--error)', border: '1px solid var(--error)', width: 'auto', padding: '8px' }}
+                                className="trade-clear-queue-btn"
                                 title="Limpiar todos los pendientes"
+                                aria-label="Limpiar cola de ventas pendientes"
                             >
-                                <Trash2 size={18} />
+                                <Trash2 size={18} aria-hidden="true" />
                             </button>
                         </div>
                     )}
@@ -628,20 +643,9 @@ export default function Sales() {
             </div>
 
             {isBloqueado && (
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    marginBottom: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '16px',
-                    flexWrap: 'wrap'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
+                <div className="trade-upsell-banner">
+                    <div className="trade-upsell-text">
+                        <AlertOctagon size={24} color="#f87171" aria-hidden="true" style={{ flexShrink: 0 }} />
                         <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
@@ -657,47 +661,38 @@ export default function Sales() {
                     <button
                         type="button"
                         onClick={() => setShowUpsellModal(true)}
-                        style={{
-                            width: 'auto',
-                            padding: '8px 16px',
-                            fontSize: '0.85rem',
-                            backgroundColor: '#ef4444',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap'
-                        }}
+                        className="trade-upsell-btn"
                     >
                         {isVencida ? 'Renovar Plan' : 'Ver Planes'}
                     </button>
                 </div>
             )}
 
-            {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
-            {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
+            {msjExito && <div role="status" aria-live="polite" className="trade-feedback trade-feedback--success">{msjExito}</div>}
+            {msjError && <div role="alert" aria-live="assertive" className="trade-feedback trade-feedback--error">{msjError}</div>}
 
-            <div className="card" style={{ marginBottom: '32px' }}>
-                <form onSubmit={generarFilas} style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 200px' }}>
-                            <label>Fecha de Salida</label>
-                            <div style={{ position: 'relative' }}>
-                                <Calendar size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
+            <div className="card trade-form-card">
+                <form onSubmit={generarFilas} className="trade-form">
+                    <div className="trade-form-row">
+                        <div className="trade-field">
+                            <label htmlFor="sales-fecha">Fecha de Salida</label>
+                            <div className="trade-date-wrap">
+                                <Calendar size={18} aria-hidden="true" className="trade-date-icon" />
                                 <input
+                                    id="sales-fecha"
                                     type="date"
                                     value={fechaVenta}
                                     onChange={e => handleFechaVentaChange(e.target.value)}
-                                    style={{ paddingLeft: '40px' }}
+                                    className="trade-date-input"
                                     disabled={loading}
                                 />
                             </div>
                         </div>
 
-                        <div style={{ flex: '1 1 250px' }}>
-                            <label>Comprador</label>
+                        <div className="trade-field--wide">
+                            <label htmlFor="sales-comprador">Comprador</label>
                             <select
+                                id="sales-comprador"
                                 value={selectedComprador}
                                 onChange={e => setSelectedComprador(e.target.value)}
                                 disabled={loading || animales.length > 0}
@@ -711,10 +706,11 @@ export default function Sales() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 100%' }}>
-                            <label>Observaciones de la Venta {isCarnicero && <span style={{ color: 'var(--error)', fontSize: '0.7rem' }}>(OBLIGATORIO PARA EMERGENCIA)</span>}</label>
+                    <div className="trade-form-row">
+                        <div className="trade-field--full">
+                            <label htmlFor="sales-observaciones">Observaciones de la Venta {isCarnicero && <span style={{ color: 'var(--error)', fontSize: '0.75rem' }}>(OBLIGATORIO PARA EMERGENCIA)</span>}</label>
                             <input
+                                id="sales-observaciones"
                                 type="text"
                                 placeholder={isCarnicero ? "Especifique el motivo de la emergencia (ej: lesión, enfermedad)..." : "Ej: Venta de lote para ceba, precio por kilo..."}
                                 value={observaciones}
@@ -725,25 +721,27 @@ export default function Sales() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 150px' }}>
-                            <label>Cantidad Vendida</label>
+                    <div className="trade-submit-row">
+                        <div className="trade-field--count">
+                            <label htmlFor="sales-cantidad">Cantidad Vendida</label>
                             <input
+                                id="sales-cantidad"
                                 type="number"
                                 min="1"
                                 max="100"
+                                inputMode="numeric"
                                 value={cantidad}
                                 onChange={e => setCantidad(e.target.value)}
                                 disabled={loading || animales.length > 0}
                             />
                         </div>
                         {animales.length === 0 ? (
-                            <button type="submit" style={{ width: 'auto', padding: '0 32px' }} disabled={loading}>
-                                <Plus size={18} /> Preparar Lista
+                            <button type="submit" className="trade-primary-btn" disabled={loading}>
+                                <Plus size={18} aria-hidden="true" /> Preparar Lista
                             </button>
                         ) : (
-                            <button type="button" onClick={handleReset} style={{ width: 'auto', backgroundColor: 'transparent', border: '1px solid var(--error)', color: 'var(--error)', padding: '0 32px' }}>
-                                <Trash2 size={18} /> Reiniciar Lista
+                            <button type="button" onClick={handleReset} className="trade-reset-btn">
+                                <Trash2 size={18} aria-hidden="true" /> Reiniciar Lista
                             </button>
                         )}
                     </div>
@@ -753,17 +751,8 @@ export default function Sales() {
             {animales.length > 0 && (
                 <>
                     {animales.some(a => a.advertencia_fecha) && (
-                        <div style={{
-                            backgroundColor: 'rgba(255, 152, 0, 0.12)',
-                            border: '1px solid #ff9800',
-                            borderRadius: '10px',
-                            padding: '16px 20px',
-                            marginBottom: '20px',
-                            display: 'flex',
-                            gap: '14px',
-                            alignItems: 'flex-start'
-                        }}>
-                            <AlertTriangle size={24} color="#ff9800" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div role="status" className="sales-date-alert">
+                            <AlertTriangle size={24} color="#ff9800" aria-hidden="true" style={{ flexShrink: 0, marginTop: '2px' }} />
                             <div>
                                 <div style={{ fontWeight: 'bold', color: '#ff9800', fontSize: '0.95rem' }}>
                                     ⚠️ Advertencia: Fecha de salida anterior al último pesaje
@@ -785,16 +774,16 @@ export default function Sales() {
                         </div>
                     )}
 
-                    <div className="glass-panel" style={{ padding: 0, overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <div className="glass-panel trade-table-panel">
+                        <table className={`trade-table sales-table ${isCarnicero ? 'is-carnicero' : ''}`}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <th style={{ padding: '16px', color: 'var(--text-muted)', width: '60px' }}>#</th>
-                                    <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Chapeta</th>
-                                    <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Peso Salida (kg)</th>
-                                    {isCarnicero && <th style={{ padding: '16px', color: 'var(--error)', fontSize: '0.7rem' }}>VALOR VENTA ($)</th>}
-                                    <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Marca</th>
-                                    <th style={{ padding: '16px', width: '50px' }}></th>
+                                <tr>
+                                    <th style={{ width: '60px' }}>#</th>
+                                    <th>Chapeta</th>
+                                    <th>Peso Salida (kg)</th>
+                                    {isCarnicero && <th style={{ color: 'var(--error)', fontSize: '0.75rem' }}>VALOR VENTA ($)</th>}
+                                    <th>Marca</th>
+                                    <th style={{ width: '50px' }}><span className="trade-visually-hidden">Eliminar</span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -804,112 +793,142 @@ export default function Sales() {
                                     const finalError = isDuplicateInList ? 'Repetido en la lista' : a.error;
 
                                     return (
-                                    <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{index + 1}</td>
-                                        <td style={{ padding: '8px 16px' }}>
-                                            <div>
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <tr key={index}>
+                                            <td className="trade-col-item" style={{ padding: '16px', color: 'var(--text-muted)' }}>
+                                                <span className="mobile-hide">{index + 1}</span>
+                                                <span className="trade-cell-label-tag">Animal #{index + 1}</span>
+                                            </td>
+                                            <td className="sales-col-chapeta" style={{ padding: '8px 16px' }}>
+                                                <label htmlFor={`sales-chapeta-${index}`} className="trade-cell-label">Nro. Chapeta</label>
+                                                <div className="sales-chapeta-row">
                                                     <input
+                                                        id={`sales-chapeta-${index}`}
                                                         type="text"
                                                         placeholder="Chapeta"
                                                         value={a.numero_chapeta}
                                                         onChange={e => updateAnimalField(index, 'numero_chapeta', e.target.value)}
                                                         onBlur={() => validarAnimal(index)}
-                                                        style={{ 
-                                                            marginBottom: 0, 
-                                                            padding: '10px', 
-                                                            width: '120px', 
+                                                        autoCorrect="off"
+                                                        autoCapitalize="characters"
+                                                        spellCheck={false}
+                                                        enterKeyHint="search"
+                                                        aria-invalid={Boolean(finalError) || undefined}
+                                                        className="sales-chapeta-input"
+                                                        style={{
                                                             borderColor: finalError ? 'var(--error)' : (a.advertencia_fecha ? '#ff9800' : (a.validado ? 'var(--success)' : '')),
                                                             backgroundColor: isDuplicateInList ? 'rgba(244, 67, 54, 0.05)' : 'transparent'
                                                         }}
                                                     />
-                                                    {a.validado && !isDuplicateInList && !a.advertencia_fecha && <CheckCircle2 size={18} color="var(--success)" />}
+                                                    {a.validado && !isDuplicateInList && !a.advertencia_fecha && (
+                                                        <CheckCircle2 size={20} color="var(--success)" aria-label="Chapeta validada" style={{ flexShrink: 0 }} />
+                                                    )}
                                                     {a.validado && !isDuplicateInList && a.advertencia_fecha && (
-                                                        <div style={{ color: '#ff9800', display: 'flex', alignItems: 'center' }} title={a.advertencia_fecha}>
-                                                            <AlertTriangle size={18} />
+                                                        <div style={{ color: '#ff9800', display: 'flex', alignItems: 'center', flexShrink: 0 }} title={a.advertencia_fecha}>
+                                                            <AlertTriangle size={20} aria-hidden="true" />
                                                         </div>
                                                     )}
-                                                    {finalError && <div style={{ color: 'var(--error)', fontSize: '0.7rem' }} title={finalError}><AlertCircle size={18} /></div>}
-                                                    {isDuplicateInList && <div style={{ color: 'var(--error)', fontSize: '0.7rem', marginTop: '4px' }}>Repetido en la lista</div>}
-                                                    {!a.validado && !finalError && a.numero_chapeta && <button onClick={() => validarAnimal(index)} className="btn-icon" style={{ width: 'auto' }}><Search size={14} /></button>}
+                                                    {finalError && (
+                                                        <div style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', flexShrink: 0 }} title={finalError}>
+                                                            <AlertCircle size={20} aria-hidden="true" />
+                                                        </div>
+                                                    )}
+                                                    {!a.validado && !finalError && a.numero_chapeta && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => validarAnimal(index)}
+                                                            className="btn-icon sales-validate-btn"
+                                                            aria-label={`Validar chapeta ${index + 1}`}
+                                                            title="Buscar y validar animal"
+                                                        >
+                                                            <Search size={16} aria-hidden="true" />
+                                                        </button>
+                                                    )}
                                                 </div>
+                                                {finalError && (
+                                                    <div role="alert" className="sales-field-error">{finalError}</div>
+                                                )}
                                                 {a.advertencia_fecha && (
-                                                    <div style={{ color: '#ff9800', fontSize: '0.68rem', marginTop: '3px', maxWidth: '170px', lineHeight: 1.2 }}>
+                                                    <div className="sales-field-warning">
                                                         ⚠️ Salida &lt; último pesaje ({a.ultima_fecha ? String(a.ultima_fecha).split('T')[0] : ''})
                                                     </div>
                                                 )}
-                                            </div>
-                                        </td>
-                                    <td style={{ padding: '8px 16px' }}>
-                                        <div style={{ position: 'relative' }}>
-                                            <input
-                                                type="number"
-                                                step="0.1"
-                                                placeholder="Peso final"
-                                                value={a.peso_salida}
-                                                onChange={e => updateAnimalField(index, 'peso_salida', e.target.value)}
-                                                style={{ marginBottom: 0, padding: '10px' }}
-                                            />
-                                            {a.es_estimado && (
-                                                <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.65rem', color: 'var(--primary-light)', fontWeight: 'bold', background: 'rgba(76, 175, 80, 0.1)', padding: '2px 4px', borderRadius: '4px' }}>
-                                                    ESTIMADO
+                                            </td>
+                                            <td className="sales-col-peso" style={{ padding: '8px 16px' }}>
+                                                <label htmlFor={`sales-peso-${index}`} className="trade-cell-label">Peso Salida (kg)</label>
+                                                <div className="sales-peso-wrap">
+                                                    <input
+                                                        id={`sales-peso-${index}`}
+                                                        type="number"
+                                                        step="0.1"
+                                                        inputMode="decimal"
+                                                        enterKeyHint="next"
+                                                        placeholder="Peso final"
+                                                        value={a.peso_salida}
+                                                        onChange={e => updateAnimalField(index, 'peso_salida', e.target.value)}
+                                                        className={`sales-peso-input ${a.es_estimado ? 'has-estimado' : ''}`}
+                                                    />
+                                                    {a.es_estimado && (
+                                                        <div className="sales-estimado-badge">ESTIMADO</div>
+                                                    )}
                                                 </div>
+                                            </td>
+                                            {isCarnicero && (
+                                                <td className="sales-col-precio" style={{ padding: '8px 16px' }}>
+                                                    <label htmlFor={`sales-precio-${index}`} className="trade-cell-label">Valor Venta ($)</label>
+                                                    <div className="sales-price-wrap">
+                                                        <span aria-hidden="true" className="sales-price-prefix">$</span>
+                                                        <input
+                                                            id={`sales-precio-${index}`}
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            placeholder="Precio Venta"
+                                                            value={a.precio_venta ? formatCurrency(a.precio_venta) : ''}
+                                                            onChange={e => {
+                                                                const clean = e.target.value.replace(/\D/g, '');
+                                                                updateAnimalField(index, 'precio_venta', clean);
+                                                            }}
+                                                            className="sales-price-input"
+                                                            required={isCarnicero}
+                                                        />
+                                                    </div>
+                                                </td>
                                             )}
-                                        </div>
-                                    </td>
-                                    {isCarnicero && (
-                                        <td style={{ padding: '8px 16px' }}>
-                                            <div style={{ position: 'relative' }}>
-                                                <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>$</span>
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    placeholder="Precio Venta"
-                                                    value={a.precio_venta ? formatCurrency(a.precio_venta) : ''}
-                                                    onChange={e => {
-                                                        const clean = e.target.value.replace(/\D/g, '');
-                                                        updateAnimalField(index, 'precio_venta', clean);
-                                                    }}
-                                                    style={{ marginBottom: 0, padding: '10px 10px 10px 25px', border: '1px solid var(--error)', fontWeight: 'bold' }}
-                                                    required={isCarnicero}
-                                                />
-                                            </div>
-                                        </td>
-                                    )}
-                                    <td style={{ padding: '16px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                                        {a.propietario || '-'}
-                                    </td>
-                                    <td style={{ padding: '16px' }}>
-                                        <button
-                                            onClick={() => removeFila(index)}
-                                            className="btn-icon"
-                                            style={{ color: 'rgba(255,255,255,0.2)' }}
-                                            onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
-                                            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            )})}
-                        </tbody>
-                    </table>
+                                            <td className="sales-col-marca" style={{ padding: '16px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                                                <span className="trade-cell-label" style={{ marginBottom: '2px' }}>Marca</span>
+                                                <span>{a.propietario || '-'}</span>
+                                            </td>
+                                            <td className="trade-col-actions" style={{ padding: '16px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeFila(index)}
+                                                    aria-label={`Eliminar fila ${index + 1}`}
+                                                    className="trade-remove-btn"
+                                                >
+                                                    <Trash2 size={16} aria-hidden="true" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
 
-                    <div style={{ padding: '32px', display: 'flex', justifyContent: 'center' }}>
-                        <button
-                            onClick={handlePreconfirmar}
-                            disabled={loading}
-                            style={{ backgroundColor: 'var(--error)', maxWidth: '400px', fontSize: '1.2rem', padding: '16px 48px' }}
-                        >
-                            {loading ? 'Procesando...' : (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <CheckCircle2 size={24} /> Confirmar Venta de {animales.length} Animales
-                                </span>
-                            )}
-                        </button>
+                        <div className="trade-confirm-wrap">
+                            <button
+                                type="button"
+                                onClick={handlePreconfirmar}
+                                disabled={loading}
+                                className="trade-confirm-btn trade-confirm-btn--danger"
+                            >
+                                {loading ? 'Procesando...' : (
+                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                        <CheckCircle2 size={22} aria-hidden="true" /> Confirmar Venta de {animales.length} Animales
+                                    </span>
+                                )}
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </>
+                </>
             )}
 
             {showReport && reportData && (

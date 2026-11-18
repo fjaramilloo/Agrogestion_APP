@@ -7,6 +7,8 @@ import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, Uplo
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { useModalDialog } from '../hooks/useModalDialog';
+import './TradeOperations.css';
 
 interface OfflinePurchasePayload {
     id: string;
@@ -71,6 +73,7 @@ export default function Purchase() {
     const [quickKgComprados, setQuickKgComprados] = useState('');
     const [quickAnimalCount, setQuickAnimalCount] = useState('1');
     const [quickWeights, setQuickWeights] = useState<string[]>(['']);
+    const [quickError, setQuickError] = useState('');
     const [showQuickReport, setShowQuickReport] = useState(false);
     const [quickReportData, setQuickReportData] = useState<{ proveedor: string; fecha: string; animales: { numero_chapeta: string; peso_ingreso: number }[]; pesoCompraTotal: number } | null>(null);
 
@@ -188,6 +191,8 @@ export default function Purchase() {
     };
 
     const [showConfirm, setShowConfirm] = useState(false);
+    const confirmDialogProps = useModalDialog(showConfirm, () => setShowConfirm(false), true);
+    const quickDialogProps = useModalDialog(showQuickModal, () => setShowQuickModal(false), true);
 
     const handleIngresarCompra = async () => {
         if (!fincaId || animales.length === 0) return;
@@ -480,94 +485,92 @@ export default function Purchase() {
     };
 
     return (
-        <div className="page-container">
-            {/* Modal de Confirmación */}
-            {showConfirm && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowConfirm(false)}>
-                    <div className="card" style={{ maxWidth: '450px', width: '100%', textAlign: 'center', border: '1px solid var(--primary)' }} onClick={e => e.stopPropagation()}>
-                        <ShoppingCart size={40} color="var(--primary)" style={{ marginBottom: '16px' }} />
-                        <h2 style={{ marginBottom: '12px' }}>Validar Información</h2>
+        <div className="page-container trade-page purchase-page">
+            {/* Modal nativo de Confirmación */}
+            <dialog
+                {...confirmDialogProps}
+                aria-labelledby="purchase-confirm-title"
+                className="trade-dialog"
+            >
+                {showConfirm && (
+                    <div className="trade-dialog-confirm-body">
+                        <ShoppingCart size={40} color="var(--primary)" aria-hidden="true" style={{ marginBottom: '16px' }} />
+                        <h2 id="purchase-confirm-title" style={{ marginBottom: '12px' }}>Validar Información</h2>
                         <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
                             ¿Estás seguro de ingresar estos <b>{animales.length} animales</b>? <br />
                             Fecha de entrada: <b>{fechaIngreso}</b>
                         </p>
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                            <button onClick={() => setShowConfirm(false)} style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)' }}>
+                        <div className="trade-dialog-confirm-actions">
+                            <button
+                                type="button"
+                                autoFocus
+                                onClick={() => setShowConfirm(false)}
+                                className="trade-dialog-cancel-btn"
+                            >
                                 Cancelar
                             </button>
-                            <button onClick={confirmAndInsert} style={{ backgroundColor: 'var(--primary)' }}>
+                            <button
+                                type="button"
+                                onClick={confirmAndInsert}
+                                style={{ backgroundColor: 'var(--primary)' }}
+                            >
                                 Sí, ingresar ahora
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </dialog>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-                <div>
-                    <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                        <ShoppingCart size={32} /> Registrar Compra
+            <div className="trade-header">
+                <div className="trade-header-main">
+                    <h1 className="title">
+                        <ShoppingCart size={32} aria-hidden="true" /> Registrar Compra
                     </h1>
-                    <p style={{ color: 'var(--text-muted)', margin: '8px 0 0 0' }}>Módulo para el registro masivo de animales nuevos.</p>
+                    <p className="trade-subtitle">Módulo para el registro masivo de animales nuevos.</p>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <div 
+                <div className="trade-header-actions">
+                    <button
+                        type="button"
                         onClick={toggleModoCampo}
                         title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
-                        style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '6px', 
-                            padding: '6px 12px', 
-                            borderRadius: '20px', 
-                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
-                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800', 
-                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
-                            fontWeight: 'bold', 
-                            fontSize: '0.82rem',
-                            cursor: 'pointer',
-                            userSelect: 'none'
+                        className="trade-status-pill"
+                        style={{
+                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
+                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800',
+                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.08)',
                         }}
                     >
-                        {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} /> Online</> : <><WifiOff size={14} /> Offline</>}
-                    </div>
-                    
-                    <button 
+                        {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} aria-hidden="true" /> Online</> : <><WifiOff size={14} aria-hidden="true" /> Offline</>}
+                    </button>
+
+                    <button
+                        type="button"
                         onClick={() => {
                             setQuickProveedor('');
                             setQuickKgComprados('');
                             setQuickAnimalCount('1');
                             setQuickWeights(['']);
+                            setQuickError('');
                             setShowQuickModal(true);
                         }}
-                        style={{ 
-                            backgroundColor: 'rgba(52, 152, 219, 0.1)', 
-                            color: '#3498db', 
-                            border: '1px solid #3498db',
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            fontSize: '0.82rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            width: 'auto',
-                            transition: 'all 0.2s ease'
-                        }}
+                        className="trade-quick-btn"
                     >
-                        <ShoppingCart size={15} /> Compra Rápida
+                        <ShoppingCart size={15} aria-hidden="true" /> Compra Rápida
                     </button>
 
                     {offlineQueue.length > 0 && isOnline && (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            <button 
-                                onClick={syncOfflineQueue} 
-                                disabled={syncing} 
-                                style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.82rem', width: 'auto' }}
+                        <div className="trade-queue-actions">
+                            <button
+                                type="button"
+                                onClick={syncOfflineQueue}
+                                disabled={syncing}
+                                className="trade-sync-btn trade-sync-btn--primary"
                             >
-                                <UploadCloud size={15} /> {syncing ? 'Subiendo...' : `Subir (${offlineQueue.length})`}
+                                <UploadCloud size={15} aria-hidden="true" /> {syncing ? 'Subiendo...' : `Subir (${offlineQueue.length})`}
                             </button>
-                            <button 
+                            <button
+                                type="button"
                                 onClick={() => {
                                     if (window.confirm('¿Estás seguro de limpiar la cola de pendientes? Esto borrará los lotes que no se han subido.')) {
                                         setOfflineQueue([]);
@@ -575,10 +578,11 @@ export default function Purchase() {
                                         setMsjExito('Cola de pendientes limpiada correctamente.');
                                     }
                                 }}
-                                style={{ backgroundColor: 'transparent', color: 'var(--error)', border: '1px solid var(--error)', width: 'auto', padding: '8px' }}
+                                className="trade-clear-queue-btn"
                                 title="Limpiar todos los pendientes"
+                                aria-label="Limpiar cola de compras pendientes"
                             >
-                                <Trash2 size={18} />
+                                <Trash2 size={18} aria-hidden="true" />
                             </button>
                         </div>
                     )}
@@ -586,20 +590,9 @@ export default function Purchase() {
             </div>
 
             {isBloqueado && (
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    marginBottom: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '16px',
-                    flexWrap: 'wrap'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
+                <div className="trade-upsell-banner">
+                    <div className="trade-upsell-text">
+                        <AlertOctagon size={24} color="#f87171" aria-hidden="true" style={{ flexShrink: 0 }} />
                         <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
@@ -615,117 +608,166 @@ export default function Purchase() {
                     <button
                         type="button"
                         onClick={() => setShowUpsellModal(true)}
-                        style={{
-                            width: 'auto',
-                            padding: '8px 16px',
-                            fontSize: '0.85rem',
-                            backgroundColor: '#ef4444',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap'
-                        }}
+                        className="trade-upsell-btn"
                     >
                         {isVencida ? 'Renovar Plan' : 'Ver Planes'}
                     </button>
                 </div>
             )}
 
-            {/* MODAL COMPRA RÁPIDA (completamente volátil, no guarda en DB) */}
-            {showQuickModal && (() => {
-                const totalRecibido = quickWeights.reduce((acc, w) => acc + (parseFloat(w) || 0), 0);
-                const kgCompradosNum = parseFloat(quickKgComprados) || 0;
-                const mermaPorc = (kgCompradosNum > 0 && totalRecibido > 0) ? ((kgCompradosNum - totalRecibido) / kgCompradosNum * 100) : 0;
-                const countNum = parseInt(quickAnimalCount) || 1;
+            {/* MODAL NATIVO COMPRA RÁPIDA (completamente volátil, no guarda en DB) */}
+            <dialog
+                {...quickDialogProps}
+                aria-labelledby="purchase-quick-title"
+                className="trade-dialog trade-dialog--wide trade-dialog--info"
+            >
+                {showQuickModal && (() => {
+                    const totalRecibido = quickWeights.reduce((acc, w) => acc + (parseFloat(w) || 0), 0);
+                    const kgCompradosNum = parseFloat(quickKgComprados) || 0;
+                    const mermaPorc = (kgCompradosNum > 0 && totalRecibido > 0) ? ((kgCompradosNum - totalRecibido) / kgCompradosNum * 100) : 0;
+                    const countNum = parseInt(quickAnimalCount) || 1;
 
-                return (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', zIndex: 1500, padding: '20px', overflowY: 'auto' }} onClick={() => setShowQuickModal(false)}>
-                        <div className="card" style={{ maxWidth: '900px', width: '100%', border: '1px solid #3498db', marginTop: '20px' }} onClick={e => e.stopPropagation()}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                                <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
-                                    <ShoppingCart size={24} color="#3498db" /> Compra Rápida — Calculadora de Merma
+                    return (
+                        <div className="trade-dialog-body">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px' }}>
+                                <h2 id="purchase-quick-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: 0, fontSize: '1.2rem' }}>
+                                    <ShoppingCart size={22} color="#3498db" aria-hidden="true" style={{ flexShrink: 0 }} /> Compra Rápida — Calculadora de Merma
                                 </h2>
-                                <button onClick={() => setShowQuickModal(false)} style={{ backgroundColor: 'transparent', padding: '8px', color: 'var(--text-muted)', width: 'auto' }}><X size={24} /></button>
+                                <button
+                                    type="button"
+                                    aria-label="Cerrar calculadora de merma"
+                                    onClick={() => setShowQuickModal(false)}
+                                    className="trade-dialog-close-btn"
+                                >
+                                    <X size={24} aria-hidden="true" />
+                                </button>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                            {quickError && (
+                                <div role="alert" className="trade-feedback trade-feedback--error" style={{ marginBottom: '16px' }}>
+                                    {quickError}
+                                </div>
+                            )}
+
+                            <div className="purchase-quick-fields">
                                 <div>
-                                    <label>Vendedor / Proveedor</label>
-                                    <select value={quickProveedor} onChange={e => setQuickProveedor(e.target.value)}>
+                                    <label htmlFor="quick-proveedor">Vendedor / Proveedor</label>
+                                    <select
+                                        id="quick-proveedor"
+                                        autoFocus
+                                        value={quickProveedor}
+                                        onChange={e => {
+                                            setQuickProveedor(e.target.value);
+                                            if (quickError) setQuickError('');
+                                        }}
+                                    >
                                         <option value="">Seleccionar...</option>
                                         {proveedores.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label>Kg Comprados (Origen / Báscula Proveedor)</label>
-                                    <input type="number" step="0.1" value={quickKgComprados} onChange={e => setQuickKgComprados(e.target.value)} placeholder="Ej. 6216" />
+                                    <label htmlFor="quick-kg-comprados">Kg Comprados (Origen / Báscula Proveedor)</label>
+                                    <input
+                                        id="quick-kg-comprados"
+                                        type="number"
+                                        step="0.1"
+                                        inputMode="decimal"
+                                        value={quickKgComprados}
+                                        onChange={e => {
+                                            setQuickKgComprados(e.target.value);
+                                            if (quickError) setQuickError('');
+                                        }}
+                                        placeholder="Ej. 6216"
+                                    />
                                 </div>
                                 <div>
-                                    <label>Nro. de Animales</label>
-                                    <input type="number" min="1" max="100" value={quickAnimalCount} onChange={e => {
-                                        const val = e.target.value;
-                                        setQuickAnimalCount(val);
-                                        const num = parseInt(val) || 0;
-                                        if (num > 0 && num <= 100) {
-                                            setQuickWeights(prev => {
-                                                const next = [...prev];
-                                                if (num > next.length) for (let i = next.length; i < num; i++) next.push('');
-                                                else next.splice(num);
-                                                return next;
-                                            });
-                                        }
-                                    }} />
+                                    <label htmlFor="quick-animal-count">Nro. de Animales</label>
+                                    <input
+                                        id="quick-animal-count"
+                                        type="number"
+                                        min="1"
+                                        max="100"
+                                        inputMode="numeric"
+                                        value={quickAnimalCount}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            setQuickAnimalCount(val);
+                                            const num = parseInt(val) || 0;
+                                            if (num > 0 && num <= 100) {
+                                                setQuickWeights(prev => {
+                                                    const next = [...prev];
+                                                    if (num > next.length) for (let i = next.length; i < num; i++) next.push('');
+                                                    else next.splice(num);
+                                                    return next;
+                                                });
+                                            }
+                                        }}
+                                    />
                                 </div>
                             </div>
 
                             {/* Indicador de Merma en vivo */}
-                            <div style={{ display: 'flex', gap: '20px', backgroundColor: 'rgba(52,152,219,0.05)', padding: '20px', borderRadius: '12px', marginBottom: '24px', border: '1px solid rgba(52,152,219,0.2)', justifyContent: 'space-around', alignItems: 'center', flexWrap: 'wrap' }}>
-                                <div style={{ textAlign: 'center' }}>
+                            <div className="purchase-merma-grid">
+                                <div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Kg Comprados</div>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{kgCompradosNum.toLocaleString()} <small style={{ fontSize: '0.9rem' }}>kg</small></div>
+                                    <div className="purchase-merma-value">{kgCompradosNum.toLocaleString()} <small style={{ fontSize: '0.85rem' }}>kg</small></div>
                                 </div>
-                                <div style={{ textAlign: 'center' }}>
+                                <div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Kg Recibidos</div>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{totalRecibido.toLocaleString()} <small style={{ fontSize: '0.9rem' }}>kg</small></div>
+                                    <div className="purchase-merma-value">{totalRecibido.toLocaleString()} <small style={{ fontSize: '0.85rem' }}>kg</small></div>
                                 </div>
-                                <div style={{ textAlign: 'center' }}>
+                                <div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>% Merma</div>
-                                    <div style={{ fontSize: '3rem', fontWeight: '900', color: mermaPorc > 0 ? '#e53935' : 'var(--success)', lineHeight: 1 }}>
+                                    <div className="purchase-merma-pct" style={{ color: mermaPorc > 0 ? '#e53935' : 'var(--success)' }}>
                                         {mermaPorc.toFixed(2)}%
                                     </div>
                                 </div>
-                                <div style={{ textAlign: 'center' }}>
+                                <div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Peso Promedio</div>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{(totalRecibido / countNum).toFixed(1)} <small style={{ fontSize: '0.9rem' }}>kg</small></div>
+                                    <div className="purchase-merma-value">{(totalRecibido / countNum).toFixed(1)} <small style={{ fontSize: '0.85rem' }}>kg</small></div>
                                 </div>
                             </div>
 
-                            <label style={{ marginBottom: '12px', display: 'block', fontWeight: 'bold' }}>Pesos Individuales — Báscula Finca (kg)</label>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px', marginBottom: '32px' }}>
-                                {quickWeights.map((w, i) => (
-                                    <div key={i} style={{ position: 'relative' }}>
-                                        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.65rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>{i + 1}</span>
-                                        <input 
-                                            type="number" step="0.1" value={w}
-                                            onChange={e => {
-                                                const newW = [...quickWeights];
-                                                newW[i] = e.target.value;
-                                                setQuickWeights(newW);
-                                            }}
-                                            style={{ paddingLeft: '22px', textAlign: 'right', marginBottom: 0, fontSize: '1rem' }}
-                                            placeholder="0.0"
-                                        />
-                                    </div>
-                                ))}
-                            </div>
+                            <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+                                <legend style={{ marginBottom: '10px', fontWeight: 'bold', padding: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>Pesos Individuales — Báscula Finca (kg)</legend>
+                                <div className="purchase-quick-weights">
+                                    {quickWeights.map((w, i) => (
+                                        <div key={i} style={{ position: 'relative' }}>
+                                            <span aria-hidden="true" style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>{i + 1}</span>
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                inputMode="decimal"
+                                                aria-label={`Peso animal ${i + 1} en kilogramos`}
+                                                value={w}
+                                                onChange={e => {
+                                                    const newW = [...quickWeights];
+                                                    newW[i] = e.target.value;
+                                                    setQuickWeights(newW);
+                                                }}
+                                                style={{ paddingLeft: '24px', textAlign: 'right', marginBottom: 0, fontSize: '1rem' }}
+                                                placeholder="0.0"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </fieldset>
 
-                            <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
-                                <button onClick={() => setShowQuickModal(false)} style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)', width: 'auto', padding: '0 24px' }}>Cancelar</button>
-                                <button 
+                            <div className="purchase-quick-footer">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowQuickModal(false)}
+                                    className="trade-dialog-cancel-btn"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => {
-                                        if (!quickProveedor || !quickKgComprados) { alert('Selecciona el proveedor y los Kg comprados.'); return; }
+                                        if (!quickProveedor || !quickKgComprados) {
+                                            setQuickError('Selecciona el proveedor y los Kg comprados.');
+                                            return;
+                                        }
                                         const animalsForReport = quickWeights.map((w, idx) => ({ numero_chapeta: `A${idx + 1}`, peso_ingreso: parseFloat(w) || 0 }));
                                         setQuickReportData({
                                             proveedor: quickProveedor,
@@ -736,47 +778,41 @@ export default function Purchase() {
                                         setShowQuickModal(false);
                                         setShowQuickReport(true);
                                     }}
-                                    style={{ backgroundColor: '#3498db', width: 'auto', padding: '0 32px' }}
+                                    style={{ backgroundColor: '#3498db' }}
                                 >
-                                    <CheckCircle2 size={18} /> Generar Reporte de Merma
+                                    <CheckCircle2 size={18} aria-hidden="true" /> Generar Reporte de Merma
                                 </button>
                             </div>
                         </div>
-                    </div>
-                );
-            })()}
+                    );
+                })()}
+            </dialog>
 
-            {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
-            {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
+            {msjExito && <div role="status" aria-live="polite" className="trade-feedback trade-feedback--success">{msjExito}</div>}
+            {msjError && <div role="alert" aria-live="assertive" className="trade-feedback trade-feedback--error">{msjError}</div>}
 
             <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                <button 
+                <button
+                    type="button"
+                    aria-expanded={showLastTags}
+                    aria-controls="purchase-last-tags-panel"
                     onClick={() => setShowLastTags(!showLastTags)}
-                    style={{ 
-                        backgroundColor: showLastTags ? '#ffc107' : 'rgba(255, 193, 7, 0.1)', 
+                    className="purchase-last-tags-btn"
+                    style={{
+                        backgroundColor: showLastTags ? '#ffc107' : 'rgba(255, 193, 7, 0.1)',
                         color: showLastTags ? '#000' : '#ffc107',
-                        padding: '10px 20px',
-                        fontSize: '0.9rem',
-                        fontWeight: 'bold',
-                        width: 'auto',
-                        border: '1px solid #ffc107',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        borderRadius: '8px',
-                        transition: 'all 0.3s ease'
                     }}
                 >
-                    <Info size={18} color={showLastTags ? '#000' : '#ffc107'} /> {showLastTags ? 'Ocultar últimas chapetas' : 'Ver últimas chapetas por dueño'}
+                    <Info size={18} color={showLastTags ? '#000' : '#ffc107'} aria-hidden="true" /> {showLastTags ? 'Ocultar últimas chapetas' : 'Ver últimas chapetas por dueño'}
                 </button>
             </div>
 
             {showLastTags && (
-                <div className="card" style={{ marginBottom: '24px', border: '1px solid var(--primary)', animation: 'fadeIn 0.3s ease' }}>
+                <div id="purchase-last-tags-panel" className="card" style={{ marginBottom: '24px', border: '1px solid var(--primary)', animation: 'fadeIn 0.3s ease' }}>
                     <h3 style={{ fontSize: '1rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Info size={18} color="var(--primary)" /> Últimas Chapetas Registradas
+                        <Info size={18} color="var(--primary)" aria-hidden="true" /> Últimas Chapetas Registradas
                     </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                    <div className="purchase-last-tags-grid">
                         {lastTags.length > 0 ? lastTags.map((lt, idx) => (
                             <div key={idx} style={{ padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{lt.owner}</div>
@@ -789,26 +825,28 @@ export default function Purchase() {
                 </div>
             )}
 
-            <div className="card" style={{ marginBottom: '32px' }}>
-                <form onSubmit={generarFilas} style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 200px' }}>
-                            <label>Fecha de Entrada</label>
-                            <div style={{ position: 'relative' }}>
-                                <Calendar size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
+            <div className="card trade-form-card">
+                <form onSubmit={generarFilas} className="trade-form">
+                    <div className="trade-form-row">
+                        <div className="trade-field">
+                            <label htmlFor="purchase-fecha">Fecha de Entrada</label>
+                            <div className="trade-date-wrap">
+                                <Calendar size={18} aria-hidden="true" className="trade-date-icon" />
                                 <input
+                                    id="purchase-fecha"
                                     type="date"
                                     value={fechaIngreso}
                                     onChange={e => setFechaIngreso(e.target.value)}
-                                    style={{ paddingLeft: '40px' }}
+                                    className="trade-date-input"
                                     disabled={loading || animales.length > 0}
                                 />
                             </div>
                         </div>
 
-                        <div style={{ flex: '1 1 250px' }}>
-                            <label>Vendedor / Proveedor</label>
+                        <div className="trade-field--wide">
+                            <label htmlFor="purchase-proveedor">Vendedor / Proveedor</label>
                             <select
+                                id="purchase-proveedor"
                                 value={selectedProveedor}
                                 onChange={e => setSelectedProveedor(e.target.value)}
                                 disabled={loading || animales.length > 0}
@@ -821,9 +859,10 @@ export default function Purchase() {
                             </select>
                         </div>
 
-                        <div style={{ flex: '1 1 250px' }}>
-                            <label>Propietario (General)</label>
+                        <div className="trade-field--wide">
+                            <label htmlFor="purchase-propietario">Propietario (General)</label>
                             <select
+                                id="purchase-propietario"
                                 value={selectedPropietario}
                                 onChange={e => {
                                     const val = e.target.value;
@@ -842,9 +881,10 @@ export default function Purchase() {
                             </select>
                         </div>
 
-                        <div style={{ flex: '1 1 250px' }}>
-                            <label>Potrerada Destino</label>
+                        <div className="trade-field--wide">
+                            <label htmlFor="purchase-potrerada">Potrerada Destino</label>
                             <select
+                                id="purchase-potrerada"
                                 value={selectedPotrerada}
                                 onChange={e => setSelectedPotrerada(e.target.value)}
                                 disabled={loading || animales.length > 0}
@@ -857,10 +897,11 @@ export default function Purchase() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 100%' }}>
-                            <label>Observaciones de la Compra</label>
+                    <div className="trade-form-row">
+                        <div className="trade-field--full">
+                            <label htmlFor="purchase-observaciones">Observaciones de la Compra</label>
                             <input
+                                id="purchase-observaciones"
                                 type="text"
                                 placeholder="Ej: Lote comprado en subasta, buena genética..."
                                 value={observaciones}
@@ -870,54 +911,59 @@ export default function Purchase() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: 'rgba(255,255,255,0.03)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <input 
-                                type="checkbox" 
+                    <div className="purchase-checkbox-box">
+                        <label htmlFor="checkPesoCompra" className="purchase-checkbox-label">
+                            <input
+                                type="checkbox"
                                 id="checkPesoCompra"
                                 checked={incluirPesoCompra}
                                 onChange={e => setIncluirPesoCompra(e.target.checked)}
-                                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                className="purchase-checkbox-input"
                                 disabled={loading || animales.length > 0}
                             />
-                            <label htmlFor="checkPesoCompra" style={{ cursor: 'pointer', margin: 0 }}>¿Incluir Peso de Compra del lote?</label>
-                        </div>
+                            <span>¿Incluir Peso de Compra del lote?</span>
+                        </label>
 
                         {incluirPesoCompra && (
                             <div style={{ maxWidth: '300px' }}>
-                                <label>Peso Total de Compra (kg)</label>
-                                <input 
-                                    type="number" 
+                                <label htmlFor="purchase-peso-total">Peso Total de Compra (kg)</label>
+                                <input
+                                    id="purchase-peso-total"
+                                    type="number"
                                     step="0.1"
+                                    inputMode="decimal"
                                     placeholder="Peso total pagado..."
                                     value={pesoCompraTotal}
                                     onChange={e => setPesoCompraTotal(e.target.value)}
                                     disabled={loading || animales.length > 0}
+                                    style={{ marginBottom: 0 }}
                                 />
                             </div>
                         )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 150px' }}>
-                            <label>Cantidad de Animales</label>
+                    <div className="trade-submit-row">
+                        <div className="trade-field--count">
+                            <label htmlFor="purchase-cantidad">Cantidad de Animales</label>
                             <input
+                                id="purchase-cantidad"
                                 type="number"
                                 min="1"
                                 max="100"
+                                inputMode="numeric"
                                 value={cantidad}
                                 onChange={e => setCantidad(e.target.value)}
                                 disabled={loading || animales.length > 0}
                             />
                         </div>
-                        
+
                         {animales.length === 0 ? (
-                            <button type="submit" style={{ width: 'auto', padding: '0 32px' }} disabled={loading}>
-                                <Plus size={18} /> Preparar Lista
+                            <button type="submit" className="trade-primary-btn" disabled={loading}>
+                                <Plus size={18} aria-hidden="true" /> Preparar Lista
                             </button>
                         ) : (
-                            <button type="button" onClick={handleReset} style={{ width: 'auto', backgroundColor: 'transparent', border: '1px solid var(--error)', color: 'var(--error)', padding: '0 32px' }}>
-                                <Trash2 size={18} /> Cancelar / Reiniciar
+                            <button type="button" onClick={handleReset} className="trade-reset-btn">
+                                <Trash2 size={18} aria-hidden="true" /> Cancelar / Reiniciar
                             </button>
                         )}
                     </div>
@@ -925,90 +971,107 @@ export default function Purchase() {
             </div>
 
             {animales.length > 0 && (
-                <div className="glass-panel" style={{ padding: 0, overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <div className="glass-panel trade-table-panel">
+                    <table className="trade-table purchase-table">
                         <thead>
-                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                                <th style={{ padding: '16px', color: 'var(--text-muted)', width: '60px' }}>Item</th>
-                                <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Nro. Chapeta</th>
-                                <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Peso Entrada (kg)</th>
-                                <th style={{ padding: '16px', color: 'var(--text-muted)' }}>Propietario</th>
-                                <th style={{ padding: '16px', width: '50px' }}></th>
+                            <tr>
+                                <th style={{ width: '60px' }}>Item</th>
+                                <th>Nro. Chapeta</th>
+                                <th>Peso Entrada (kg)</th>
+                                <th>Propietario</th>
+                                <th style={{ width: '50px' }}><span className="trade-visually-hidden">Eliminar</span></th>
                             </tr>
                         </thead>
                         <tbody>
                             {animales.map((a, index) => {
-                                    const tagTrimmed = a.numero_chapeta.trim().toUpperCase();
-                                    const isDuplicateInList = tagTrimmed !== '' && animales.filter(item => item.numero_chapeta.trim().toUpperCase() === tagTrimmed).length > 1;
-                                    const isDuplicateInDB = tagTrimmed !== '' && existingTags.has(tagTrimmed);
-                                    const hasError = isDuplicateInList || isDuplicateInDB;
+                                const tagTrimmed = a.numero_chapeta.trim().toUpperCase();
+                                const isDuplicateInList = tagTrimmed !== '' && animales.filter(item => item.numero_chapeta.trim().toUpperCase() === tagTrimmed).length > 1;
+                                const isDuplicateInDB = tagTrimmed !== '' && existingTags.has(tagTrimmed);
+                                const hasError = isDuplicateInList || isDuplicateInDB;
 
-                                    return (
-                                        <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <td style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{index + 1}</td>
-                                            <td style={{ padding: '8px 16px' }}>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Ej. 1024"
-                                                    value={a.numero_chapeta}
-                                                    onChange={e => updateAnimal(index, 'numero_chapeta', e.target.value)}
-                                                    style={{ 
-                                                        marginBottom: 0, 
-                                                        padding: '10px',
-                                                        border: hasError ? '2px solid var(--error)' : '1px solid rgba(255,255,255,0.1)',
-                                                        backgroundColor: hasError ? 'rgba(244, 67, 54, 0.05)' : 'transparent'
-                                                    }}
-                                                />
-                                                {isDuplicateInList && <div style={{ color: 'var(--error)', fontSize: '0.7rem', marginTop: '4px' }}>Repetido en la lista</div>}
-                                                {isDuplicateInDB && <div style={{ color: 'var(--error)', fontSize: '0.7rem', marginTop: '4px' }}>Ya existe en inventario</div>}
-                                            </td>
-                                            <td style={{ padding: '8px 16px' }}>
-                                                <input
-                                                    type="number"
-                                                    step="0.1"
-                                                    placeholder="Ej. 250"
-                                                    value={a.peso_ingreso}
-                                                    onChange={e => updateAnimal(index, 'peso_ingreso', e.target.value)}
-                                                    style={{ marginBottom: 0, padding: '10px' }}
-                                                />
-                                            </td>
-                                            <td style={{ padding: '8px 16px' }}>
-                                                <select
-                                                    value={a.propietario}
-                                                    onChange={e => updateAnimal(index, 'propietario', e.target.value)}
-                                                    style={{ marginBottom: 0, padding: '10px' }}
-                                                >
-                                                    <option value="">Seleccionar...</option>
-                                                    {propietarios.map(p => (
-                                                        <option key={p.id} value={p.nombre}>{p.nombre}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td style={{ padding: '16px' }}>
-                                                <button
-                                                    onClick={() => removeFila(index)}
-                                                    style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.2)', width: 'auto' }}
-                                                    onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
-                                                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                return (
+                                    <tr key={index}>
+                                        <td className="trade-col-item" style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                            <span className="mobile-hide">{index + 1}</span>
+                                            <span className="trade-cell-label-tag">Animal #{index + 1}</span>
+                                        </td>
+                                        <td className="purchase-col-chapeta" style={{ padding: '8px 16px' }}>
+                                            <label htmlFor={`purchase-chapeta-${index}`} className="trade-cell-label">Nro. Chapeta</label>
+                                            <input
+                                                id={`purchase-chapeta-${index}`}
+                                                type="text"
+                                                placeholder="Ej. 1024"
+                                                value={a.numero_chapeta}
+                                                onChange={e => updateAnimal(index, 'numero_chapeta', e.target.value)}
+                                                autoCorrect="off"
+                                                autoCapitalize="characters"
+                                                spellCheck={false}
+                                                enterKeyHint="next"
+                                                aria-invalid={hasError || undefined}
+                                                style={{
+                                                    marginBottom: 0,
+                                                    padding: '10px',
+                                                    border: hasError ? '2px solid var(--error)' : '1px solid rgba(255,255,255,0.1)',
+                                                    backgroundColor: hasError ? 'rgba(244, 67, 54, 0.05)' : 'transparent'
+                                                }}
+                                            />
+                                            {isDuplicateInList && <div role="alert" style={{ color: 'var(--error)', fontSize: '0.72rem', marginTop: '4px' }}>Repetido en la lista</div>}
+                                            {isDuplicateInDB && <div role="alert" style={{ color: 'var(--error)', fontSize: '0.72rem', marginTop: '4px' }}>Ya existe en inventario</div>}
+                                        </td>
+                                        <td className="purchase-col-peso" style={{ padding: '8px 16px' }}>
+                                            <label htmlFor={`purchase-peso-${index}`} className="trade-cell-label">Peso Entrada (kg)</label>
+                                            <input
+                                                id={`purchase-peso-${index}`}
+                                                type="number"
+                                                step="0.1"
+                                                inputMode="decimal"
+                                                enterKeyHint="next"
+                                                placeholder="Ej. 250"
+                                                value={a.peso_ingreso}
+                                                onChange={e => updateAnimal(index, 'peso_ingreso', e.target.value)}
+                                                style={{ marginBottom: 0, padding: '10px' }}
+                                            />
+                                        </td>
+                                        <td className="purchase-col-prop" style={{ padding: '8px 16px' }}>
+                                            <label htmlFor={`purchase-prop-${index}`} className="trade-cell-label">Propietario</label>
+                                            <select
+                                                id={`purchase-prop-${index}`}
+                                                value={a.propietario}
+                                                onChange={e => updateAnimal(index, 'propietario', e.target.value)}
+                                                style={{ marginBottom: 0, padding: '10px' }}
+                                            >
+                                                <option value="">Seleccionar...</option>
+                                                {propietarios.map(p => (
+                                                    <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                                                ))}
+                                            </select>
+                                        </td>
+                                        <td className="trade-col-actions" style={{ padding: '16px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeFila(index)}
+                                                aria-label={`Eliminar fila ${index + 1}`}
+                                                className="trade-remove-btn"
+                                            >
+                                                <Trash2 size={16} aria-hidden="true" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
 
-                    <div style={{ padding: '32px', display: 'flex', justifyContent: 'center' }}>
+                    <div className="trade-confirm-wrap">
                         <button
+                            type="button"
                             onClick={handleIngresarCompra}
                             disabled={loading}
-                            style={{ maxWidth: '400px', fontSize: '1.2rem', padding: '16px 48px' }}
+                            className="trade-confirm-btn"
                         >
                             {loading ? 'Procesando Ingreso...' : (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <CheckCircle2 size={24} /> Confirmar Ingreso de {animales.length} Animales
+                                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    <CheckCircle2 size={22} aria-hidden="true" /> Confirmar Ingreso de {animales.length} Animales
                                 </span>
                             )}
                         </button>
@@ -1018,7 +1081,7 @@ export default function Purchase() {
 
             {showReport && reportData && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, overflowY: 'auto' }}>
-                    <PurchaseReport 
+                    <PurchaseReport
                         fincaNombre={userFincas?.find((f: any) => f.id_finca === fincaId)?.nombre_finca || ''}
                         fechaIngreso={reportData.fechaIngreso}
                         animales={reportData.animales}
