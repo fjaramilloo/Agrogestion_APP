@@ -13,6 +13,7 @@ import { Download, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import './Potreradas.css';
 
 interface Potrerada {
     id: string;
@@ -143,6 +144,21 @@ export default function Potreradas() {
     const [movingAnimals, setMovingAnimals] = useState(false);
     const [searchMoveAnimals, setSearchMoveAnimals] = useState('');
     const [moveDate, setMoveDate] = useState(getLocalIsoDate());
+    const [manageTab, setManageTab] = useState<'en-lote' | 'agregar'>('en-lote');
+    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 768px)');
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
+
+    useEffect(() => {
+        if (managingPotrerada) {
+            setManageTab('en-lote');
+        }
+    }, [managingPotrerada?.id]);
 
     const fetchPotreradasData = async () => {
         if (!fincaId) return;
@@ -1408,14 +1424,16 @@ export default function Potreradas() {
     };
 
     return (
-        <div className="page-container">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div className="page-container potreradas-page">
+            <div className="potreradas-header">
                 <div>
                     <h1 className="title">Gestión de Lotes</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Métricas y administración de grupos de animales.</p>
+                    <p className="potreradas-subtitle">Métricas y administración de grupos de animales.</p>
                 </div>
                 {role !== 'observador' && (
-                    <button 
+                    <button
+                        type="button"
+                        className="potreradas-add-btn"
                         onClick={() => {
                             if (isBloqueado) {
                                 setShowUpsellModal(true);
@@ -1423,9 +1441,8 @@ export default function Potreradas() {
                                 setShowAddModal(true);
                             }
                         }}
-                        style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
                     >
-                        <Plus size={20} /> Nuevo Lote
+                        <Plus size={20} aria-hidden="true" /> Nuevo Lote
                     </button>
                 )}
             </div>
@@ -1478,22 +1495,36 @@ export default function Potreradas() {
                 </div>
             )}
 
-            <div style={{ marginBottom: '24px', position: 'relative', maxWidth: '400px' }}>
-                <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input 
-                    type="text" 
-                    placeholder="Buscar por nombre o marca..." 
+            <search className="potreradas-search-wrap" role="search">
+                <Search size={18} aria-hidden="true" className="potreradas-search-icon" />
+                <input
+                    type="search"
+                    aria-label="Buscar lote por nombre o marca"
+                    placeholder="Buscar por nombre o marca..."
                     value={potreradaSearch}
                     onChange={(e) => setPotreradaSearch(e.target.value)}
-                    style={{ paddingLeft: '48px', marginBottom: 0 }}
+                    className="potreradas-search-input"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
                 />
-            </div>
+                {potreradaSearch && (
+                    <button
+                        type="button"
+                        className="potreradas-clear-btn"
+                        aria-label="Limpiar búsqueda"
+                        onClick={() => setPotreradaSearch('')}
+                    >
+                        <X size={18} aria-hidden="true" />
+                    </button>
+                )}
+            </search>
 
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--primary)' }}>Cargando potreradas...</div>
             ) : (
-                <div className="table-container">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div className="table-container potreradas-list-wrap">
+                    <table className="potreradas-main-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nombre Potrerada</th>
@@ -1508,44 +1539,45 @@ export default function Potreradas() {
                         </thead>
                         <tbody>
                             {potreradas
-                                .filter(p => 
-                                    p.nombre.toLowerCase().includes(potreradaSearch.toLowerCase()) || 
+                                .filter(p =>
+                                    p.nombre.toLowerCase().includes(potreradaSearch.toLowerCase()) ||
                                     p.marcas.some(m => m.nombre.toLowerCase().includes(potreradaSearch.toLowerCase()))
                                 )
                                 .map((p, idx) => (
                                 <tr key={p.id} className="table-row-hover" style={{ borderBottom: idx < potreradas.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                                    <td style={{ padding: '16px 24px' }}>
-                                        <div onClick={() => handleOpenDetail(p)} style={{ cursor: 'pointer' }}>
-                                            <div style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1.1rem' }}>{p.nombre}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{p.etapa}</div>
-                                        </div>
+                                    <td className="potreradas-col-name" style={{ padding: '16px 24px' }}>
+                                        <button type="button" onClick={() => handleOpenDetail(p)} className="potreradas-name-btn">
+                                            <span className="potreradas-name-title">{p.nombre}</span>
+                                            <span className="potreradas-name-meta">{p.etapa}</span>
+                                            <span className="potreradas-mobile-cue">Ver detalle ›</span>
+                                        </button>
                                     </td>
-                                    <td className="mobile-hide" style={{ padding: '16px 24px' }}>
+                                    <td className="mobile-hide potreradas-col-loc" style={{ padding: '16px 24px' }}>
                                         {p.rotacionNombre ? (
                                             <div>
                                                 <div style={{ fontWeight: '600', color: 'var(--text)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <MapPin size={12} color="var(--primary)" />
-                                                    {p.rotacionNombre}
+                                                    <MapPin size={12} color="var(--primary)" aria-hidden="true" />
+                                                    <span>{p.rotacionNombre}</span>
                                                 </div>
                                                 {p.potreroActualNombre && (
-                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', paddingLeft: '16px' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', paddingLeft: '16px' }}>
                                                         {p.potreroActualNombre}
                                                     </div>
                                                 )}
                                             </div>
                                         ) : (
-                                            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.2)' }}>—</span>
+                                            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)' }}>Sin potrero asignado</span>
                                         )}
                                     </td>
-                                    <td style={{ padding: '16px 24px' }}>
+                                    <td className="potreradas-col-marcas" style={{ padding: '16px 24px' }}>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                             {p.marcas.length > 0 ? (
                                                 <>
                                                     {p.marcas.slice(0, 3).map((m, i) => (
-                                                        <span key={i} title={`${m.nombre} (${m.count})`} style={{ 
-                                                            fontSize: '0.7rem', 
-                                                            background: 'rgba(255,255,255,0.05)', 
-                                                            padding: '2px 8px', 
+                                                        <span key={i} title={`${m.nombre} (${m.count})`} style={{
+                                                            fontSize: '0.7rem',
+                                                            background: 'rgba(255,255,255,0.05)',
+                                                            padding: '2px 8px',
                                                             borderRadius: '4px',
                                                             color: 'var(--text-muted)',
                                                             border: '1px solid rgba(255,255,255,0.1)',
@@ -1556,9 +1588,9 @@ export default function Potreradas() {
                                                     ))}
                                                     {p.marcas.length > 3 && (
                                                         <span title={p.marcas.slice(3).map(m => `${m.nombre} (${m.count})`).join(', ')} style={{
-                                                            fontSize: '0.7rem', 
-                                                            background: 'rgba(255,255,255,0.02)', 
-                                                            padding: '2px 8px', 
+                                                            fontSize: '0.7rem',
+                                                            background: 'rgba(255,255,255,0.02)',
+                                                            padding: '2px 8px',
                                                             borderRadius: '4px',
                                                             color: 'var(--text-muted)',
                                                             border: '1px dashed rgba(255,255,255,0.2)',
@@ -1574,11 +1606,12 @@ export default function Potreradas() {
                                             )}
                                         </div>
                                     </td>
-                                    <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                    <td className="potreradas-col-animales" style={{ padding: '16px 24px', textAlign: 'center' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Users size={14} className="mobile-hide" />
+                                                <Users size={14} className="mobile-hide" aria-hidden="true" />
                                                 <span style={{ fontWeight: '600' }}>{p.animalCount}</span>
+                                                <span className="potreradas-action-label" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>anim.</span>
                                             </div>
                                             {p.vendidoCount > 0 && (
                                                 <div style={{ fontSize: '0.68rem', color: '#e67e22', fontWeight: 'bold', marginTop: '2px', background: 'rgba(230,126,34,0.1)', padding: '1px 6px', borderRadius: '8px' }}>
@@ -1592,15 +1625,17 @@ export default function Potreradas() {
                                             )}
                                         </div>
                                     </td>
-                                    <td className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                        <div style={{ fontWeight: 'bold' }}>{Math.round(p.pesoEstimadoPromedio)} <span style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>est.</span></div>
+                                    <td className="mobile-hide potreradas-col-peso" style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                        <span className="potreradas-cell-prefix">Peso prom.</span>
+                                        <div style={{ fontWeight: 'bold' }}>{Math.round(p.pesoEstimadoPromedio)} <span style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>kg est.</span></div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Real: {Math.round(p.pesoPromedio)} kg</div>
                                     </td>
-                                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                    <td className="potreradas-col-gmp" style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                        <span className="potreradas-cell-prefix">Ganancia ({getModoLabel(modoGanancia)})</span>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Últ:</span>
-                                                <span style={{ 
+                                                <span style={{
                                                     color: p.gmpPromedio < 0 ? 'var(--error)' : (p.gmpPromedio <= umbralMedio ? 'var(--warning)' : (p.gmpPromedio <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                                     fontWeight: 'bold',
                                                     textShadow: (p.gmpPromedio > umbralMedio && p.gmpPromedio <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
@@ -1610,7 +1645,7 @@ export default function Potreradas() {
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Acum:</span>
-                                                <span style={{ 
+                                                <span style={{
                                                     color: p.gmpAcumulado === null ? 'var(--text-muted)' : (p.gmpAcumulado < 0 ? 'var(--error)' : (p.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (p.gmpAcumulado <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))),
                                                     fontWeight: '500',
                                                     textShadow: (p.gmpAcumulado !== null && p.gmpAcumulado > umbralMedio && p.gmpAcumulado <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
@@ -1620,10 +1655,10 @@ export default function Potreradas() {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center' }}>
-                                        <div style={{ 
-                                            padding: '4px 10px', 
-                                            borderRadius: '20px', 
+                                    <td className="mobile-hide potreradas-col-dias" style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                        <div style={{
+                                            padding: '4px 10px',
+                                            borderRadius: '20px',
                                             background: p.diasPesajePromedio > 60 ? 'rgba(255,152,0,0.1)' : 'rgba(255,255,255,0.05)',
                                             color: p.diasPesajePromedio > 60 ? 'var(--warning)' : 'var(--text)',
                                             fontSize: '0.85rem',
@@ -1631,48 +1666,53 @@ export default function Potreradas() {
                                             alignItems: 'center',
                                             gap: '4px'
                                         }}>
-                                            <Calendar size={12} />
+                                            <Calendar size={12} aria-hidden="true" />
                                             {Math.round(p.diasPesajePromedio)} d
                                         </div>
                                     </td>
                                     {(role === 'administrador' || role === 'vaquero') && (
-                                        <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                        <td className="potreradas-col-actions" style={{ padding: '16px 24px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                                                 {p.loteListoParaLimpiar ? (
                                                     <button
+                                                        type="button"
                                                         onClick={() => handleLimpiarPotrerada(p.id)}
-                                                        className="btn-icon"
+                                                        className="potreradas-icon-btn potreradas-icon-btn--clean"
                                                         title="Limpiar Potrerada (todos los animales fueron vendidos)"
-                                                        style={{ background: 'rgba(230,126,34,0.15)', color: '#e67e22', border: '1px solid rgba(230,126,34,0.4)', padding: '8px 12px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                                                     >
                                                         🧹 Limpiar Lote
                                                     </button>
                                                 ) : p.id !== 'sin-potrerada' ? (
                                                     <>
-                                                        <button 
+                                                        <button
+                                                            type="button"
                                                             onClick={() => setManagingPotrerada(p)}
-                                                            className="btn-icon"
+                                                            className="potreradas-icon-btn potreradas-icon-btn--manage"
                                                             title="Gestionar Animales"
-                                                            style={{ background: 'rgba(52, 152, 219, 0.1)', color: '#3498db', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                            aria-label={`Gestionar animales de ${p.nombre}`}
                                                         >
-                                                            <Users size={16} />
+                                                            <Users size={16} aria-hidden="true" />
+                                                            <span className="potreradas-action-label">Animales</span>
                                                         </button>
-                                                        <button 
+                                                        <button
+                                                            type="button"
                                                             onClick={() => handleEditClick(p)}
-                                                            className="btn-icon"
-                                                            title="Editar Nombre"
-                                                            style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                            className="potreradas-icon-btn potreradas-icon-btn--edit"
+                                                            title="Editar Potrerada"
+                                                            aria-label={`Editar lote ${p.nombre}`}
                                                         >
-                                                            <Edit2 size={16} />
+                                                            <Edit2 size={16} aria-hidden="true" />
+                                                            <span className="potreradas-action-label">Editar</span>
                                                         </button>
                                                         {role === 'administrador' && (
-                                                            <button 
+                                                            <button
+                                                                type="button"
                                                                 onClick={() => removePotrerada(p.id)}
-                                                                className="btn-icon"
+                                                                className="potreradas-icon-btn potreradas-icon-btn--delete"
                                                                 title="Eliminar Potrerada"
-                                                                style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                                aria-label={`Eliminar lote ${p.nombre}`}
                                                             >
-                                                                <Trash2 size={16} />
+                                                                <Trash2 size={16} aria-hidden="true" />
                                                             </button>
                                                         )}
                                                     </>
@@ -1692,105 +1732,105 @@ export default function Potreradas() {
                 </div>
             )}
 
-            {editingPotrerada && (
-                <div className="modal-overlay" onClick={() => setEditingPotrerada(null)}>
-                    <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ margin: 0 }}>Editar Nombre</h2>
-                            <button type="button" aria-label="Cerrar" onClick={() => setEditingPotrerada(null)} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                                <X size={24} />
-                            </button>
-                        </div>
-                        <div style={{ marginBottom: '24px' }}>
-                            <label>Nombre de la Potrerada</label>
-                            <input 
-                                type="text"
-                                value={newName}
-                                onChange={e => setNewName(e.target.value)}
-                                placeholder="Ej: Lote 1 - Engorde"
-                                autoFocus
-                            />
-                        </div>
-                        <div style={{ marginBottom: '24px' }}>
-                            <label>Etapa de la Potrerada</label>
-                            <select
-                                value={newEtapa}
-                                onChange={e => setNewEtapa(e.target.value)}
-                            >
-                                <option value="cría">Cría</option>
-                                <option value="levante">Levante</option>
-                                <option value="ceba">Ceba</option>
-                            </select>
-                            {newEtapa !== editingPotrerada.etapa && (
-                                <div style={{ marginTop: '8px', padding: '12px', background: 'rgba(255,152,0,0.1)', color: 'var(--warning)', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <AlertTriangle size={16} style={{ flexShrink: 0 }} />
-                                    <span>
-                                        <strong>Atención:</strong> Se cambiará la etapa a todos los animales del lote. Esto afectará el cálculo de sus ganancias de peso y reiniciará su etapa si pasan a Ceba.
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={() => setEditingPotrerada(null)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: 'none' }}>
-                                Cancelar
-                            </button>
-                            <button onClick={handleUpdateName} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                <Save size={18} /> Guardar Cambios
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {managingPotrerada && (
+            {managingPotrerada && (() => {
+                const animalesEnLoteCount = animalesFinca.filter(a => a.id_potrerada === managingPotrerada.id).length;
+                return (
                 <div className="modal-overlay" onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }}>
                     <div className="card modal-content" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
                         {/* Header */}
-                        <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <h2 style={{ margin: 0, color: 'var(--primary-light)', fontSize: '1.4rem' }}>
+                        <div className="potreradas-modal-header">
+                            <div className="potreradas-modal-header-top" style={{ marginBottom: '6px' }}>
+                                <h2 style={{ margin: 0, color: 'var(--primary-light)', fontSize: isMobile ? '1.15rem' : '1.4rem' }}>
                                     Gestionar: {managingPotrerada.nombre}
                                 </h2>
-                                <button type="button" aria-label="Cerrar" onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-                                    <X size={20} />
+                                <button type="button" aria-label="Cerrar" onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', flexShrink: 0 }}>
+                                    <X size={20} aria-hidden="true" />
                                 </button>
                             </div>
                             <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.8rem' }}>
-                                {managingPotrerada.etapa.toUpperCase()} | {animalesFinca.filter(a => a.id_potrerada === managingPotrerada?.id).length} animales
+                                {managingPotrerada.etapa.toUpperCase()} | {animalesEnLoteCount} animales
                             </p>
                         </div>
 
-                        {/* Content Area */}
-                        <div className="responsive-grid" style={{ flex: 1, gap: '1px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                            
-                            {/* Current Animals Column */}
-                            <div style={{ background: 'var(--bg-dark-paper)', padding: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                <h3 style={{ fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Users size={16} color="var(--primary-light)" /> En este lote
-                                </h3>
+                        {isMobile && (
+                            <div role="tablist" aria-label="Gestionar animales del lote" className="potreradas-tablist">
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    id="potreradas-tab-en-lote"
+                                    aria-selected={manageTab === 'en-lote'}
+                                    className="potreradas-tab-btn"
+                                    onClick={() => setManageTab('en-lote')}
+                                >
+                                    En este lote ({animalesEnLoteCount})
+                                </button>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    id="potreradas-tab-agregar"
+                                    aria-selected={manageTab === 'agregar'}
+                                    className="potreradas-tab-btn"
+                                    onClick={() => setManageTab('agregar')}
+                                >
+                                    Agregar otros ({filteredAnimalesFinca.length})
+                                </button>
+                            </div>
+                        )}
 
-                                <div style={{ position: 'relative', marginBottom: '12px' }}>
-                                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                                    <input 
-                                        type="text"
+                        {/* Content Area */}
+                        <div className="responsive-grid" style={{ flex: 1, gap: '1px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden', minHeight: 0, display: isMobile ? 'flex' : undefined, flexDirection: isMobile ? 'column' : undefined }}>
+
+                            {/* Current Animals Column */}
+                            <div
+                                className="potreradas-manage-panel"
+                                role={isMobile ? 'tabpanel' : undefined}
+                                aria-labelledby={isMobile ? 'potreradas-tab-en-lote' : undefined}
+                                hidden={isMobile && manageTab !== 'en-lote'}
+                                style={{ background: 'var(--bg-dark-paper)', padding: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}
+                            >
+                                {!isMobile && (
+                                    <h3 style={{ fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Users size={16} color="var(--primary-light)" aria-hidden="true" /> En este lote
+                                    </h3>
+                                )}
+
+                                <search style={{ position: 'relative', marginBottom: '12px', display: 'block' }} role="search">
+                                    <Search size={14} aria-hidden="true" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                                    <input
+                                        type="search"
+                                        aria-label="Buscar animales en este lote"
                                         placeholder="Buscar en lote..."
                                         value={searchTermEnLote}
                                         onChange={e => setSearchTermEnLote(e.target.value)}
-                                        style={{ padding: '8px 8px 8px 32px', fontSize: '0.85rem', marginBottom: 0 }}
+                                        className="potreradas-modal-search-input"
+                                        autoCorrect="off"
+                                        autoCapitalize="none"
+                                        spellCheck={false}
+                                        style={{ padding: '8px 36px 8px 32px', fontSize: isMobile ? '1rem' : '0.85rem', marginBottom: 0 }}
                                     />
-                                </div>
-                                
+                                    {searchTermEnLote && (
+                                        <button
+                                            type="button"
+                                            className="potreradas-clear-btn"
+                                            aria-label="Limpiar búsqueda en lote"
+                                            onClick={() => setSearchTermEnLote('')}
+                                        >
+                                            <X size={15} aria-hidden="true" />
+                                        </button>
+                                    )}
+                                </search>
+
                                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {(() => {
-                                        const filtrados = animalesFinca.filter(a => 
-                                            a.id_potrerada === managingPotrerada?.id && 
-                                            (a.numero_chapeta.toLowerCase().includes(searchTermEnLote.toLowerCase()) || 
+                                        const filtrados = animalesFinca.filter(a =>
+                                            a.id_potrerada === managingPotrerada?.id &&
+                                            (a.numero_chapeta.toLowerCase().includes(searchTermEnLote.toLowerCase()) ||
                                              a.nombre_propietario.toLowerCase().includes(searchTermEnLote.toLowerCase()))
                                         );
 
                                         if (filtrados.length === 0) {
                                             return (
-                                                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', fontSize: '0.8rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                                                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
                                                     {searchTermEnLote ? 'No se encontraron resultados' : 'Vacío'}
                                                 </div>
                                             );
@@ -1799,22 +1839,24 @@ export default function Potreradas() {
                                         return filtrados.map(a => {
                                             const esVendido = a.estado === 'vendido';
                                             return (
-                                                <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: esVendido ? 'rgba(230,126,34,0.04)' : 'rgba(255,255,255,0.02)', opacity: esVendido ? 0.7 : 1 }}>
-                                                    <div>
-                                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem', textDecoration: esVendido ? 'line-through' : 'none', color: esVendido ? 'var(--text-muted)' : 'inherit' }}>#{a.numero_chapeta}</div>
-                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{a.nombre_propietario}</div>
+                                                <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', background: esVendido ? 'rgba(230,126,34,0.04)' : 'rgba(255,255,255,0.02)', opacity: esVendido ? 0.7 : 1 }}>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <div style={{ fontWeight: 'bold', fontSize: '0.95rem', textDecoration: esVendido ? 'line-through' : 'none', color: esVendido ? 'var(--text-muted)' : 'inherit' }}>#{a.numero_chapeta}</div>
+                                                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</div>
                                                         {esVendido && (
                                                             <div style={{ fontSize: '0.6rem', fontWeight: 'bold', color: '#e67e22', background: 'rgba(230,126,34,0.15)', padding: '1px 5px', borderRadius: '6px', display: 'inline-block', marginTop: '2px' }}>VENDIDO</div>
                                                         )}
                                                     </div>
                                                     {!esVendido && (
-                                                        <button 
+                                                        <button
+                                                            type="button"
                                                             disabled={updatingAnimal === a.id}
                                                             onClick={() => handleRemoveAnimal(a.id)}
-                                                            className="btn-icon"
-                                                            style={{ color: '#e74c3c', padding: '6px' }}
+                                                            aria-label={`Quitar animal #${a.numero_chapeta} del lote`}
+                                                            className="btn-icon potreradas-manage-action-btn"
+                                                            style={{ color: '#e74c3c', padding: '6px', flexShrink: 0 }}
                                                         >
-                                                            {updatingAnimal === a.id ? '...' : <Trash2 size={16} />}
+                                                            {updatingAnimal === a.id ? '...' : <Trash2 size={16} aria-hidden="true" />}
                                                         </button>
                                                     )}
                                                 </div>
@@ -1825,27 +1867,52 @@ export default function Potreradas() {
                             </div>
 
                             {/* Add Animals Column */}
-                            <div style={{ background: 'var(--bg-dark-paper)', padding: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                <h3 style={{ fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Plus size={16} color="var(--success)" /> Agregar Otros
-                                </h3>
+                            <div
+                                className="potreradas-manage-panel"
+                                role={isMobile ? 'tabpanel' : undefined}
+                                aria-labelledby={isMobile ? 'potreradas-tab-agregar' : undefined}
+                                hidden={isMobile && manageTab !== 'agregar'}
+                                style={{ background: 'var(--bg-dark-paper)', padding: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}
+                            >
+                                {!isMobile && (
+                                    <h3 style={{ fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Plus size={16} color="var(--success)" aria-hidden="true" /> Agregar Otros
+                                    </h3>
+                                )}
 
-                                <div style={{ position: 'relative', marginBottom: '8px' }}>
-                                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                                    <input 
-                                        type="text"
-                                        placeholder="Buscar..."
+                                <search style={{ position: 'relative', marginBottom: '8px', display: 'block' }} role="search">
+                                    <Search size={14} aria-hidden="true" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                                    <input
+                                        type="search"
+                                        aria-label="Buscar animales para agregar al lote"
+                                        placeholder="Buscar por chapeta o marca..."
                                         value={searchTerm}
                                         onChange={e => setSearchTerm(e.target.value)}
-                                        style={{ padding: '8px 8px 8px 32px', fontSize: '0.85rem', marginBottom: 0 }}
+                                        className="potreradas-modal-search-input"
+                                        autoCorrect="off"
+                                        autoCapitalize="none"
+                                        spellCheck={false}
+                                        style={{ padding: '8px 36px 8px 32px', fontSize: isMobile ? '1rem' : '0.85rem', marginBottom: 0 }}
                                     />
-                                </div>
+                                    {searchTerm && (
+                                        <button
+                                            type="button"
+                                            className="potreradas-clear-btn"
+                                            aria-label="Limpiar búsqueda de animales"
+                                            onClick={() => setSearchTerm('')}
+                                        >
+                                            <X size={15} aria-hidden="true" />
+                                        </button>
+                                    )}
+                                </search>
 
-                                <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                                <div className="potreradas-manage-filters">
                                     <select
+                                        aria-label="Filtrar por propietario"
                                         value={filterPropietario}
                                         onChange={e => setFilterPropietario(e.target.value)}
-                                        style={{ flex: 1, padding: '6px 8px', fontSize: '0.78rem', background: 'var(--bg-dark)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: filterPropietario ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer' }}
+                                        className="potreradas-manage-select"
+                                        style={{ color: filterPropietario ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer' }}
                                     >
                                         <option value="">Todos propietarios</option>
                                         {propietariosOptions.map(p => (
@@ -1853,9 +1920,11 @@ export default function Potreradas() {
                                         ))}
                                     </select>
                                     <select
+                                        aria-label="Filtrar por potrerada actual"
                                         value={filterPotreradaActual}
                                         onChange={e => setFilterPotreradaActual(e.target.value)}
-                                        style={{ flex: 1, padding: '6px 8px', fontSize: '0.78rem', background: 'var(--bg-dark)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: filterPotreradaActual ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer' }}
+                                        className="potreradas-manage-select"
+                                        style={{ color: filterPotreradaActual ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer' }}
                                     >
                                         <option value="">Todas potreradas</option>
                                         <option value="__sin_lote__">Sin lote</option>
@@ -1864,26 +1933,28 @@ export default function Potreradas() {
                                         ))}
                                     </select>
                                 </div>
-                                
+
                                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {filteredAnimalesFinca.map(a => (
-                                        <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#{a.numero_chapeta}</div>
-                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>#{a.numero_chapeta}</div>
+                                                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {a.nombre_propietario}
                                                 </div>
-                                                <div style={{ fontSize: '0.65rem', fontWeight: 'bold', marginTop: '2px', color: a.id_potrerada ? 'var(--primary-light)' : 'var(--text-muted)' }}>
+                                                <div style={{ fontSize: '0.68rem', fontWeight: 'bold', marginTop: '2px', color: a.id_potrerada ? 'var(--primary-light)' : 'var(--text-muted)' }}>
                                                     {a.id_potrerada ? `Lote: ${a.potreradaNombre}` : 'Sin lote'}
                                                 </div>
                                             </div>
-                                            <button 
+                                            <button
+                                                type="button"
                                                 disabled={updatingAnimal === a.id}
                                                 onClick={() => handleAddAnimal(a.id)}
-                                                className="btn-icon"
-                                                style={{ color: '#2ecc71', padding: '6px' }}
+                                                aria-label={`Agregar animal #${a.numero_chapeta} al lote`}
+                                                className="btn-icon potreradas-manage-action-btn"
+                                                style={{ color: '#2ecc71', padding: '6px', flexShrink: 0 }}
                                             >
-                                                {updatingAnimal === a.id ? '...' : <Plus size={16} />}
+                                                {updatingAnimal === a.id ? '...' : <Plus size={16} aria-hidden="true" />}
                                             </button>
                                         </div>
                                     ))}
@@ -1892,14 +1963,15 @@ export default function Potreradas() {
                         </div>
 
                         {/* Footer */}
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
-                            <button onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }} style={{ width: 'auto', padding: '8px 24px', fontSize: '0.9rem' }}>
+                        <div className="potreradas-modal-footer">
+                            <button type="button" onClick={() => { setManagingPotrerada(null); resetManagementSearch(); }} className="potreradas-btn-close-footer">
                                 Cerrar
                             </button>
                         </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
 
             {selectedDetailId && (
                 <div className="modal-overlay" onClick={() => setSelectedDetailId(null)}>
@@ -1909,31 +1981,49 @@ export default function Potreradas() {
                                 Cargando información...
                             </div>
                         ) : detailData ? (() => {
-                            const activeFechasColumnas = detailData.fechasColumnas.filter(fecha => 
+                            const activeFechasColumnas = detailData.fechasColumnas.filter(fecha =>
                                 detailData.animales.some(a => a.pesajesFiltrados && a.pesajesFiltrados[fecha] && a.fechaIngresoEtapa !== fecha)
                             );
+                            const validCompra = detailData.animales.filter(a => a.peso_compra);
+                            const totalCompra = validCompra.reduce((sum, a) => sum + (a.peso_compra || 0), 0);
+                            const promCompra = validCompra.length > 0 ? totalCompra / validCompra.length : 0;
+
+                            const validIngreso = detailData.animales.filter(a => a.pesoIngresoEtapa);
+                            const totalIngreso = validIngreso.reduce((sum, a) => sum + (a.pesoIngresoEtapa || 0), 0);
+                            const promIngreso = validIngreso.length > 0 ? totalIngreso / validIngreso.length : 0;
+
+                            const validActual = detailData.animales.filter(a => a.pesoActual);
+                            const totalActual = validActual.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
+                            const promActual = validActual.length > 0 ? totalActual / validActual.length : 0;
+
+                            const getGmpColor = (val: number) =>
+                                val < 0 ? 'var(--error)' : val <= umbralMedio ? 'var(--warning)' : val <= umbralAlto ? 'var(--text-light)' : 'var(--success)';
+
+                            const getSortAria = (key: string): 'ascending' | 'descending' | undefined =>
+                                sortConfig?.key === key ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined;
+
                             return (
                             <>
                                 {/* Header */}
-                                <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div>
+                                <div className="potreradas-modal-header">
+                                    <div className="potreradas-modal-header-top" style={{ flexWrap: 'wrap' }}>
+                                        <div style={{ flex: '1 1 240px', minWidth: 0 }}>
                                             <h2 style={{ margin: '0 0 8px 0', color: 'var(--primary-light)', fontSize: 'clamp(1.1rem, 4vw, 1.5rem)' }}>
                                                 {detailData.potrerada.nombre}
                                             </h2>
                                             <div style={{ display: 'flex', gap: '8px 16px', flexWrap: 'wrap' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                    <MapPin size={14} color="var(--primary)" /> <span className="mobile-hide">Potrero:</span> <strong style={{color: 'var(--text)'}}>{detailData.potreroActual}</strong>
+                                                    <MapPin size={14} color="var(--primary)" aria-hidden="true" /> <span className="mobile-hide">Potrero:</span> <strong style={{color: 'var(--text)'}}>{detailData.potreroActual}</strong>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                    <TrendingUp size={14} color={detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))} />
+                                                    <TrendingUp size={14} color={getGmpColor(detailData.gmpPromedioGrupo)} aria-hidden="true" />
                                                     <span className="mobile-hide">{getModoLabel(modoGanancia)} Últ:</span>
-                                                    <strong style={{color: detailData.gmpPromedioGrupo < 0 ? 'var(--error)' : (detailData.gmpPromedioGrupo <= umbralMedio ? 'var(--warning)' : (detailData.gmpPromedioGrupo <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))}}>
+                                                    <strong style={{ color: getGmpColor(detailData.gmpPromedioGrupo) }}>
                                                         {toDisplayValue(detailData.gmpPromedioGrupo, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                     </strong>
                                                     {detailData.potrerada.gmpAcumulado !== null && detailData.potrerada.gmpAcumulado !== undefined && (
                                                         <span style={{ marginLeft: '4px', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                                                            (Hist: <strong style={{ color: detailData.potrerada.gmpAcumulado < 0 ? 'var(--error)' : (detailData.potrerada.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (detailData.potrerada.gmpAcumulado <= umbralAlto ? 'var(--text-light)' : 'var(--success)')) }}>
+                                                            (Hist: <strong style={{ color: getGmpColor(detailData.potrerada.gmpAcumulado) }}>
                                                                 {toDisplayValue(detailData.potrerada.gmpAcumulado, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                             </strong>)
                                                         </span>
@@ -1943,104 +2033,94 @@ export default function Potreradas() {
                                                     const productivity = (detailData.animales.length * detailData.potrerada.gmpPromedio) / (detailData.areaTotalSistema || 1);
                                                     return (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                            <Activity size={14} color="var(--primary-light)" /> <span className="mobile-hide">Prod:</span> <strong style={{color: 'var(--primary-light)'}}>{productivity.toFixed(1)} kg/Ha/Mes</strong>
+                                                            <Activity size={14} color="var(--primary-light)" aria-hidden="true" /> <span className="mobile-hide">Prod:</span> <strong style={{color: 'var(--primary-light)'}}>{productivity.toFixed(1)} kg/Ha/Mes</strong>
                                                         </div>
                                                     );
                                                 })()}
                                                 {detailData.areaTotalSistema && detailData.areaTotalSistema > 0 && (
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                        <Scale size={14} color="var(--warning)" /> <span className="mobile-hide">Carga:</span> <strong style={{color: 'var(--text)'}}>{(detailData.animales.length / detailData.areaTotalSistema).toFixed(2)} C/Ha</strong>
+                                                        <Scale size={14} color="var(--warning)" aria-hidden="true" /> <span className="mobile-hide">Carga:</span> <strong style={{color: 'var(--text)'}}>{(detailData.animales.length / detailData.areaTotalSistema).toFixed(2)} C/Ha</strong>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-light)' }}>
-                                                <div style={{
-                                                    width: '32px', height: '18px', borderRadius: '18px',
-                                                    background: showFullHistory ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
-                                                    position: 'relative', transition: 'background 0.3s'
-                                                }}>
-                                                    <div style={{
-                                                        width: '14px', height: '14px', borderRadius: '50%', background: 'white',
-                                                        position: 'absolute', top: '2px', left: showFullHistory ? '16px' : '2px',
-                                                        transition: 'left 0.3s'
-                                                    }} />
-                                                </div>
-                                                <span>Historial</span>
-                                                <input 
-                                                    type="checkbox" 
-                                                    style={{ display: 'none' }} 
-                                                    checked={showFullHistory} 
-                                                    onChange={e => setShowFullHistory(e.target.checked)} 
+                                        <div className="potreradas-detail-controls">
+                                            <label className="potreradas-history-switch">
+                                                <input
+                                                    type="checkbox"
+                                                    role="switch"
+                                                    aria-checked={showFullHistory}
+                                                    className="potreradas-visually-hidden potreradas-history-input"
+                                                    checked={showFullHistory}
+                                                    onChange={e => setShowFullHistory(e.target.checked)}
                                                 />
+                                                <span className={`potreradas-history-track${showFullHistory ? ' is-on' : ''}`} aria-hidden="true">
+                                                    <span className="potreradas-history-thumb" />
+                                                </span>
+                                                <span>Historial</span>
                                             </label>
-                                            <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }}></div>
+                                            <div className="potreradas-detail-divider" style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }}></div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 {role !== 'observador' && (
                                                     <>
                                                     <button
+                                                        type="button"
                                                         onClick={handleOpenMoveModal}
-                                                        className="icon-btn-tooltip"
+                                                        className="icon-btn-tooltip potreradas-detail-action-btn"
                                                         data-tooltip="Mover Animales"
+                                                        aria-label="Mover animales a otro lote"
                                                         style={{
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                             background: 'rgba(251, 191, 36, 0.12)',
                                                             color: '#fbbf24',
                                                             border: '1px solid rgba(251, 191, 36, 0.3)',
-                                                            borderRadius: '8px', width: '36px', height: '36px', padding: 0,
-                                                            cursor: 'pointer'
                                                         }}
                                                     >
-                                                        <Users size={16} color="#fbbf24" />
+                                                        <Users size={16} color="#fbbf24" aria-hidden="true" />
                                                     </button>
                                                     <button
+                                                        type="button"
                                                         onClick={handleOpenWeighingForm}
-                                                        className="icon-btn-tooltip"
+                                                        className="icon-btn-tooltip potreradas-detail-action-btn"
                                                         data-tooltip="Nuevo Pesaje"
+                                                        aria-label="Registrar nuevo pesaje grupal"
                                                         style={{
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                             background: 'rgba(46, 204, 113, 0.12)',
                                                             color: 'var(--success)',
                                                             border: '1px solid rgba(46, 204, 113, 0.3)',
-                                                            borderRadius: '8px', width: '36px', height: '36px', padding: 0,
-                                                            cursor: 'pointer'
                                                         }}
                                                     >
-                                                        <Scale size={16} color="#2ecc71" />
+                                                        <Scale size={16} color="#2ecc71" aria-hidden="true" />
                                                     </button>
                                                     </>
                                                 )}
-                                                <button 
+                                                <button
+                                                    type="button"
                                                     onClick={handleExportPDF}
                                                     disabled={exportingPdf}
-                                                    className="icon-btn-tooltip"
+                                                    className="icon-btn-tooltip potreradas-detail-action-btn"
                                                     data-tooltip="Descargar PDF"
+                                                    aria-label="Descargar reporte PDF del lote"
                                                     style={{
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                         background: 'rgba(255, 255, 255, 0.05)',
                                                         color: 'white',
                                                         border: '1px solid rgba(255,255,255,0.1)',
-                                                        borderRadius: '8px', width: '36px', height: '36px', padding: 0,
-                                                        cursor: 'pointer'
                                                     }}
                                                 >
-                                                    {exportingPdf ? <Loader2 size={16} className="spin" /> : <Download size={16} color="white" />}
+                                                    {exportingPdf ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <Download size={16} color="white" aria-hidden="true" />}
                                                 </button>
-                                                <button 
-                                                    onClick={() => setSelectedDetailId(null)} 
-                                                    className="icon-btn-tooltip"
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedDetailId(null)}
+                                                    className="icon-btn-tooltip potreradas-detail-action-btn"
                                                     data-tooltip="Cerrar detalle"
-                                                    style={{ 
-                                                        margin: 0, width: '36px', height: '36px', padding: 0,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    aria-label="Cerrar detalle"
+                                                    style={{
+                                                        margin: 0,
                                                         background: 'rgba(255, 255, 255, 0.05)',
                                                         border: '1px solid rgba(255, 255, 255, 0.1)',
-                                                        borderRadius: '8px',
-                                                        cursor: 'pointer'
                                                     }}
                                                 >
-                                                    <X size={18} color="white" />
+                                                    <X size={18} color="white" aria-hidden="true" />
                                                 </button>
                                             </div>
                                         </div>
@@ -2048,10 +2128,10 @@ export default function Potreradas() {
                                 </div>
 
                                 {/* Main Content Scrollable */}
-                                <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-                                    
+                                <div className="potreradas-detail-body" style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+
                                     {/* Gráficas Responsive */}
-                                    <div className="responsive-grid" style={{ marginBottom: '24px' }} ref={chartsRef}>
+                                    <div className="responsive-grid potreradas-charts-grid" style={{ marginBottom: '24px' }} ref={chartsRef}>
                                         <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
                                             <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</h4>
                                             {detailData.history.length > 1 ? (
@@ -2089,151 +2169,244 @@ export default function Potreradas() {
 
                                     {/* Lista de Animales */}
                                     <h4 style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Info size={14} /> Detalle por Animal
+                                        <Info size={14} aria-hidden="true" /> Detalle por Animal ({sortedAnimals.length})
                                     </h4>
-                                    <div className="table-container">
-                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                            <thead>
-                                                <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                                    <th 
-                                                        onClick={() => handleSort('numero_chapeta')}
-                                                        style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
-                                                    >
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                            CHAPETA
-                                                            {sortConfig?.key === 'numero_chapeta' && (
-                                                                <span style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
-                                                            )}
-                                                        </div>
-                                                    </th>
-                                                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PROPIETARIO</th>
-                                                    {detailData.potrerada.etapa === 'levante' && (
-                                                        <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESO COMPRA</th>
-                                                    )}
-                                                    <th 
-                                                        onClick={() => handleSort('pesoIngresoEtapa')}
-                                                        style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
-                                                    >
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                                            PESO INGRESO
-                                                            {sortConfig?.key === 'pesoIngresoEtapa' && (
-                                                                <span style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
-                                                            )}
-                                                        </div>
-                                                    </th>
-                                                    <th 
-                                                        onClick={() => handleSort('pesoActual')}
-                                                        style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
-                                                    >
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                                            PESO ACTUAL
-                                                            {sortConfig?.key === 'pesoActual' && (
-                                                                <span style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
-                                                            )}
-                                                        </div>
-                                                    </th>
-                                                    {activeFechasColumnas.map(fecha => (
-                                                        <th key={fecha} style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESAJE {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}</th>
-                                                    ))}
-                                                    <th 
-                                                        onClick={() => handleSort('gmp')}
-                                                        style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }}
-                                                    >
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                                                            {getModoLabel(modoGanancia)}
-                                                            {sortConfig?.key === 'gmp' && (
-                                                                <span style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
-                                                            )}
-                                                        </div>
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {sortedAnimals.map((a, idx) => (
-                                                    <tr key={a.id} style={{ borderBottom: idx < sortedAnimals.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <span>#{a.numero_chapeta}</span>
-                                                                {a.estado === 'vendido' && (
-                                                                    <span style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', border: '1px solid rgba(231, 76, 60, 0.2)', fontWeight: 'bold' }}>Vendido</span>
-                                                                )}
+
+                                    {isMobile ? (
+                                        <>
+                                            {detailData.animales.length > 0 && (
+                                                <div className="potreradas-detail-summary">
+                                                    <div className="potreradas-summary-pill">
+                                                        <div className="potreradas-summary-label">Peso Actual</div>
+                                                        <div className="potreradas-summary-val">{totalActual > 0 ? `${Math.round(totalActual).toLocaleString('es-CO')} kg` : '-'}</div>
+                                                        <div className="potreradas-summary-sub">Prom: {promActual > 0 ? `${Math.round(promActual).toLocaleString('es-CO')} kg` : '-'}</div>
+                                                    </div>
+                                                    <div className="potreradas-summary-pill">
+                                                        <div className="potreradas-summary-label">Peso Ingreso</div>
+                                                        <div className="potreradas-summary-val">{totalIngreso > 0 ? `${Math.round(totalIngreso).toLocaleString('es-CO')} kg` : '-'}</div>
+                                                        <div className="potreradas-summary-sub">Prom: {promIngreso > 0 ? `${Math.round(promIngreso).toLocaleString('es-CO')} kg` : '-'}</div>
+                                                    </div>
+                                                    {detailData.potrerada.etapa === 'levante' && totalCompra > 0 && (
+                                                        <div className="potreradas-summary-pill" style={{ gridColumn: '1 / -1' }}>
+                                                            <div className="potreradas-summary-label">Peso Compra</div>
+                                                            <div className="potreradas-summary-val">
+                                                                {Math.round(totalCompra).toLocaleString('es-CO')} kg{' '}
+                                                                <span className="potreradas-summary-sub">(Prom: {Math.round(promCompra).toLocaleString('es-CO')} kg)</span>
                                                             </div>
-                                                        </td>
-                                                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
-                                                        {detailData.potrerada.etapa === 'levante' && (
-                                                            <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                                                <div style={{ fontWeight: 'bold' }}>{a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}</div>
-                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
-                                                            </td>
-                                                        )}
-                                                        <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                                            <div style={{ fontWeight: 'bold' }}>{a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-'}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
-                                                        </td>
-                                                        <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                                            {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
-                                                        </td>
-                                                        {activeFechasColumnas.map(fecha => {
-                                                            const isEntryDate = a.fechaIngresoEtapa === fecha;
-                                                            return (
-                                                                <td key={fecha} style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                                                    {a.pesajesFiltrados && a.pesajesFiltrados[fecha] && !isEntryDate ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-'}
-                                                                </td>
-                                                            );
-                                                        })}
-                                                        <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                            {a.hasCalculatedGmp ? (
-                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                                                    <div>
-                                                                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginRight: '4px' }}>Últ:</span>
-                                                                        <span style={{ 
-                                                                            color: (a.gmp || 0) < 0 ? 'var(--error)' : ((a.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((a.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
-                                                                            fontWeight: 'bold',
-                                                                            textShadow: ((a.gmp || 0) > umbralMedio && (a.gmp || 0) <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
-                                                                        }}>
-                                                                            {toDisplayValue(a.gmp || 0, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
-                                                                        </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {sortedAnimals.length > 0 && (
+                                                <div className="potreradas-mobile-sort-bar" aria-label="Ordenar animales">
+                                                    {[
+                                                        { key: 'numero_chapeta', label: 'Chapeta' },
+                                                        { key: 'pesoActual', label: 'Peso actual' },
+                                                        { key: 'pesoIngresoEtapa', label: 'Ingreso' },
+                                                        { key: 'gmp', label: getModoLabel(modoGanancia) },
+                                                    ].map(opt => {
+                                                        const active = sortConfig?.key === opt.key;
+                                                        return (
+                                                            <button
+                                                                key={opt.key}
+                                                                type="button"
+                                                                className={`potreradas-mobile-sort-chip${active ? ' is-active' : ''}`}
+                                                                onClick={() => handleSort(opt.key)}
+                                                            >
+                                                                {opt.label}{active ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {sortedAnimals.length === 0 ? (
+                                                <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                                    Esta potrerada no tiene animales activos.
+                                                </div>
+                                            ) : (
+                                                <div className="potreradas-animal-cards">
+                                                    {sortedAnimals.map(a => (
+                                                        <div key={a.id} className="potreradas-animal-card">
+                                                            <div className="potreradas-animal-card-top">
+                                                                <div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                                        <strong style={{ fontSize: '1.05rem', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</strong>
+                                                                        {a.estado === 'vendido' && (
+                                                                            <span style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', border: '1px solid rgba(231, 76, 60, 0.2)', fontWeight: 'bold' }}>Vendido</span>
+                                                                        )}
                                                                     </div>
-                                                                    {a.gmpAcumulado !== undefined && a.gmpAcumulado !== null && (
-                                                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                                                            Hist:{' '}
-                                                                            <span style={{
-                                                                                color: a.gmpAcumulado < 0 ? 'var(--error)' : (a.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (a.gmpAcumulado <= umbralAlto ? 'rgba(255,255,255,0.85)' : 'var(--success)')),
-                                                                                fontWeight: 600
-                                                                            }}>
-                                                                                {toDisplayValue(a.gmpAcumulado, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
-                                                                            </span>
+                                                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{a.nombre_propietario}</div>
+                                                                </div>
+                                                                <div style={{ textAlign: 'right' }}>
+                                                                    <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#ffffff' }}>
+                                                                        {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
+                                                                    </div>
+                                                                    {a.hasCalculatedGmp && (
+                                                                        <div style={{ fontSize: '0.78rem', fontWeight: '700', color: getGmpColor(a.gmp || 0) }}>
+                                                                            Últ: {toDisplayValue(a.gmp || 0, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                                            {a.gmpAcumulado !== undefined && a.gmpAcumulado !== null && (
+                                                                                <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>
+                                                                                    {' · Hist: '}
+                                                                                    <span style={{ color: getGmpColor(a.gmpAcumulado) }}>
+                                                                                        {toDisplayValue(a.gmpAcumulado, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                                                    </span>
+                                                                                </span>
+                                                                            )}
                                                                         </div>
                                                                     )}
                                                                 </div>
-                                                            ) : (
-                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
+                                                            </div>
+
+                                                            <div className="potreradas-animal-metrics">
+                                                                <span>
+                                                                    Ingreso: <strong>{a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-'}</strong>
+                                                                    {a.fechaIngresoEtapa ? ` (${format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yy')})` : ''}
+                                                                </span>
+                                                                {detailData.potrerada.etapa === 'levante' && (
+                                                                    <span>Compra: <strong>{a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}</strong></span>
+                                                                )}
+                                                            </div>
+
+                                                            {activeFechasColumnas.length > 0 && (
+                                                                <div className="potreradas-animal-dates">
+                                                                    {activeFechasColumnas.map(fecha => {
+                                                                        const isEntryDate = a.fechaIngresoEtapa === fecha;
+                                                                        const val = a.pesajesFiltrados && a.pesajesFiltrados[fecha] && !isEntryDate ? Math.round(a.pesajesFiltrados[fecha]) : null;
+                                                                        if (val === null) return null;
+                                                                        return (
+                                                                            <span key={fecha} className="potreradas-date-chip">
+                                                                                {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}: <strong>{val} kg</strong>
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
                                                             )}
-                                                        </td>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="table-container">
+                                            <table className="potreradas-detail-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                <thead>
+                                                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                                        <th scope="col" aria-sort={getSortAria('numero_chapeta')}>
+                                                            <button type="button" onClick={() => handleSort('numero_chapeta')} className="potreradas-sort-btn">
+                                                                <span>CHAPETA</span>
+                                                                {sortConfig?.key === 'numero_chapeta' && (
+                                                                    <span aria-hidden="true" style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                                                                )}
+                                                            </button>
+                                                        </th>
+                                                        <th scope="col" style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PROPIETARIO</th>
+                                                        {detailData.potrerada.etapa === 'levante' && (
+                                                            <th scope="col" style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESO COMPRA</th>
+                                                        )}
+                                                        <th scope="col" aria-sort={getSortAria('pesoIngresoEtapa')}>
+                                                            <button type="button" onClick={() => handleSort('pesoIngresoEtapa')} className="potreradas-sort-btn potreradas-sort-btn--center">
+                                                                <span>PESO INGRESO</span>
+                                                                {sortConfig?.key === 'pesoIngresoEtapa' && (
+                                                                    <span aria-hidden="true" style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                                                                )}
+                                                            </button>
+                                                        </th>
+                                                        <th scope="col" aria-sort={getSortAria('pesoActual')}>
+                                                            <button type="button" onClick={() => handleSort('pesoActual')} className="potreradas-sort-btn potreradas-sort-btn--center">
+                                                                <span>PESO ACTUAL</span>
+                                                                {sortConfig?.key === 'pesoActual' && (
+                                                                    <span aria-hidden="true" style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                                                                )}
+                                                            </button>
+                                                        </th>
+                                                        {activeFechasColumnas.map(fecha => (
+                                                            <th key={fecha} scope="col" style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESAJE {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}</th>
+                                                        ))}
+                                                        <th scope="col" aria-sort={getSortAria('gmp')}>
+                                                            <button type="button" onClick={() => handleSort('gmp')} className="potreradas-sort-btn potreradas-sort-btn--right">
+                                                                <span>{getModoLabel(modoGanancia)}</span>
+                                                                {sortConfig?.key === 'gmp' && (
+                                                                    <span aria-hidden="true" style={{ fontSize: '0.6rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                                                                )}
+                                                            </button>
+                                                        </th>
                                                     </tr>
-                                                ))}
-                                                {sortedAnimals.length === 0 && (
-                                                    <tr>
-                                                        <td colSpan={4 + activeFechasColumnas.length + 1} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                                            Esta potrerada no tiene animales activos.
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                            {detailData.animales.length > 0 && (() => {
-                                                const validCompra = detailData.animales.filter(a => a.peso_compra);
-                                                const totalCompra = validCompra.reduce((sum, a) => sum + (a.peso_compra || 0), 0);
-                                                const promCompra = validCompra.length > 0 ? totalCompra / validCompra.length : 0;
-
-                                                const validIngreso = detailData.animales.filter(a => a.pesoIngresoEtapa);
-                                                const totalIngreso = validIngreso.reduce((sum, a) => sum + (a.pesoIngresoEtapa || 0), 0);
-                                                const promIngreso = validIngreso.length > 0 ? totalIngreso / validIngreso.length : 0;
-
-                                                const validActual = detailData.animales.filter(a => a.pesoActual);
-                                                const totalActual = validActual.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
-                                                const promActual = validActual.length > 0 ? totalActual / validActual.length : 0;
-
-                                                return (
+                                                </thead>
+                                                <tbody>
+                                                    {sortedAnimals.map((a, idx) => (
+                                                        <tr key={a.id} style={{ borderBottom: idx < sortedAnimals.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                                            <td style={{ padding: '12px 16px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <span>#{a.numero_chapeta}</span>
+                                                                    {a.estado === 'vendido' && (
+                                                                        <span style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', border: '1px solid rgba(231, 76, 60, 0.2)', fontWeight: 'bold' }}>Vendido</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
+                                                            {detailData.potrerada.etapa === 'levante' && (
+                                                                <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                                    <div style={{ fontWeight: 'bold' }}>{a.peso_compra ? `${Math.round(a.peso_compra)} kg` : '-'}</div>
+                                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
+                                                                </td>
+                                                            )}
+                                                            <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                                <div style={{ fontWeight: 'bold' }}>{a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-'}</div>
+                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yy') : '-'}</div>
+                                                            </td>
+                                                            <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
+                                                            </td>
+                                                            {activeFechasColumnas.map(fecha => {
+                                                                const isEntryDate = a.fechaIngresoEtapa === fecha;
+                                                                return (
+                                                                    <td key={fecha} style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                                        {a.pesajesFiltrados && a.pesajesFiltrados[fecha] && !isEntryDate ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-'}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                                {a.hasCalculatedGmp ? (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                                                        <div>
+                                                                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginRight: '4px' }}>Últ:</span>
+                                                                            <span style={{
+                                                                                color: getGmpColor(a.gmp || 0),
+                                                                                fontWeight: 'bold',
+                                                                                textShadow: ((a.gmp || 0) > umbralMedio && (a.gmp || 0) <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                                                            }}>
+                                                                                {toDisplayValue(a.gmp || 0, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                                            </span>
+                                                                        </div>
+                                                                        {a.gmpAcumulado !== undefined && a.gmpAcumulado !== null && (
+                                                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                                                                Hist:{' '}
+                                                                                <span style={{
+                                                                                    color: getGmpColor(a.gmpAcumulado),
+                                                                                    fontWeight: 600
+                                                                                }}>
+                                                                                    {toDisplayValue(a.gmpAcumulado, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {sortedAnimals.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan={4 + activeFechasColumnas.length + 1} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                                                Esta potrerada no tiene animales activos.
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                                {detailData.animales.length > 0 && (
                                                     <tfoot>
                                                         <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
                                                             <td colSpan={2} style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold' }}>TOTALES:</td>
@@ -2284,15 +2457,15 @@ export default function Potreradas() {
                                                             <td></td>
                                                         </tr>
                                                     </tfoot>
-                                                );
-                                            })()}
-                                        </table>
-                                    </div>
+                                                )}
+                                            </table>
+                                        </div>
+                                    )}
                                 </div>
 
                         {/* Footer */}
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
-                            <button onClick={() => setSelectedDetailId(null)} style={{ width: 'auto', padding: '8px 24px', fontSize: '0.9rem' }}>
+                        <div className="potreradas-modal-footer">
+                            <button type="button" onClick={() => setSelectedDetailId(null)} className="potreradas-btn-close-footer">
                                 Cerrar
                             </button>
                         </div>
@@ -2310,33 +2483,35 @@ export default function Potreradas() {
                 <div className="modal-overlay" onClick={() => { if (!movingAnimals) setShowMoveModal(false); }}>
                     <div className="card modal-content" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
                         {/* Header */}
-                        <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="potreradas-modal-header">
+                            <div className="potreradas-modal-header-top">
                                 <div>
                                     <h2 style={{ margin: '0 0 4px 0', color: '#fbbf24', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Users size={20} /> Mover Animales de Potrerada
+                                        <Users size={20} aria-hidden="true" /> Mover Animales de Potrerada
                                     </h2>
                                     <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                                         Desde: <strong style={{ color: 'var(--text)' }}>{detailData.potrerada.nombre}</strong>
                                     </p>
                                 </div>
-                                <button onClick={() => setShowMoveModal(false)} className="btn-icon" disabled={movingAnimals}>
-                                    <X size={20} />
+                                <button type="button" aria-label="Cerrar" onClick={() => setShowMoveModal(false)} className="btn-icon" disabled={movingAnimals}>
+                                    <X size={20} aria-hidden="true" />
                                 </button>
                             </div>
                         </div>
 
                         {/* Destino */}
-                        <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                            <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '600' }}>
+                        <div style={{ padding: isMobile ? '12px 16px' : '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <label htmlFor="potreradas-move-target" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '600' }}>
                                 Potrerada destino
                             </label>
                             <select
+                                id="potreradas-move-target"
                                 value={targetPotreradaId}
                                 onChange={e => setTargetPotreradaId(e.target.value)}
                                 style={{
                                     width: '100%',
                                     padding: '10px 14px',
+                                    marginBottom: 0,
                                     background: 'rgba(255,255,255,0.06)',
                                     border: `1px solid ${targetPotreradaId ? 'rgba(251,191,36,0.5)' : 'rgba(255,255,255,0.12)'}`,
                                     borderRadius: '8px',
@@ -2349,7 +2524,7 @@ export default function Potreradas() {
                                 {(() => {
                                     const stageLevels: Record<string, number> = { 'cría': 1, 'cria': 1, 'levante': 2, 'ceba': 3 };
                                     const currentLevel = stageLevels[detailData.potrerada.etapa.toLowerCase()] || 0;
-                                    
+
                                     return potreradas
                                         .filter(p => {
                                             if (p.id === detailData.potrerada.id) return false;
@@ -2366,16 +2541,18 @@ export default function Potreradas() {
                         </div>
 
                         {/* Fecha de Movimiento */}
-                        <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                            <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '600' }}>
+                        <div style={{ padding: isMobile ? '12px 16px' : '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <label htmlFor="potreradas-move-date" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '600' }}>
                                 Fecha de movimiento
                             </label>
                             <input
+                                id="potreradas-move-date"
                                 type="date"
                                 value={moveDate}
                                 onChange={e => setMoveDate(e.target.value)}
                                 style={{
                                     width: '100%',
+                                    marginBottom: 0,
                                     padding: '10px 14px',
                                     background: 'rgba(255,255,255,0.06)',
                                     border: '1px solid rgba(255,255,255,0.12)',
@@ -2387,25 +2564,30 @@ export default function Potreradas() {
                         </div>
 
                         {/* Lista de animales con checklist */}
-                        <div style={{ padding: '12px 24px 4px' }}>
+                        <div style={{ padding: isMobile ? '12px 16px 4px' : '12px 24px 4px' }}>
                             {/* Buscador */}
-                            <div style={{ position: 'relative', marginBottom: '10px' }}>
-                                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                            <search style={{ position: 'relative', marginBottom: '10px', display: 'block' }} role="search">
+                                <Search size={14} aria-hidden="true" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                 <input
-                                    type="text"
+                                    type="search"
+                                    aria-label="Buscar animal para mover"
                                     placeholder="Buscar por chapeta o propietario..."
                                     value={searchMoveAnimals}
                                     onChange={e => setSearchMoveAnimals(e.target.value)}
+                                    className="potreradas-modal-search-input"
+                                    autoCorrect="off"
+                                    autoCapitalize="none"
+                                    spellCheck={false}
                                     style={{
                                         width: '100%',
-                                        padding: '8px 10px 8px 32px',
+                                        marginBottom: 0,
+                                        padding: '8px 36px 8px 32px',
                                         background: 'rgba(255,255,255,0.05)',
                                         border: '1px solid rgba(255,255,255,0.1)',
                                         borderRadius: '8px',
                                         color: 'var(--text)',
-                                        fontSize: '0.85rem',
+                                        fontSize: isMobile ? '1rem' : '0.85rem',
                                         boxSizing: 'border-box',
-                                        outline: 'none',
                                     }}
                                 />
                                 {searchMoveAnimals && (
@@ -2413,26 +2595,30 @@ export default function Potreradas() {
                                         type="button"
                                         aria-label="Limpiar búsqueda"
                                         onClick={() => setSearchMoveAnimals('')}
-                                        style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                                        className="potreradas-clear-btn"
                                     >
-                                        <X size={13} />
+                                        <X size={15} aria-hidden="true" />
                                     </button>
                                 )}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            </search>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px' }}>
                                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>
                                     Animales ({selectedAnimalsToMove.size} seleccionados)
                                 </span>
                                 <button
+                                    type="button"
                                     onClick={handleSelectAllAnimals}
+                                    className="potreradas-select-all-btn"
                                     style={{
+                                        width: 'auto',
                                         background: 'none',
                                         border: '1px solid rgba(251,191,36,0.4)',
                                         borderRadius: '6px',
                                         color: '#fbbf24',
                                         fontSize: '0.78rem',
                                         padding: '4px 10px',
-                                        cursor: 'pointer',
+                                        textTransform: 'none',
+                                        letterSpacing: 'normal',
                                         fontWeight: '600',
                                     }}
                                 >
@@ -2440,7 +2626,7 @@ export default function Potreradas() {
                                 </button>
                             </div>
                         </div>
-                        <div style={{ maxHeight: '280px', overflowY: 'auto', padding: '0 24px 16px' }}>
+                        <div style={{ flex: 1, maxHeight: isMobile ? undefined : '280px', overflowY: 'auto', padding: isMobile ? '0 16px 12px' : '0 24px 16px' }}>
                             {detailData.animales.length === 0 ? (
                                 <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px', fontSize: '0.9rem' }}>
                                     Esta potrerada no tiene animales.
@@ -2463,78 +2649,87 @@ export default function Potreradas() {
                                 return filtered.map(animal => {
                                         const checked = selectedAnimalsToMove.has(animal.id);
                                         return (
-                                            <div
+                                            <button
+                                                type="button"
                                                 key={animal.id}
                                                 onClick={() => handleToggleAnimalMove(animal.id)}
+                                                className="potreradas-move-row"
                                                 style={{
+                                                    width: '100%',
+                                                    textAlign: 'left',
+                                                    textTransform: 'none',
+                                                    letterSpacing: 'normal',
+                                                    fontWeight: '400',
+                                                    color: 'var(--text)',
                                                     display: 'flex',
                                                     alignItems: 'center',
+                                                    justifyContent: 'flex-start',
                                                     gap: '12px',
                                                     padding: '10px 12px',
-                                                    marginBottom: '4px',
+                                                    marginBottom: '6px',
                                                     borderRadius: '8px',
                                                     background: checked ? 'rgba(251,191,36,0.10)' : 'rgba(255,255,255,0.03)',
                                                     border: `1px solid ${checked ? 'rgba(251,191,36,0.35)' : 'rgba(255,255,255,0.06)'}`,
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.15s ease',
+                                                    boxShadow: 'none',
                                                 }}
                                             >
                                                 <div style={{
-                                                    width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
+                                                    width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0,
                                                     background: checked ? '#fbbf24' : 'transparent',
                                                     border: `2px solid ${checked ? '#fbbf24' : 'rgba(255,255,255,0.3)'}`,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    transition: 'all 0.15s ease',
                                                 }}>
                                                     {checked && <span style={{ color: '#000', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
                                                 </div>
-                                                <div style={{ flex: 1 }}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#{animal.numero_chapeta}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{animal.nombre_propietario}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{animal.nombre_propietario}</div>
                                                 </div>
-                                                <div style={{ textAlign: 'right' }}>
+                                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                                     <div style={{ fontSize: '0.82rem', color: 'var(--primary-light)', fontWeight: '600' }}>
                                                         {animal.pesoActual ? `${Math.round(animal.pesoActual)} kg` : '-'}
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </button>
                                         );
                                     });
                             })()}
                         </div>
 
                         {/* Footer */}
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                        <div className="potreradas-modal-footer">
                             <button
+                                type="button"
                                 onClick={() => setShowMoveModal(false)}
                                 disabled={movingAnimals}
+                                className="potreradas-modal-cancel-btn"
                                 style={{
-                                    background: 'rgba(255,255,255,0.05)',
-                                    border: '1px solid rgba(255,255,255,0.12)',
+                                    width: 'auto',
                                     borderRadius: '8px', padding: '9px 20px',
-                                    color: 'var(--text)', cursor: 'pointer', fontSize: '0.88rem',
+                                    fontSize: '0.88rem',
                                 }}
                             >
                                 Cancelar
                             </button>
                             <button
+                                type="button"
                                 onClick={handleConfirmMoveAnimals}
                                 disabled={movingAnimals || selectedAnimalsToMove.size === 0 || !targetPotreradaId}
                                 style={{
+                                    width: 'auto',
                                     background: selectedAnimalsToMove.size > 0 && targetPotreradaId ? '#fbbf24' : 'rgba(251,191,36,0.2)',
                                     border: 'none',
                                     borderRadius: '8px', padding: '9px 20px',
                                     color: selectedAnimalsToMove.size > 0 && targetPotreradaId ? '#000' : 'rgba(251,191,36,0.5)',
                                     cursor: selectedAnimalsToMove.size > 0 && targetPotreradaId ? 'pointer' : 'not-allowed',
                                     fontSize: '0.88rem', fontWeight: '700',
-                                    display: 'flex', alignItems: 'center', gap: '6px',
-                                    transition: 'all 0.15s ease',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                                 }}
                             >
                                 {movingAnimals ? (
-                                    <><Loader2 size={15} className="spin" /> Moviendo...</>
+                                    <><Loader2 size={15} className="spin" aria-hidden="true" /> Moviendo...</>
                                 ) : (
-                                    <><Users size={15} /> Mover {selectedAnimalsToMove.size > 0 ? `${selectedAnimalsToMove.size} animal${selectedAnimalsToMove.size !== 1 ? 'es' : ''}` : 'animales'}</>
+                                    <><Users size={15} aria-hidden="true" /> Mover {selectedAnimalsToMove.size > 0 ? `${selectedAnimalsToMove.size} animal${selectedAnimalsToMove.size !== 1 ? 'es' : ''}` : 'animales'}</>
                                 )}
                             </button>
                         </div>
@@ -2547,50 +2742,44 @@ export default function Potreradas() {
                 <div className="modal-overlay" onClick={() => { setShowWeighingForm(false); setWeighingData({}); }}>
                     <div className="card modal-content" style={{ maxWidth: '680px' }} onClick={e => e.stopPropagation()}>
                         {/* Header */}
-                        <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <h2 style={{ margin: '0 0 4px 0', color: 'var(--primary-light)', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Scale size={20} /> Nuevo Pesaje
+                        <div className="potreradas-modal-header">
+                            <div className="potreradas-modal-header-top">
+                                <div style={{ minWidth: 0 }}>
+                                    <h2 style={{ margin: '0 0 6px 0', color: 'var(--primary-light)', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Scale size={20} aria-hidden="true" /> Nuevo Pesaje
                                     </h2>
-                                    <div style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {detailData.potrerada.nombre} &nbsp;·&nbsp; Fecha: 
-                                        <input 
-                                            type="date" 
-                                            value={weighingDate} 
-                                            onChange={(e) => setWeighingDate(e.target.value)} 
-                                            style={{ 
-                                                background: 'rgba(255,255,255,0.05)', 
-                                                border: '1px solid rgba(255,255,255,0.1)', 
-                                                borderRadius: '6px', 
-                                                padding: '4px 8px', 
-                                                color: 'var(--text)', 
-                                                fontSize: '0.82rem',
-                                                fontFamily: 'inherit',
-                                                marginLeft: '4px'
-                                            }} 
+                                    <div className="potreradas-weighing-meta">
+                                        <span>{detailData.potrerada.nombre}</span>
+                                        <span aria-hidden="true">·</span>
+                                        <label htmlFor="potreradas-group-weighing-date" style={{ marginBottom: 0, display: 'inline' }}>Fecha:</label>
+                                        <input
+                                            id="potreradas-group-weighing-date"
+                                            type="date"
+                                            value={weighingDate}
+                                            onChange={(e) => setWeighingDate(e.target.value)}
+                                            className="potreradas-weighing-date-input"
                                         />
                                     </div>
                                 </div>
-                                <button onClick={() => { setShowWeighingForm(false); setWeighingData({}); }} className="btn-icon">
-                                    <X size={20} />
+                                <button type="button" aria-label="Cerrar pesaje grupal" onClick={() => { setShowWeighingForm(false); setWeighingData({}); }} className="btn-icon" style={{ flexShrink: 0 }}>
+                                    <X size={20} aria-hidden="true" />
                                 </button>
                             </div>
                         </div>
 
                         {/* Table */}
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '12px' }}>
+                        <div className="potreradas-weighing-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 0, marginBottom: '12px' }}>
                                 Ingresa el nuevo peso de cada animal. Puedes dejar en blanco los que no se pesaron.
                             </p>
-                            <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <div className="potreradas-weighing-wrap" style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <table className="potreradas-weighing-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <thead>
                                         <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Chapeta</th>
-                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Propietario</th>
-                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Peso Actual</th>
-                                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Nuevo Peso (kg)</th>
+                                            <th scope="col" style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Chapeta</th>
+                                            <th scope="col" style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Propietario</th>
+                                            <th scope="col" style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Peso Actual</th>
+                                            <th scope="col" style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Nuevo Peso (kg)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -2603,21 +2792,24 @@ export default function Potreradas() {
                                                 return (
                                                     <tr key={a.id} style={{
                                                         borderBottom: idx < detailData.animales.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                                                        background: hasWeight ? 'rgba(46,204,113,0.04)' : 'transparent'
+                                                        background: hasWeight ? 'rgba(46,204,113,0.04)' : undefined
                                                     }}>
-                                                        <td style={{ padding: '10px 16px', fontWeight: 'bold', fontSize: '0.95rem' }}>#{a.numero_chapeta}</td>
-                                                        <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{a.nombre_propietario}</td>
-                                                        <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                                        <td className="potreradas-w-chapeta" style={{ padding: '10px 16px', fontWeight: 'bold', fontSize: '0.95rem', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
+                                                        <td className="potreradas-w-prop" style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{a.nombre_propietario}</td>
+                                                        <td className="potreradas-w-actual" style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                                                             {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
                                                         </td>
-                                                        <td style={{ padding: '8px 12px' }}>
+                                                        <td className="potreradas-w-input-cell" style={{ padding: '8px 12px' }}>
                                                             <input
                                                                 type="number"
+                                                                inputMode="decimal"
                                                                 min="0"
                                                                 step="0.5"
-                                                                placeholder="ej: 320"
+                                                                aria-label={`Nuevo peso en kg para #${a.numero_chapeta}`}
+                                                                placeholder={isMobile ? 'Peso (kg)' : 'ej: 320'}
                                                                 value={newVal}
                                                                 onChange={e => setWeighingData(prev => ({ ...prev, [a.id]: e.target.value }))}
+                                                                className="potreradas-w-input"
                                                                 style={{
                                                                     width: '100%', padding: '7px 10px', fontSize: '0.9rem',
                                                                     marginBottom: 0,
@@ -2647,11 +2839,12 @@ export default function Potreradas() {
                         </div>
 
                         {/* Footer */}
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                        <div className="potreradas-modal-footer">
                             <button
                                 type="button"
                                 onClick={() => { setShowWeighingForm(false); setWeighingData({}); }}
-                                style={{ width: 'auto', background: 'rgba(255,255,255,0.05)', border: 'none', padding: '9px 20px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                className="potreradas-modal-cancel-btn"
+                                style={{ width: 'auto', padding: '9px 20px', borderRadius: '8px' }}
                             >
                                 Cancelar
                             </button>
@@ -2659,9 +2852,9 @@ export default function Potreradas() {
                                 type="button"
                                 onClick={handleSaveWeighings}
                                 disabled={savingWeighings}
-                                style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 24px' }}
+                                style={{ width: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '9px 24px' }}
                             >
-                                {savingWeighings ? 'Guardando...' : <><Save size={16} /> Guardar Pesajes</>}
+                                {savingWeighings ? 'Guardando...' : <><Save size={16} aria-hidden="true" /> Guardar Pesajes</>}
                             </button>
                         </div>
                     </div>
@@ -2670,33 +2863,35 @@ export default function Potreradas() {
 
             {showAddModal && (
                 <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-                    <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '32px' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Plus size={24} color="var(--primary)" /> Nueva Potrerada / Lote
+                    <div className="card potreradas-modal-dialog" onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', fontSize: isMobile ? '1.2rem' : undefined }}>
+                                <Plus size={22} color="var(--primary)" aria-hidden="true" /> Nueva Potrerada / Lote
                             </h2>
                             <button type="button" aria-label="Cerrar" onClick={() => setShowAddModal(false)} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                                <X size={24} />
+                                <X size={24} aria-hidden="true" />
                             </button>
                         </div>
-                        
+
                         <form onSubmit={handleAddPotrerada}>
-                            <div style={{ marginBottom: '20px' }}>
-                                <label>Nombre de la Potrerada</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="Ej: Lote 1 - Engorde" 
-                                    value={nuevaPotreradaNombre} 
-                                    onChange={e => setNuevaPotreradaNombre(e.target.value)} 
-                                    autoFocus
+                            <div style={{ marginBottom: '18px' }}>
+                                <label htmlFor="potreradas-new-name">Nombre de la Potrerada</label>
+                                <input
+                                    id="potreradas-new-name"
+                                    type="text"
+                                    placeholder="Ej: Lote 1 - Engorde"
+                                    value={nuevaPotreradaNombre}
+                                    onChange={e => setNuevaPotreradaNombre(e.target.value)}
+                                    autoFocus={!isMobile}
                                     required
                                 />
                             </div>
-                            
-                            <div style={{ marginBottom: '20px' }}>
-                                <label>Etapa del Ganado</label>
-                                <select 
-                                    value={nuevaPotreradaEtapa} 
+
+                            <div style={{ marginBottom: '18px' }}>
+                                <label htmlFor="potreradas-new-etapa">Etapa del Ganado</label>
+                                <select
+                                    id="potreradas-new-etapa"
+                                    value={nuevaPotreradaEtapa}
                                     onChange={e => setNuevaPotreradaEtapa(e.target.value)}
                                     required
                                 >
@@ -2706,10 +2901,11 @@ export default function Potreradas() {
                                 </select>
                             </div>
 
-                            <div style={{ marginBottom: '32px' }}>
-                                <label>Rotación Asignada (Opcional)</label>
-                                <select 
-                                    value={nuevaPotreradaRotacion} 
+                            <div style={{ marginBottom: '24px' }}>
+                                <label htmlFor="potreradas-new-rot">Rotación Asignada (Opcional)</label>
+                                <select
+                                    id="potreradas-new-rot"
+                                    value={nuevaPotreradaRotacion}
                                     onChange={e => setNuevaPotreradaRotacion(e.target.value)}
                                 >
                                     <option value="">-- Sin Rotación Asignada --</option>
@@ -2720,8 +2916,8 @@ export default function Potreradas() {
                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Vincula permanentemente este grupo a un conjunto de potreros.</p>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <button type="button" onClick={() => setShowAddModal(false)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: 'none' }}>
+                            <div className="potreradas-modal-actions-row" style={{ display: 'flex', gap: '12px' }}>
+                                <button type="button" onClick={() => setShowAddModal(false)} className="potreradas-modal-cancel-btn" style={{ flex: 1 }}>
                                     Cancelar
                                 </button>
                                 <button type="submit" disabled={loading} style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -2735,31 +2931,33 @@ export default function Potreradas() {
 
             {editingPotrerada && (
                 <div className="modal-overlay" onClick={() => setEditingPotrerada(null)}>
-                    <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '32px' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Edit2 size={24} color="var(--primary)" /> Editar Potrerada
+                    <div className="card potreradas-modal-dialog" onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', fontSize: isMobile ? '1.2rem' : undefined }}>
+                                <Edit2 size={22} color="var(--primary)" aria-hidden="true" /> Editar Potrerada
                             </h2>
                             <button type="button" aria-label="Cerrar" onClick={() => setEditingPotrerada(null)} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                                <X size={24} />
+                                <X size={24} aria-hidden="true" />
                             </button>
                         </div>
-                        
+
                         <form onSubmit={e => { e.preventDefault(); handleUpdateName(); }}>
-                            <div style={{ marginBottom: '20px' }}>
-                                <label>Nuevo Nombre</label>
-                                <input 
-                                    type="text" 
-                                    value={newName} 
-                                    onChange={e => setNewName(e.target.value)} 
-                                    autoFocus
+                            <div style={{ marginBottom: '18px' }}>
+                                <label htmlFor="potreradas-edit-name">Nuevo Nombre</label>
+                                <input
+                                    id="potreradas-edit-name"
+                                    type="text"
+                                    value={newName}
+                                    onChange={e => setNewName(e.target.value)}
+                                    autoFocus={!isMobile}
                                     required
                                 />
                             </div>
 
-                            <div style={{ marginBottom: '24px' }}>
-                                <label>Etapa de la Potrerada</label>
+                            <div style={{ marginBottom: '18px' }}>
+                                <label htmlFor="potreradas-edit-etapa">Etapa de la Potrerada</label>
                                 <select
+                                    id="potreradas-edit-etapa"
                                     value={newEtapa}
                                     onChange={e => setNewEtapa(e.target.value)}
                                 >
@@ -2769,7 +2967,7 @@ export default function Potreradas() {
                                 </select>
                                 {newEtapa !== editingPotrerada.etapa && (
                                     <div style={{ marginTop: '8px', padding: '12px', background: 'rgba(255,152,0,0.1)', color: 'var(--warning)', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                                        <AlertTriangle size={16} style={{ flexShrink: 0 }} aria-hidden="true" />
                                         <span>
                                             <strong>Atención:</strong> Se cambiará la etapa a todos los animales del lote. Esto afectará el cálculo de sus ganancias de peso y reiniciará su etapa si pasan a Ceba.
                                         </span>
@@ -2778,9 +2976,10 @@ export default function Potreradas() {
                             </div>
 
                             <div style={{ marginBottom: '24px' }}>
-                                <label>Rotación Asignada</label>
-                                <select 
-                                    value={editRotacion || ''} 
+                                <label htmlFor="potreradas-edit-rot">Rotación Asignada</label>
+                                <select
+                                    id="potreradas-edit-rot"
+                                    value={editRotacion || ''}
                                     onChange={e => setEditRotacion(e.target.value || null)}
                                 >
                                     <option value="">-- Sin Rotación --</option>
@@ -2790,8 +2989,8 @@ export default function Potreradas() {
                                 </select>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <button type="button" onClick={() => setEditingPotrerada(null)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: 'none' }}>
+                            <div className="potreradas-modal-actions-row" style={{ display: 'flex', gap: '12px' }}>
+                                <button type="button" onClick={() => setEditingPotrerada(null)} className="potreradas-modal-cancel-btn" style={{ flex: 1 }}>
                                     Cancelar
                                 </button>
                                 <button type="submit" style={{ flex: 2 }}>
