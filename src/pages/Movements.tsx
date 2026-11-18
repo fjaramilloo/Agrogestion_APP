@@ -34,9 +34,9 @@ export default function Movements() {
     const [rotacionMode, setRotacionMode] = useState<'misma' | 'cambiar' | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [showOptions, setShowOptions] = useState(false);
-    const [mobileEditingLot, setMobileEditingLot] = useState(false);
     const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
 
+    const dropdownRef = useRef<HTMLDivElement>(null);
     const rotacionesRef = useRef(rotaciones);
     rotacionesRef.current = rotaciones;
 
@@ -46,6 +46,31 @@ export default function Movements() {
         mq.addEventListener('change', handler);
         return () => mq.removeEventListener('change', handler);
     }, []);
+
+    useEffect(() => {
+        if (!showOptions) return;
+
+        const handlePointerDown = (e: PointerEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setShowOptions(false);
+                setSearchTerm('');
+            }
+        };
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setShowOptions(false);
+                setSearchTerm('');
+            }
+        };
+
+        document.addEventListener('pointerdown', handlePointerDown);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showOptions]);
 
     useEffect(() => {
         if (!fincaId) return;
@@ -302,54 +327,6 @@ export default function Movements() {
         setSelectedTargetPotreroId('');
     };
 
-    const renderRadioCards = ({
-        options,
-        name,
-        selectedId,
-        onSelect,
-        singleColumn,
-        onSelectedTap,
-        emptyMessage,
-    }: {
-        options: Array<{ id: string; nombre: string }>;
-        name: string;
-        selectedId: string;
-        onSelect: (id: string) => void;
-        singleColumn: boolean;
-        onSelectedTap?: () => void;
-        emptyMessage?: string;
-    }) => (
-        <div className={`movements-cards-grid${singleColumn ? ' movements-cards-grid--single' : ''}`}>
-            {options.map(item => {
-                const checked = selectedId === item.id;
-                return (
-                    <label
-                        key={item.id}
-                        className="movements-choice-card"
-                        onClick={onSelectedTap && checked ? onSelectedTap : undefined}
-                    >
-                        <input
-                            type="radio"
-                            name={name}
-                            className="movements-choice-input"
-                            checked={checked}
-                            onChange={() => onSelect(item.id)}
-                        />
-                        <span className="movements-choice-text">{item.nombre}</span>
-                        <span className="movements-choice-check" aria-hidden="true">
-                            {checked && <Check size={14} strokeWidth={3} />}
-                        </span>
-                    </label>
-                );
-            })}
-            {options.length === 0 && emptyMessage && (
-                <div style={{ gridColumn: '1 / -1', padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                    {emptyMessage}
-                </div>
-            )}
-        </div>
-    );
-
     return (
         <div className="page-container movements-page">
             <h1 className="title movements-title">
@@ -416,459 +393,214 @@ export default function Movements() {
             )}
 
             <div className="card movements-card">
-                <form onSubmit={handleSaveMovement} style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '20px' }}>
-                    {isMobile ? (
-                        /* ==================== VISTA MÓVIL: 3 TOQUES CON UNA MANO ==================== */
-                        <>
-                            {selectedPotreradaId && !mobileEditingLot ? (
-                                <div className="movements-selected-summary">
-                                    <div className="movements-selected-meta">
-                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                            1. Lote seleccionado
-                                        </div>
-                                        <div className="movements-selected-lot">
-                                            {selectedLotObj?.nombre || 'Lote'}
-                                        </div>
-                                        <div className="movements-selected-potrero">
-                                            Ubicación actual: {currentPotrero ? currentPotrero.nombre : 'Sin potrero asignado'}
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="movements-change-btn"
-                                        onClick={() => setMobileEditingLot(true)}
-                                    >
-                                        Cambiar
-                                    </button>
-                                </div>
-                            ) : (
-                                <fieldset className="movements-fieldset">
-                                    <legend className="movements-legend">
-                                        1. Seleccionar Lote *
-                                    </legend>
-                                    {selectedPotreradaId && mobileEditingLot && (
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                <form onSubmit={handleSaveMovement} className="movements-form">
+                    <div ref={dropdownRef} className="movements-field-group">
+                        <label htmlFor="movements-lot-trigger" className="movements-field-label">
+                            Seleccionar Lote *
+                        </label>
+
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                id="movements-lot-trigger"
+                                type="button"
+                                className="movements-dropdown-trigger"
+                                aria-expanded={showOptions}
+                                aria-haspopup="listbox"
+                                aria-controls="movements-lot-listbox"
+                                onClick={() => setShowOptions(prev => !prev)}
+                            >
+                                <span style={{ color: selectedPotreradaId ? 'var(--text)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {selectedLotObj ? selectedLotObj.nombre : '-- Seleccione --'}
+                                </span>
+                                <ChevronDown
+                                    size={20}
+                                    aria-hidden="true"
+                                    style={{
+                                        transform: showOptions ? 'rotate(180deg)' : 'none',
+                                        transition: 'transform 0.2s',
+                                        color: 'var(--text-muted)',
+                                        flexShrink: 0
+                                    }}
+                                />
+                            </button>
+
+                            {showOptions && (
+                                <div className="movements-dropdown-panel">
+                                    <search className="movements-dropdown-search" role="search">
+                                        <Search size={16} aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                        <input
+                                            type="search"
+                                            className="movements-dropdown-search-input"
+                                            placeholder="Buscar lote..."
+                                            aria-label="Buscar lote"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            autoFocus={!isMobile}
+                                            autoCorrect="off"
+                                            autoCapitalize="none"
+                                            spellCheck={false}
+                                        />
+                                        {searchTerm && (
                                             <button
                                                 type="button"
-                                                className="movements-change-btn"
-                                                style={{ minHeight: '44px', padding: '6px 12px', fontSize: '0.82rem' }}
-                                                onClick={() => {
-                                                    setMobileEditingLot(false);
-                                                    setSearchTerm('');
-                                                }}
+                                                className="movements-search-clear"
+                                                aria-label="Limpiar búsqueda"
+                                                onClick={() => setSearchTerm('')}
                                             >
-                                                Listo
+                                                <X size={16} aria-hidden="true" />
                                             </button>
-                                        </div>
-                                    )}
+                                        )}
+                                    </search>
 
-                                    {potreradas.length > 6 && (
-                                        <search className="movements-search-box" role="search">
-                                            <Search
-                                                size={18}
-                                                aria-hidden="true"
-                                                style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}
-                                            />
-                                            <input
-                                                type="search"
-                                                className="movements-search-input"
-                                                placeholder="Filtrar lote..."
-                                                aria-label="Filtrar lotes"
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
-                                                autoCorrect="off"
-                                                autoCapitalize="none"
-                                                spellCheck={false}
-                                            />
-                                            {searchTerm && (
+                                    <div id="movements-lot-listbox" role="listbox" className="movements-dropdown-list">
+                                        {filteredPotreradas.map(p => {
+                                            const isSelected = selectedPotreradaId === p.id;
+                                            return (
                                                 <button
+                                                    key={p.id}
                                                     type="button"
-                                                    className="movements-search-clear"
-                                                    aria-label="Limpiar búsqueda"
-                                                    onClick={() => setSearchTerm('')}
-                                                >
-                                                    <X size={18} aria-hidden="true" />
-                                                </button>
-                                            )}
-                                        </search>
-                                    )}
-
-                                    {renderRadioCards({
-                                        options: filteredPotreradas,
-                                        name: 'movements-lot-mobile',
-                                        selectedId: selectedPotreradaId,
-                                        singleColumn: filteredPotreradas.length <= 2,
-                                        onSelect: (id) => {
-                                            setSelectedPotreradaId(id);
-                                            setMobileEditingLot(false);
-                                            setSearchTerm('');
-                                        },
-                                        onSelectedTap: () => {
-                                            setMobileEditingLot(false);
-                                            setSearchTerm('');
-                                        },
-                                        emptyMessage: 'No se encontraron lotes.',
-                                    })}
-                                </fieldset>
-                            )}
-
-                            {!isAdminOrCowboy && (
-                                <p style={{ fontSize: '0.84rem', color: 'var(--error)', margin: 0 }}>
-                                    No tienes permisos para realizar movimientos.
-                                </p>
-                            )}
-
-                            {selectedPotreradaId && !mobileEditingLot && (
-                                <>
-                                    {/* Selector de Rotación: automático si ya tiene una, con opción de cambiar */}
-                                    {hasAssignedRotation && rotacionMode !== 'cambiar' ? (
-                                        rotaciones.length > 1 && (
-                                            <div className="movements-rot-row">
-                                                <span className="movements-rot-label">
-                                                    Rotación: <strong>{targetRotacion?.nombre || 'Asignada'}</strong>
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    className="movements-alt-rot-btn"
+                                                    role="option"
+                                                    aria-selected={isSelected}
+                                                    className={`movements-dropdown-option${isSelected ? ' is-selected' : ''}`}
                                                     onClick={() => {
-                                                        setRotacionMode('cambiar');
-                                                        setSelectedTargetPotreroId('');
+                                                        setSelectedPotreradaId(p.id);
+                                                        setShowOptions(false);
+                                                        setSearchTerm('');
                                                     }}
                                                 >
-                                                    Otra rotación
+                                                    <span>{p.nombre}</span>
+                                                    {isSelected && <Check size={16} color="var(--primary)" aria-hidden="true" />}
                                                 </button>
+                                            );
+                                        })}
+                                        {filteredPotreradas.length === 0 && (
+                                            <div className="movements-dropdown-empty">
+                                                No se encontraron resultados
                                             </div>
-                                        )
-                                    ) : (
-                                        <fieldset className="movements-fieldset">
-                                            <legend className="movements-legend">
-                                                Rotación destino *
-                                            </legend>
-                                            {hasAssignedRotation && (
-                                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-                                                    <button
-                                                        type="button"
-                                                        className="movements-alt-rot-btn"
-                                                        onClick={() => {
-                                                            setRotacionMode('misma');
-                                                            handleSelectTargetRotacion(assignedRotId);
-                                                        }}
-                                                    >
-                                                        Volver a su rotación
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {rotaciones.length <= 6 ? (
-                                                renderRadioCards({
-                                                    options: rotaciones,
-                                                    name: 'movements-rot-mobile',
-                                                    selectedId: selectedTargetRotacionId,
-                                                    singleColumn: rotaciones.length === 1,
-                                                    onSelect: handleSelectTargetRotacion,
-                                                })
-                                            ) : (
-                                                <select
-                                                    id="movements-rot-mobile"
-                                                    value={selectedTargetRotacionId}
-                                                    onChange={(e) => handleSelectTargetRotacion(e.target.value)}
-                                                    required
-                                                    style={{ marginBottom: 0 }}
-                                                >
-                                                    <option value="">-- Seleccione Rotación --</option>
-                                                    {rotaciones.map(r => (
-                                                        <option key={r.id} value={r.id}>{r.nombre}</option>
-                                                    ))}
-                                                </select>
-                                            )}
-                                        </fieldset>
-                                    )}
-
-                                    {/* Potrero Destino en tarjetas táctiles */}
-                                    {selectedTargetRotacionId && (
-                                        <fieldset className="movements-fieldset">
-                                            <legend className="movements-legend">2. Potrero Destino *</legend>
-                                            {availableTargetPotreros.length === 0 ? (
-                                                <div style={{ padding: '14px', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.16)', color: 'var(--text-muted)', fontSize: '0.88rem', textAlign: 'center' }}>
-                                                    No hay otros potreros disponibles en esta rotación.
-                                                </div>
-                                            ) : availableTargetPotreros.length <= 16 ? (
-                                                renderRadioCards({
-                                                    options: availableTargetPotreros,
-                                                    name: 'movements-potrero-mobile',
-                                                    selectedId: selectedTargetPotreroId,
-                                                    singleColumn: availableTargetPotreros.length <= 2,
-                                                    onSelect: setSelectedTargetPotreroId,
-                                                })
-                                            ) : (
-                                                <select
-                                                    id="movements-potrero-mobile"
-                                                    value={selectedTargetPotreroId}
-                                                    onChange={(e) => setSelectedTargetPotreroId(e.target.value)}
-                                                    required
-                                                    style={{ marginBottom: 0 }}
-                                                >
-                                                    <option value="">-- Seleccione Potrero Destino --</option>
-                                                    {availableTargetPotreros.map(p => (
-                                                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                                                    ))}
-                                                </select>
-                                            )}
-                                        </fieldset>
-                                    )}
-
-                                    {selectedTargetPotreroId && (
-                                        <>
-                                            <div>
-                                                <label htmlFor="movements-fecha" className="movements-field-label">
-                                                    3. Fecha de Movimiento
-                                                </label>
-                                                <input
-                                                    id="movements-fecha"
-                                                    type="date"
-                                                    value={fechaMovimiento}
-                                                    onChange={e => setFechaMovimiento(e.target.value)}
-                                                    required
-                                                    style={{ marginBottom: 0 }}
-                                                />
-                                            </div>
-
-                                            <button
-                                                type="submit"
-                                                className="movements-submit-btn"
-                                                disabled={loading || !selectedTargetPotreroId || !selectedPotreradaId || !isAdminOrCowboy}
-                                            >
-                                                {loading ? 'Guardando...' : (
-                                                    <>
-                                                        <Save size={20} aria-hidden="true" />
-                                                        <span>Registrar Movimiento</span>
-                                                    </>
-                                                )}
-                                            </button>
-                                        </>
-                                    )}
-                                </>
+                                        )}
+                                    </div>
+                                </div>
                             )}
-                        </>
-                    ) : (
-                        /* ==================== VISTA ESCRITORIO (> 768px) ==================== */
+                        </div>
+
+                        {!isAdminOrCowboy && (
+                            <p style={{ fontSize: '0.84rem', color: 'var(--error)', marginTop: '8px', marginBottom: 0 }}>
+                                No tienes permisos para realizar movimientos.
+                            </p>
+                        )}
+                    </div>
+
+                    {selectedPotreradaId && (
                         <>
-                            <div style={{ position: 'relative' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Seleccionar Lote *</label>
-
-                                {/* Custom Searchable Select */}
-                                <div style={{ position: 'relative' }}>
-                                    <button
-                                        type="button"
-                                        aria-expanded={showOptions}
-                                        aria-haspopup="listbox"
-                                        onClick={() => setShowOptions(!showOptions)}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            padding: '12px 16px',
-                                            backgroundColor: 'rgba(255,255,255,0.05)',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            borderRadius: '8px',
-                                            minHeight: '48px',
-                                            width: '100%',
-                                            textTransform: 'none',
-                                            letterSpacing: 'normal',
-                                            fontWeight: 400,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <span style={{ color: selectedPotreradaId ? 'var(--text)' : 'var(--text-muted)' }}>
-                                            {selectedLotObj ? selectedLotObj.nombre : '-- Seleccione --'}
-                                        </span>
-                                        <ChevronDown
-                                            size={20}
-                                            aria-hidden="true"
-                                            style={{
-                                                transform: showOptions ? 'rotate(180deg)' : 'none',
-                                                transition: 'transform 0.2s',
-                                                color: 'var(--text-muted)'
+                            <div className="movements-status-card">
+                                <div className="movements-status-row">
+                                    <div>
+                                        <p className="movements-status-eyebrow">Ubicación Actual</p>
+                                        <p className="movements-status-potrero">
+                                            {currentPotrero ? currentPotrero.nombre : 'Sin potrero asignado'}
+                                        </p>
+                                        {hasAssignedRotation && rotacionMode !== 'cambiar' && targetRotacion && (
+                                            <p className="movements-status-rot">
+                                                Rotación: {targetRotacion.nombre}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {hasAssignedRotation && rotaciones.length > 1 && (
+                                        <button
+                                            type="button"
+                                            className="movements-alt-rot-btn"
+                                            onClick={() => {
+                                                if (rotacionMode === 'cambiar') {
+                                                    setRotacionMode('misma');
+                                                    handleSelectTargetRotacion(assignedRotId);
+                                                } else {
+                                                    setRotacionMode('cambiar');
+                                                    setSelectedTargetPotreroId('');
+                                                }
                                             }}
-                                        />
-                                    </button>
-
-                                    {showOptions && (
-                                        <div
-                                            style={{
-                                                position: 'absolute',
-                                                top: '110%',
-                                                left: 0,
-                                                right: 0,
-                                                backgroundColor: '#1E1E1E',
-                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                borderRadius: '12px',
-                                                zIndex: 100,
-                                                boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                                                overflow: 'hidden'
-                                            }}
-                                            onClick={(e) => e.stopPropagation()}
                                         >
-                                            <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <Search size={16} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Buscar lote..."
-                                                    value={searchTerm}
-                                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                                    autoFocus
-                                                    style={{
-                                                        backgroundColor: 'transparent',
-                                                        border: 'none',
-                                                        padding: '4px',
-                                                        fontSize: '0.95rem',
-                                                        margin: 0,
-                                                        width: '100%'
-                                                    }}
-                                                />
-                                            </div>
-                                            <div role="listbox" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                                {filteredPotreradas.map(p => (
-                                                    <button
-                                                        key={p.id}
-                                                        type="button"
-                                                        role="option"
-                                                        aria-selected={selectedPotreradaId === p.id}
-                                                        onClick={() => {
-                                                            setSelectedPotreradaId(p.id);
-                                                            setShowOptions(false);
-                                                            setSearchTerm('');
-                                                        }}
-                                                        style={{
-                                                            width: '100%',
-                                                            padding: '12px 16px',
-                                                            cursor: 'pointer',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            border: 'none',
-                                                            borderRadius: 0,
-                                                            textTransform: 'none',
-                                                            letterSpacing: 'normal',
-                                                            fontWeight: 400,
-                                                            backgroundColor: selectedPotreradaId === p.id ? 'rgba(var(--primary-rgb), 0.14)' : 'transparent',
-                                                            transition: 'background 0.2s'
-                                                        }}
-                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
-                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = selectedPotreradaId === p.id ? 'rgba(var(--primary-rgb), 0.14)' : 'transparent'}
-                                                    >
-                                                        <span style={{ color: selectedPotreradaId === p.id ? 'var(--primary-light)' : 'var(--text)' }}>{p.nombre}</span>
-                                                        {selectedPotreradaId === p.id && <Check size={16} color="var(--primary)" aria-hidden="true" />}
-                                                    </button>
-                                                ))}
-                                                {filteredPotreradas.length === 0 && (
-                                                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                                        No se encontraron resultados
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
+                                            {rotacionMode === 'cambiar' ? 'Usar su rotación' : 'Cambiar de rotación'}
+                                        </button>
                                     )}
                                 </div>
-
-                                {!isAdminOrCowboy && <p style={{ fontSize: '0.8rem', color: 'var(--error)', marginTop: '8px' }}>No tienes permisos para realizar movimientos.</p>}
                             </div>
 
-                            {selectedPotreradaId && (
+                            {(!hasAssignedRotation || rotacionMode === 'cambiar') && (
+                                <div>
+                                    <label htmlFor="movements-rot" className="movements-field-label">
+                                        Seleccionar Rotación *
+                                    </label>
+                                    <select
+                                        id="movements-rot"
+                                        name="id_rotacion"
+                                        className="movements-select"
+                                        value={selectedTargetRotacionId}
+                                        onChange={(e) => handleSelectTargetRotacion(e.target.value)}
+                                        required
+                                    >
+                                        <option value="">-- Seleccione Rotación --</option>
+                                        {rotaciones.map(r => (
+                                            <option key={r.id} value={r.id}>{r.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {selectedTargetRotacionId && (
+                                <div>
+                                    <label htmlFor="movements-potrero" className="movements-field-label">
+                                        Potrero Destino *
+                                    </label>
+                                    <select
+                                        id="movements-potrero"
+                                        name="id_potrero"
+                                        className="movements-select"
+                                        value={selectedTargetPotreroId}
+                                        onChange={(e) => setSelectedTargetPotreroId(e.target.value)}
+                                        required
+                                        disabled={!targetRotacion || availableTargetPotreros.length === 0}
+                                    >
+                                        <option value="">
+                                            {availableTargetPotreros.length === 0
+                                                ? '-- No hay otros potreros disponibles --'
+                                                : '-- Seleccione Potrero Destino --'}
+                                        </option>
+                                        {availableTargetPotreros.map(p => (
+                                            <option key={p.id} value={p.id}>{p.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {selectedTargetPotreroId && (
                                 <>
-                                    <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                                            <div>
-                                                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ubicación Actual</p>
-                                                <p style={{ margin: '4px 0 0 0', fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1.1rem' }}>
-                                                    {currentPotrero ? currentPotrero.nombre : 'Sin potrero asignado'}
-                                                </p>
-                                            </div>
-                                            {hasAssignedRotation && rotaciones.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    className="movements-alt-rot-btn"
-                                                    style={{ marginTop: 0 }}
-                                                    onClick={() => {
-                                                        if (rotacionMode === 'cambiar') {
-                                                            setRotacionMode('misma');
-                                                            handleSelectTargetRotacion(assignedRotId);
-                                                        } else {
-                                                            setRotacionMode('cambiar');
-                                                            setSelectedTargetPotreroId('');
-                                                        }
-                                                    }}
-                                                >
-                                                    {rotacionMode === 'cambiar' ? 'Usar su rotación' : 'Cambiar de rotación'}
-                                                </button>
-                                            )}
-                                        </div>
+                                    <div>
+                                        <label htmlFor="movements-fecha" className="movements-field-label">
+                                            Fecha de Movimiento
+                                        </label>
+                                        <input
+                                            id="movements-fecha"
+                                            name="fecha_entrada"
+                                            type="date"
+                                            value={fechaMovimiento}
+                                            onChange={e => setFechaMovimiento(e.target.value)}
+                                            required
+                                            style={{ marginBottom: 0 }}
+                                        />
                                     </div>
 
-                                    {(!hasAssignedRotation || rotacionMode === 'cambiar') && (
-                                        <div>
-                                            <label htmlFor="movements-rot-desktop" className="movements-field-label">Seleccionar Rotación *</label>
-                                            <select
-                                                id="movements-rot-desktop"
-                                                value={selectedTargetRotacionId}
-                                                onChange={(e) => handleSelectTargetRotacion(e.target.value)}
-                                                required
-                                                style={{ marginBottom: 0 }}
-                                            >
-                                                <option value="">-- Seleccione Rotación --</option>
-                                                {rotaciones.map(r => (
-                                                    <option key={r.id} value={r.id}>{r.nombre}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-
-                                    {selectedTargetRotacionId && (
-                                        <div>
-                                            <label htmlFor="movements-potrero-desktop" className="movements-field-label">Potrero Destino *</label>
-                                            <select
-                                                id="movements-potrero-desktop"
-                                                value={selectedTargetPotreroId}
-                                                onChange={(e) => setSelectedTargetPotreroId(e.target.value)}
-                                                required
-                                                disabled={!targetRotacion || availableTargetPotreros.length === 0}
-                                                style={{ marginBottom: 0 }}
-                                            >
-                                                <option value="">-- Seleccione Potrero Destino --</option>
-                                                {availableTargetPotreros.map(p => (
-                                                    <option key={p.id} value={p.id}>{p.nombre}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-
-                                    {selectedTargetPotreroId && (
-                                        <>
-                                            <div>
-                                                <label htmlFor="movements-fecha" className="movements-field-label">Fecha de Movimiento</label>
-                                                <input
-                                                    id="movements-fecha"
-                                                    type="date"
-                                                    value={fechaMovimiento}
-                                                    onChange={e => setFechaMovimiento(e.target.value)}
-                                                    required
-                                                    style={{ marginBottom: 0 }}
-                                                />
-                                            </div>
-
-                                            <button
-                                                type="submit"
-                                                disabled={loading || !selectedTargetPotreroId || !selectedPotreradaId || !isAdminOrCowboy}
-                                                className="movements-submit-btn"
-                                            >
-                                                {loading ? 'Guardando...' : (
-                                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                        <Save size={20} aria-hidden="true" /> Registrar Movimiento
-                                                    </span>
-                                                )}
-                                            </button>
-                                        </>
-                                    )}
+                                    <button
+                                        type="submit"
+                                        disabled={loading || !selectedTargetPotreroId || !selectedPotreradaId || !isAdminOrCowboy}
+                                        className="movements-submit-btn"
+                                    >
+                                        {loading ? 'Guardando...' : (
+                                            <>
+                                                <Save size={20} aria-hidden="true" />
+                                                <span>Registrar Movimiento</span>
+                                            </>
+                                        )}
+                                    </button>
                                 </>
                             )}
                         </>
