@@ -168,8 +168,16 @@
    ======================================================== */
 @media (max-width: 1024px) {
   .farm-map-wrapper {
-    height: calc(100dvh - var(--topbar-height, 64px) - var(--bottom-nav-height, 68px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 108px);
-    min-height: 400px;
+    flex: 1 1 0%;
+    height: 100%;
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .farm-map-wrapper > div:first-child {
+    flex: 1 1 0%;
+    min-height: 0;
   }
 
   /* Hacer compactos y horizontales los botones + / - de Leaflet en la esquina superior derecha */
@@ -260,7 +268,6 @@
 
 @media (max-width: 768px) {
   .farm-map-wrapper {
-    height: clamp(380px, calc(100dvh - var(--topbar-height, 58px) - var(--bottom-nav-height, 68px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 96px), 680px);
     border-radius: 14px;
   }
 

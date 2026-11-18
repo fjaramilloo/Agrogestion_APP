@@ -654,7 +654,9 @@ export const FarmMapPage: React.FC = () => {
           <div style={{ minWidth: 0 }}>
             <h2 className="farm-map-header-title">Plano de la Finca: {currentFincaName}</h2>
             <p className="farm-map-header-subtitle">
-              {potreros.length} Potreros registrados &bull; {potreros.filter(p => p.geojson_geometry).length} potreros delimitados {zonasAdicionales.length > 0 ? `&bull; ${zonasAdicionales.length} zonas no ganaderas` : ''}
+              {isMobile
+                ? `${potreros.length} potreros • ${potreros.filter(p => p.geojson_geometry).length} en mapa${zonasAdicionales.length > 0 ? ` • ${zonasAdicionales.length} zonas` : ''}`
+                : `${potreros.length} Potreros registrados • ${potreros.filter(p => p.geojson_geometry).length} potreros delimitados${zonasAdicionales.length > 0 ? ` • ${zonasAdicionales.length} zonas no ganaderas` : ''}`}
             </p>
           </div>
         </div>
@@ -849,23 +851,33 @@ export const FarmMapPage: React.FC = () => {
 
       {/* Banner Informativo de Modo Sin Conexión */}
       {isOfflineData && (
-        <div style={{
-          backgroundColor: 'rgba(234, 179, 8, 0.12)',
-          border: '1px solid rgba(234, 179, 8, 0.35)',
-          borderRadius: '12px',
-          padding: '12px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          color: '#FEF08A',
-          fontSize: '0.85rem',
-        }}>
-          <WifiOff size={20} color="#EAB308" style={{ flexShrink: 0 }} />
-          <div>
-            <strong>Modo Sin Conexión activo:</strong> Estás navegando con el plano, potreros y distribución de ganado guardados en la memoria local {offlineUpdatedTime ? `(${offlineUpdatedTime})` : ''}.
-            <div style={{ fontSize: '0.8rem', color: '#FDE047', marginTop: '2px' }}>
-              Tu posición GPS por satélite sigue activa en tiempo real para orientarte durante la vuelta a los potreros.
-            </div>
+        <div
+          className="farm-map-offline-banner"
+          style={{
+            backgroundColor: 'rgba(234, 179, 8, 0.12)',
+            border: '1px solid rgba(234, 179, 8, 0.35)',
+            borderRadius: '12px',
+            padding: '12px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            color: '#FEF08A',
+            fontSize: '0.85rem',
+          }}
+        >
+          <WifiOff size={20} color="#EAB308" aria-hidden="true" style={{ flexShrink: 0 }} />
+          <div style={{ minWidth: 0 }}>
+            <strong>Modo Sin Conexión activo:</strong>{' '}
+            <span>
+              {isMobile
+                ? `Plano local guardado${offlineUpdatedTime ? ` (${offlineUpdatedTime})` : ''} · GPS satelital activo.`
+                : `Estás navegando con el plano, potreros y distribución de ganado guardados en la memoria local ${offlineUpdatedTime ? `(${offlineUpdatedTime})` : ''}.`}
+            </span>
+            {!isMobile && (
+              <div style={{ fontSize: '0.8rem', color: '#FDE047', marginTop: '2px' }}>
+                Tu posición GPS por satélite sigue activa en tiempo real para orientarte durante la vuelta a los potreros.
+              </div>
+            )}
           </div>
         </div>
       )}
