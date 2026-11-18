@@ -22,20 +22,73 @@ interface Notification {
 
 const ALERTS_CACHE_KEY = 'agrogestion_cached_alerts';
 const ALERTS_CACHE_TS = 'agrogestion_cached_alerts_ts';
+const READ_NOTIFICATIONS_KEY = 'read_notifications_global';
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutos
 
+function readStoredDateMap(key: string): Record<string, string> {
+    try {
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function getReadIdsToday(hoyStr: string, legacyFincaId?: string | null): Set<string> {
+    const readIds = new Set<string>();
+    const globalMap = readStoredDateMap(READ_NOTIFICATIONS_KEY);
+    for (const [id, date] of Object.entries(globalMap)) {
+        if (date === hoyStr) readIds.add(id);
+    }
+    // Compatibilidad con lecturas previas guardadas bajo clave por finca
+    if (legacyFincaId) {
+        const legacyMap = readStoredDateMap(`read_notifications_${legacyFincaId}`);
+        for (const [id, date] of Object.entries(legacyMap)) {
+            if (date === hoyStr) readIds.add(id);
+        }
+    }
+    return readIds;
+}
+
+function persistReadIdsToday(ids: string[], hoyStr: string): void {
+    if (ids.length === 0) return;
+    try {
+        const current = readStoredDateMap(READ_NOTIFICATIONS_KEY);
+        const next: Record<string, string> = {};
+        for (const [id, date] of Object.entries(current)) {
+            if (date === hoyStr) next[id] = date;
+        }
+        for (const id of ids) {
+            next[id] = hoyStr;
+        }
+        localStorage.setItem(READ_NOTIFICATIONS_KEY, JSON.stringify(next));
+    } catch { /* storage quota */ }
+}
+
+function saveAlertsSessionCache(items: Notification[], updateTimestamp = false): void {
+    try {
+        sessionStorage.setItem(ALERTS_CACHE_KEY, JSON.stringify(items));
+        if (updateTimestamp) {
+            sessionStorage.setItem(ALERTS_CACHE_TS, String(Date.now()));
+        }
+    } catch { /* storage quota */ }
+}
+
 export default function NotificationCenter() {
+    const { role, fincaId, userFincas, licenciaInfo } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>(() => {
         try {
             const raw = sessionStorage.getItem(ALERTS_CACHE_KEY);
-            return raw ? JSON.parse(raw) : [];
+            const cached: Notification[] = raw ? JSON.parse(raw) : [];
+            const readIds = getReadIdsToday(format(new Date(), 'yyyy-MM-dd'), fincaId);
+            return cached.filter(n => !readIds.has(n.id));
         } catch {
             return [];
         }
     });
-    const { role, fincaId, userFincas, licenciaInfo } = useAuth();
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
@@ -327,20 +380,14 @@ export default function NotificationCenter() {
                 }
             }
 
-            const readToday = JSON.parse(localStorage.getItem(`read_notifications_global`) || '{}');
             const hoyStr = format(hoy, 'yyyy-MM-dd');
+            const readTodayIds = getReadIdsToday(hoyStr, fincaId);
 
             // Filtrar las que ya se leyeron hoy
-            const finalNotifications = newNotifications.filter(n => {
-                if (readToday[n.id] === hoyStr) return false;
-                return true;
-            });
+            const finalNotifications = newNotifications.filter(n => !readTodayIds.has(n.id));
 
             setNotifications(finalNotifications);
-            try {
-                sessionStorage.setItem(ALERTS_CACHE_KEY, JSON.stringify(finalNotifications));
-                sessionStorage.setItem(ALERTS_CACHE_TS, String(Date.now()));
-            } catch { /* storage quota */ }
+            saveAlertsSessionCache(finalNotifications, true);
         } catch (err) {
             console.error("Error calculando alertas:", err);
         } finally {
@@ -385,28 +432,23 @@ export default function NotificationCenter() {
 
     const markAllAsRead = () => {
         const hoyStr = format(new Date(), 'yyyy-MM-dd');
-        const readToday = JSON.parse(localStorage.getItem(`read_notifications_global`) || '{}');
-        
-        notifications.forEach(n => {
-            readToday[n.id] = hoyStr;
-        });
+        persistReadIdsToday(notifications.map(n => n.id), hoyStr);
 
-        localStorage.setItem(`read_notifications_global`, JSON.stringify(readToday));
         setNotifications(notifications.map(n => ({ ...n, read: true })));
+        saveAlertsSessionCache([]);
     };
 
     const handleNotificationClick = (n: Notification) => {
-        // Guardar en localStorage que ya se leyó hoy
         const hoyStr = format(new Date(), 'yyyy-MM-dd');
-        const readToday = JSON.parse(localStorage.getItem(`read_notifications_${fincaId}`) || '{}');
-        readToday[n.id] = hoyStr;
-        localStorage.setItem(`read_notifications_${fincaId}`, JSON.stringify(readToday));
+        persistReadIdsToday([n.id], hoyStr);
 
-        // Marcar como leída en el estado
-        setNotifications(notifications.map(item => 
+        const next = notifications.map(item =>
             item.id === n.id ? { ...item, read: true } : item
-        ));
-        
+        );
+        setNotifications(next);
+        // Excluir la alerta ya leída del caché de sesión para que no reaparezca al recargar
+        saveAlertsSessionCache(next.filter(item => item.id !== n.id && !item.read));
+
         // Navegar si hay target
         if (n.target) {
             navigate(n.target, { state: n.targetState });
@@ -414,16 +456,26 @@ export default function NotificationCenter() {
         }
     };
 
-    // Cerrar al hacer clic/tocar fuera
+    // Cerrar al hacer clic/tocar fuera o pulsar Escape
     useEffect(() => {
+        if (!isOpen) return;
         const handleClickOutside = (event: PointerEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
             }
         };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsOpen(false);
+            }
+        };
         document.addEventListener('pointerdown', handleClickOutside);
-        return () => document.removeEventListener('pointerdown', handleClickOutside);
-    }, []);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('pointerdown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen]);
 
     const getIcon = (type: string) => {
         switch (type) {
@@ -453,7 +505,7 @@ export default function NotificationCenter() {
                     <div className="notification-header">
                         <h3>Notificaciones</h3>
                         {unreadCount > 0 && (
-                            <button className="notification-footer-btn" onClick={markAllAsRead}>
+                            <button type="button" className="notification-footer-btn" onClick={markAllAsRead}>
                                 Marcar todo como leído
                             </button>
                         )}
@@ -476,8 +528,9 @@ export default function NotificationCenter() {
                                 <div key={fName} className="notification-finca-group">
                                     <div className="notification-finca-header">{fName}</div>
                                     {fNotifications.map(n => (
-                                        <div 
-                                            key={n.id} 
+                                        <button
+                                            type="button"
+                                            key={n.id}
                                             className={`notification-item ${!n.read ? 'unread' : ''}`}
                                             onClick={() => handleNotificationClick(n)}
                                         >
@@ -489,7 +542,7 @@ export default function NotificationCenter() {
                                                 <div className="notification-desc">{n.description}</div>
                                                 <span className="notification-time">{n.time}</span>
                                             </div>
-                                        </div>
+                                        </button>
                                     ))}
                                 </div>
                             ))
@@ -501,7 +554,7 @@ export default function NotificationCenter() {
                     </div>
 
                     <div className="notification-footer">
-                        <button className="notification-footer-btn" onClick={fetchAlerts}>Actualizar ahora</button>
+                        <button type="button" className="notification-footer-btn" onClick={fetchAlerts}>Actualizar ahora</button>
                     </div>
                 </div>
             )}

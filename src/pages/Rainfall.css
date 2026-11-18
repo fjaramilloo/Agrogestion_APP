@@ -1,0 +1,1022 @@
+/* Pluviometría: diseño fiel en escritorio + tarjetas @container, touch >= 48px y bottom-sheet en móvil */
+
+.rainfall-page {
+  padding-bottom: 20px;
+}
+
+.rainfall-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes rainfallSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.rainfall-spin {
+  animation: rainfallSpin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rainfall-spin {
+    animation: none;
+  }
+}
+
+/* Cabecera */
+.rainfall-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.rainfall-header-main {
+  min-width: 0;
+  flex: 1 1 280px;
+}
+
+.rainfall-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  text-wrap: balance;
+}
+
+.rainfall-subtitle {
+  color: var(--text-muted);
+  margin: 6px 0 10px 0;
+  text-wrap: pretty;
+}
+
+.rainfall-region-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--info-soft-bg);
+  border: 1px solid var(--info-soft-border);
+  font-size: 0.8rem;
+  color: var(--info);
+  max-width: 100%;
+}
+
+.rainfall-region-link {
+  color: var(--secondary);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.rainfall-new-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  width: auto;
+  min-height: 48px;
+}
+
+/* Filtro multi-pluviómetro */
+.rainfall-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.rainfall-filter-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.rainfall-chip-btn {
+  width: auto;
+  min-height: 40px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.rainfall-chip-btn:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-chip-btn.is-active {
+  background: var(--info-soft-bg);
+  border-color: var(--info);
+  color: var(--info);
+  font-weight: 700;
+}
+
+/* KPIs */
+.rainfall-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.rainfall-kpi-card {
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Gráficas */
+.rainfall-chart-card {
+  padding: 24px;
+  margin-bottom: 28px;
+}
+
+.rainfall-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rainfall-chart-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.rainfall-tab-btn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  width: auto;
+  min-height: 40px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.rainfall-tab-btn:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-tab-btn.is-active {
+  background: var(--info-soft-bg);
+  border-color: var(--info);
+  color: var(--info);
+  font-weight: 700;
+}
+
+.rainfall-year-select {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  width: auto;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--border-input);
+  background: var(--bg-input);
+  color: var(--text-main);
+  margin-bottom: 0;
+}
+
+/* Asistente IA */
+.rainfall-ia-card {
+  border-radius: 12px;
+  margin-bottom: 28px;
+  overflow: hidden;
+}
+
+.rainfall-ia-header {
+  padding: 14px 18px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rainfall-ia-meta {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.rainfall-ia-meta-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rainfall-ia-title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.rainfall-ia-source {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.rainfall-ia-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.rainfall-reanalizar-btn {
+  width: auto;
+  min-height: 38px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.rainfall-reanalizar-btn:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Historial mensual y tabla */
+.rainfall-history-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.rainfall-history-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rainfall-month-btn {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  background: var(--surface-subtle);
+  border: none;
+  border-radius: 0;
+  color: var(--text-main);
+  font-size: 0.92rem;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: none;
+}
+
+.rainfall-month-btn:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-table-wrapper {
+  overflow-x: auto;
+  max-inline-size: 100%;
+  container-type: inline-size;
+}
+
+.rainfall-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+.rainfall-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+}
+
+.rainfall-table thead th {
+  padding: 10px 20px;
+  background-color: var(--surface-inset);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.rainfall-table tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+.rainfall-table tbody tr:hover {
+  background-color: var(--surface-subtle);
+}
+
+.rainfall-table tbody th,
+.rainfall-table tbody td {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.rainfall-date-cell {
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.rainfall-date-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rainfall-notes-cell {
+  color: var(--text-muted);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88rem;
+}
+
+.rainfall-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rainfall-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.rainfall-icon-btn {
+  width: auto;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85rem;
+  box-shadow: none;
+}
+
+.rainfall-icon-btn:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-icon-btn--edit {
+  color: var(--info);
+}
+
+.rainfall-icon-btn--delete {
+  color: var(--error);
+}
+
+.rainfall-btn-mobile-label {
+  display: none;
+}
+
+.rainfall-pluv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rainfall-pluv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 10px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.rainfall-pluv-chip-del {
+  width: auto;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  color: var(--error);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.rainfall-pluv-chip-del:hover:not(:disabled) {
+  background: var(--error-soft-bg);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Responsive stacked cards en tabla vía Container Query */
+@container (width < 680px) {
+  .rainfall-table-wrapper {
+    overflow: visible;
+  }
+
+  .rainfall-table,
+  .rainfall-table tbody,
+  .rainfall-table tr,
+  .rainfall-table th,
+  .rainfall-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .rainfall-table thead {
+    display: none;
+  }
+
+  .rainfall-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .rainfall-table tbody tr {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .rainfall-table tbody th.rainfall-date-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 10px 0;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 1rem;
+  }
+
+  .rainfall-table tbody td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: none;
+    text-align: right;
+  }
+
+  .rainfall-table tbody td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: left;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  .rainfall-notes-cell {
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    word-break: break-word;
+  }
+
+  .rainfall-pluv-chips {
+    justify-content: flex-end;
+  }
+
+  .rainfall-pluv-chip {
+    min-height: 40px;
+    padding: 4px 6px 4px 10px;
+  }
+
+  .rainfall-pluv-chip-del {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .rainfall-table tbody td.rainfall-actions-cell {
+    display: block;
+    padding: 10px 0 0 0;
+    margin-top: 6px;
+    border-top: 1px solid var(--border-subtle);
+    text-align: left;
+  }
+
+  .rainfall-table tbody td.rainfall-actions-cell::before {
+    display: none;
+  }
+
+  .rainfall-row-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .rainfall-icon-btn {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
+    font-weight: 600;
+  }
+
+  .rainfall-icon-btn--edit {
+    border-color: var(--info-soft-border);
+    background: var(--info-soft-bg);
+  }
+
+  .rainfall-icon-btn--delete {
+    border-color: var(--error-soft-border);
+    background: var(--error-soft-bg);
+  }
+
+  .rainfall-btn-mobile-label {
+    display: inline;
+  }
+}
+
+/* Native <dialog> Modals */
+dialog.rainfall-dialog {
+  padding: 0;
+  border: none;
+  background: transparent;
+  width: 100%;
+  max-width: min(520px, calc(100vw - 24px));
+  margin: auto;
+  color: var(--text-main);
+}
+
+dialog.rainfall-dialog--narrow {
+  max-width: min(460px, calc(100vw - 24px));
+}
+
+dialog.rainfall-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.rainfall-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.rainfall-dialog::backdrop {
+  background: var(--backdrop-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.rainfall-dialog-card {
+  margin: 0;
+  width: 100%;
+  padding: 26px;
+  max-height: min(90dvh, 760px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.rainfall-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.rainfall-dialog-close {
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 1.15rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+
+.rainfall-dialog-close:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  color: var(--text-main);
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--surface-inset);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+}
+
+.rainfall-mode-btn {
+  min-height: 44px;
+  padding: 9px 10px;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.rainfall-mode-btn:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-pluv-edit-btn {
+  width: auto;
+  min-height: 40px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-strong);
+  color: var(--text-main);
+  border-radius: 8px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.rainfall-pluv-edit-btn:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-pluv-cancel-btn {
+  width: auto;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  margin-top: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.rainfall-pluv-cancel-btn:hover:not(:disabled) {
+  background: var(--surface-subtle);
+  color: var(--text-main);
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-dialog-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.rainfall-btn-secondary {
+  flex: 1;
+  min-height: 48px;
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border-strong);
+  color: var(--text-main);
+  box-shadow: none;
+}
+
+.rainfall-btn-secondary:hover:not(:disabled) {
+  background-color: var(--surface-subtle-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-btn-primary {
+  flex: 2;
+  min-height: 48px;
+}
+
+.rainfall-btn-danger {
+  flex: 1;
+  min-height: 48px;
+  background-color: var(--error);
+  color: #ffffff;
+  border: none;
+}
+
+/* Toast Notification + Inline Status */
+.rainfall-toast-region {
+  position: fixed;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+.rainfall-toast {
+  display: none;
+  position: fixed;
+  inset: auto 20px 24px auto;
+  margin: 0;
+  max-width: min(440px, calc(100vw - 24px));
+  width: max-content;
+  padding: 12px 12px 12px 16px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-popover);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: auto;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition-behavior: allow-discrete;
+}
+
+.rainfall-toast:popover-open {
+  display: flex;
+}
+
+.rainfall-toast--success {
+  background: var(--bg-card);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+.rainfall-toast--error {
+  background: var(--bg-card);
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+
+.rainfall-toast-close {
+  width: auto;
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.rainfall-toast-close:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.rainfall-inline-status {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rainfall-inline-status--success {
+  background: var(--success-soft-bg);
+  border: 1px solid var(--success-soft-border);
+  color: var(--success);
+}
+
+.rainfall-inline-status--error {
+  background: var(--error-soft-bg);
+  border: 1px solid var(--error-soft-border);
+  color: var(--error);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rainfall-toast {
+    transition: none;
+  }
+}
+
+/* Breakpoints */
+@media (max-width: 1024px) {
+  .rainfall-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .rainfall-header {
+    margin-bottom: 20px;
+  }
+
+  .rainfall-chip-btn,
+  .rainfall-tab-btn,
+  .rainfall-year-select,
+  .rainfall-reanalizar-btn,
+  .rainfall-mode-btn,
+  .rainfall-pluv-edit-btn,
+  .rainfall-pluv-cancel-btn,
+  .rainfall-dialog-close,
+  .rainfall-toast-close {
+    min-height: 48px;
+  }
+
+  .rainfall-dialog-close,
+  .rainfall-toast-close {
+    min-width: 48px;
+  }
+
+  .rainfall-chart-card {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .rainfall-history-header {
+    padding: 16px;
+  }
+
+  .rainfall-month-btn {
+    padding: 14px 16px;
+  }
+
+  .rainfall-ia-actions {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .rainfall-reanalizar-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .rainfall-ia-source {
+    margin-left: 0;
+  }
+
+  /* Diálogos como Bottom Sheet en móviles */
+  dialog.rainfall-dialog,
+  dialog.rainfall-dialog--narrow {
+    max-width: 100%;
+    margin: auto 0 0 0;
+  }
+
+  .rainfall-dialog-card {
+    border-radius: 20px 20px 0 0;
+    max-height: 92dvh;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .rainfall-toast {
+    inset: auto 12px calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 12px) 12px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .rainfall-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .rainfall-new-btn {
+    width: 100%;
+  }
+
+  .rainfall-chart-controls {
+    width: 100%;
+  }
+
+  .rainfall-tab-btn {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .rainfall-year-select {
+    flex: 1 1 120px;
+  }
+
+  .rainfall-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .rainfall-btn-secondary,
+  .rainfall-btn-primary,
+  .rainfall-btn-danger {
+    width: 100%;
+    flex: none;
+    min-height: 50px;
+  }
+}
+
+@media (pointer: coarse) {
+  .rainfall-chip-btn,
+  .rainfall-tab-btn,
+  .rainfall-reanalizar-btn,
+  .rainfall-pluv-edit-btn,
+  .rainfall-pluv-cancel-btn,
+  .rainfall-icon-btn,
+  .rainfall-dialog-close,
+  .rainfall-toast-close {
+    min-height: 48px;
+  }
+
+  .rainfall-pluv-chip-del {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
