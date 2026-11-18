@@ -9,6 +9,7 @@ import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia'
 import { localDB } from '../lib/db';
 import { guardarPesajeOffline } from '../lib/offlineService';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import './Weighing.css';
 
 interface AnimalPreview {
     id: string;
@@ -80,6 +81,8 @@ const calcularGmpDesdePesajes = (
     return { ultimoPeso, fechaUltimoPeso, gmp };
 };
 
+const collatorHoy = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
 export default function Weighing() {
     const { fincaId, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
     const { modoCampo, isOnline } = useConnection();
@@ -127,6 +130,14 @@ export default function Weighing() {
     const [editPeso, setEditPeso] = useState('');
     const [sortColHoy, setSortColHoy] = useState<'chapeta' | 'marca' | 'potrerada' | 'peso'>('chapeta');
     const [sortDirHoy, setSortDirHoy] = useState<'asc' | 'desc'>('asc');
+    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 768px)');
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
 
     // 1. Precargar el hato activo en memoria RAM desde IndexedDB (en 5ms) y actualizar en silencio desde la nube
     const cargarHatoEnRam = useCallback(async () => {
@@ -709,28 +720,17 @@ export default function Weighing() {
     };
 
     return (
-        <div className="page-container" style={{ maxWidth: '600px' }}>
-            <h1 className="title text-center" style={{ fontSize: '2.5rem', marginBottom: '8px' }}>Control de Pesaje</h1>
-            <p className="text-center" style={{ color: 'var(--text-muted)', marginBottom: '8px' }}>Busque al animal para registrar el peso actual.</p>
-            <p className="text-center" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px' }}>
+        <div className="page-container weighing-page">
+            <h1 className="title text-center weighing-title">Control de Pesaje</h1>
+            <p className="text-center weighing-subtitle">Busque al animal para registrar el peso actual.</p>
+            <p className="text-center weighing-threshold">
                 Umbral entrada a ceba: <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>
             </p>
 
             {isBloqueado && (
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    marginBottom: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '16px',
-                    flexWrap: 'wrap'
-                }}>
+                <div className="weighing-upsell-banner">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
+                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} aria-hidden="true" />
                         <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
@@ -745,19 +745,8 @@ export default function Weighing() {
                     </div>
                     <button
                         type="button"
+                        className="weighing-btn-upsell"
                         onClick={() => setShowUpsellModal(true)}
-                        style={{
-                            width: 'auto',
-                            padding: '8px 16px',
-                            fontSize: '0.85rem',
-                            backgroundColor: '#ef4444',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap'
-                        }}
                     >
                         {isVencida ? 'Renovar Plan' : 'Ver Planes'}
                     </button>
@@ -765,51 +754,76 @@ export default function Weighing() {
             )}
 
             {msjExito && (
-                <div style={{
-                    backgroundColor: marcadoCeba ? 'rgba(76,175,80,0.25)' : 'rgba(76, 175, 80, 0.2)',
-                    color: 'var(--success)',
-                    padding: '16px',
-                    borderRadius: '8px',
-                    marginBottom: '24px',
-                    textAlign: 'center',
-                    fontWeight: 'bold',
-                    border: marcadoCeba ? '1px solid var(--success)' : 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px'
-                }}>
-                    {marcadoCeba && <CheckCircle2 size={22} />}
-                    {msjExito}
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className={`weighing-feedback-success${marcadoCeba ? ' weighing-feedback-success--ceba' : ''}`}
+                >
+                    {marcadoCeba && <CheckCircle2 size={22} aria-hidden="true" />}
+                    <span>{msjExito}</span>
                 </div>
             )}
-            {msjError && <div className="error-message text-center" style={{ fontWeight: 'bold' }}>{msjError}</div>}
+            {msjError && (
+                <div role="alert" aria-live="assertive" className="error-message text-center" style={{ fontWeight: 'bold' }}>
+                    {msjError}
+                </div>
+            )}
 
-            <div className="card" style={{ padding: '32px' }}>
-                <form onSubmit={buscarAnimal} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: animal || showCrearAnimal ? '32px' : '0' }}>
-                    <div style={{ flex: '1 1 200px', position: 'relative' }}>
-                        <Search size={24} style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-muted)' }} />
-                        <input
-                            ref={chapetaInputRef}
-                            type="text"
-                            placeholder="Nro. Chapeta"
-                            value={chapeta}
-                            onChange={(e) => setChapeta(e.target.value)}
-                            style={{ fontSize: '1.5rem', padding: '16px 16px 16px 56px', marginBottom: 0 }}
-                            disabled={loading || showCrearAnimal}
-                            autoFocus
-                        />
-                    </div>
-                    <button type="submit" disabled={loading || showCrearAnimal} style={{ width: 'auto', padding: '0 32px', fontSize: '1.2rem', flex: '1 1 120px' }}>
-                        Buscar
-                    </button>
-                </form>
+            <div className="card weighing-main-card">
+                <search>
+                    <form
+                        onSubmit={buscarAnimal}
+                        className={`weighing-search-form${animal || showCrearAnimal ? ' weighing-search-form--has-body' : ''}`}
+                    >
+                        <div className="weighing-chapeta-wrap">
+                            <label htmlFor="weighing-chapeta" className="weighing-visually-hidden">
+                                Número de chapeta
+                            </label>
+                            <Search size={22} aria-hidden="true" className="weighing-chapeta-icon" />
+                            <input
+                                id="weighing-chapeta"
+                                ref={chapetaInputRef}
+                                type="text"
+                                placeholder="Nro. Chapeta"
+                                value={chapeta}
+                                onChange={(e) => setChapeta(e.target.value)}
+                                className="weighing-chapeta-input"
+                                disabled={loading || showCrearAnimal}
+                                autoFocus={!isMobile}
+                                autoCorrect="off"
+                                autoCapitalize="characters"
+                                spellCheck={false}
+                                enterKeyHint="search"
+                            />
+                            {chapeta && !loading && !showCrearAnimal && (
+                                <button
+                                    type="button"
+                                    className="weighing-chapeta-clear"
+                                    aria-label="Limpiar chapeta"
+                                    onClick={() => {
+                                        setChapeta('');
+                                        setAnimal(null);
+                                        setAnimalNoEncontrado(false);
+                                        setMsjError('');
+                                        chapetaInputRef.current?.focus();
+                                    }}
+                                >
+                                    <X size={18} aria-hidden="true" />
+                                </button>
+                            )}
+                        </div>
+                        <button type="submit" disabled={loading || showCrearAnimal} className="weighing-search-btn">
+                            Buscar
+                        </button>
+                    </form>
+                </search>
 
                 {animalNoEncontrado && !showCrearAnimal && !animal && (
-                    <div style={{ textAlign: 'center', marginTop: '24px', padding: '24px', border: '1px dashed var(--warning)', borderRadius: '8px' }}>
+                    <div className="weighing-not-found-box">
                         <p style={{ color: 'white', marginBottom: '16px' }}>El animal no está en la base de datos.</p>
                         <button
                             type="button"
+                            className="weighing-btn-warning"
                             onClick={() => {
                                 if (isBloqueado || (licenciaInfo && licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales)) {
                                     setShowUpsellModal(true);
@@ -818,20 +832,20 @@ export default function Weighing() {
                                     setMsjError('');
                                 }
                             }}
-                            style={{ width: 'auto', backgroundColor: 'var(--warning)', color: '#000', margin: '0 auto' }}
                         >
-                            <PlusCircle size={20} /> Crear Animal Ahora
+                            <PlusCircle size={20} aria-hidden="true" /> Crear Animal Ahora
                         </button>
                     </div>
                 )}
 
                 {showCrearAnimal && !animal && (
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '24px', marginTop: '16px' }}>
+                    <div className="weighing-create-section">
                         <h3 style={{ color: 'var(--warning)', marginBottom: '16px', fontSize: '1.2rem' }}>Registro Rápido: #{chapeta}</h3>
 
-                        <label>Seleccionar Propietario</label>
+                        <label htmlFor="weighing-prop-select">Seleccionar Propietario</label>
                         {propietarios.length > 0 ? (
                             <select
+                                id="weighing-prop-select"
                                 value={propietarioNuevo}
                                 onChange={e => setPropietarioNuevo(e.target.value)}
                                 required
@@ -854,19 +868,22 @@ export default function Weighing() {
                             </div>
                         )}
 
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                            <div style={{ flex: 1 }}>
-                                <label>Fecha de Ingreso</label>
+                        <div className="weighing-create-row">
+                            <div className="weighing-create-field">
+                                <label htmlFor="weighing-fecha-ingreso">Fecha de Ingreso</label>
                                 <input
+                                    id="weighing-fecha-ingreso"
                                     type="date"
                                     value={fechaIngresoNueva}
                                     onChange={e => setFechaIngresoNueva(e.target.value)}
                                 />
                             </div>
-                            <div style={{ flex: 1 }}>
-                                <label>Peso de Ingreso (kg)</label>
+                            <div className="weighing-create-field">
+                                <label htmlFor="weighing-peso-ingreso">Peso de Ingreso (kg)</label>
                                 <input
+                                    id="weighing-peso-ingreso"
                                     type="number"
+                                    inputMode="decimal"
                                     step="0.1"
                                     placeholder="Ej 180"
                                     value={pesoIngresoNuevo}
@@ -875,8 +892,8 @@ export default function Weighing() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                            <button type="button" onClick={() => setShowCrearAnimal(false)} style={{ backgroundColor: 'transparent', border: '1px solid var(--text-muted)' }}>
+                        <div className="weighing-create-actions">
+                            <button type="button" onClick={() => setShowCrearAnimal(false)} className="weighing-btn-secondary">
                                 Cancelar
                             </button>
                             <button type="button" onClick={crearRegistroAnimal} disabled={!propietarioNuevo || !pesoIngresoNuevo || loading}>
@@ -887,11 +904,11 @@ export default function Weighing() {
                 )}
 
                 {animal && (
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '24px', marginTop: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                    <div className="weighing-animal-section">
+                        <div className="weighing-animal-header">
                             <div>
                                 <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Animal Encontrado</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>#{animal.numero_chapeta}</div>
+                                <div className="weighing-chapeta-badge">#{animal.numero_chapeta}</div>
                                 {animal.nombre_propietario && (
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
                                         Marca/Propietario: <span style={{ color: 'var(--text-light)' }}>{animal.nombre_propietario}</span>
@@ -900,9 +917,9 @@ export default function Weighing() {
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Última {getModoLabel(modoGanancia)}</div>
-                                <div style={{ 
-                                    fontSize: '1.5rem', 
-                                    fontWeight: 'bold', 
+                                <div style={{
+                                    fontSize: '1.5rem',
+                                    fontWeight: 'bold',
                                     color: (animal.gmp || 0) < 0 ? 'var(--error)' : ((animal.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((animal.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
                                     textShadow: (animal.gmp !== undefined && animal.gmp > umbralMedio && animal.gmp <= umbralAlto) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
                                 }}>
@@ -911,72 +928,59 @@ export default function Weighing() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                            <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div className="weighing-kpi-grid">
+                            <div className="weighing-kpi-card">
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Último Pesaje</div>
-                                <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{animal.ultimo_peso} kg</div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{animal.fecha_ultimo_peso ? format(new Date(animal.fecha_ultimo_peso), 'dd/MM/yyyy') : '-'}</div>
+                                <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{animal.ultimo_peso} kg</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{animal.fecha_ultimo_peso ? format(new Date(animal.fecha_ultimo_peso), 'dd/MM/yyyy') : '-'}</div>
                             </div>
-                            <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div className="weighing-kpi-card">
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Etapa</div>
-                                <div style={{ fontSize: '1.3rem', fontWeight: 'bold', textTransform: 'capitalize' }}>{animal.etapa}</div>
+                                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', textTransform: 'capitalize' }}>{animal.etapa}</div>
                                 {animal.potrerada_nombre && (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>{animal.potrerada_nombre}</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px', overflowWrap: 'break-word' }}>{animal.potrerada_nombre}</div>
                                 )}
                             </div>
                         </div>
 
                         {/* Tarjeta de tipo de animal (solo machos) */}
                         {animal.sexo === 'M' && (
-                            <div style={{ marginBottom: '16px' }}>
+                            <div style={{ marginBottom: '14px' }}>
                                 {animal.tipo_macho === 'novillo' ? (
                                     <div style={{ padding: '12px 16px', background: 'rgba(33,150,243,0.08)', border: '1px solid rgba(33,150,243,0.25)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: '#42a5f5', fontSize: '0.9rem' }}>
-                                        <span style={{ fontSize: '1.2rem' }}>✂️</span>
+                                        <span style={{ fontSize: '1.2rem' }} aria-hidden="true">✂️</span>
                                         <div>
                                             <strong>Novillo</strong> (castrado)
                                             {animal.fecha_castracion && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Castrado el {format(new Date(animal.fecha_castracion + 'T12:00:00'), 'dd/MM/yyyy')}</div>}
                                         </div>
                                     </div>
                                 ) : (
-                                    <div style={{ padding: '14px 16px', background: 'rgba(255,152,0,0.06)', border: `1px solid ${castrarHoy ? 'rgba(33,150,243,0.4)' : 'rgba(255,152,0,0.2)'}`, borderRadius: '10px', transition: 'border-color 0.2s' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '1.1rem' }}>🐂</span>
+                                    <div style={{ padding: '12px 14px', background: 'rgba(255,152,0,0.06)', border: `1px solid ${castrarHoy ? 'rgba(33,150,243,0.4)' : 'rgba(255,152,0,0.2)'}`, borderRadius: '10px', transition: 'border-color 0.2s' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                                <span style={{ fontSize: '1.1rem' }} aria-hidden="true">🐂</span>
                                                 <div>
                                                     <div style={{ fontWeight: 'bold', color: 'var(--text-light)', fontSize: '0.95rem' }}>Toro (sin castrar)</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>¿Se castró hoy? Marcar como Novillo</div>
+                                                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>¿Se castró hoy? Marcar como Novillo</div>
                                                 </div>
                                             </div>
-                                            <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '28px', cursor: 'pointer', flexShrink: 0 }}>
+                                            <label className="weighing-switch-label" aria-label="Marcar como castrado hoy (Novillo)">
                                                 <input
                                                     type="checkbox"
+                                                    role="switch"
+                                                    aria-checked={castrarHoy}
                                                     checked={castrarHoy}
                                                     onChange={e => setCastrarHoy(e.target.checked)}
-                                                    style={{ opacity: 0, width: 0, height: 0 }}
+                                                    className="weighing-visually-hidden weighing-switch-input"
                                                 />
-                                                <span style={{
-                                                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                                                    background: castrarHoy ? '#2196F3' : 'rgba(255,255,255,0.1)',
-                                                    borderRadius: '28px',
-                                                    transition: 'background 0.2s',
-                                                    boxShadow: castrarHoy ? '0 0 8px rgba(33,150,243,0.5)' : 'none'
-                                                }}>
-                                                    <span style={{
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: castrarHoy ? '27px' : '3px',
-                                                        width: '22px', height: '22px',
-                                                        background: 'white',
-                                                        borderRadius: '50%',
-                                                        transition: 'left 0.2s',
-                                                        boxShadow: '0 1px 4px rgba(0,0,0,0.3)'
-                                                    }} />
+                                                <span className={`weighing-switch-track${castrarHoy ? ' is-checked' : ''}`} aria-hidden="true">
+                                                    <span className="weighing-switch-thumb" />
                                                 </span>
                                             </label>
                                         </div>
                                         {castrarHoy && (
                                             <div style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(33,150,243,0.1)', borderRadius: '6px', color: '#42a5f5', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                                                <AlertTriangle size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
                                                 Al guardar el pesaje, este animal quedará registrado como <strong>Novillo</strong> para siempre.
                                             </div>
                                         )}
@@ -987,30 +991,35 @@ export default function Weighing() {
 
                         {/* Indicador si ya tiene marca ok_ceba - Solo mostrar si está en levante */}
                         {animal.ok_ceba && animal.etapa === 'levante' && (
-                            <div style={{ padding: '12px 16px', background: 'rgba(76,175,80,0.1)', border: '1px solid rgba(76,175,80,0.3)', borderRadius: '8px', marginBottom: '16px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
-                                <CheckCircle2 size={18} /> Este animal ya está marcado para pasar a Ceba
+                            <div style={{ padding: '10px 14px', background: 'rgba(76,175,80,0.1)', border: '1px solid rgba(76,175,80,0.3)', borderRadius: '8px', marginBottom: '12px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+                                <CheckCircle2 size={18} aria-hidden="true" style={{ flexShrink: 0 }} /> Este animal ya está marcado para pasar a Ceba
                             </div>
                         )}
 
                         {/* Indicador del umbral - Solo mostrar si está en levante */}
                         {animal.etapa === 'levante' && (
-                            <div style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', marginBottom: '14px', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
                                 Si el nuevo peso ≥ <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>, el animal quedará marcado para pasar a Ceba.
                             </div>
                         )}
 
                         {/* Indicador de peso repetido el mismo día */}
                         {animal.fecha_ultimo_peso && animal.fecha_ultimo_peso.split('T')[0] === fechaPesaje && (
-                            <div style={{ padding: '12px 16px', background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', marginBottom: '16px', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
-                                <AlertTriangle size={18} style={{ flexShrink: 0 }} /> Este animal ya tiene un pesaje registrado en esta fecha.
+                            <div style={{ padding: '10px 14px', background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', marginBottom: '14px', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+                                <AlertTriangle size={18} style={{ flexShrink: 0 }} aria-hidden="true" /> Este animal ya tiene un pesaje registrado en esta fecha.
                             </div>
                         )}
 
-                        <label style={{ fontSize: '1.2rem', color: 'white', marginBottom: '12px' }}>Nuevo Peso (kg)</label>
-                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                            <div style={{ flex: '1 1 140px' }}>
-                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>Fecha del pesaje</label>
+                        <label htmlFor="weighing-nuevo-peso" className="weighing-weight-section-label">
+                            Nuevo Peso (kg)
+                        </label>
+                        <div className="weighing-weight-controls">
+                            <div className="weighing-date-field">
+                                <label htmlFor="weighing-fecha-pesaje" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>
+                                    Fecha del pesaje
+                                </label>
                                 <input
+                                    id="weighing-fecha-pesaje"
                                     type="date"
                                     value={fechaPesaje}
                                     onChange={(e) => setFechaPesaje(e.target.value)}
@@ -1018,32 +1027,36 @@ export default function Weighing() {
                                     disabled={loading}
                                 />
                             </div>
-                            <input
-                                ref={pesoInputRef}
-                                type="number"
-                                inputMode="decimal"
-                                step="0.1"
-                                placeholder="Ej. 350.5"
-                                value={nuevoPeso}
-                                onChange={(e) => setNuevoPeso(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && nuevoPeso && animal.fecha_ultimo_peso?.split('T')[0] !== fechaPesaje) {
-                                        e.preventDefault();
-                                        void guardarPesaje();
-                                    }
-                                }}
-                                style={{ fontSize: '2rem', padding: '20px', textAlign: 'center', marginBottom: 0, flex: '1 1 200px' }}
-                                disabled={loading}
-                            />
-                            <button
-                                type="button"
-                                onClick={guardarPesaje}
-                                disabled={loading || !nuevoPeso || (animal.fecha_ultimo_peso?.split('T')[0] === fechaPesaje)}
-                                style={{ width: 'auto', padding: '0 40px', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 120px' }}
-                            >
-                                <Save size={28} />
-                                <span style={{ fontSize: '0.8rem' }}>Guardar</span>
-                            </button>
+                            <div className="weighing-weight-action-row">
+                                <input
+                                    id="weighing-nuevo-peso"
+                                    ref={pesoInputRef}
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.1"
+                                    placeholder="Ej. 350.5"
+                                    value={nuevoPeso}
+                                    onChange={(e) => setNuevoPeso(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && nuevoPeso && animal.fecha_ultimo_peso?.split('T')[0] !== fechaPesaje) {
+                                            e.preventDefault();
+                                            void guardarPesaje();
+                                        }
+                                    }}
+                                    className="weighing-weight-input"
+                                    disabled={loading}
+                                    enterKeyHint="done"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={guardarPesaje}
+                                    disabled={loading || !nuevoPeso || (animal.fecha_ultimo_peso?.split('T')[0] === fechaPesaje)}
+                                    className="weighing-save-btn"
+                                >
+                                    <Save size={isMobile ? 20 : 28} aria-hidden="true" />
+                                    <span>Guardar</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1057,75 +1070,121 @@ export default function Weighing() {
                 };
                 const sorted = [...pesajesHoy].sort((a, b) => {
                     let res = 0;
-                    if (sortColHoy === 'chapeta') res = a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true });
-                    else if (sortColHoy === 'marca') res = a.nombre_propietario.localeCompare(b.nombre_propietario);
-                    else if (sortColHoy === 'potrerada') res = a.potrerada_nombre.localeCompare(b.potrerada_nombre);
+                    if (sortColHoy === 'chapeta') res = collatorHoy.compare(a.numero_chapeta, b.numero_chapeta);
+                    else if (sortColHoy === 'marca') res = collatorHoy.compare(a.nombre_propietario, b.nombre_propietario);
+                    else if (sortColHoy === 'potrerada') res = collatorHoy.compare(a.potrerada_nombre, b.potrerada_nombre);
                     else if (sortColHoy === 'peso') res = a.peso - b.peso;
                     return sortDirHoy === 'asc' ? res : -res;
                 });
                 const arrow = (col: typeof sortColHoy) => sortColHoy === col ? (sortDirHoy === 'asc' ? ' ↑' : ' ↓') : ' ↕';
-                const thStyle: React.CSSProperties = { padding: '10px 12px', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(255,255,255,0.08)' };
-                const tdStyle: React.CSSProperties = { padding: '12px', fontSize: '0.9rem', verticalAlign: 'middle' };
+                const getAriaSort = (col: typeof sortColHoy): 'ascending' | 'descending' | undefined =>
+                    sortColHoy === col ? (sortDirHoy === 'asc' ? 'ascending' : 'descending') : undefined;
+
                 return (
-                    <div style={{ marginTop: '24px', maxWidth: '100%', width: '800px', marginLeft: 'auto', marginRight: 'auto' }}>
-                        <div className="card" style={{ padding: '20px 24px' }}>
-                            <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                ✏️ Pesajes ingresados hoy ({pesajesHoy.length})
+                    <div className="weighing-today-outer">
+                        <div className="card weighing-today-card">
+                            <h3 id="weighing-today-heading" style={{ margin: '0 0 16px 0', fontSize: '1rem', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span aria-hidden="true">✏️</span> Pesajes ingresados hoy ({pesajesHoy.length})
                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>(solo puedes corregir los de hoy)</span>
                             </h3>
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <div
+                                tabIndex={0}
+                                role="region"
+                                aria-labelledby="weighing-today-heading"
+                                className="weighing-today-scroll"
+                            >
+                                <table className="weighing-today-table">
+                                    <caption className="weighing-visually-hidden">Pesajes ingresados hoy</caption>
                                     <thead>
                                         <tr>
-                                            <th style={thStyle} onClick={() => toggleSort('chapeta')}>Chapeta{arrow('chapeta')}</th>
-                                            <th style={thStyle} onClick={() => toggleSort('marca')}>Marca{arrow('marca')}</th>
-                                            <th style={thStyle} onClick={() => toggleSort('potrerada')}>Potrerada{arrow('potrerada')}</th>
-                                            <th style={{ ...thStyle, textAlign: 'right' }} onClick={() => toggleSort('peso')}>Peso{arrow('peso')}</th>
-                                            <th style={{ ...thStyle, textAlign: 'center', cursor: 'default' }}>Acciones</th>
+                                            <th scope="col" aria-sort={getAriaSort('chapeta')}>
+                                                <button type="button" className="weighing-sort-btn" onClick={() => toggleSort('chapeta')}>
+                                                    Chapeta <span aria-hidden="true">{arrow('chapeta')}</span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" aria-sort={getAriaSort('marca')}>
+                                                <button type="button" className="weighing-sort-btn" onClick={() => toggleSort('marca')}>
+                                                    Marca <span aria-hidden="true">{arrow('marca')}</span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" aria-sort={getAriaSort('potrerada')}>
+                                                <button type="button" className="weighing-sort-btn" onClick={() => toggleSort('potrerada')}>
+                                                    Potrerada <span aria-hidden="true">{arrow('potrerada')}</span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" aria-sort={getAriaSort('peso')}>
+                                                <button type="button" className="weighing-sort-btn weighing-sort-btn--right" onClick={() => toggleSort('peso')}>
+                                                    Peso <span aria-hidden="true">{arrow('peso')}</span>
+                                                </button>
+                                            </th>
+                                            <th scope="col" style={{ textAlign: 'center' }}>Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {sorted.map(p => (
-                                            <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                <td style={tdStyle}>
-                                                    <span style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{p.numero_chapeta}</span>
-                                                </td>
-                                                <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{p.nombre_propietario}</td>
-                                                <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{p.potrerada_nombre}</td>
-                                                <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold' }}>
+                                            <tr key={p.id} className={editingPesajeId === p.id ? 'is-editing' : undefined}>
+                                                <th scope="row" className="weighing-cell-chapeta">
+                                                    #{p.numero_chapeta}
+                                                </th>
+                                                <td className="weighing-cell-marca">{p.nombre_propietario}</td>
+                                                <td className="weighing-cell-lote">{p.potrerada_nombre}</td>
+                                                <td className="weighing-cell-peso">
                                                     {editingPesajeId === p.id ? (
                                                         <input
-                                                            type="number" step="0.1" value={editPeso}
+                                                            type="number"
+                                                            inputMode="decimal"
+                                                            step="0.1"
+                                                            value={editPeso}
+                                                            aria-label={`Editar peso de #${p.numero_chapeta}`}
                                                             onChange={e => setEditPeso(e.target.value)}
-                                                            style={{ width: '80px', padding: '6px', margin: 0, textAlign: 'center', fontSize: '0.9rem' }}
+                                                            className="weighing-edit-input"
                                                             autoFocus
                                                         />
                                                     ) : (
                                                         <>{p.peso} kg</>
                                                     )}
                                                 </td>
-                                                <td style={{ ...tdStyle, textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                <td className="weighing-actions-cell">
+                                                    <div className="weighing-actions-row">
                                                         {editingPesajeId === p.id ? (
                                                             <>
-                                                                <button onClick={() => handleGuardarEdicion(p)} disabled={loading}
-                                                                    style={{ width: 'auto', padding: '5px 10px', backgroundColor: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
-                                                                    <Check size={13} /> OK
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleGuardarEdicion(p)}
+                                                                    disabled={loading}
+                                                                    className="weighing-action-btn weighing-action-btn--confirm"
+                                                                    aria-label={`Guardar nuevo peso de #${p.numero_chapeta}`}
+                                                                >
+                                                                    <Check size={14} aria-hidden="true" /> OK
                                                                 </button>
-                                                                <button onClick={() => { setEditingPesajeId(null); setEditPeso(''); }}
-                                                                    style={{ width: 'auto', padding: '5px 8px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)' }}>
-                                                                    <X size={13} />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => { setEditingPesajeId(null); setEditPeso(''); }}
+                                                                    className="weighing-action-btn weighing-action-btn--cancel"
+                                                                    aria-label={`Cancelar edición de #${p.numero_chapeta}`}
+                                                                >
+                                                                    <X size={14} aria-hidden="true" />
                                                                 </button>
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <button onClick={() => { setEditingPesajeId(p.id); setEditPeso(String(p.peso)); }} title="Editar"
-                                                                    style={{ width: 'auto', padding: '6px', backgroundColor: 'rgba(33,150,243,0.1)', border: '1px solid rgba(33,150,243,0.3)', borderRadius: '7px', color: '#42a5f5' }}>
-                                                                    <Pencil size={14} />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => { setEditingPesajeId(p.id); setEditPeso(String(p.peso)); }}
+                                                                    title="Editar"
+                                                                    aria-label={`Editar pesaje de #${p.numero_chapeta}`}
+                                                                    className="weighing-action-btn weighing-action-btn--edit"
+                                                                >
+                                                                    <Pencil size={15} aria-hidden="true" />
                                                                 </button>
-                                                                <button onClick={() => handleEliminarPesaje(p)} title="Eliminar"
-                                                                    style={{ width: 'auto', padding: '6px', backgroundColor: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '7px', color: 'var(--error)' }}>
-                                                                    <Trash2 size={14} />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleEliminarPesaje(p)}
+                                                                    title="Eliminar"
+                                                                    aria-label={`Eliminar pesaje de #${p.numero_chapeta}`}
+                                                                    className="weighing-action-btn weighing-action-btn--delete"
+                                                                >
+                                                                    <Trash2 size={15} aria-hidden="true" />
                                                                 </button>
                                                             </>
                                                         )}
