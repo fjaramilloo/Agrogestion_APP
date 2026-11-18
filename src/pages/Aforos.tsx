@@ -6,6 +6,7 @@ import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, UploadCloud, Trendi
 import { guardarAforoOffline } from '../lib/offlineService';
 import { localDB } from '../lib/db';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import './Aforos.css';
 
 interface Potrero {
     id: string;
@@ -513,35 +514,35 @@ export default function Aforos() {
         .sort((a, b) => b.densidad - a.densidad);
 
     return (
-        <div className="page-container" style={{ maxWidth: '1080px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '32px' }}>
-                <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                    <Layers size={32} /> Aforos y Forraje
+        <div className="page-container aforos-page">
+            <div className="aforos-header">
+                <h1 className="title">
+                    <Layers size={30} aria-hidden="true" /> Aforos y Forraje
                 </h1>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span 
+
+                <div className="aforos-header-actions">
+                    <button
+                        type="button"
                         onClick={toggleModoCampo}
+                        className="aforos-status-pill"
                         title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
-                        style={{ 
-                            display: 'flex', alignItems: 'center', gap: '6px', 
-                            padding: '6px 12px', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 'bold',
+                        style={{
                             backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
                             color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800',
-                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
-                            cursor: 'pointer',
-                            userSelect: 'none'
+                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.08)',
                         }}
                     >
-                        {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} /> Online</> : <><WifiOff size={14} /> Offline</>}
-                    </span>
+                        {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} aria-hidden="true" /> Online</> : <><WifiOff size={14} aria-hidden="true" /> Offline</>}
+                    </button>
 
                     {offlineQueue.length > 0 && isOnline && isAdminOrCowboy && (
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', fontSize: '0.82rem', width: 'auto' }}>
-                                <UploadCloud size={15} /> {syncing ? 'Subiendo...' : `Subir (${offlineQueue.length})`}
+                            <button type="button" onClick={syncOfflineQueue} disabled={syncing} className="aforos-sync-btn">
+                                <UploadCloud size={15} aria-hidden="true" /> {syncing ? 'Subiendo...' : `Subir (${offlineQueue.length})`}
                             </button>
-                            <button 
+                            <button
+                                type="button"
+                                className="aforos-clear-queue-btn"
                                 onClick={() => {
                                     if (window.confirm('¿Estás seguro de limpiar la cola de aforos pendientes?')) {
                                         setOfflineQueue([]);
@@ -549,10 +550,10 @@ export default function Aforos() {
                                         setMsjExito('Cola de aforos pendientes limpiada.');
                                     }
                                 }}
-                                style={{ backgroundColor: 'transparent', color: 'var(--error)', border: '1px solid var(--error)', padding: '6px', width: 'auto' }}
                                 title="Limpiar todos los pendientes"
+                                aria-label="Limpiar cola de aforos pendientes"
                             >
-                                <Trash2 size={18} />
+                                <Trash2 size={18} aria-hidden="true" />
                             </button>
                         </div>
                     )}
@@ -560,14 +561,14 @@ export default function Aforos() {
             </div>
 
             {/* KPI METRIC CARDS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+            <div className="aforos-kpi-grid">
                 {/* Autonomía alimentaria */}
-                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '24px', borderLeft: '4px solid var(--success)' }}>
+                <div className="card aforos-kpi-card" style={{ borderLeft: '4px solid var(--success)' }}>
                     <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: 'rgba(76, 175, 80, 0.1)', color: 'var(--success)' }}>
-                        <Activity size={26} />
+                        <Activity size={26} aria-hidden="true" />
                     </div>
                     <div>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Autonomía Forrajera</span>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Autonomía Forrajera</span>
                         <h3 style={{ margin: 0, fontSize: '2rem', color: 'white', fontWeight: 'bold' }}>
                             {autonomiaDiasFinca !== null ? `${Math.round(autonomiaDiasFinca)} días` : '---'}
                         </h3>
@@ -576,12 +577,12 @@ export default function Aforos() {
                 </div>
 
                 {/* Oferta promedio */}
-                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '24px', borderLeft: '4px solid #2196f3' }}>
+                <div className="card aforos-kpi-card" style={{ borderLeft: '4px solid #2196f3' }}>
                     <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: 'rgba(33, 150, 243, 0.1)', color: '#2196f3' }}>
-                        <TrendingUp size={26} />
+                        <TrendingUp size={26} aria-hidden="true" />
                     </div>
                     <div>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Densidad Forraje Promedio</span>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Densidad Forraje Promedio</span>
                         <h3 style={{ margin: 0, fontSize: '2rem', color: 'white', fontWeight: 'bold' }}>
                             {ofertaPromedioKgHa > 0 ? `${Math.round(ofertaPromedioKgHa).toLocaleString('es-CO')} Kg/Ha` : '---'}
                         </h3>
@@ -590,12 +591,12 @@ export default function Aforos() {
                 </div>
 
                 {/* Comida útil total */}
-                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '24px', borderLeft: '4px solid #ffc107' }}>
+                <div className="card aforos-kpi-card" style={{ borderLeft: '4px solid #ffc107' }}>
                     <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: 'rgba(255, 193, 7, 0.1)', color: '#ffc107' }}>
-                        <Layers size={26} />
+                        <Layers size={26} aria-hidden="true" />
                     </div>
                     <div>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Forraje Verde Total</span>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Forraje Verde Total</span>
                         <h3 style={{ margin: 0, fontSize: '2rem', color: 'white', fontWeight: 'bold' }}>
                             {totalComidaUtilKg > 0 ? `${Math.round(totalComidaUtilKg).toLocaleString('es-CO')} Kg` : '---'}
                         </h3>
@@ -604,38 +605,56 @@ export default function Aforos() {
                 </div>
             </div>
 
-            {msjExito && <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
-            {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
+            {msjExito && <div role="status" aria-live="polite" style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
+            {msjError && <div role="alert" aria-live="assertive" style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '28px', alignItems: 'flex-start' }}>
-                
+            <div className="aforos-layout">
+
                 {/* FORMULARIO */}
-                <div className="card" style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column', gap: '20px', minWidth: '320px' }}>
+                <div className="card aforos-form-card">
                     <h2 style={{ margin: 0, color: 'var(--primary-light)', fontSize: '1.35rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         Nuevo Aforo
                     </h2>
-                    
+
                     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div>
-                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Fecha de medición</label>
-                            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required />
+                            <label htmlFor="aforos-fecha" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Fecha de medición</label>
+                            <input id="aforos-fecha" type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ marginBottom: 0 }} required />
                         </div>
-                        
+
                         <div>
-                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Seleccionar Potrero</label>
-                            
+                            <label htmlFor="aforos-potrero-select" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Seleccionar Potrero</label>
+
                             {/* Buscador de Potreros */}
-                            <input 
-                                type="text" 
-                                placeholder="Buscar potrero..." 
-                                value={potreroSearch}
-                                onChange={e => setPotreroSearch(e.target.value)}
-                                style={{ marginBottom: '8px' }}
-                            />
-                            
-                            <select 
-                                value={selectedPotreroId} 
+                            <search className="aforos-potrero-search-wrap" role="search">
+                                <input
+                                    type="search"
+                                    aria-label="Filtrar potrero por nombre"
+                                    placeholder="Buscar potrero..."
+                                    value={potreroSearch}
+                                    onChange={e => setPotreroSearch(e.target.value)}
+                                    className="aforos-potrero-search-input"
+                                    autoCorrect="off"
+                                    autoCapitalize="none"
+                                    spellCheck={false}
+                                />
+                                {potreroSearch && (
+                                    <button
+                                        type="button"
+                                        className="aforos-clear-btn"
+                                        aria-label="Limpiar búsqueda de potrero"
+                                        onClick={() => setPotreroSearch('')}
+                                    >
+                                        <X size={16} aria-hidden="true" />
+                                    </button>
+                                )}
+                            </search>
+
+                            <select
+                                id="aforos-potrero-select"
+                                value={selectedPotreroId}
                                 onChange={(e) => setSelectedPotreroId(e.target.value)}
+                                style={{ marginBottom: 0 }}
                                 required
                             >
                                 <option value="">-- Seleccione un potrero --</option>
@@ -650,80 +669,87 @@ export default function Aforos() {
 
                         {/* CONTEXT INFO BLOCK */}
                         {selectedPotreroId && (
-                            <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Área:</span>
                                     <span style={{ fontWeight: 'bold', color: 'white' }}>{areaInfo ? `${areaInfo} Ha` : 'No configurada'}</span>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ocupación Actual:</span>
-                                    <span style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                                    <span style={{ fontWeight: 'bold', color: 'var(--primary-light)', textAlign: 'right' }}>
                                         {potreradaInfo ? potreradaInfo.nombre : 'Vacío'}
                                     </span>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Animales activos:</span>
                                     <span style={{ fontWeight: 'bold', color: 'white' }}>{animalCount} reses</span>
                                 </div>
                             </div>
                         )}
 
-                        <div className="sidebar-divider" style={{ margin: '10px 0' }} />
+                        <div className="sidebar-divider" style={{ margin: '6px 0' }} />
 
                         <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <label style={{ color: 'var(--text-muted)', margin: 0 }}>Muestras (Kg en cuadrante 1 m²)</label>
-                                <span style={{ fontSize: '0.8rem', color: muestras.length < 8 ? 'var(--error)' : 'var(--success)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px', flexWrap: 'wrap' }}>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.9em' }}>Muestras (Kg en cuadrante 1 m²)</span>
+                                <span style={{ fontSize: '0.8rem', color: muestras.length < 8 ? 'var(--error)' : 'var(--success)', fontWeight: 600 }}>
                                     {muestras.length} muestras
                                 </span>
                             </div>
-                            
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', maxHeight: '250px', overflowY: 'auto', paddingRight: '8px' }}>
+
+                            <div className="aforos-muestras-grid">
                                 {muestras.map((m, idx) => (
-                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', minWidth: '20px' }}>#{idx+1}</span>
-                                        <input 
+                                    <div key={idx} className="aforos-muestra-row">
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: '22px' }}>#{idx + 1}</span>
+                                        <input
                                             type="text"
                                             inputMode="decimal"
-                                            value={m} 
-                                            onChange={e => updateMuestra(idx, e.target.value)} 
+                                            aria-label={`Muestra ${idx + 1} en kilogramos`}
+                                            value={m}
+                                            onChange={e => updateMuestra(idx, e.target.value)}
                                             placeholder="Kg"
-                                            style={{ margin: 0, padding: '8px' }}
+                                            className="aforos-muestra-input"
                                             required={idx < 8}
                                         />
                                         {idx >= 8 && (
-                                            <button type="button" onClick={() => deleteMuestra(idx)} style={{ padding: '8px', background: 'none', color: 'var(--error)', width: 'auto' }}>
-                                                <Trash2 size={16} />
+                                            <button
+                                                type="button"
+                                                className="aforos-delete-muestra-btn"
+                                                aria-label={`Eliminar muestra ${idx + 1}`}
+                                                onClick={() => deleteMuestra(idx)}
+                                            >
+                                                <Trash2 size={16} aria-hidden="true" />
                                             </button>
                                         )}
                                     </div>
                                 ))}
                             </div>
 
-                            <button type="button" onClick={addMuestra} style={{ marginTop: '12px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: 'var(--primary-light)', padding: '8px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%' }}>
-                                <Plus size={16} /> Agregar Muestra
+                            <button type="button" onClick={addMuestra} className="aforos-add-muestra-btn">
+                                <Plus size={16} aria-hidden="true" /> Agregar Muestra
                             </button>
                         </div>
 
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                                <label style={{ color: 'var(--text-muted)', margin: 0 }}>% Viabilidad de Pastoreo</label>
+                                <label htmlFor="aforos-viabilidad" style={{ color: 'var(--text-muted)', margin: 0 }}>% Viabilidad de Pastoreo</label>
                                 <div title="Porcentaje del pasto que es aprovechable por el animal (restando pisotones, maleza y desperdicio). Usualmente entre 60% y 80%." style={{ cursor: 'help', color: 'var(--primary)' }}>
-                                    <Info size={16} />
+                                    <Info size={16} aria-hidden="true" />
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <input 
-                                    type="text" 
+                                <input
+                                    id="aforos-viabilidad"
+                                    type="text"
                                     inputMode="numeric"
-                                    value={viabilidad} 
+                                    value={viabilidad}
                                     onChange={e => {
-                                        let v = e.target.value.replace(/\D/g, ''); // Solo números enteros
-                                        if (v !== '' && parseInt(v) > 100) v = '100'; // Tope 100%
+                                        let v = e.target.value.replace(/\D/g, '');
+                                        if (v !== '' && parseInt(v) > 100) v = '100';
                                         setViabilidad(v);
-                                    }} 
-                                    required 
-                                    style={{ margin: 0 }} 
+                                    }}
+                                    required
+                                    style={{ margin: 0 }}
                                     placeholder="Ej: 70"
                                 />
                                 <span style={{ color: 'var(--text-muted)' }}>%</span>
@@ -731,8 +757,8 @@ export default function Aforos() {
                         </div>
 
                         {/* LIVE PREVIEW ENRIQUECIDO */}
-                        <div style={{ backgroundColor: 'rgba(46, 125, 50, 0.08)', border: '1px solid rgba(46, 125, 50, 0.25)', padding: '16px', borderRadius: '12px', marginTop: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div style={{ backgroundColor: 'rgba(46, 125, 50, 0.08)', border: '1px solid rgba(46, 125, 50, 0.25)', padding: '16px', borderRadius: '12px', marginTop: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
                                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Densidad Promedio:</span>
                                 <strong style={{ color: 'white' }}>{(avgMuestra * 10000 * (parseFloat(viabilidad) / 100 || 0)).toLocaleString('es-CO', { maximumFractionDigits: 0 })} Kg FV/Ha</strong>
                             </div>
@@ -742,56 +768,40 @@ export default function Aforos() {
                             </h2>
                         </div>
 
-                        <button type="submit" disabled={loading || !isAdminOrCowboy} style={{ marginTop: '12px', padding: '14px', width: '100%', opacity: !isAdminOrCowboy ? 0.6 : 1 }}>
-                            {loading ? 'Procesando...' : !isAdminOrCowboy ? 'Solo Lectura (Visualización)' : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Save size={20}/> Guardar Aforo</span>}
+                        <button type="submit" disabled={loading || !isAdminOrCowboy} className="aforos-submit-btn" style={{ marginTop: '8px', padding: '14px', width: '100%', opacity: !isAdminOrCowboy ? 0.6 : 1 }}>
+                            {loading ? 'Procesando...' : !isAdminOrCowboy ? 'Solo Lectura (Visualización)' : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Save size={20} aria-hidden="true" /> Guardar Aforo</span>}
                         </button>
                     </form>
                 </div>
 
                 {/* TAB CONTROL INTERACTIVO DERECHO */}
-                <div style={{ flex: '1.2 1 500px', display: 'flex', flexDirection: 'column', gap: '20px', minWidth: '320px' }}>
-                    <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '10px' }}>
-                        <button 
+                <div className="aforos-results-col">
+                    <div role="tablist" aria-label="Vistas de aforos" className="aforos-tablist">
+                        <button
+                            type="button"
+                            role="tab"
+                            id="aforos-tab-cuna"
+                            aria-selected={activeTab === 'cuna'}
+                            className="aforos-tab-btn"
                             onClick={() => setActiveTab('cuna')}
-                            style={{
-                                background: activeTab === 'cuna' ? 'var(--primary)' : 'transparent',
-                                border: 'none',
-                                color: activeTab === 'cuna' ? 'white' : 'var(--text-muted)',
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                fontSize: '0.95rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                            }}
                         >
-                            <TrendingUp size={16} /> Cuña Forrajera (FV)
+                            <TrendingUp size={16} aria-hidden="true" /> Cuña Forrajera (FV)
                         </button>
-                        <button 
+                        <button
+                            type="button"
+                            role="tab"
+                            id="aforos-tab-historial"
+                            aria-selected={activeTab === 'historial'}
+                            className="aforos-tab-btn"
                             onClick={() => setActiveTab('historial')}
-                            style={{
-                                background: activeTab === 'historial' ? 'var(--primary)' : 'transparent',
-                                border: 'none',
-                                color: activeTab === 'historial' ? 'white' : 'var(--text-muted)',
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                fontSize: '0.95rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                            }}
                         >
-                            <Calendar size={16} /> Historial y Semáforos
+                            <Calendar size={16} aria-hidden="true" /> Historial y Semáforos
                         </button>
                     </div>
 
                     {activeTab === 'cuna' ? (
                         /* PESTAÑA: CUÑA FORRAJERA */
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div role="tabpanel" aria-labelledby="aforos-tab-cuna" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                                     Orden óptimo de pastoreo (mayor biomasa de forraje verde por hectárea)
@@ -800,22 +810,29 @@ export default function Aforos() {
 
                             {cunaForrajera.length === 0 ? (
                                 <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
-                                    <TrendingUp size={48} style={{ opacity: 0.2, margin: '0 auto 16px auto' }} />
+                                    <TrendingUp size={48} aria-hidden="true" style={{ opacity: 0.2, margin: '0 auto 16px auto' }} />
                                     <p>No hay aforos registrados para construir la cuña forrajera.</p>
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {cunaForrajera.map((item, idx) => {
-                                        const maxDensidadRef = 20000; 
+                                        const maxDensidadRef = 20000;
                                         const pct = Math.min(100, (item.densidad / maxDensidadRef) * 100);
                                         const aforoClasif = clasificarAforo(item.aforo);
-                                        
+
                                         return (
-                                            <div 
+                                            <div
                                                 key={item.id_potrero}
-                                                className="card hover-scale"
-                                                style={{ padding: '16px', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
+                                                role="button"
+                                                tabIndex={0}
+                                                className="card hover-scale aforos-result-card"
                                                 onClick={() => openCalculadora(item.aforo)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        void openCalculadora(item.aforo);
+                                                    }
+                                                }}
                                             >
                                                 {/* Fondo sutil de porcentaje de densidad */}
                                                 <div style={{
@@ -829,12 +846,12 @@ export default function Aforos() {
                                                     pointerEvents: 'none',
                                                     transition: 'width 0.3s ease'
                                                 }} />
-                                                
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <span style={{ 
-                                                            fontSize: '0.8rem', 
-                                                            fontWeight: 'bold', 
+
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
+                                                        <span style={{
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: 'bold',
                                                             color: 'white',
                                                             backgroundColor: 'rgba(255,255,255,0.08)',
                                                             padding: '2px 8px',
@@ -842,14 +859,14 @@ export default function Aforos() {
                                                         }}>
                                                             #{idx + 1}
                                                         </span>
-                                                        <strong style={{ fontSize: '1.1rem', color: 'white' }}>{item.nombre}</strong>
+                                                        <strong style={{ fontSize: '1.08rem', color: 'white' }}>{item.nombre}</strong>
                                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>({item.area} Ha)</span>
                                                     </div>
-                                                    <span style={{ 
-                                                        fontSize: '0.75rem', 
-                                                        color: 'white', 
-                                                        backgroundColor: aforoClasif.color, 
-                                                        padding: '2px 8px', 
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        color: 'white',
+                                                        backgroundColor: aforoClasif.color,
+                                                        padding: '2px 8px',
                                                         borderRadius: '12px',
                                                         fontWeight: 'bold'
                                                     }}>
@@ -857,12 +874,12 @@ export default function Aforos() {
                                                     </span>
                                                 </div>
 
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
                                                     <div>
                                                         <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                                                             Densidad Forraje Verde:
                                                         </span>
-                                                        <strong style={{ fontSize: '1.25rem', color: 'white' }}>
+                                                        <strong style={{ fontSize: '1.2rem', color: 'white' }}>
                                                             {Math.round(item.densidad).toLocaleString('es-CO')}
                                                             <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-muted)', marginLeft: '4px' }}>Kg/Ha</span>
                                                         </strong>
@@ -877,7 +894,7 @@ export default function Aforos() {
                                                         </strong>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Mini barra de progreso */}
                                                 <div style={{ height: '4px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '2px', marginTop: '12px', overflow: 'hidden' }}>
                                                     <div style={{ height: '100%', width: `${pct}%`, backgroundColor: aforoClasif.color, borderRadius: '2px', transition: 'width 0.3s ease' }} />
@@ -890,10 +907,10 @@ export default function Aforos() {
                         </div>
                     ) : (
                         /* PESTAÑA: HISTORIAL Y SEMÁFOROS */
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div role="tabpanel" aria-labelledby="aforos-tab-historial" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             {displayHistorial.length === 0 ? (
                                 <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
-                                    <Layers size={48} style={{ opacity: 0.2, margin: '0 auto 16px auto' }} />
+                                    <Layers size={48} aria-hidden="true" style={{ opacity: 0.2, margin: '0 auto 16px auto' }} />
                                     <p>No hay aforos registrados aún.</p>
                                 </div>
                             ) : (
@@ -903,33 +920,41 @@ export default function Aforos() {
                                         const area = pot?.area_hectareas || 0;
                                         const aforoClasif = clasificarAforo(h);
                                         const densidad = area > 0 ? h.aforo_real_kg / area : 0;
-                                        
+
                                         const animales = h.animales_presentes || 0;
                                         const diasProyectados = (animales > 0 && consumoBase > 0) ? (h.aforo_real_kg / (animales * consumoBase)) : null;
 
                                         return (
-                                            <div 
-                                                key={h.id} 
-                                                className="card hover-scale" 
-                                                style={{ 
-                                                    padding: '16px', 
-                                                    borderLeft: `4px solid ${aforoClasif.color}`, 
-                                                    cursor: 'pointer', 
+                                            <div
+                                                key={h.id}
+                                                role="button"
+                                                tabIndex={0}
+                                                className="card hover-scale"
+                                                style={{
+                                                    padding: '16px',
+                                                    borderLeft: `4px solid ${aforoClasif.color}`,
+                                                    cursor: 'pointer',
                                                     transition: 'all 0.2s',
                                                     backgroundColor: 'rgba(255,255,255,0.015)'
                                                 }}
                                                 onClick={() => openCalculadora(h)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        void openCalculadora(h);
+                                                    }
+                                                }}
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
-                                                    <strong style={{ color: 'white', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <strong style={{ color: 'white', fontSize: '1.08rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                         {h.potrero?.nombre || pot?.nombre || 'Potrero'}
                                                         {h.isOffline && <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--error)', padding: '2px 6px', borderRadius: '10px' }}>Pendiente Sync</span>}
                                                     </strong>
                                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <Calendar size={14} /> {h.fecha}
+                                                        <Calendar size={14} aria-hidden="true" /> {h.fecha}
                                                     </span>
                                                 </div>
-                                                
+
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                                                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                         <p style={{ margin: 0 }}>
@@ -946,16 +971,16 @@ export default function Aforos() {
                                                             <p style={{ margin: 0, color: 'var(--text-muted)' }}>Estado: <em>Vacío</em></p>
                                                         )}
                                                     </div>
-                                                    
+
                                                     <div style={{ textAlign: 'right' }}>
                                                         <span style={{ display: 'block', fontSize: '1.3rem', fontWeight: 'bold', color: aforoClasif.color }}>
                                                             {h.aforo_real_kg.toLocaleString('es-CO', { maximumFractionDigits: 0 })} Kg
                                                         </span>
                                                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>FV Disponible</span>
-                                                        <span style={{ 
-                                                            display: 'block', 
-                                                            fontSize: '0.7rem', 
-                                                            color: 'var(--text-muted)', 
+                                                        <span style={{
+                                                            display: 'block',
+                                                            fontSize: '0.7rem',
+                                                            color: 'var(--text-muted)',
                                                             fontStyle: 'italic',
                                                             marginTop: '4px'
                                                         }}>
@@ -976,13 +1001,13 @@ export default function Aforos() {
 
             {/* MODAL CALCULADORA */}
             {modalCalcOpen.open && modalCalcOpen.aforo && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                    <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '24px', position: 'relative' }}>
-                        <button type="button" aria-label="Cerrar calculadora" onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })} style={{ position: 'absolute', top: '12px', right: '12px', width: 'auto', minWidth: '44px', minHeight: '44px', background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <div className="modal-overlay" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }} onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })}>
+                    <div className="card aforos-calc-modal" onClick={e => e.stopPropagation()}>
+                        <button type="button" aria-label="Cerrar calculadora" onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })} className="aforos-calc-close-btn">
                             <X size={24} aria-hidden="true" />
                         </button>
-                        
-                        <h3 style={{ margin: '0 0 20px 0', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px', paddingRight: '40px' }}>
+
+                        <h3 style={{ margin: '0 0 20px 0', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px', paddingRight: '44px' }}>
                             <Layers size={20} /> 
                             Cálculo de Ocupación
                         </h3>
@@ -1007,13 +1032,14 @@ export default function Aforos() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                            <div style={{ gridColumn: 'span 1' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Consumo/Día (Kg FV)</label>
-                                <input 
-                                    type="text" 
+                        <div className="aforos-calc-grid">
+                            <div>
+                                <label htmlFor="aforos-calc-consumo" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Consumo/Día (Kg FV)</label>
+                                <input
+                                    id="aforos-calc-consumo"
+                                    type="text"
                                     inputMode="decimal"
-                                    value={calcConsumo} 
+                                    value={calcConsumo}
                                     onChange={e => {
                                         let val = e.target.value.replace(',', '.').replace(/-/g, '');
                                         if (!/^\d*\.?\d*$/.test(val) && val !== '') return;
@@ -1024,16 +1050,17 @@ export default function Aforos() {
                                             setCalcDias((modalCalcOpen.aforo!.aforo_real_kg / (A * C)).toFixed(1));
                                         }
                                     }}
-                                    style={{ width: '100%' }}
+                                    style={{ width: '100%', marginBottom: 0 }}
                                 />
                             </div>
-                            
-                            <div style={{ gridColumn: 'span 1' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Nro de animales</label>
-                                <input 
-                                    type="text" 
+
+                            <div>
+                                <label htmlFor="aforos-calc-animales" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Nro de animales</label>
+                                <input
+                                    id="aforos-calc-animales"
+                                    type="text"
                                     inputMode="numeric"
-                                    value={calcAnimales} 
+                                    value={calcAnimales}
                                     onChange={e => {
                                         let val = e.target.value.replace(/\D/g, '');
                                         setCalcAnimales(val);
@@ -1043,16 +1070,17 @@ export default function Aforos() {
                                             setCalcDias((modalCalcOpen.aforo!.aforo_real_kg / (A * C)).toFixed(1));
                                         }
                                     }}
-                                    style={{ width: '100%' }}
+                                    style={{ width: '100%', marginBottom: 0 }}
                                 />
                             </div>
 
                             <div style={{ gridColumn: '1 / -1', backgroundColor: 'rgba(46, 125, 50, 0.1)', borderRadius: '8px', padding: '12px', border: '1px solid rgba(46, 125, 50, 0.3)' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--primary-light)', fontSize: '0.9rem', fontWeight: 'bold' }}>Días Ocupación</label>
-                                <input 
-                                    type="text" 
+                                <label htmlFor="aforos-calc-dias" style={{ display: 'block', marginBottom: '8px', color: 'var(--primary-light)', fontSize: '0.9rem', fontWeight: 'bold' }}>Días Ocupación</label>
+                                <input
+                                    id="aforos-calc-dias"
+                                    type="text"
                                     inputMode="decimal"
-                                    value={calcDias} 
+                                    value={calcDias}
                                     onChange={e => {
                                         let val = e.target.value.replace(',', '.').replace(/-/g, '');
                                         if (!/^\d*\.?\d*$/.test(val) && val !== '') return;
@@ -1063,12 +1091,12 @@ export default function Aforos() {
                                             setCalcConsumo((modalCalcOpen.aforo!.aforo_real_kg / (A * D)).toFixed(1));
                                         }
                                     }}
-                                    style={{ width: '100%', fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--success)' }}
+                                    style={{ width: '100%', fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--success)', marginBottom: 0 }}
                                 />
                             </div>
                         </div>
 
-                        <button onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })} style={{ width: '100%' }}>
+                        <button type="button" onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })} className="aforos-calc-close-page-btn" style={{ width: '100%' }}>
                             Cerrar
                         </button>
                     </div>

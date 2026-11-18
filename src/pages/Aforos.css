@@ -1,0 +1,410 @@
+/* Aforos y Forraje: adaptación móvil (<= 768px), lógica offline y escritorio intactos */
+
+.aforos-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-bottom: 16px;
+}
+
+.aforos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.aforos-header .title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.aforos-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.aforos-status-pill {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+}
+
+.aforos-status-pill:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  filter: brightness(1.08);
+}
+
+.aforos-sync-btn {
+  width: auto;
+  background-color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.aforos-clear-queue-btn {
+  width: auto;
+  background-color: transparent;
+  color: var(--error);
+  border: 1px solid var(--error);
+  padding: 6px 8px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.aforos-clear-queue-btn:hover:not(:disabled) {
+  background-color: rgba(244, 67, 54, 0.14);
+  transform: none;
+  box-shadow: none;
+}
+
+.aforos-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.aforos-kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
+}
+
+.aforos-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+.aforos-form-card {
+  flex: 1 1 min(100%, 380px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.aforos-results-col {
+  flex: 1.2 1 min(100%, 480px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  width: 100%;
+}
+
+.aforos-potrero-search-wrap {
+  display: block;
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.aforos-potrero-search-input {
+  margin-bottom: 0 !important;
+  padding-right: 44px !important;
+}
+
+.aforos-potrero-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.aforos-clear-btn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.aforos-clear-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transform: translateY(-50%);
+  box-shadow: none;
+}
+
+.aforos-muestras-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.aforos-muestra-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.aforos-muestra-input {
+  margin: 0 !important;
+  padding: 8px !important;
+  min-width: 0;
+  flex: 1;
+}
+
+.aforos-delete-muestra-btn {
+  width: auto;
+  padding: 8px;
+  background-color: transparent;
+  color: var(--error);
+  border: none;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+
+.aforos-delete-muestra-btn:hover:not(:disabled) {
+  background-color: rgba(244, 67, 54, 0.14);
+  transform: none;
+  box-shadow: none;
+}
+
+.aforos-add-muestra-btn {
+  margin-top: 12px;
+  background-color: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  color: var(--primary-light);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+}
+
+.aforos-add-muestra-btn:hover:not(:disabled) {
+  background-color: rgba(46, 125, 50, 0.12);
+  border-color: var(--primary-light);
+  transform: none;
+  box-shadow: none;
+}
+
+.aforos-tablist {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.aforos-tab-btn {
+  position: relative;
+  width: auto;
+  flex: 0 0 auto;
+  background-color: transparent;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  color: var(--text-muted);
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.aforos-tab-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  transform: none;
+  box-shadow: none;
+}
+
+.aforos-tab-btn[aria-selected="true"] {
+  color: var(--primary-light);
+}
+
+.aforos-tab-btn[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  border-block-end: 3px solid var(--primary-light);
+}
+
+.aforos-result-card {
+  padding: 16px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.aforos-calc-modal {
+  width: 100%;
+  max-width: 400px;
+  padding: 24px;
+  position: relative;
+  max-height: 92dvh;
+  overflow-y: auto;
+}
+
+.aforos-calc-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  background-color: transparent;
+  border: none;
+  padding: 8px;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.aforos-calc-close-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transform: none;
+  box-shadow: none;
+}
+
+.aforos-calc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+/* ================================================================
+   SOLO MÓVIL (<= 768px)
+   ================================================================ */
+@media (max-width: 768px) {
+  .aforos-header {
+    margin-bottom: 16px;
+    gap: 10px;
+  }
+
+  .aforos-header .title {
+    font-size: 1.5rem !important;
+  }
+
+  .aforos-status-pill,
+  .aforos-sync-btn,
+  .aforos-clear-queue-btn {
+    min-height: 44px;
+  }
+
+  .aforos-clear-queue-btn {
+    min-width: 44px;
+    padding: 8px 10px;
+  }
+
+  .aforos-kpi-grid {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .aforos-kpi-card {
+    padding: 14px 16px !important;
+    gap: 14px;
+  }
+
+  .aforos-kpi-card h3 {
+    font-size: 1.55rem !important;
+  }
+
+  .aforos-layout {
+    gap: 20px;
+  }
+
+  .aforos-form-card {
+    padding: 16px !important;
+    gap: 16px;
+  }
+
+  .aforos-clear-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .aforos-muestras-grid {
+    max-height: none;
+    overflow-y: visible;
+    padding-right: 0;
+    gap: 10px 8px;
+  }
+
+  .aforos-muestra-input {
+    min-height: 46px !important;
+    text-align: center;
+  }
+
+  .aforos-delete-muestra-btn {
+    min-width: 40px;
+    min-height: 44px;
+    padding: 6px;
+  }
+
+  .aforos-add-muestra-btn {
+    min-height: 46px;
+  }
+
+  .aforos-submit-btn {
+    min-height: 52px;
+  }
+
+  .aforos-tab-btn {
+    flex: 1 0 auto;
+    justify-content: center;
+    min-height: 46px;
+    font-size: 0.9rem;
+    padding: 10px 12px;
+  }
+
+  .aforos-calc-modal {
+    padding: 20px 16px !important;
+  }
+
+  .aforos-calc-close-page-btn {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 359px) {
+  .aforos-muestras-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
