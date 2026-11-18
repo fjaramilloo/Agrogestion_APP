@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin } from 'lucide-react';
+import './InteractiveFarmMap.css';
 
 export interface FarmSummaryData {
   id: string;
@@ -21,6 +22,25 @@ interface MultiFarmMapProps {
 export const MultiFarmMap: React.FC<MultiFarmMapProps> = ({ fincas, onSelectFinca }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const zoomControlRef = useRef<L.Control.Zoom | null>(null);
+  const [isCompactViewport, setIsCompactViewport] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1024px)');
+    const mqHandler = (e: MediaQueryListEvent) => setIsCompactViewport(e.matches);
+    mq.addEventListener('change', mqHandler);
+    return () => mq.removeEventListener('change', mqHandler);
+  }, []);
+
+  useEffect(() => {
+    if (zoomControlRef.current) {
+      zoomControlRef.current.setPosition(isCompactViewport ? 'topright' : 'bottomright');
+    }
+    const timer = setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isCompactViewport]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -32,7 +52,7 @@ export const MultiFarmMap: React.FC<MultiFarmMapProps> = ({ fincas, onSelectFinc
         zoomControl: false,
       });
 
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
+      zoomControlRef.current = L.control.zoom({ position: isCompactViewport ? 'topright' : 'bottomright' }).addTo(map);
 
       L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -126,24 +146,12 @@ export const MultiFarmMap: React.FC<MultiFarmMapProps> = ({ fincas, onSelectFinc
   }, [fincas, onSelectFinca]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', zIndex: 1, isolation: 'isolate' }}>
+    <div className="farm-map-wrapper">
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
-      <div style={{
-        position: 'absolute',
-        top: '16px',
-        left: '16px',
-        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-        backdropFilter: 'blur(8px)',
-        border: '1px solid #334155',
-        borderRadius: '12px',
-        padding: '12px 18px',
-        color: '#F8FAFC',
-        zIndex: 1000,
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
-      }}>
+      <div className="multifarm-banner">
         <h3 style={{ margin: '0 0 2px 0', fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <MapPin size={18} color="#10B981" /> Tablero Multi-Finca
+          <MapPin size={18} color="#10B981" aria-hidden="true" /> Tablero Multi-Finca
         </h3>
         <p style={{ margin: 0, fontSize: '0.8rem', color: '#94A3B8' }}>
           Visualiza la ubicación regional de tus {fincas.length} fincas registradas

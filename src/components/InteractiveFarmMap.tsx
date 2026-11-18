@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Layers, Navigation, RefreshCw, Upload, Users, ArrowRightLeft, Lock } from 'lucide-react';
 import { findCurrentPaddockByGps } from '../utils/geoUtils';
+import './InteractiveFarmMap.css';
 
 interface PotreroMapData {
   id: string;
@@ -63,6 +64,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   const polygonsGroupRef = useRef<L.FeatureGroup | null>(null);
   const badgesGroupRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const zoomControlRef = useRef<L.Control.Zoom | null>(null);
 
   const [mapType, setMapType] = useState<'satellite' | 'street'>('satellite');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -75,12 +77,19 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   const [currentZoom, setCurrentZoom] = useState<number>(zoom);
   const fittedBoundsKeyRef = useRef<string>('');
 
-  // Detectar si estamos en pantalla móvil
+  // Detectar si estamos en pantalla móvil (< 640px) y vista compacta móvil/tablet (<= 1024px)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  const [isCompactViewport, setIsCompactViewport] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 640);
+    const mq = window.matchMedia('(max-width: 1024px)');
+    const mqHandler = (e: MediaQueryListEvent) => setIsCompactViewport(e.matches);
     window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
+    mq.addEventListener('change', mqHandler);
+    return () => {
+      window.removeEventListener('resize', handler);
+      mq.removeEventListener('change', mqHandler);
+    };
   }, []);
 
   // Inicialización del Mapa de Leaflet y Capas Base
@@ -94,7 +103,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         zoomControl: false,
       });
 
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
+      const zoomCtrl = L.control.zoom({ position: isCompactViewport ? 'topright' : 'bottomright' }).addTo(map);
+      zoomControlRef.current = zoomCtrl;
 
       map.on('zoomend', () => {
         setCurrentZoom(map.getZoom());
@@ -121,10 +131,35 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         polygonsGroupRef.current = null;
         badgesGroupRef.current = null;
         tileLayerRef.current = null;
+        zoomControlRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reubicar controles de zoom según viewport (abajo-derecha en PC, arriba-derecha en móvil/tablet)
+  useEffect(() => {
+    if (zoomControlRef.current) {
+      zoomControlRef.current.setPosition(isCompactViewport ? 'topright' : 'bottomright');
+    }
+    const timer = setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isCompactViewport]);
+
+  // Permitir cerrar la ficha de potrero o zona con Escape
+  useEffect(() => {
+    if (!selectedPotrero && !selectedZona) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedPotrero(null);
+        setSelectedZona(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedPotrero, selectedZona]);
 
   // ResizeObserver para recalcular el tamaño del mapa cuando cambie el viewport
   useEffect(() => {
@@ -747,73 +782,59 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     );
   };
 
+  const hasOpenSheet = Boolean(selectedPotrero || selectedZona);
+
   return (
-    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 120px)', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', zIndex: 1, isolation: 'isolate' }}>
+    <div className={`farm-map-wrapper${hasOpenSheet ? ' farm-map-wrapper--sheet-open' : ''}`}>
       {/* Contenedor del Mapa Leaflet */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1, backgroundColor: '#0f1715' }} />
 
-      {/* Barra Superior Flotante: Mi Ubicación GPS (Izquierda, Hero) y Capas (Derecha) */}
-      <div style={{
-        position: 'absolute',
-        top: '14px',
-        left: '14px',
-        right: '14px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        zIndex: 1000,
-        pointerEvents: 'none',
-      }}>
+      {/* Barra Flotante: en PC arriba-izq GPS y arriba-der Capas; en móvil/tablet GPS abajo-izq y Capas arriba-izq */}
+      <div className="farm-map-topbar">
         {/* Botón Principal y Prioritario: Mi Ubicación GPS */}
         <button
+          type="button"
+          className="farm-map-btn farm-map-gps-btn"
           onClick={handleTrackGps}
           disabled={gpsLoading}
           style={{
-            pointerEvents: 'auto',
             background: tipoLicencia === 'premium'
               ? 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)'
               : '#1E293B',
             border: tipoLicencia === 'premium' ? '1px solid rgba(147, 197, 253, 0.45)' : '1px solid #475569',
             color: tipoLicencia === 'premium' ? '#FFFFFF' : '#94A3B8',
-            padding: isMobile ? '8px 14px' : '9px 18px',
-            borderRadius: '30px',
             cursor: gpsLoading ? 'wait' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: isMobile ? '0.82rem' : '0.88rem',
-            fontWeight: 700,
-            letterSpacing: '0.01em',
             boxShadow: tipoLicencia === 'premium'
               ? '0 4px 18px rgba(37, 99, 235, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35)'
               : '0 4px 12px rgba(0, 0, 0, 0.4)',
-            transition: 'all 0.2s ease',
           }}
         >
           {tipoLicencia !== 'premium' ? (
             <>
-              <Lock size={15} color="#F59E0B" />
+              <Lock size={15} color="#F59E0B" aria-hidden="true" />
               <span>GPS (Plan Premium)</span>
             </>
           ) : gpsLoading ? (
             <>
-              <RefreshCw className="animate-spin" size={16} />
+              <RefreshCw className="animate-spin" size={16} aria-hidden="true" />
               <span>Localizando GPS...</span>
             </>
           ) : (
             <>
               <Navigation 
-                size={16} 
+                size={16}
+                aria-hidden="true"
                 style={{ 
                   color: userLocation ? '#67E8F9' : '#FFFFFF',
                   transform: userLocation ? 'rotate(45deg)' : 'none',
                   transition: 'transform 0.3s ease'
                 }} 
               />
-              <span>{userLocation ? 'Mi Ubicación GPS' : 'Mi Ubicación GPS'}</span>
+              <span>Mi Ubicación GPS</span>
               {userLocation && (
                 <span 
                   title="GPS Activo en vivo"
+                  aria-label="GPS activo"
                   style={{
                     width: '8px',
                     height: '8px',
@@ -830,52 +851,27 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           )}
         </button>
 
-        {/* Grupo Superior Derecho: Capas y KMZ */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
+        {/* Grupo Superior Derecho (arriba-izq en móvil): Capas y KMZ */}
+        <div className="farm-map-right-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
           {/* Cambiar Capa Satélite/Calle */}
           <button
+            type="button"
+            className="farm-map-btn farm-map-layers-btn"
             onClick={() => setMapType(mapType === 'satellite' ? 'street' : 'satellite')}
             title="Cambiar tipo de mapa"
-            style={{
-              backgroundColor: 'rgba(15, 23, 42, 0.88)',
-              border: '1px solid #334155',
-              color: '#F8FAFC',
-              padding: isMobile ? '7px 11px' : '8px 14px',
-              borderRadius: '20px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.78rem',
-              fontWeight: 500,
-              backdropFilter: 'blur(8px)',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-            }}
           >
-            <Layers size={15} color="#38BDF8" />
+            <Layers size={15} color="#38BDF8" aria-hidden="true" />
             <span>{mapType === 'satellite' ? 'Satélite' : 'Terreno'}</span>
           </button>
 
-          {/* Botón Cargar Plano KMZ (Solo Administradores en Escritorio) */}
+          {/* Botón Cargar Plano KMZ (Solo Administradores en Escritorio/Tablet) */}
           {userRole === 'administrador' && onOpenUploader && !isMobile && (
             <button
+              type="button"
+              className="farm-map-btn farm-map-kmz-btn"
               onClick={onOpenUploader}
-              style={{
-                backgroundColor: '#10B981',
-                color: '#FFFFFF',
-                border: 'none',
-                padding: '8px 14px',
-                borderRadius: '20px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
-              }}
             >
-              <Upload size={15} /> KMZ
+              <Upload size={15} aria-hidden="true" /> KMZ
             </button>
           )}
         </div>
@@ -883,28 +879,23 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
       {/* Banner de Estado GPS / Ubicación Actual (Solo Premium, posicionado bajo la barra superior) */}
       {tipoLicencia === 'premium' && currentPaddock && (
-        <div style={{
-          position: 'absolute',
-          top: '64px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid #3B82F6',
-          borderRadius: '16px',
-          padding: '10px 18px',
-          color: '#F8FAFC',
-          fontSize: '0.82rem',
-          zIndex: 999,
-          boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-start',
-          gap: '5px',
-          maxWidth: '92%',
-          width: isMobile ? 'calc(100% - 28px)' : 'auto',
-          boxSizing: 'border-box',
-        }}>
+        <div
+          className="farm-map-gps-banner"
+          style={{
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid #3B82F6',
+            borderRadius: '16px',
+            padding: '10px 18px',
+            color: '#F8FAFC',
+            fontSize: '0.82rem',
+            boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            gap: '5px',
+          }}
+        >
           {/* Fila 1: dónde estás */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.88rem' }}>
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3B82F6', flexShrink: 0 }} />
@@ -943,28 +934,23 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
       {/* Banner de Zona Especial Actual (Solo Premium, posicionado bajo la barra superior) */}
       {tipoLicencia === 'premium' && !currentPaddock && currentSpecialZone && (
-        <div style={{
-          position: 'absolute',
-          top: '64px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(10px)',
-          border: currentSpecialZone.tipo === 'bosque' ? '1px solid #059669' : currentSpecialZone.tipo === 'agua' ? '1px solid #0284C7' : '1px solid #D97706',
-          borderRadius: '20px',
-          padding: '10px 22px',
-          color: '#F8FAFC',
-          fontSize: '0.85rem',
-          zIndex: 999,
-          boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontWeight: 700,
-          maxWidth: '92%',
-          width: isMobile ? 'calc(100% - 28px)' : 'auto',
-          boxSizing: 'border-box',
-        }}>
+        <div
+          className="farm-map-gps-banner"
+          style={{
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: currentSpecialZone.tipo === 'bosque' ? '1px solid #059669' : currentSpecialZone.tipo === 'agua' ? '1px solid #0284C7' : '1px solid #D97706',
+            borderRadius: '20px',
+            padding: '10px 22px',
+            color: '#F8FAFC',
+            fontSize: '0.85rem',
+            boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontWeight: 700,
+          }}
+        >
           <span>
             📍 Estás en: <span style={{ color: currentSpecialZone.tipo === 'bosque' ? '#34D399' : currentSpecialZone.tipo === 'agua' ? '#38BDF8' : '#FBBF24' }}>
               {currentSpecialZone.tipo === 'bosque' ? '🌳' : currentSpecialZone.tipo === 'agua' ? '💧' : '🏠'} {currentSpecialZone.nombre}
@@ -975,28 +961,17 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
       {/* Drawer / Modal de Detalle de Potrero Seleccionado */}
       {selectedPotrero && (
-        <div style={{
-          position: 'absolute',
-          bottom: '16px',
-          right: '16px',
-          width: '340px',
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid #334155',
-          borderRadius: '16px',
-          padding: '20px',
-          color: '#F8FAFC',
-          zIndex: 1000,
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <div>
+        <div className="farm-map-sheet" role="region" aria-label={`Detalle del potrero ${selectedPotrero.nombre}`}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '8px' }}>
+            <div style={{ minWidth: 0 }}>
               <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 600 }}>Potrero de Pastoreo</span>
               <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700 }}>{selectedPotrero.nombre}</h3>
             </div>
             <button
+              type="button"
+              aria-label="Cerrar detalle de potrero"
+              className="farm-map-sheet-close"
               onClick={() => setSelectedPotrero(null)}
-              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '1.2rem' }}
             >
               ✕
             </button>
@@ -1049,6 +1024,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                 Actualiza al <strong>Plan Finca</strong> o <strong>Premium</strong> para vincular tus animales, ver pesos y mover ganado sobre el mapa.
               </div>
               <button
+                type="button"
+                className="farm-map-cta-btn"
                 onClick={() => (window.location.href = '/suscripcion')}
                 style={{
                   backgroundColor: '#3B82F6',
@@ -1108,7 +1085,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                     {selectedPotrero.potrerada_actual.peso_promedio} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#94A3B8' }}>kg</span>
                   </div>
                   {selectedPotrero.potrerada_actual.fecha_ultimo_pesaje && (
-                    <div style={{ fontSize: '0.65rem', color: '#64748B', marginTop: '2px', fontWeight: 500 }}>
+                    <div style={{ fontSize: '0.65rem', color: '#94A3B8', marginTop: '2px', fontWeight: 500 }}>
                       📅 {selectedPotrero.potrerada_actual.fecha_ultimo_pesaje}
                     </div>
                   )}
@@ -1150,6 +1127,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           {/* Acción: Mover Ganado (Disponible para Administradores y Vaqueros) */}
           {tipoLicencia !== 'demo' && (userRole === 'administrador' || userRole === 'vaquero') && onMoveCattleToPotrero && !selectedPotrero.potrerada_actual && (
             <button
+              type="button"
+              className="farm-map-cta-btn"
               onClick={() => {
                 onMoveCattleToPotrero(selectedPotrero.id, selectedPotrero.nombre);
                 setSelectedPotrero(null);
@@ -1170,7 +1149,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                 gap: '8px',
               }}
             >
-              <ArrowRightLeft size={16} /> Ingresar Ganado a este Potrero
+              <ArrowRightLeft size={16} aria-hidden="true" /> Ingresar Ganado a este Potrero
             </button>
           )}
         </div>
@@ -1178,22 +1157,9 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
       {/* Drawer / Modal de Detalle de Zona Especial Seleccionada (Bosques, Agua, Infraestructura) */}
       {selectedZona && (
-        <div style={{
-          position: 'absolute',
-          bottom: '16px',
-          right: '16px',
-          width: '340px',
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid #334155',
-          borderRadius: '16px',
-          padding: '20px',
-          color: '#F8FAFC',
-          zIndex: 1000,
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <div>
+        <div className="farm-map-sheet" role="region" aria-label={`Detalle de ${selectedZona.nombre}`}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '8px' }}>
+            <div style={{ minWidth: 0 }}>
               <span style={{
                 fontSize: '0.75rem',
                 textTransform: 'uppercase',
@@ -1213,8 +1179,10 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
               <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700 }}>{selectedZona.nombre}</h3>
             </div>
             <button
+              type="button"
+              aria-label="Cerrar detalle de zona"
+              className="farm-map-sheet-close"
               onClick={() => setSelectedZona(null)}
-              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '1.2rem' }}
             >
               ✕
             </button>

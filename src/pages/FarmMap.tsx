@@ -8,6 +8,7 @@ import { KmzUploaderModal } from '../components/KmzUploaderModal';
 import { localDB } from '../lib/db';
 import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles, WifiOff, AlertOctagon, X, ChevronDown, ChevronUp } from 'lucide-react';
 import ModalUpsell from '../components/ModalUpsell';
+import './FarmMap.css';
 
 export interface PotreradaModalItem {
   id: string;
@@ -67,6 +68,18 @@ export const FarmMapPage: React.FC = () => {
   const [mostrarOtrosLotes, setMostrarOtrosLotes] = useState(false);
   const [selectedPotreradaId, setSelectedPotreradaId] = useState('');
   const [transferring, setTransferring] = useState(false);
+
+  // Cerrar el modal rápido con la tecla Escape
+  useEffect(() => {
+    if (!transferModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setTransferModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [transferModalOpen]);
 
   // Escuchar cuando vuelva el internet para recargar
   useEffect(() => {
@@ -602,6 +615,8 @@ export const FarmMapPage: React.FC = () => {
           La carga de mapas vectoriales, visualización satelital y localización por GPS requiere una suscripción activa.
         </p>
         <button
+          type="button"
+          className="farm-map-inline-btn"
           onClick={() => window.location.href = '/suscripcion'}
           style={{
             backgroundColor: '#10B981',
@@ -629,93 +644,54 @@ export const FarmMapPage: React.FC = () => {
   const hasMapPolygons = potreros.some((p) => p.geojson_geometry) || zonasAdicionales.length > 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="farm-map-page">
       {/* Barra de Encabezado */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: '#0F172A',
-        padding: '16px 20px',
-        borderRadius: '16px',
-        border: '1px solid #334155',
-        color: '#F8FAFC',
-        flexWrap: 'wrap',
-        gap: '12px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: '#3B82F620',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#3B82F6',
-          }}>
-            <MapPin size={22} />
+      <div className="farm-map-header">
+        <div className="farm-map-header-info">
+          <div className="farm-map-header-icon">
+            <MapPin size={22} aria-hidden="true" />
           </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Plano de la Finca: {currentFincaName}</h2>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#94A3B8' }}>
+          <div style={{ minWidth: 0 }}>
+            <h2 className="farm-map-header-title">Plano de la Finca: {currentFincaName}</h2>
+            <p className="farm-map-header-subtitle">
               {potreros.length} Potreros registrados &bull; {potreros.filter(p => p.geojson_geometry).length} potreros delimitados {zonasAdicionales.length > 0 ? `&bull; ${zonasAdicionales.length} zonas no ganaderas` : ''}
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="farm-map-header-actions">
           {userFincas && userFincas.length > 1 && (
             <div 
               role="tablist" 
               aria-label="Selector de vista de fincas"
-              style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                backgroundColor: 'rgba(15, 23, 42, 0.85)', 
-                borderRadius: '20px', 
-                padding: '2px', 
-                border: '1px solid #334155',
-                boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.3)',
+              className="farm-map-tablist"
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                  e.preventDefault();
+                  const next = viewMode === 'single' ? 'multi' : 'single';
+                  setViewMode(next);
+                  const target = e.currentTarget.querySelector<HTMLButtonElement>(`[data-view="${next}"]`);
+                  target?.focus();
+                }
               }}
             >
               <button
                 type="button"
                 role="tab"
+                data-view="single"
                 aria-selected={viewMode === 'single'}
+                className="farm-map-tab"
                 onClick={() => setViewMode('single')}
-                style={{
-                  backgroundColor: viewMode === 'single' ? '#334155' : 'transparent',
-                  color: viewMode === 'single' ? '#F8FAFC' : '#64748B',
-                  border: 'none',
-                  padding: '3px 10px',
-                  borderRadius: '16px',
-                  fontSize: '0.74rem',
-                  fontWeight: viewMode === 'single' ? 600 : 500,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap',
-                }}
               >
                 Finca actual
               </button>
               <button
                 type="button"
                 role="tab"
+                data-view="multi"
                 aria-selected={viewMode === 'multi'}
+                className="farm-map-tab"
                 onClick={() => setViewMode('multi')}
-                style={{
-                  backgroundColor: viewMode === 'multi' ? '#334155' : 'transparent',
-                  color: viewMode === 'multi' ? '#F8FAFC' : '#64748B',
-                  border: 'none',
-                  padding: '3px 10px',
-                  borderRadius: '16px',
-                  fontSize: '0.74rem',
-                  fontWeight: viewMode === 'multi' ? 600 : 500,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap',
-                }}
               >
                 Todas las fincas
               </button>
@@ -727,6 +703,8 @@ export const FarmMapPage: React.FC = () => {
             <div style={{ display: 'flex', gap: '8px' }}>
               {hasMapPolygons && (
                 <button
+                  type="button"
+                  className="farm-map-inline-btn"
                   onClick={handleClearFarmMap}
                   title="Eliminar plano y revertir potreros"
                   style={{
@@ -743,11 +721,13 @@ export const FarmMapPage: React.FC = () => {
                     gap: '6px',
                   }}
                 >
-                  <Trash2 size={16} /> Quitar Plano
+                  <Trash2 size={16} aria-hidden="true" /> Quitar Plano
                 </button>
               )}
 
               <button
+                type="button"
+                className="farm-map-inline-btn"
                 onClick={() => {
                   if (isBloqueado) {
                     setShowUpsellModal(true);
@@ -769,7 +749,7 @@ export const FarmMapPage: React.FC = () => {
                   gap: '8px',
                 }}
               >
-                <Upload size={16} /> {hasMapPolygons ? 'Reemplazar Plano' : 'Cargar Plano KMZ'}
+                <Upload size={16} aria-hidden="true" /> {hasMapPolygons ? 'Reemplazar Plano' : 'Cargar Plano KMZ'}
               </button>
             </div>
           )}
@@ -807,6 +787,8 @@ export const FarmMapPage: React.FC = () => {
             </span>
           </div>
           <button
+            type="button"
+            className="farm-map-inline-btn"
             onClick={() => setShowUpsellModal(true)}
             style={{
               backgroundColor: '#EF4444',
@@ -845,6 +827,8 @@ export const FarmMapPage: React.FC = () => {
             </span>
           </div>
           <button
+            type="button"
+            className="farm-map-inline-btn"
             onClick={() => (window.location.href = '/suscripcion')}
             style={{
               backgroundColor: '#3B82F6',
@@ -933,6 +917,8 @@ export const FarmMapPage: React.FC = () => {
               </div>
             ) : (
               <button
+                type="button"
+                className="farm-map-inline-btn"
                 onClick={() => {
                   if (isBloqueado) {
                     setShowUpsellModal(true);
@@ -953,7 +939,7 @@ export const FarmMapPage: React.FC = () => {
                   gap: '8px',
                 }}
               >
-                <Upload size={18} /> Cargar Archivo .KMZ o .KML
+                <Upload size={18} aria-hidden="true" /> Cargar Archivo .KMZ o .KML
               </button>
             )
           ) : (
@@ -1019,24 +1005,17 @@ export const FarmMapPage: React.FC = () => {
         const renderCard = (p: PotreradaModalItem, esDeRotacion: boolean) => {
           const isSelected = selectedPotreradaId === p.id;
           return (
-            <div
-              key={p.id}
-              onClick={() => setSelectedPotreradaId(p.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 14px',
-                backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.12)' : '#0F172A',
-                border: `1.5px solid ${isSelected ? '#10B981' : '#334155'}`,
-                borderRadius: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                boxShadow: isSelected ? '0 0 0 1px rgba(16, 185, 129, 0.3)' : 'none',
-              }}
-            >
+            <label key={p.id} className="farm-map-lot-option">
+              <input
+                type="radio"
+                name="transfer-potrerada"
+                className="farm-map-lot-input"
+                checked={isSelected}
+                onChange={() => setSelectedPotreradaId(p.id)}
+              />
               {/* Radio indicator */}
               <div
+                aria-hidden="true"
                 style={{
                   width: '20px',
                   height: '20px',
@@ -1146,41 +1125,23 @@ export const FarmMapPage: React.FC = () => {
                   )}
                 </div>
               </div>
-            </div>
+            </label>
           );
         };
 
         return (
           <div
+            className="farm-map-modal-overlay"
             onClick={(e) => {
               if (e.target === e.currentTarget) setTransferModalOpen(false);
             }}
-            style={{
-              position: 'fixed',
-              top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.75)',
-              backdropFilter: 'blur(4px)',
-              WebkitBackdropFilter: 'blur(4px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 10000,
-              padding: '16px',
-            }}
           >
-            <div style={{
-              backgroundColor: '#1E293B',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '480px',
-              color: '#F8FAFC',
-              border: '1px solid #334155',
-              maxHeight: 'calc(100dvh - 32px)',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-              overflow: 'hidden',
-            }}>
+            <div
+              className="farm-map-modal-card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="farm-map-transfer-title"
+            >
               {/* Header Fijo */}
               <div style={{
                 padding: '18px 20px 14px 20px',
@@ -1191,8 +1152,8 @@ export const FarmMapPage: React.FC = () => {
                 gap: '12px',
                 flexShrink: 0,
               }}>
-                <div>
-                  <h3 style={{ margin: '0 0 6px 0', fontSize: '1.15rem', fontWeight: 700, color: '#F8FAFC' }}>
+                <div style={{ minWidth: 0 }}>
+                  <h3 id="farm-map-transfer-title" style={{ margin: '0 0 6px 0', fontSize: '1.15rem', fontWeight: 700, color: '#F8FAFC' }}>
                     Mover Ganado a: <span style={{ color: '#38BDF8' }}>{targetPotrero.nombre}</span>
                   </h3>
                   {rotDestino ? (
@@ -1218,34 +1179,16 @@ export const FarmMapPage: React.FC = () => {
                 </div>
                 <button
                   type="button"
+                  className="farm-map-modal-close"
                   onClick={() => setTransferModalOpen(false)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#94A3B8',
-                    cursor: 'pointer',
-                    padding: '4px',
-                    borderRadius: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  aria-label="Cerrar"
+                  aria-label="Cerrar traslado"
                 >
-                  <X size={20} />
+                  <X size={20} aria-hidden="true" />
                 </button>
               </div>
 
               {/* Body con Scroll */}
-              <div style={{
-                padding: '16px 20px',
-                overflowY: 'auto',
-                flex: 1,
-                minHeight: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-              }}>
+              <div className="farm-map-modal-body">
                 {disponibles.length === 0 ? (
                   <div style={{
                     backgroundColor: '#0F172A',
@@ -1290,15 +1233,18 @@ export const FarmMapPage: React.FC = () => {
                           <div style={{ marginTop: '8px' }}>
                             <button
                               type="button"
+                              className="farm-map-inline-btn"
+                              aria-expanded={mostrarOtrosLotes}
                               onClick={() => setMostrarOtrosLotes(!mostrarOtrosLotes)}
                               style={{
                                 width: '100%',
+                                minHeight: '44px',
                                 background: 'transparent',
                                 border: '1px solid #334155',
                                 borderRadius: '8px',
                                 padding: '8px 12px',
-                                color: '#94A3B8',
-                                fontSize: '0.78rem',
+                                color: '#CBD5E1',
+                                fontSize: '0.8rem',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
@@ -1311,7 +1257,7 @@ export const FarmMapPage: React.FC = () => {
                                   ? '▲ Ocultar lotes fuera de esta rotación'
                                   : `▼ ¿Traer lote de otra rotación? (${otrosLotes.length} disponible${otrosLotes.length === 1 ? '' : 's'})`}
                               </span>
-                              {mostrarOtrosLotes ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                              {mostrarOtrosLotes ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
                             </button>
 
                             {mostrarOtrosLotes && (
@@ -1341,18 +1287,10 @@ export const FarmMapPage: React.FC = () => {
               </div>
 
               {/* Footer Fijo */}
-              <div style={{
-                padding: '14px 20px',
-                borderTop: '1px solid #334155',
-                backgroundColor: '#1E293B',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                gap: '12px',
-                flexShrink: 0,
-              }}>
+              <div className="farm-map-modal-footer">
                 <button
                   type="button"
+                  className="farm-map-inline-btn"
                   onClick={() => setTransferModalOpen(false)}
                   style={{
                     backgroundColor: 'transparent',
@@ -1370,11 +1308,12 @@ export const FarmMapPage: React.FC = () => {
                 {disponibles.length > 0 && (
                   <button
                     type="button"
+                    className="farm-map-inline-btn"
                     onClick={handleExecuteTransfer}
                     disabled={!selectedPotreradaId || transferring}
                     style={{
                       backgroundColor: !selectedPotreradaId || transferring ? '#334155' : '#10B981',
-                      color: !selectedPotreradaId || transferring ? '#64748B' : '#FFFFFF',
+                      color: !selectedPotreradaId || transferring ? '#94A3B8' : '#FFFFFF',
                       border: 'none',
                       padding: '9px 20px',
                       borderRadius: '10px',
