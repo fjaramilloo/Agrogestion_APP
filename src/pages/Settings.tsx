@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award, CloudRain } from 'lucide-react';
+import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award, CloudRain, AlertTriangle, X, Eye, EyeOff } from 'lucide-react';
+import './Settings.css';
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
 import { type PluviometroFinca, type TipoMedicionPluviometro } from '../utils/rainfallUtils';
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
@@ -130,6 +131,100 @@ export default function Settings() {
     const [msjError, setMsjError] = useState('');
     const [showExitoModal, setShowExitoModal] = useState(false);
     const [showErrorModal, setShowErrorModal] = useState(false);
+    const [showNewPwd, setShowNewPwd] = useState(false);
+    const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+    const [inlineFeedbackSection, setInlineFeedbackSection] = useState<string | null>(null);
+    const [toastPaused, setToastPaused] = useState(false);
+
+    interface ConfirmDialogState {
+        title: string;
+        message: string;
+        confirmLabel: string;
+        cancelLabel?: string;
+        variant?: 'danger' | 'primary';
+        resolve: (accepted: boolean) => void;
+    }
+    const [confirmModal, setConfirmModal] = useState<ConfirmDialogState | null>(null);
+
+    const exitoDialogRef = useRef<HTMLDialogElement>(null);
+    const errorDialogRef = useRef<HTMLDialogElement>(null);
+    const confirmDialogRef = useRef<HTMLDialogElement>(null);
+    const toastRef = useRef<HTMLDivElement>(null);
+    const sectionPanelRef = useRef<HTMLDivElement>(null);
+
+    const canManageFarm = role === 'administrador' || isSuperAdmin;
+
+    const askConfirmation = (opts: Omit<ConfirmDialogState, 'resolve'>): Promise<boolean> => {
+        return new Promise((resolve) => {
+            setConfirmModal({ ...opts, resolve });
+        });
+    };
+
+    const resolveConfirmation = (accepted: boolean) => {
+        const current = confirmModal;
+        setConfirmModal(null);
+        current?.resolve(accepted);
+    };
+
+    useEffect(() => {
+        const dlg = exitoDialogRef.current;
+        if (!dlg) return;
+        if (showExitoModal) {
+            if (!dlg.open) dlg.showModal();
+        } else if (dlg.open) {
+            dlg.close();
+        }
+    }, [showExitoModal]);
+
+    useEffect(() => {
+        const dlg = errorDialogRef.current;
+        if (!dlg) return;
+        if (showErrorModal) {
+            if (!dlg.open) dlg.showModal();
+        } else if (dlg.open) {
+            dlg.close();
+        }
+    }, [showErrorModal]);
+
+    useEffect(() => {
+        const dlg = confirmDialogRef.current;
+        if (!dlg) return;
+        if (confirmModal) {
+            if (!dlg.open) dlg.showModal();
+        } else if (dlg.open) {
+            dlg.close();
+        }
+    }, [confirmModal]);
+
+    const activeToastText = (!showExitoModal && !showErrorModal && !confirmModal) ? (msjError || msjExito) : '';
+    const activeToastType: 'success' | 'error' | null = activeToastText ? (msjError ? 'error' : 'success') : null;
+
+    useEffect(() => {
+        const el = toastRef.current as (HTMLDivElement & { showPopover?: () => void; hidePopover?: () => void }) | null;
+        if (!el || typeof el.showPopover !== 'function') return;
+        if (activeToastText) {
+            try {
+                if (!el.matches(':popover-open')) el.showPopover();
+            } catch {
+                // fallback CSS handled automatically
+            }
+        } else {
+            try {
+                if (el.matches(':popover-open')) el.hidePopover();
+            } catch {
+                // ignore
+            }
+        }
+    }, [activeToastText]);
+
+    useEffect(() => {
+        if (!activeToastText || toastPaused) return;
+        const timer = window.setTimeout(() => {
+            setMsjExito('');
+            setMsjError('');
+        }, 6000);
+        return () => window.clearTimeout(timer);
+    }, [activeToastText, toastPaused]);
     const [reporteCarga, setReporteCarga] = useState<{
         tipo: 'animales' | 'pesajes';
         creados: number;
@@ -174,6 +269,33 @@ export default function Settings() {
         if (section === 'cargasMasivas' && nextState) {
             fetchCargasMasivasHoy();
         }
+        if (nextState && typeof window !== 'undefined' && window.innerWidth <= 768) {
+            window.requestAnimationFrame(() => {
+                sectionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
+    };
+
+    const renderInlineStatus = (sectionKey: string) => {
+        if (inlineFeedbackSection !== sectionKey || showExitoModal || showErrorModal) return null;
+        if (!msjError && !msjExito) return null;
+        const isErr = Boolean(msjError);
+        return (
+            <div
+                role={isErr ? 'alert' : 'status'}
+                className={`settings-inline-status ${isErr ? 'settings-inline-status--error' : 'settings-inline-status--success'}`}
+            >
+                <span>{isErr ? msjError : msjExito}</span>
+                <button
+                    type="button"
+                    className="settings-toast-close"
+                    onClick={() => { setMsjError(''); setMsjExito(''); }}
+                    aria-label="Cerrar aviso"
+                >
+                    <X size={16} aria-hidden="true" />
+                </button>
+            </div>
+        );
     };
 
     // Estados para creación de usuario
@@ -316,9 +438,14 @@ export default function Settings() {
 
     const handleRevertirCargaMasiva = async (carga: CargaMasivaItem) => {
         const tipoLabel = carga.tipo === 'animales' ? 'animales' : 'pesajes';
-        if (!confirm(`¿Está seguro de revertir la carga masiva de ${tipoLabel} "${carga.nombre_archivo || 'archivo CSV'}" (${carga.total_registros} registros)? Esta acción eliminará los datos cargados en esta importación.`)) {
-            return;
-        }
+        const confirmed = await askConfirmation({
+            title: '¿Revertir carga masiva?',
+            message: `Se revertirá la carga de ${tipoLabel} "${carga.nombre_archivo || 'archivo CSV'}" (${carga.total_registros} registros) y se eliminarán los datos cargados en esta importación.`,
+            confirmLabel: 'Sí, revertir carga',
+            cancelLabel: 'Cancelar',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
 
         setLoading(true);
         setMsjError('');
@@ -479,11 +606,14 @@ export default function Settings() {
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault();
+        setInlineFeedbackSection('seguridad');
         if (newPassword !== confirmPassword) {
+            setMsjExito('');
             setMsjError('Las contraseñas no coinciden.');
             return;
         }
         if (newPassword.length < 6) {
+            setMsjExito('');
             setMsjError('La contraseña debe tener al menos 6 caracteres.');
             return;
         }
@@ -505,6 +635,7 @@ export default function Settings() {
         e.preventDefault();
         if (!fincaId) return;
 
+        setInlineFeedbackSection('datosTecnicos');
         setLoading(true);
         setMsjExito('');
         setMsjError('');
@@ -655,6 +786,9 @@ export default function Settings() {
         e.preventDefault();
         if (!fincaId || !nuevoPropietario.trim()) return;
 
+        setInlineFeedbackSection('contactosNegocio');
+        setMsjExito('');
+        setMsjError('');
         setLoading(true);
         try {
             const { error } = await supabase
@@ -673,8 +807,20 @@ export default function Settings() {
         }
     };
 
-    const removePropietario = async (id: string) => {
-        if (!confirm('¿Está seguro de eliminar este propietario?')) return;
+    const removePropietario = async (id: string, nombre?: string) => {
+        const confirmed = await askConfirmation({
+            title: '¿Eliminar propietario?',
+            message: nombre
+                ? `Se eliminará "${nombre}" de la lista de propietarios de la finca.`
+                : '¿Está seguro de eliminar este propietario?',
+            confirmLabel: 'Eliminar',
+            cancelLabel: 'Cancelar',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+        setInlineFeedbackSection('contactosNegocio');
+        setMsjExito('');
+        setMsjError('');
         setLoading(true);
         try {
             const { error } = await supabase.from('propietarios').delete().eq('id', id);
@@ -692,6 +838,9 @@ export default function Settings() {
         e.preventDefault();
         if (!fincaId || !nuevoProveedor.trim()) return;
 
+        setInlineFeedbackSection('contactosNegocio');
+        setMsjExito('');
+        setMsjError('');
         setLoading(true);
         try {
             const { error } = await supabase
@@ -710,8 +859,20 @@ export default function Settings() {
         }
     };
 
-    const removeProveedor = async (id: string) => {
-        if (!confirm('¿Está seguro de eliminar este proveedor?')) return;
+    const removeProveedor = async (id: string, nombre?: string) => {
+        const confirmed = await askConfirmation({
+            title: '¿Eliminar proveedor?',
+            message: nombre
+                ? `Se eliminará "${nombre}" de la lista de proveedores.`
+                : '¿Está seguro de eliminar este proveedor?',
+            confirmLabel: 'Eliminar',
+            cancelLabel: 'Cancelar',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+        setInlineFeedbackSection('contactosNegocio');
+        setMsjExito('');
+        setMsjError('');
         setLoading(true);
         try {
             const { error } = await supabase.from('proveedores').delete().eq('id', id);
@@ -729,6 +890,9 @@ export default function Settings() {
         e.preventDefault();
         if (!fincaId || !nuevoComprador.trim()) return;
 
+        setInlineFeedbackSection('contactosNegocio');
+        setMsjExito('');
+        setMsjError('');
         setLoading(true);
         try {
             const { error } = await supabase
@@ -747,8 +911,20 @@ export default function Settings() {
         }
     };
 
-    const removeComprador = async (id: string) => {
-        if (!confirm('¿Está seguro de eliminar este comprador?')) return;
+    const removeComprador = async (id: string, nombre?: string) => {
+        const confirmed = await askConfirmation({
+            title: '¿Eliminar comprador?',
+            message: nombre
+                ? `Se eliminará "${nombre}" de la lista de compradores.`
+                : '¿Está seguro de eliminar este comprador?',
+            confirmLabel: 'Eliminar',
+            cancelLabel: 'Cancelar',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+        setInlineFeedbackSection('contactosNegocio');
+        setMsjExito('');
+        setMsjError('');
         setLoading(true);
         try {
             const { error } = await supabase.from('compradores').delete().eq('id', id);
@@ -765,6 +941,7 @@ export default function Settings() {
     const handleAddPluviometro = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!fincaId || !nuevoPluvNombre.trim()) return;
+        setInlineFeedbackSection('pluviometros');
         setSavingPluv(true);
         setMsjError('');
         setMsjExito('');
@@ -794,6 +971,7 @@ export default function Settings() {
     };
 
     const handleUpdatePluviometro = async (id: string, changes: Partial<Pick<PluviometroFinca, 'nombre' | 'tipo_medicion' | 'activo'>>) => {
+        setInlineFeedbackSection('pluviometros');
         setSavingPluv(true);
         setMsjError('');
         setMsjExito('');
@@ -813,6 +991,7 @@ export default function Settings() {
     };
 
     const handleRemovePluviometro = async (pluv: PluviometroFinca) => {
+        setInlineFeedbackSection('pluviometros');
         setSavingPluv(true);
         setMsjError('');
         setMsjExito('');
@@ -822,17 +1001,31 @@ export default function Settings() {
                 .select('id', { count: 'exact', head: true })
                 .eq('id_pluviometro', pluv.id);
 
+            setSavingPluv(false);
+
             if ((count || 0) > 0) {
-                const desactivar = confirm(
-                    `"${pluv.nombre}" ya tiene ${count} registros históricos de lluvia.\n\nPara conservar el desglose histórico te recomendamos desactivarlo en lugar de eliminarlo.\n\n¿Deseas DESACTIVARLO ahora? (No aparecerá al mayordomo para nuevos registros, pero sus datos pasados se conservan intactos).`
-                );
+                const desactivar = await askConfirmation({
+                    title: '¿Desactivar pluviómetro?',
+                    message: `"${pluv.nombre}" tiene ${count} registros históricos de lluvia. Desactivarlo evita perder ese historial y dejará de aparecer en nuevos registros.`,
+                    confirmLabel: 'Sí, desactivar',
+                    cancelLabel: 'Cancelar',
+                    variant: 'primary'
+                });
                 if (desactivar) {
                     await handleUpdatePluviometro(pluv.id, { activo: false });
                 }
                 return;
             }
 
-            if (!confirm(`¿Eliminar el pluviómetro "${pluv.nombre}"?`)) return;
+            const confirmed = await askConfirmation({
+                title: '¿Eliminar pluviómetro?',
+                message: `Se eliminará "${pluv.nombre}" de la finca.`,
+                confirmLabel: 'Eliminar',
+                cancelLabel: 'Cancelar',
+                variant: 'danger'
+            });
+            if (!confirmed) return;
+            setSavingPluv(true);
             const { error } = await supabase.from('pluviometros_finca').delete().eq('id', pluv.id);
             if (error) throw error;
             await fetchPluviometros();
@@ -1547,376 +1740,519 @@ export default function Settings() {
     ];
 
 
+    const supportsNativePopover = typeof HTMLElement !== 'undefined' && 'showPopover' in HTMLElement.prototype;
+    const isSeguridadOpen = !canManageFarm || !collapsed.seguridad;
+
     return (
-        <div className="page-container" style={{ maxWidth: '800px' }}>
-            <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'left', marginBottom: '32px' }}>
-                <SettingsIcon size={32} /> {role === 'administrador' ? 'Ajustes y Gestión de la Finca' : 'Mi Perfil'}
+        <div className="page-container settings-page">
+            <h1 className="title settings-title">
+                <SettingsIcon size={30} aria-hidden="true" />
+                <span>{canManageFarm ? 'Ajustes y Gestión de la Finca' : 'Mi Perfil y Seguridad'}</span>
             </h1>
 
-            {/* Modal de Éxito para Cargas Masivas */}
-            {showExitoModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--backdrop-scrim)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-                    <div className="card" style={{ maxWidth: '500px', width: '100%', textAlign: 'center', border: '1px solid var(--primary)', padding: '32px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-                            <div style={{ backgroundColor: 'var(--success-soft-bg)', padding: '16px', borderRadius: '50%' }}>
-                                <CheckCircle2 size={48} color="var(--primary)" />
-                            </div>
-                        </div>
-                        <h2 style={{ marginBottom: '8px', color: 'var(--text-main)' }}>¡Importación Finalizada!</h2>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
-                            {msjExito}
-                        </p>
+            {/* Región persistente de notificaciones toast (popover manual con respaldo inline) */}
+            <div role="region" aria-label="Notificaciones de configuración" className="settings-toast-region">
+                <div
+                    ref={toastRef}
+                    {...(supportsNativePopover ? ({ popover: 'manual' } as React.HTMLAttributes<HTMLDivElement>) : {})}
+                    role={activeToastType === 'error' ? 'alert' : 'status'}
+                    aria-live={activeToastType === 'error' ? 'assertive' : 'polite'}
+                    hidden={!activeToastText}
+                    onMouseEnter={() => setToastPaused(true)}
+                    onMouseLeave={() => setToastPaused(false)}
+                    onFocus={() => setToastPaused(true)}
+                    onBlur={() => setToastPaused(false)}
+                    className={`settings-toast ${activeToastText && !supportsNativePopover ? 'settings-toast--fallback' : ''} ${activeToastType === 'error' ? 'settings-toast--error' : 'settings-toast--success'}`}
+                >
+                    <span>{activeToastText}</span>
+                    {activeToastText && (
+                        <button
+                            type="button"
+                            className="settings-toast-close"
+                            onClick={() => { setMsjExito(''); setMsjError(''); }}
+                            aria-label="Cerrar notificación"
+                        >
+                            <X size={18} aria-hidden="true" />
+                        </button>
+                    )}
+                </div>
+            </div>
 
-                        {reporteCarga && (
-                            <div style={{ textAlign: 'left', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', padding: '20px', marginBottom: '24px', border: '1px solid var(--border-subtle)' }}>
-                                <h4 style={{ color: 'var(--primary-light)', marginBottom: '16px', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Resumen de Operación</h4>
-                                
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ color: 'var(--text-main)', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.creados}</div>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>CREADOS</div>
-                                    </div>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ color: 'var(--text-main)', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.actualizados}</div>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>ACTUALIZADOS</div>
-                                    </div>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ color: 'var(--error)', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.omitidos}</div>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>OMITIDOS</div>
-                                    </div>
+            {/* Modal nativo de Éxito para Cargas Masivas */}
+            <dialog
+                ref={exitoDialogRef}
+                className="settings-dialog"
+                aria-labelledby="settings-exito-title"
+                onClose={() => { setShowExitoModal(false); setMsjExito(''); setReporteCarga(null); }}
+            >
+                <div className="card settings-dialog-card" style={{ textAlign: 'center', border: '1px solid var(--primary)', padding: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                        <div style={{ backgroundColor: 'var(--success-soft-bg)', padding: '16px', borderRadius: '50%' }}>
+                            <CheckCircle2 size={44} color="var(--primary)" aria-hidden="true" />
+                        </div>
+                    </div>
+                    <h2 id="settings-exito-title" style={{ marginBottom: '8px', color: 'var(--text-main)' }}>¡Importación Finalizada!</h2>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
+                        {msjExito}
+                    </p>
+
+                    {reporteCarga && (
+                        <div style={{ textAlign: 'left', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid var(--border-subtle)' }}>
+                            <h3 style={{ color: 'var(--primary-light)', marginTop: 0, marginBottom: '14px', fontSize: '0.88rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Resumen de Operación</h3>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ color: 'var(--text-main)', fontSize: '1.35rem', fontWeight: 'bold' }}>{reporteCarga.creados}</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>CREADOS</div>
                                 </div>
-
-                                {reporteCarga.omitidosList.length > 0 && (
-                                    <>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>Chapetas omitidas (por duplicidad):</span>
-                                        </div>
-                                        <div style={{ 
-                                            backgroundColor: 'var(--error-soft-bg)',
-                                            border: '1px solid var(--error-soft-border)',
-                                            padding: '10px', 
-                                            borderRadius: '8px', 
-                                            fontSize: '0.85rem', 
-                                            color: 'var(--error)',
-                                            maxHeight: '100px',
-                                            overflowY: 'auto',
-                                            wordBreak: 'break-all',
-                                            lineHeight: '1.4'
-                                        }}>
-                                            {reporteCarga.omitidosList.join(', ')}
-                                        </div>
-                                    </>
-                                )}
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ color: 'var(--text-main)', fontSize: '1.35rem', fontWeight: 'bold' }}>{reporteCarga.actualizados}</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>ACTUALIZADOS</div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ color: 'var(--error)', fontSize: '1.35rem', fontWeight: 'bold' }}>{reporteCarga.omitidos}</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>OMITIDOS</div>
+                                </div>
                             </div>
-                        )}
 
-                        <button
-                            onClick={() => { setShowExitoModal(false); setMsjExito(''); setReporteCarga(null); }}
-                            style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', padding: '12px 40px', fontSize: '1rem', width: '100%' }}
-                        >
-                            Cerrar Reporte
-                        </button>
-                    </div>
+                            {reporteCarga.omitidosList.length > 0 && (
+                                <>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '8px' }}>
+                                        Chapetas omitidas (por duplicidad):
+                                    </div>
+                                    <div style={{ 
+                                        backgroundColor: 'var(--error-soft-bg)',
+                                        border: '1px solid var(--error-soft-border)',
+                                        padding: '10px', 
+                                        borderRadius: '8px', 
+                                        fontSize: '0.85rem', 
+                                        color: 'var(--error)',
+                                        maxHeight: '100px',
+                                        overflowY: 'auto',
+                                        wordBreak: 'break-all',
+                                        lineHeight: '1.4'
+                                    }}>
+                                        {reporteCarga.omitidosList.join(', ')}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    <button
+                        type="button"
+                        autoFocus
+                        onClick={() => { setShowExitoModal(false); setMsjExito(''); setReporteCarga(null); }}
+                        style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', padding: '12px 24px', fontSize: '1rem', width: '100%' }}
+                    >
+                        Cerrar Reporte
+                    </button>
                 </div>
-            )}
+            </dialog>
 
-            {/* Modal de Error para Cargas Masivas / Errores Críticos */}
-            {showErrorModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--backdrop-scrim)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-                    <div className="card" style={{ maxWidth: '500px', width: '100%', textAlign: 'center', border: '1px solid var(--error)', padding: '40px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                            <div style={{ backgroundColor: 'var(--error-soft-bg)', padding: '20px', borderRadius: '50%' }}>
-                                <Upload size={60} color="var(--error)" />
+            {/* Modal nativo de Error para Cargas Masivas / Errores Críticos */}
+            <dialog
+                ref={errorDialogRef}
+                className="settings-dialog"
+                aria-labelledby="settings-error-title"
+                onClose={() => { setShowErrorModal(false); setMsjError(''); }}
+            >
+                <div className="card settings-dialog-card" style={{ textAlign: 'center', border: '1px solid var(--error)', padding: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                        <div style={{ backgroundColor: 'var(--error-soft-bg)', padding: '16px', borderRadius: '50%' }}>
+                            <Upload size={44} color="var(--error)" aria-hidden="true" />
+                        </div>
+                    </div>
+                    <h2 id="settings-error-title" style={{ marginBottom: '14px', color: 'var(--text-main)' }}>Error en la Carga</h2>
+                    <div style={{ 
+                        backgroundColor: 'var(--error-soft-bg)', 
+                        padding: '16px', 
+                        borderRadius: '12px', 
+                        marginBottom: '20px',
+                        border: '1px solid var(--error-soft-border)',
+                        maxHeight: '220px',
+                        overflowY: 'auto'
+                    }}>
+                        <p style={{ color: 'var(--error)', fontSize: '0.98rem', lineHeight: '1.5', margin: 0, whiteSpace: 'pre-line' }}>
+                            {msjError}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        autoFocus
+                        onClick={() => { setShowErrorModal(false); setMsjError(''); }}
+                        className="settings-btn-danger"
+                        style={{ padding: '12px 24px', fontSize: '1rem', width: '100%' }}
+                    >
+                        Corregir Archivo
+                    </button>
+                </div>
+            </dialog>
+
+            {/* Modal nativo de Confirmación PWA (reemplaza window.confirm) */}
+            <dialog
+                ref={confirmDialogRef}
+                className="settings-dialog"
+                aria-labelledby="settings-confirm-title"
+                aria-describedby="settings-confirm-msg"
+                onClose={() => {
+                    if (confirmModal) resolveConfirmation(false);
+                }}
+            >
+                {confirmModal && (
+                    <div className="card settings-dialog-card" style={{ border: `1px solid ${confirmModal.variant === 'danger' ? 'var(--error)' : 'var(--primary)'}`, padding: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                            <div style={{
+                                backgroundColor: confirmModal.variant === 'danger' ? 'var(--error-soft-bg)' : 'var(--warning-soft-bg)',
+                                padding: '10px',
+                                borderRadius: '50%',
+                                display: 'flex'
+                            }}>
+                                <AlertTriangle size={22} color={confirmModal.variant === 'danger' ? 'var(--error)' : 'var(--warning)'} aria-hidden="true" />
                             </div>
+                            <h2 id="settings-confirm-title" style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-main)' }}>
+                                {confirmModal.title}
+                            </h2>
                         </div>
-                        <h2 style={{ marginBottom: '16px', color: 'var(--text-main)' }}>Error en la Carga</h2>
-                        <div style={{ 
-                            backgroundColor: 'var(--error-soft-bg)', 
-                            padding: '20px', 
-                            borderRadius: '12px', 
-                            marginBottom: '32px',
-                            border: '1px solid var(--error-soft-border)',
-                            maxHeight: '200px',
-                            overflowY: 'auto'
-                        }}>
-                            <p style={{ color: 'var(--error)', fontSize: '1.05rem', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-line' }}>
-                                {msjError}
-                            </p>
+                        <p id="settings-confirm-msg" style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                            {confirmModal.message}
+                        </p>
+                        <div className="settings-dialog-actions">
+                            <button
+                                type="button"
+                                autoFocus
+                                className="settings-btn-secondary"
+                                style={{ width: 'auto' }}
+                                onClick={() => resolveConfirmation(false)}
+                            >
+                                {confirmModal.cancelLabel || 'Cancelar'}
+                            </button>
+                            <button
+                                type="button"
+                                className={confirmModal.variant === 'danger' ? 'settings-btn-danger' : ''}
+                                style={{ width: 'auto' }}
+                                onClick={() => resolveConfirmation(true)}
+                            >
+                                {confirmModal.confirmLabel}
+                            </button>
                         </div>
-                        <button
-                            onClick={() => { setShowErrorModal(false); setMsjError(''); }}
-                            style={{ backgroundColor: 'var(--error)', color: 'white', padding: '12px 40px', fontSize: '1rem', border: 'none' }}
-                        >
-                            Corregir Archivo
-                        </button>
                     </div>
-                </div>
-            )}
+                )}
+            </dialog>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
-                {(role === 'administrador' || isSuperAdmin) && (
-                    <>
-                        {/* Dashboard de Ajustes (Grid) */}
-                        <div style={{ 
-                            display: 'grid', 
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-                            gap: '16px', 
-                            marginBottom: '32px' 
-                        }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+                {canManageFarm && (
+                    <nav aria-label="Secciones de configuración">
+                        <div className="settings-menu-grid">
                             {sectionCards.map(section => {
                                 if (section.isLink) {
                                     return (
-                                        <div 
+                                        <button
+                                            type="button"
                                             key={section.id}
                                             onClick={() => navigate('/suscripcion')}
-                                            className="card"
-                                            style={{ 
-                                                margin: 0,
-                                                padding: '24px 16px',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                textAlign: 'center',
-                                                gap: '12px',
-                                                border: '2px solid transparent',
-                                                background: 'var(--surface-subtle)',
-                                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                                            }}
-                                            onMouseEnter={(e) => e.currentTarget.style.borderColor = accentPurple}
-                                            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+                                            className="settings-menu-card settings-menu-card--link"
                                         >
-                                            <div style={{ color: accentPurple }}>
+                                            <span className="settings-menu-card-icon" style={{ color: accentPurple }} aria-hidden="true">
                                                 {section.icon}
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                                    <span style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--text-main)' }}>{section.label}</span>
-                                                    <span style={{ 
-                                                        fontSize: '0.62rem', 
-                                                        padding: '2px 7px', 
-                                                        borderRadius: '10px', 
-                                                        fontWeight: 800, 
-                                                        textTransform: 'uppercase', 
-                                                        background: licenciaInfo?.licencia === 'premium' ? (isLight ? '#f3e8ff' : 'rgba(168, 85, 247, 0.25)') : licenciaInfo?.licencia === 'finca' ? 'var(--info-soft-bg)' : 'var(--warning-soft-bg)', 
-                                                        color: licenciaInfo?.licencia === 'premium' ? accentPurple : licenciaInfo?.licencia === 'finca' ? 'var(--info)' : 'var(--warning)'
-                                                    }}>
+                                            </span>
+                                            <span style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                                    <span className="settings-menu-card-title">{section.label}</span>
+                                                    <span
+                                                        className="settings-plan-badge"
+                                                        style={{
+                                                            background: licenciaInfo?.licencia === 'premium' ? (isLight ? '#f3e8ff' : 'rgba(168, 85, 247, 0.25)') : licenciaInfo?.licencia === 'finca' ? 'var(--info-soft-bg)' : 'var(--warning-soft-bg)',
+                                                            color: licenciaInfo?.licencia === 'premium' ? accentPurple : licenciaInfo?.licencia === 'finca' ? 'var(--info)' : 'var(--warning)'
+                                                        }}
+                                                    >
                                                         {licenciaInfo?.licencia || 'demo'}
                                                     </span>
-                                                </div>
-                                                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.85 }}>{section.desc}</small>
-                                            </div>
-                                        </div>
+                                                </span>
+                                                <small className="settings-menu-card-desc">{section.desc}</small>
+                                            </span>
+                                        </button>
                                     );
                                 }
                                 const isActive = !collapsed[section.id as keyof typeof collapsed];
                                 return (
-                                    <div 
+                                    <button
+                                        type="button"
                                         key={section.id}
-                                        onClick={() => toggleSection(section.id as any)}
-                                        className="card"
-                                        style={{ 
-                                            margin: 0,
-                                            padding: '24px 16px',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            textAlign: 'center',
-                                            gap: '12px',
-                                            border: '2px solid',
-                                            borderColor: isActive ? 'var(--primary)' : 'var(--border-subtle)',
-                                            background: isActive ? 'var(--primary-soft-bg)' : 'var(--surface-subtle)',
-                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            transform: isActive ? 'scale(1.02)' : 'none',
-                                            boxShadow: isActive ? 'var(--shadow-card)' : 'none'
-                                        }}
+                                        onClick={() => toggleSection(section.id as keyof typeof collapsed)}
+                                        aria-expanded={isActive}
+                                        aria-controls={`settings-panel-${section.id}`}
+                                        className={`settings-menu-card ${isActive ? 'settings-menu-card--active' : ''}`}
                                     >
-                                        <div style={{ 
-                                            color: isActive ? 'var(--primary)' : 'var(--text-muted)',
-                                            transition: 'color 0.3s'
-                                        }}>
+                                        <span className="settings-menu-card-icon" aria-hidden="true">
                                             {section.icon}
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <span style={{ 
-                                                fontWeight: 'bold', 
-                                                fontSize: '1rem',
-                                                color: isActive ? 'var(--text-main)' : 'var(--text-muted)'
-                                            }}>{section.label}</span>
-                                            <small style={{ 
-                                                fontSize: '0.75rem', 
-                                                color: 'var(--text-muted)',
-                                                opacity: 0.85
-                                            }}>{section.desc}</small>
-                                        </div>
-                                    </div>
+                                        </span>
+                                        <span style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'center' }}>
+                                            <span className="settings-menu-card-title">{section.label}</span>
+                                            <small className="settings-menu-card-desc">{section.desc}</small>
+                                        </span>
+                                    </button>
                                 );
                             })}
                         </div>
+                    </nav>
+                )}
 
-                        {/* Contenido de las Secciones */}
-                        <div style={{ position: 'relative' }}>
-                            {/* Seguridad */}
-                            {!collapsed.seguridad && (
-                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <Lock size={20} color="var(--primary)" /> Seguridad de la Cuenta
-                                    </h3>
-                                    <form onSubmit={handleUpdatePassword}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                                            <div>
-                                                <label>Nueva Contraseña</label>
-                                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
-                                            </div>
-                                            <div>
-                                                <label>Confirmar Contraseña</label>
-                                                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
-                                            </div>
+                {!canManageFarm && (
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', padding: '16px' }}>
+                        <div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 700 }}>
+                                Perfil activo
+                            </div>
+                            <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>
+                                {role === 'vaquero' ? 'Trabajador / Vaquero' : 'Visualizador / Observador'}
+                            </div>
+                        </div>
+                        <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '10px', background: 'var(--primary-soft-bg)', color: 'var(--primary)', border: '1px solid var(--primary-soft-border)', fontWeight: 600 }}>
+                            Acceso de campo
+                        </span>
+                    </div>
+                )}
+
+                {/* Contenido de las Secciones */}
+                <div ref={sectionPanelRef} className="settings-section-anchor" style={{ position: 'relative' }}>
+                    {/* Seguridad (Disponible para todos los roles) */}
+                    {isSeguridadOpen && (
+                        <section id="settings-panel-seguridad" aria-labelledby="settings-heading-seguridad" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                            <h2 id="settings-heading-seguridad" className="settings-section-heading">
+                                <Lock size={20} color="var(--primary)" aria-hidden="true" /> Seguridad de la Cuenta
+                            </h2>
+                            <form onSubmit={handleUpdatePassword} aria-labelledby="settings-heading-seguridad">
+                                {renderInlineStatus('seguridad')}
+                                <div className="settings-form-grid-wide" style={{ marginBottom: '20px' }}>
+                                    <div className="settings-field">
+                                        <label htmlFor="settings-new-password">Nueva Contraseña</label>
+                                        <div className="settings-input-affix-wrap" style={{ marginBottom: 0 }}>
+                                            <input
+                                                id="settings-new-password"
+                                                name="new_password"
+                                                type={showNewPwd ? 'text' : 'password'}
+                                                autoComplete="new-password"
+                                                minLength={6}
+                                                enterKeyHint="next"
+                                                placeholder="Mínimo 6 caracteres"
+                                                value={newPassword}
+                                                onChange={e => setNewPassword(e.target.value)}
+                                                style={{ paddingRight: '52px' }}
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPwd(prev => !prev)}
+                                                aria-pressed={showNewPwd}
+                                                aria-label={showNewPwd ? 'Ocultar nueva contraseña' : 'Mostrar nueva contraseña'}
+                                                className="settings-toast-close"
+                                                style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
+                                            >
+                                                {showNewPwd ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                                            </button>
                                         </div>
-                                        <button type="submit" disabled={loading} style={{ width: 'auto' }}>
-                                            {loading ? 'Actualizando...' : 'Actualizar Contraseña'}
-                                        </button>
-                                    </form>
+                                    </div>
+                                    <div className="settings-field">
+                                        <label htmlFor="settings-confirm-password">Confirmar Contraseña</label>
+                                        <div className="settings-input-affix-wrap" style={{ marginBottom: 0 }}>
+                                            <input
+                                                id="settings-confirm-password"
+                                                name="confirm_password"
+                                                type={showConfirmPwd ? 'text' : 'password'}
+                                                autoComplete="new-password"
+                                                minLength={6}
+                                                enterKeyHint="done"
+                                                placeholder="Repite la nueva contraseña"
+                                                value={confirmPassword}
+                                                onChange={e => setConfirmPassword(e.target.value)}
+                                                style={{ paddingRight: '52px' }}
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPwd(prev => !prev)}
+                                                aria-pressed={showConfirmPwd}
+                                                aria-label={showConfirmPwd ? 'Ocultar confirmación de contraseña' : 'Mostrar confirmación de contraseña'}
+                                                className="settings-toast-close"
+                                                style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
+                                            >
+                                                {showConfirmPwd ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
+                                <button type="submit" disabled={loading}>
+                                    {loading ? 'Actualizando...' : 'Actualizar Contraseña'}
+                                </button>
+                            </form>
+                        </section>
+                    )}
+
+                    {canManageFarm && (
+                        <>
 
                             {/* Datos Técnicos y Parámetros */}
                             {!collapsed.datosTecnicos && (
-                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <Home size={20} color="var(--primary)" /> Datos Técnicos y Parámetros
-                                    </h3>
-                                    <form onSubmit={guardarConfiguracionYFinca}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Maximize size={16} /> Área Total (Ha)</label>
-                                                <input type="number" step="0.01" value={farmInfo.area_total} onChange={e => setFarmInfo({ ...farmInfo, area_total: e.target.value })} />
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={16} /> Área Aprovechable (Ha)</label>
-                                                <input type="number" step="0.01" value={farmInfo.area_aprovechable} onChange={e => setFarmInfo({ ...farmInfo, area_aprovechable: e.target.value })} />
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={16} /> Región Climática</label>
-                                                <select value={farmInfo.ubicacion} onChange={e => setFarmInfo({ ...farmInfo, ubicacion: e.target.value })}>
-                                                    <option value="">Seleccione Región...</option>
-                                                    <option value="Costa Caribe">Costa Caribe</option>
-                                                    <option value="Magdalena Medio">Magdalena Medio</option>
-                                                    <option value="Llanos Orientales / Orinoquía">Llanos Orientales</option>
-                                                    <option value="Zona Andina / Trópico Alto">Trópico Alto (Zona Andina)</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={16} /> Municipio / Ciudad</label>
-                                                <input type="text" placeholder="Ej. Montería, Córdoba" value={farmInfo.municipio} onChange={e => setFarmInfo({ ...farmInfo, municipio: e.target.value })} />
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Target size={16} /> Propósito</label>
-                                                <select value={farmInfo.proposito} onChange={e => setFarmInfo({ ...farmInfo, proposito: e.target.value })}>
-                                                    <option value="">Seleccione...</option>
-                                                    <option value="Doble propósito">Doble propósito</option>
-                                                    <option value="producción de carne">Producción de carne</option>
-                                                    <option value="Producción de leche">Producción de leche</option>
-                                                    <option value="cría">Cría</option>
-                                                    <option value="Levante">Levante</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Scale size={16} /> Entrada Ceba (kg)</label>
-                                                <input type="number" step="0.5" value={farmInfo.peso_entrada_ceba} onChange={e => setFarmInfo({ ...farmInfo, peso_entrada_ceba: e.target.value })} />
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}><Leaf size={16} /> Consumo Pasto (Kg/Día)</label>
-                                                <input type="number" step="0.1" value={farmInfo.consumo_dia_potrero} onChange={(e) => setFarmInfo({ ...farmInfo, consumo_dia_potrero: e.target.value })} required />
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Coins size={16} /> Precio Compra (COP/kg)</label>
-                                                <div style={{ position: 'relative' }}>
-                                                    <span style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>$</span>
-                                                    <input 
-                                                        type="text" 
-                                                        value={formatNumber(farmInfo.precio_compra_promedio)} 
-                                                        onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: unformatNumber(e.target.value) })} 
-                                                        style={{ paddingLeft: '32px' }}
-                                                    />
+                                <section id="settings-panel-datosTecnicos" aria-labelledby="settings-heading-parametros" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                                    <h2 id="settings-heading-parametros" className="settings-section-heading">
+                                        <Home size={20} color="var(--primary)" aria-hidden="true" /> Datos Técnicos y Parámetros
+                                    </h2>
+                                    <form onSubmit={guardarConfiguracionYFinca} aria-labelledby="settings-heading-parametros">
+                                        {renderInlineStatus('datosTecnicos')}
+
+                                        <fieldset className="settings-fieldset">
+                                            <legend className="settings-legend">Información de la Finca y Costos</legend>
+                                            <div className="settings-form-grid">
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-area-total"><Maximize size={16} aria-hidden="true" /> Área Total (Ha)</label>
+                                                    <input id="settings-area-total" name="area_total" type="number" step="0.01" inputMode="decimal" enterKeyHint="next" value={farmInfo.area_total} onChange={e => setFarmInfo({ ...farmInfo, area_total: e.target.value })} />
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-area-aprovechable"><CheckCircle2 size={16} aria-hidden="true" /> Área Aprovechable (Ha)</label>
+                                                    <input id="settings-area-aprovechable" name="area_aprovechable" type="number" step="0.01" inputMode="decimal" enterKeyHint="next" value={farmInfo.area_aprovechable} onChange={e => setFarmInfo({ ...farmInfo, area_aprovechable: e.target.value })} />
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-ubicacion"><MapPin size={16} aria-hidden="true" /> Región Climática</label>
+                                                    <select id="settings-ubicacion" name="ubicacion" value={farmInfo.ubicacion} onChange={e => setFarmInfo({ ...farmInfo, ubicacion: e.target.value })}>
+                                                        <option value="">Seleccione Región...</option>
+                                                        <option value="Costa Caribe">Costa Caribe</option>
+                                                        <option value="Magdalena Medio">Magdalena Medio</option>
+                                                        <option value="Llanos Orientales / Orinoquía">Llanos Orientales</option>
+                                                        <option value="Zona Andina / Trópico Alto">Trópico Alto (Zona Andina)</option>
+                                                    </select>
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-municipio"><MapPin size={16} aria-hidden="true" /> Municipio / Ciudad</label>
+                                                    <input id="settings-municipio" name="municipio" type="text" enterKeyHint="next" placeholder="Ej. Montería, Córdoba" value={farmInfo.municipio} onChange={e => setFarmInfo({ ...farmInfo, municipio: e.target.value })} />
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-proposito"><Target size={16} aria-hidden="true" /> Propósito</label>
+                                                    <select id="settings-proposito" name="proposito" value={farmInfo.proposito} onChange={e => setFarmInfo({ ...farmInfo, proposito: e.target.value })}>
+                                                        <option value="">Seleccione...</option>
+                                                        <option value="Doble propósito">Doble propósito</option>
+                                                        <option value="producción de carne">Producción de carne</option>
+                                                        <option value="Producción de leche">Producción de leche</option>
+                                                        <option value="cría">Cría</option>
+                                                        <option value="Levante">Levante</option>
+                                                    </select>
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-peso-entrada-ceba"><Scale size={16} aria-hidden="true" /> Entrada Ceba (kg)</label>
+                                                    <input id="settings-peso-entrada-ceba" name="peso_entrada_ceba" type="number" step="0.5" inputMode="decimal" enterKeyHint="next" value={farmInfo.peso_entrada_ceba} onChange={e => setFarmInfo({ ...farmInfo, peso_entrada_ceba: e.target.value })} />
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-consumo-dia"><Leaf size={16} aria-hidden="true" /> Consumo Pasto (Kg/Día)</label>
+                                                    <input id="settings-consumo-dia" name="consumo_dia_potrero" type="number" step="0.1" inputMode="decimal" enterKeyHint="next" value={farmInfo.consumo_dia_potrero} onChange={(e) => setFarmInfo({ ...farmInfo, consumo_dia_potrero: e.target.value })} required />
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-precio-compra"><Coins size={16} aria-hidden="true" /> Precio Compra (COP/kg)</label>
+                                                    <div className="settings-input-affix-wrap">
+                                                        <span className="settings-input-prefix" aria-hidden="true">$</span>
+                                                        <input
+                                                            id="settings-precio-compra"
+                                                            name="precio_compra_promedio"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            enterKeyHint="next"
+                                                            value={formatNumber(farmInfo.precio_compra_promedio)}
+                                                            onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: unformatNumber(e.target.value) })}
+                                                            style={{ paddingLeft: '32px' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-precio-venta"><DollarSign size={16} aria-hidden="true" /> Precio Venta (COP/kg)</label>
+                                                    <div className="settings-input-affix-wrap">
+                                                        <span className="settings-input-prefix" aria-hidden="true">$</span>
+                                                        <input
+                                                            id="settings-precio-venta"
+                                                            name="precio_venta_promedio"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            enterKeyHint="next"
+                                                            value={formatNumber(farmInfo.precio_venta_promedio)}
+                                                            onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: unformatNumber(e.target.value) })}
+                                                            style={{ paddingLeft: '32px' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-costo-mensual"><CreditCard size={16} aria-hidden="true" /> Costo Mensual por Animal</label>
+                                                    <div className="settings-input-affix-wrap">
+                                                        <span className="settings-input-prefix" aria-hidden="true">$</span>
+                                                        <input
+                                                            id="settings-costo-mensual"
+                                                            name="costo_mensual_animal"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            enterKeyHint="next"
+                                                            value={formatNumber(farmInfo.costo_mensual_animal)}
+                                                            onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: unformatNumber(e.target.value) })}
+                                                            style={{ paddingLeft: '32px' }}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><DollarSign size={16} /> Precio Venta (COP/kg)</label>
-                                                <div style={{ position: 'relative' }}>
-                                                    <span style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>$</span>
-                                                    <input 
-                                                        type="text" 
-                                                        value={formatNumber(farmInfo.precio_venta_promedio)} 
-                                                        onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: unformatNumber(e.target.value) })} 
-                                                        style={{ paddingLeft: '32px' }}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CreditCard size={16} /> Costo Mensual por Animal</label>
-                                                <div style={{ position: 'relative' }}>
-                                                    <span style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>$</span>
-                                                    <input 
-                                                        type="text" 
-                                                        value={formatNumber(farmInfo.costo_mensual_animal)} 
-                                                        onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: unformatNumber(e.target.value) })} 
-                                                        style={{ paddingLeft: '32px' }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
+                                        </fieldset>
 
                                         {/* % Participación de utilidad — dos campos simples en grilla */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Coins size={16} /> % Utilidad Finca / Tenedor</label>
-                                                <div style={{ position: 'relative' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        max="99"
-                                                        step="1"
-                                                        value={participacionUtilidad}
-                                                        onChange={e => setParticipacionUtilidad(e.target.value)}
-                                                        style={{ paddingRight: '36px' }}
-                                                    />
-                                                    <span style={{ position: 'absolute', right: '14px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none', fontWeight: 'bold' }}>%</span>
+                                        <fieldset className="settings-fieldset">
+                                            <legend className="settings-legend">Participación de Utilidad</legend>
+                                            <div className="settings-form-grid">
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-part-finca"><Coins size={16} aria-hidden="true" /> % Utilidad Finca / Tenedor</label>
+                                                    <div className="settings-input-affix-wrap">
+                                                        <input
+                                                            id="settings-part-finca"
+                                                            name="participacion_utilidad"
+                                                            type="number"
+                                                            min="1"
+                                                            max="99"
+                                                            step="1"
+                                                            inputMode="numeric"
+                                                            enterKeyHint="next"
+                                                            value={participacionUtilidad}
+                                                            onChange={e => setParticipacionUtilidad(e.target.value)}
+                                                            style={{ paddingRight: '38px' }}
+                                                        />
+                                                        <span className="settings-input-suffix" aria-hidden="true">%</span>
+                                                    </div>
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-part-inversionista"><Coins size={16} aria-hidden="true" /> % Utilidad Inversionista (dueño)</label>
+                                                    <div className="settings-input-affix-wrap">
+                                                        <input
+                                                            id="settings-part-inversionista"
+                                                            name="participacion_inversionista"
+                                                            type="number"
+                                                            readOnly
+                                                            value={Math.max(1, 100 - (parseInt(participacionUtilidad) || 60))}
+                                                            style={{ paddingRight: '38px', cursor: 'default', opacity: 0.65 }}
+                                                        />
+                                                        <span className="settings-input-suffix" aria-hidden="true">%</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Coins size={16} /> % Utilidad Inversionista (dueño)</label>
-                                                <div style={{ position: 'relative' }}>
-                                                    <input
-                                                        type="number"
-                                                        readOnly
-                                                        value={Math.max(1, 100 - (parseInt(participacionUtilidad) || 60))}
-                                                        style={{ paddingRight: '36px', cursor: 'default', opacity: 0.6 }}
-                                                    />
-                                                    <span style={{ position: 'absolute', right: '14px', top: '14px', color: 'var(--text-muted)', pointerEvents: 'none', fontWeight: 'bold' }}>%</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        </fieldset>
 
                                         {/* KPI Dinámico de Punto de Equilibrio */}
                                         <div style={{ 
                                             background: 'var(--primary-soft-bg)', 
                                             border: '1px solid var(--primary-soft-border)', 
                                             borderRadius: '12px', 
-                                            padding: '20px', 
+                                            padding: '18px', 
                                             marginBottom: '24px',
                                             display: 'flex',
                                             flexDirection: 'column',
                                             alignItems: 'center',
                                             textAlign: 'center',
-                                            gap: '8px',
-                                            animation: 'pulse 2s infinite'
+                                            gap: '8px'
                                         }}>
-                                            <div style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                            <div style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: '0.88rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
                                                 Punto de Equilibrio Estimado
                                             </div>
-                                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                                            <div style={{ fontSize: '2.25rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
                                                 {(() => {
                                                     const costo = parseFloat(farmInfo.costo_mensual_animal) || 0;
                                                     const precio = parseFloat(farmInfo.precio_venta_promedio) || 0;
@@ -1930,37 +2266,33 @@ export default function Settings() {
                                                     {modoLocal === 'GDP' ? 'Gr/Día' : 'Kg/Mes'}
                                                 </span>
                                             </div>
-                                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '400px' }}>
-                                                Este es el adelanto {modoLocal === 'GDP' ? 'diario' : 'mensual'} mínimo que requiere cada animal para cubrir sus costos directos e indirectos.
+                                            <p className="settings-helper-text" style={{ margin: 0, maxWidth: '400px' }}>
+                                                Adelanto {modoLocal === 'GDP' ? 'diario' : 'mensual'} mínimo requerido por animal para cubrir costos directos e indirectos.
                                             </p>
                                         </div>
 
                                         {/* Rangos de Peso para Dashboard y Despachos */}
-                                        <div style={{
-                                            background: 'var(--surface-subtle)',
-                                            border: '1px solid var(--border-subtle)',
-                                            borderRadius: '12px',
-                                            padding: '20px',
-                                            marginBottom: '24px'
-                                        }}>
+                                        <fieldset className="settings-subcard" style={{ borderStyle: 'solid' }}>
+                                            <legend className="settings-legend" style={{ marginBottom: '8px', paddingInline: '6px' }}>Rangos de Peso (Dashboard y Despachos)</legend>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                                                <h4 style={{ color: 'var(--text-main)', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <Scale size={18} color="var(--primary)" />
-                                                    Rangos de Peso para Proyecciones y Despachos (Dashboard)
-                                                </h4>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Configuración específica para esta finca</span>
+                                                <h3 style={{ color: 'var(--text-main)', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <Scale size={18} color="var(--primary)" aria-hidden="true" />
+                                                    Cortes de Peso de la Finca
+                                                </h3>
                                             </div>
                                             
-                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.4' }}>
-                                                Selecciona el modelo productivo de esta finca o personaliza los cortes de peso. La tabla del Dashboard y la alerta de despacho se ajustarán automáticamente a estos valores.
+                                            <p className="settings-helper-text" style={{ marginTop: 0, marginBottom: '16px' }}>
+                                                Selecciona el modelo productivo o personaliza los cortes de peso. La tabla del Dashboard y las alertas de despacho se ajustarán automáticamente.
                                             </p>
 
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '18px' }}>
-                                                <div style={{ gridColumn: '1 / -1' }}>
-                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <Target size={16} /> Plantilla de Rangos / Modelo Productivo
+                                            <div className="settings-form-grid" style={{ marginBottom: '18px' }}>
+                                                <div className="settings-field" style={{ gridColumn: '1 / -1' }}>
+                                                    <label htmlFor="settings-preset-peso">
+                                                        <Target size={16} aria-hidden="true" /> Plantilla / Modelo Productivo
                                                     </label>
                                                     <select
+                                                        id="settings-preset-peso"
+                                                        name="preset_peso"
                                                         value={farmInfo.preset_peso}
                                                         onChange={(e) => {
                                                             const selectedId = e.target.value;
@@ -1983,17 +2315,21 @@ export default function Settings() {
                                                         ))}
                                                     </select>
                                                     {PRESETS_RANGOS_PESO.find(p => p.id === farmInfo.preset_peso)?.descripcion && (
-                                                        <span style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '4px', display: 'block' }}>
+                                                        <span style={{ fontSize: '0.78rem', color: 'var(--primary)', marginTop: '-12px', marginBottom: '8px', display: 'block' }}>
                                                             💡 {PRESETS_RANGOS_PESO.find(p => p.id === farmInfo.preset_peso)?.descripcion}
                                                         </span>
                                                     )}
                                                 </div>
 
-                                                <div>
-                                                    <label>Corte 1: Adaptación / Inicio (kg)</label>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-corte-1">Corte 1: Adaptación / Inicio (kg)</label>
                                                     <input
+                                                        id="settings-corte-1"
+                                                        name="corte_peso_1"
                                                         type="number"
                                                         step="1"
+                                                        inputMode="numeric"
+                                                        enterKeyHint="next"
                                                         value={farmInfo.corte_peso_1}
                                                         onChange={(e) => {
                                                             const val = e.target.value;
@@ -2013,11 +2349,15 @@ export default function Settings() {
                                                     />
                                                 </div>
 
-                                                <div>
-                                                    <label>Corte 2: Desarrollo Medio (kg)</label>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-corte-2">Corte 2: Desarrollo Medio (kg)</label>
                                                     <input
+                                                        id="settings-corte-2"
+                                                        name="corte_peso_2"
                                                         type="number"
                                                         step="1"
+                                                        inputMode="numeric"
+                                                        enterKeyHint="next"
                                                         value={farmInfo.corte_peso_2}
                                                         onChange={(e) => {
                                                             const val = e.target.value;
@@ -2037,13 +2377,17 @@ export default function Settings() {
                                                     />
                                                 </div>
 
-                                                <div>
-                                                    <label style={{ color: 'var(--success)', fontWeight: 'bold' }}>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-corte-3" style={{ color: 'var(--success)', fontWeight: 'bold' }}>
                                                         Corte 3: Meta Venta / Despacho (kg)
                                                     </label>
                                                     <input
+                                                        id="settings-corte-3"
+                                                        name="corte_peso_3"
                                                         type="number"
                                                         step="1"
+                                                        inputMode="numeric"
+                                                        enterKeyHint="next"
                                                         value={farmInfo.corte_peso_3}
                                                         onChange={(e) => {
                                                             const val = e.target.value;
@@ -2065,11 +2409,11 @@ export default function Settings() {
                                             </div>
 
                                             {/* Vista previa de cómo se verá la tabla */}
-                                            <div style={{ background: 'var(--surface-inset)', borderRadius: '8px', padding: '12px 16px', border: '1px solid var(--border-subtle)' }}>
+                                            <div style={{ background: 'var(--surface-inset)', borderRadius: '8px', padding: '12px', border: '1px solid var(--border-subtle)' }}>
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                    Vista Previa de Rangos en el Dashboard:
+                                                    Vista Previa en Dashboard:
                                                 </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 130px), 1fr))', gap: '8px' }}>
                                                     <div style={{ background: 'var(--surface)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--border-subtle)' }}>
                                                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Fila 1 (Entrada)</div>
                                                         <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.9rem' }}>&lt; {farmInfo.corte_peso_1 || 0} kg</div>
@@ -2088,80 +2432,84 @@ export default function Settings() {
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </fieldset>
 
-                                        <h4 style={{ color: 'var(--text-main)', marginBottom: '16px', fontSize: '1rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>Umbrales (Semáforo {getModoLabel(modoLocal)})</h4>
+                                        <fieldset className="settings-fieldset" style={{ marginBottom: 0 }}>
+                                            <legend className="settings-legend">Umbrales (Semáforo {getModoLabel(modoLocal)})</legend>
 
-                                        {/* Toggle GDP / GMP */}
-                                        <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Unidad de ganancia:</span>
-                                            <div style={{ display: 'flex', background: 'var(--surface-subtle)', borderRadius: '8px', padding: '4px', border: '1px solid var(--border-subtle)' }}>
-                                                {(['GMP', 'GDP'] as ModoGanancia[]).map(m => (
-                                                    <button
-                                                        key={m}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            // Convert current display values to the other unit
-                                                            const medioKgMes = toStorageValue(parseFloat(umbralMedioDisplay) || 10, modoLocal);
-                                                            const altoKgMes = toStorageValue(parseFloat(umbralAltoDisplay) || 20, modoLocal);
-                                                            setUmbralMedioDisplay(toDisplayValue(medioKgMes, m).toFixed(m === 'GDP' ? 0 : 1));
-                                                            setUmbralAltoDisplay(toDisplayValue(altoKgMes, m).toFixed(m === 'GDP' ? 0 : 1));
-                                                            setModoLocal(m);
-                                                        }}
-                                                        style={{
-                                                            padding: '6px 18px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', transition: 'all 0.2s',
-                                                            background: modoLocal === m ? 'var(--primary)' : 'transparent',
-                                                            color: modoLocal === m ? 'var(--on-primary)' : 'var(--text-muted)'
-                                                        }}
-                                                    >
-                                                        {m} <span style={{ fontWeight: 400, fontSize: '0.75rem' }}>({m === 'GMP' ? 'kg/mes' : 'gr/día'})</span>
-                                                    </button>
-                                                ))}
+                                            {/* Toggle GDP / GMP */}
+                                            <div className="settings-unidad-row">
+                                                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Unidad de ganancia:</span>
+                                                <div className="settings-unidad-toggle" role="group" aria-label="Unidad de ganancia">
+                                                    {(['GMP', 'GDP'] as ModoGanancia[]).map(m => (
+                                                        <button
+                                                            key={m}
+                                                            type="button"
+                                                            aria-pressed={modoLocal === m}
+                                                            className="settings-unidad-btn"
+                                                            onClick={() => {
+                                                                const medioKgMes = toStorageValue(parseFloat(umbralMedioDisplay) || 10, modoLocal);
+                                                                const altoKgMes = toStorageValue(parseFloat(umbralAltoDisplay) || 20, modoLocal);
+                                                                setUmbralMedioDisplay(toDisplayValue(medioKgMes, m).toFixed(m === 'GDP' ? 0 : 1));
+                                                                setUmbralAltoDisplay(toDisplayValue(altoKgMes, m).toFixed(m === 'GDP' ? 0 : 1));
+                                                                setModoLocal(m);
+                                                            }}
+                                                            style={{
+                                                                background: modoLocal === m ? 'var(--primary)' : 'transparent',
+                                                                color: modoLocal === m ? 'var(--on-primary)' : 'var(--text-muted)'
+                                                            }}
+                                                        >
+                                                            {m} <span style={{ fontWeight: 400, fontSize: '0.75rem' }}>({m === 'GMP' ? 'kg/mes' : 'gr/día'})</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                                            <div>
-                                                <label>Límite Superior Rojo ({getUnidadLabel(modoLocal)})</label>
-                                                <input type="number" step={modoLocal === 'GDP' ? '1' : '0.1'} value={umbralMedioDisplay} onChange={(e) => setUmbralMedioDisplay(e.target.value)} />
+                                            <div className="settings-form-grid">
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-umbral-rojo">Límite Superior Rojo ({getUnidadLabel(modoLocal)})</label>
+                                                    <input id="settings-umbral-rojo" name="umbral_medio" type="number" step={modoLocal === 'GDP' ? '1' : '0.1'} inputMode="decimal" enterKeyHint="next" value={umbralMedioDisplay} onChange={(e) => setUmbralMedioDisplay(e.target.value)} />
+                                                </div>
+                                                <div className="settings-field">
+                                                    <label htmlFor="settings-umbral-amarillo">Límite Superior Amarillo ({getUnidadLabel(modoLocal)})</label>
+                                                    <input id="settings-umbral-amarillo" name="umbral_alto" type="number" step={modoLocal === 'GDP' ? '1' : '0.1'} inputMode="decimal" enterKeyHint="done" value={umbralAltoDisplay} onChange={(e) => setUmbralAltoDisplay(e.target.value)} />
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label>Límite Superior Amarillo ({getUnidadLabel(modoLocal)})</label>
-                                                <input type="number" step={modoLocal === 'GDP' ? '1' : '0.1'} value={umbralAltoDisplay} onChange={(e) => setUmbralAltoDisplay(e.target.value)} />
-                                            </div>
-                                        </div>
+                                        </fieldset>
 
-                                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', border: '1px solid var(--primary)' }}>
-                                            {loading ? 'Guardando...' : 'Guardar Información'}
-                                        </button>
+                                        <div className="settings-sticky-save-bar">
+                                            <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', border: '1px solid var(--primary)' }}>
+                                                {loading ? 'Guardando...' : 'Guardar Información'}
+                                            </button>
+                                        </div>
                                     </form>
 
                                     {/* Estaciones / Pluviómetros de la Finca */}
-                                    <div style={{
-                                        marginTop: '28px',
-                                        paddingTop: '24px',
-                                        borderTop: '1px solid var(--border-subtle)'
-                                    }}>
+                                    <div className="settings-pluv-section">
+                                        {renderInlineStatus('pluviometros')}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                                            <h4 style={{ color: 'var(--text-main)', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <CloudRain size={18} color="var(--info)" />
+                                            <h3 style={{ color: 'var(--text-main)', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <CloudRain size={18} color="var(--info)" aria-hidden="true" />
                                                 Pluviómetros de la Finca
-                                            </h4>
+                                            </h3>
                                             <span style={{ fontSize: '0.75rem', color: 'var(--info)', background: 'var(--info-soft-bg)', padding: '3px 10px', borderRadius: '12px', border: '1px solid var(--info-soft-border)' }}>
                                                 {pluviometros.filter(p => p.activo).length <= 1
                                                     ? 'Modo Estándar (1 pluviómetro)'
                                                     : `Multi-pluviómetro (${pluviometros.filter(p => p.activo).length} activos · Promedio Finca)`}
                                             </span>
                                         </div>
-                                        <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
-                                            Si la finca solo tiene 1 pluviómetro, no necesitas agregar ninguno aquí. Si manejas 2 o más (ej. Casa y Sector Alto), agrégalos abajo: el mayordomo los verá juntos al registrar y la app calculará automáticamente el <strong style={{ color: 'var(--text-main)' }}>promedio diario de la finca</strong>. Cambiar el tipo de medición solo afecta lecturas futuras y <strong style={{ color: 'var(--text-main)' }}>nunca altera registros anteriores</strong>.
+                                        <p className="settings-helper-text" style={{ marginBottom: '16px' }}>
+                                            Cada cambio aquí se guarda al instante (es independiente de Guardar Información). Si manejas 2 o más pluviómetros, agrégalos abajo y la app calculará el <strong style={{ color: 'var(--text-main)' }}>promedio diario de la finca</strong> sin alterar registros anteriores.
                                         </p>
 
-                                        <form onSubmit={handleAddPluviometro} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 2fr) minmax(150px, 1.5fr) auto', gap: '10px', marginBottom: '16px', alignItems: 'end' }}>
-                                            <div>
-                                                <label style={{ fontSize: '0.78rem' }}>Nombre del Pluviómetro</label>
+                                        <form onSubmit={handleAddPluviometro} className="settings-pluv-form">
+                                            <div className="settings-field">
+                                                <label htmlFor="settings-pluv-nombre" style={{ fontSize: '0.8rem' }}>Nombre del Pluviómetro</label>
                                                 <input
+                                                    id="settings-pluv-nombre"
+                                                    name="pluv_nombre"
                                                     type="text"
+                                                    enterKeyHint="done"
                                                     placeholder="Ej: Casa Principal o Potrero Alto"
                                                     value={nuevoPluvNombre}
                                                     onChange={e => setNuevoPluvNombre(e.target.value)}
@@ -2169,9 +2517,11 @@ export default function Settings() {
                                                     required
                                                 />
                                             </div>
-                                            <div>
-                                                <label style={{ fontSize: '0.78rem' }}>Tipo de Medición</label>
+                                            <div className="settings-field">
+                                                <label htmlFor="settings-pluv-modo" style={{ fontSize: '0.8rem' }}>Tipo de Medición</label>
                                                 <select
+                                                    id="settings-pluv-modo"
+                                                    name="pluv_modo"
                                                     value={nuevoPluvModo}
                                                     onChange={e => setNuevoPluvModo(e.target.value as TipoMedicionPluviometro)}
                                                     style={{ marginBottom: 0 }}
@@ -2183,9 +2533,9 @@ export default function Settings() {
                                             <button
                                                 type="submit"
                                                 disabled={savingPluv || !nuevoPluvNombre.trim()}
-                                                style={{ width: 'auto', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--info-soft-bg)', border: '1px solid var(--info-soft-border)', color: 'var(--info)' }}
+                                                className="settings-pluv-submit"
                                             >
-                                                <Plus size={16} /> Agregar
+                                                <Plus size={16} aria-hidden="true" /> Agregar
                                             </button>
                                         </form>
 
@@ -2194,33 +2544,27 @@ export default function Settings() {
                                                 {pluviometros.map(pluv => (
                                                     <div
                                                         key={pluv.id}
+                                                        className="settings-pluv-row"
                                                         style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            flexWrap: 'wrap',
-                                                            gap: '10px',
-                                                            padding: '10px 14px',
-                                                            borderRadius: '10px',
-                                                            background: pluv.activo ? 'var(--surface-subtle)' : 'var(--surface-inset)',
-                                                            border: `1px solid ${pluv.activo ? 'var(--border-subtle)' : 'var(--border-subtle)'}`,
+                                                            background: pluv.activo ? 'var(--surface)' : 'var(--surface-inset)',
                                                             opacity: pluv.activo ? 1 : 0.72,
                                                         }}
                                                     >
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 180px' }}>
-                                                            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>📍 {pluv.nombre}</span>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 180px', minWidth: 0 }}>
+                                                            <span style={{ fontWeight: 600, color: 'var(--text-main)', overflowWrap: 'break-word' }}>📍 {pluv.nombre}</span>
                                                             {!pluv.activo && (
                                                                 <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
                                                                     Inactivo
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                        <div className="settings-pluv-actions">
                                                             <select
+                                                                aria-label={`Tipo de medición para ${pluv.nombre}`}
                                                                 value={pluv.tipo_medicion}
                                                                 disabled={savingPluv}
                                                                 onChange={e => handleUpdatePluviometro(pluv.id, { tipo_medicion: e.target.value as TipoMedicionPluviometro })}
-                                                                style={{ width: 'auto', marginBottom: 0, padding: '6px 10px', fontSize: '0.8rem' }}
+                                                                style={{ width: 'auto', marginBottom: 0, padding: '8px 10px', fontSize: '0.82rem' }}
                                                             >
                                                                 <option value="diaria">💧 Diaria (Manual)</option>
                                                                 <option value="acumulada">📟 Acumulada Digital</option>
@@ -2228,11 +2572,10 @@ export default function Settings() {
                                                             <button
                                                                 type="button"
                                                                 disabled={savingPluv}
+                                                                aria-pressed={pluv.activo}
                                                                 onClick={() => handleUpdatePluviometro(pluv.id, { activo: !pluv.activo })}
+                                                                className="settings-pluv-status-btn"
                                                                 style={{
-                                                                    width: 'auto',
-                                                                    padding: '6px 12px',
-                                                                    fontSize: '0.78rem',
                                                                     background: pluv.activo ? 'var(--success-soft-bg)' : 'var(--surface-subtle)',
                                                                     border: `1px solid ${pluv.activo ? 'var(--success-soft-border)' : 'var(--border-strong)'}`,
                                                                     color: pluv.activo ? 'var(--success)' : 'var(--text-muted)',
@@ -2244,10 +2587,10 @@ export default function Settings() {
                                                                 type="button"
                                                                 disabled={savingPluv}
                                                                 onClick={() => handleRemovePluviometro(pluv)}
-                                                                title="Eliminar o desactivar pluviómetro"
-                                                                style={{ width: 'auto', padding: '6px 8px', background: 'transparent', border: 'none', color: 'var(--error)', opacity: 0.75 }}
+                                                                aria-label={`Eliminar o desactivar pluviómetro ${pluv.nombre}`}
+                                                                className="settings-icon-danger-btn"
                                                             >
-                                                                <Trash2 size={16} />
+                                                                <Trash2 size={18} aria-hidden="true" />
                                                             </button>
                                                         </div>
                                                     </div>
@@ -2255,61 +2598,78 @@ export default function Settings() {
                                             </div>
                                         )}
                                     </div>
-                                </div>
+                                </section>
                             )}
 
                             {/* Gestión de Personal */}
                             {!collapsed.usuarios && (
-                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <Users size={20} color="var(--primary)" /> Gestión de Personal
-                                    </h3>
-                                    <form onSubmit={handleCreateUser}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                                            <div style={{ gridColumn: '1 / -1' }}>
-                                                <label>Correo Electrónico</label>
-                                                <input type="email" placeholder="trabajador@finca.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} required />
+                                <section id="settings-panel-usuarios" aria-labelledby="settings-heading-usuarios" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                                    <h2 id="settings-heading-usuarios" className="settings-section-heading">
+                                        <Users size={20} color="var(--primary)" aria-hidden="true" /> Gestión de Personal
+                                    </h2>
+                                    <form onSubmit={handleCreateUser} aria-labelledby="settings-heading-usuarios">
+                                        <div className="settings-form-grid-wide" style={{ marginBottom: '20px' }}>
+                                            <div className="settings-field" style={{ gridColumn: '1 / -1' }}>
+                                                <label htmlFor="settings-new-user-email">Correo Electrónico</label>
+                                                <input id="settings-new-user-email" name="new_user_email" type="email" autoComplete="email" autoCorrect="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" placeholder="trabajador@finca.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} required />
                                             </div>
-                                            <div>
-                                                <label>Nombre</label>
-                                                <input type="text" placeholder="Ej: Juan" value={newUserNombre} onChange={(e) => setNewUserNombre(e.target.value)} required />
+                                            <div className="settings-field">
+                                                <label htmlFor="settings-new-user-nombre">Nombre</label>
+                                                <input id="settings-new-user-nombre" name="new_user_nombre" type="text" autoComplete="given-name" enterKeyHint="next" placeholder="Ej: Juan" value={newUserNombre} onChange={(e) => setNewUserNombre(e.target.value)} required />
                                             </div>
-                                            <div>
-                                                <label>Apellido</label>
-                                                <input type="text" placeholder="Ej: Pérez" value={newUserApellido} onChange={(e) => setNewUserApellido(e.target.value)} required />
+                                            <div className="settings-field">
+                                                <label htmlFor="settings-new-user-apellido">Apellido</label>
+                                                <input id="settings-new-user-apellido" name="new_user_apellido" type="text" autoComplete="family-name" enterKeyHint="next" placeholder="Ej: Pérez" value={newUserApellido} onChange={(e) => setNewUserApellido(e.target.value)} required />
                                             </div>
-                                            <div>
-                                                <label>Contraseña Temporal</label>
-                                                <input type="text" value={newUserPass} onChange={(e) => setNewUserPass(e.target.value)} required />
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                                            <div className="settings-field">
+                                                <label htmlFor="settings-new-user-pass">Contraseña Temporal</label>
+                                                <input id="settings-new-user-pass" name="new_user_pass" type="text" autoCorrect="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" aria-describedby="settings-user-pass-hint" value={newUserPass} onChange={(e) => setNewUserPass(e.target.value)} required />
+                                                <span id="settings-user-pass-hint" style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginTop: '-12px', marginBottom: '8px' }}>
                                                     ✉️ Se enviará automáticamente al correo junto con la guía de instalación.
                                                 </span>
                                             </div>
-                                            <div>
-                                                <label>Perfil / Rol</label>
-                                                <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value as any)}>
+                                            <div className="settings-field">
+                                                <label htmlFor="settings-new-user-role">Perfil / Rol</label>
+                                                <select id="settings-new-user-role" name="new_user_role" value={newUserRole} onChange={(e) => setNewUserRole(e.target.value as 'vaquero' | 'observador')}>
                                                     <option value="vaquero">Trabajador / Vaquero</option>
                                                     <option value="observador">Visualizador / Observador</option>
                                                 </select>
                                             </div>
                                         </div>
 
-                                        <label style={{ marginBottom: '12px', display: 'block' }}>Asignar a Fincas:</label>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', marginBottom: '24px', padding: '16px', backgroundColor: 'var(--surface-inset)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
-                                            {fincasAdmin.map((f: any) => (
-                                                <div key={f.id_finca} onClick={() => toggleFincaSelection(f.id_finca)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '6px', cursor: 'pointer', backgroundColor: selectedFincas.includes(f.id_finca) ? 'var(--primary-soft-bg)' : 'transparent', border: '1px solid', borderColor: selectedFincas.includes(f.id_finca) ? 'var(--primary)' : 'transparent' }}>
-                                                    {selectedFincas.includes(f.id_finca) ? <CheckSquare size={16} color="var(--primary)" /> : <Square size={16} color="var(--text-muted)" />}
-                                                    <span style={{ fontSize: '0.85rem' }}>{f.nombre_finca}</span>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        <fieldset className="settings-fieldset" style={{ marginBottom: '20px' }}>
+                                            <legend className="settings-legend" style={{ marginBottom: '10px' }}>Asignar a Fincas:</legend>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 180px), 1fr))', gap: '10px', padding: '14px', backgroundColor: 'var(--surface-inset)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+                                                {fincasAdmin.map((f: any) => {
+                                                    const isSelected = selectedFincas.includes(f.id_finca);
+                                                    return (
+                                                        <button
+                                                            key={f.id_finca}
+                                                            type="button"
+                                                            aria-pressed={isSelected}
+                                                            onClick={() => toggleFincaSelection(f.id_finca)}
+                                                            className="settings-finca-option"
+                                                            style={{
+                                                                backgroundColor: isSelected ? 'var(--primary-soft-bg)' : 'var(--surface)',
+                                                                color: 'var(--text-main)',
+                                                                border: '1px solid',
+                                                                borderColor: isSelected ? 'var(--primary)' : 'var(--border-subtle)'
+                                                            }}
+                                                        >
+                                                            {isSelected ? <CheckSquare size={18} color="var(--primary)" aria-hidden="true" /> : <Square size={18} color="var(--text-muted)" aria-hidden="true" />}
+                                                            <span style={{ fontSize: '0.88rem' }}>{f.nombre_finca}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </fieldset>
                                         <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', opacity: loading ? 0.65 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
-                                            <UserPlus size={18} /> {loading ? 'Creando Usuario...' : 'Crear Usuario'}
+                                            <UserPlus size={18} aria-hidden="true" /> {loading ? 'Creando Usuario...' : 'Crear Usuario'}
                                         </button>
                                         {userFormMsg && (
-                                            <div style={{
+                                            <div role={userFormMsg.type === 'error' ? 'alert' : 'status'} style={{
                                                 marginTop: '16px',
-                                                padding: '14px 18px',
+                                                padding: '14px 16px',
                                                 borderRadius: '10px',
                                                 fontSize: '0.9rem',
                                                 fontWeight: 600,
@@ -2321,79 +2681,120 @@ export default function Settings() {
                                             </div>
                                         )}
                                     </form>
-                                </div>
+                                </section>
                             )}
 
                             {/* Contactos de Negocio */}
                             {!collapsed.contactosNegocio && (
-                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <Briefcase size={20} color="var(--primary)" /> Contactos de Negocios
-                                    </h3>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                <section id="settings-panel-contactosNegocio" aria-labelledby="settings-heading-negocios" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                                    <h2 id="settings-heading-negocios" className="settings-section-heading">
+                                        <Briefcase size={20} color="var(--primary)" aria-hidden="true" /> Contactos de Negocios
+                                    </h2>
+                                    {renderInlineStatus('contactosNegocio')}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
                                         <div>
-                                            <h4 style={{ color: 'var(--primary-light)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={16}/> Propietarios</h4>
-                                            <form onSubmit={handleAddPropietario} style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                                                <input type="text" placeholder="Nuevo Propietario" value={nuevoPropietario} onChange={e => setNuevoPropietario(e.target.value)} style={{ margin: 0 }} />
-                                                <button type="submit" style={{ width: 'auto' }} disabled={loading}><Plus size={18}/></button>
+                                            <h3 style={{ color: 'var(--primary-light)', marginTop: 0, marginBottom: '12px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={16} aria-hidden="true" /> Propietarios</h3>
+                                            <form onSubmit={handleAddPropietario} className="settings-inline-add-form">
+                                                <label htmlFor="settings-nuevo-propietario" className="settings-visually-hidden">Nombre de nuevo propietario</label>
+                                                <input id="settings-nuevo-propietario" name="nuevo_propietario" type="text" enterKeyHint="done" placeholder="Nuevo Propietario" value={nuevoPropietario} onChange={e => setNuevoPropietario(e.target.value)} />
+                                                <button type="submit" className="settings-inline-add-btn" disabled={loading} aria-label="Agregar propietario">
+                                                    <Plus size={20} aria-hidden="true" />
+                                                </button>
                                             </form>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 210px), 1fr))', gap: '10px' }}>
                                                 {propietarios.map(p => (
-                                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>
-                                                        <span style={{ fontSize: '0.9rem' }}>{p.nombre}</span>
-                                                        <Trash2 size={16} style={{ cursor: 'pointer', color: 'var(--error)' }} onClick={() => removePropietario(p.id)} />
+                                                    <div key={p.id} className="settings-contact-chip">
+                                                        <span className="settings-contact-name">{p.nombre}</span>
+                                                        <button
+                                                            type="button"
+                                                            className="settings-icon-danger-btn"
+                                                            onClick={() => removePropietario(p.id, p.nombre)}
+                                                            aria-label={`Eliminar propietario ${p.nombre}`}
+                                                        >
+                                                            <Trash2 size={18} aria-hidden="true" />
+                                                        </button>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
+                                        <div className="settings-form-grid-wide" style={{ gap: '24px' }}>
                                             <div>
-                                                <h4 style={{ color: 'var(--primary-light)', marginBottom: '12px' }}><Truck size={16}/> Proveedores</h4>
-                                                <form onSubmit={handleAddProveedor} style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                                                    <input type="text" placeholder="Nuevo Proveedor" value={nuevoProveedor} onChange={e => setNuevoProveedor(e.target.value)} style={{ margin: 0 }} />
-                                                    <button type="submit" style={{ width: 'auto' }} disabled={loading}><Plus size={18}/></button>
+                                                <h3 style={{ color: 'var(--primary-light)', marginTop: 0, marginBottom: '12px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><Truck size={16} aria-hidden="true" /> Proveedores</h3>
+                                                <form onSubmit={handleAddProveedor} className="settings-inline-add-form">
+                                                    <label htmlFor="settings-nuevo-proveedor" className="settings-visually-hidden">Nombre de nuevo proveedor</label>
+                                                    <input id="settings-nuevo-proveedor" name="nuevo_proveedor" type="text" enterKeyHint="done" placeholder="Nuevo Proveedor" value={nuevoProveedor} onChange={e => setNuevoProveedor(e.target.value)} />
+                                                    <button type="submit" className="settings-inline-add-btn" disabled={loading} aria-label="Agregar proveedor">
+                                                        <Plus size={20} aria-hidden="true" />
+                                                    </button>
                                                 </form>
-                                                {proveedores.map(p => <div key={p.id} style={{ padding: '8px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)' }}>{p.nombre}<Trash2 size={14} style={{ color: 'var(--error)', cursor: 'pointer' }} onClick={() => removeProveedor(p.id)}/></div>)}
+                                                {proveedores.map(p => (
+                                                    <div key={p.id} className="settings-contact-list-row">
+                                                        <span className="settings-contact-name">{p.nombre}</span>
+                                                        <button
+                                                            type="button"
+                                                            className="settings-icon-danger-btn"
+                                                            onClick={() => removeProveedor(p.id, p.nombre)}
+                                                            aria-label={`Eliminar proveedor ${p.nombre}`}
+                                                        >
+                                                            <Trash2 size={18} aria-hidden="true" />
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
                                             <div>
-                                                <h4 style={{ color: 'var(--primary-light)', marginBottom: '12px' }}><ShoppingCart size={16}/> Compradores</h4>
-                                                <form onSubmit={handleAddComprador} style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                                                    <input type="text" placeholder="Nuevo Comprador" value={nuevoComprador} onChange={e => setNuevoComprador(e.target.value)} style={{ margin: 0 }} />
-                                                    <button type="submit" style={{ width: 'auto' }} disabled={loading}><Plus size={18}/></button>
+                                                <h3 style={{ color: 'var(--primary-light)', marginTop: 0, marginBottom: '12px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><ShoppingCart size={16} aria-hidden="true" /> Compradores</h3>
+                                                <form onSubmit={handleAddComprador} className="settings-inline-add-form">
+                                                    <label htmlFor="settings-nuevo-comprador" className="settings-visually-hidden">Nombre de nuevo comprador</label>
+                                                    <input id="settings-nuevo-comprador" name="nuevo_comprador" type="text" enterKeyHint="done" placeholder="Nuevo Comprador" value={nuevoComprador} onChange={e => setNuevoComprador(e.target.value)} />
+                                                    <button type="submit" className="settings-inline-add-btn" disabled={loading} aria-label="Agregar comprador">
+                                                        <Plus size={20} aria-hidden="true" />
+                                                    </button>
                                                 </form>
-                                                {compradores.map(c => <div key={c.id} style={{ padding: '8px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)' }}>{c.nombre}<Trash2 size={14} style={{ color: 'var(--error)', cursor: 'pointer' }} onClick={() => removeComprador(c.id)}/></div>)}
+                                                {compradores.map(c => (
+                                                    <div key={c.id} className="settings-contact-list-row">
+                                                        <span className="settings-contact-name">{c.nombre}</span>
+                                                        <button
+                                                            type="button"
+                                                            className="settings-icon-danger-btn"
+                                                            onClick={() => removeComprador(c.id, c.nombre)}
+                                                            aria-label={`Eliminar comprador ${c.nombre}`}
+                                                        >
+                                                            <Trash2 size={18} aria-hidden="true" />
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </section>
                             )}
 
                             {/* Cargas Masivas */}
                             {!collapsed.cargasMasivas && (
-                                <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <Upload size={20} color="var(--primary)" /> Carga Masiva (CSV)
-                                    </h3>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                                        <div style={{ padding: '20px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
-                                            <FileText size={24} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
-                                            <h4 style={{ marginBottom: '8px' }}>Inventario</h4>
-                                            <button onClick={() => document.getElementById('bulkAnimalSettings')?.click()} style={{ width: '100%', marginBottom: '10px' }}>Subir CSV</button>
-                                            <a href="/plantilla_animales.csv" download style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>Plantilla</a>
+                                <section id="settings-panel-cargasMasivas" aria-labelledby="settings-heading-cargas" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                                    <h2 id="settings-heading-cargas" className="settings-section-heading">
+                                        <Upload size={20} color="var(--primary)" aria-hidden="true" /> Carga Masiva (CSV)
+                                    </h2>
+                                    <div className="settings-form-grid">
+                                        <div style={{ padding: '18px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                                            <FileText size={24} color="var(--primary)" aria-hidden="true" />
+                                            <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Inventario</h3>
+                                            <button type="button" onClick={() => document.getElementById('bulkAnimalSettings')?.click()} style={{ width: '100%' }}>Subir CSV</button>
+                                            <a href="/plantilla_animales.csv" download className="settings-plantilla-link">Descargar Plantilla</a>
                                             <input type="file" id="bulkAnimalSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkAnimalUpload} />
                                         </div>
-                                        <div style={{ padding: '20px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
-                                            <Maximize size={24} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
-                                            <h4 style={{ marginBottom: '8px' }}>Pesajes</h4>
-                                            <button onClick={() => document.getElementById('bulkPesajeSettings')?.click()} style={{ width: '100%', marginBottom: '10px' }}>Subir CSV</button>
-                                            <a href="/plantilla_pesajes.csv" download style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>Plantilla</a>
+                                        <div style={{ padding: '18px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                                            <Maximize size={24} color="var(--primary)" aria-hidden="true" />
+                                            <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Pesajes</h3>
+                                            <button type="button" onClick={() => document.getElementById('bulkPesajeSettings')?.click()} style={{ width: '100%' }}>Subir CSV</button>
+                                            <a href="/plantilla_pesajes.csv" download className="settings-plantilla-link">Descargar Plantilla</a>
                                             <input type="file" id="bulkPesajeSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkPesajeUpload} />
                                         </div>
-                                        <div style={{ padding: '20px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
-                                            <Upload size={24} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
-                                            <h4 style={{ marginBottom: '8px' }}>Rotaciones</h4>
-                                            <button onClick={() => document.getElementById('bulkRotacionSettings')?.click()} style={{ width: '100%', marginBottom: '10px' }}>Subir CSV</button>
-                                            <a href="/plantilla_rotaciones_potreros.csv" download style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>Plantilla</a>
+                                        <div style={{ padding: '18px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                                            <Upload size={24} color="var(--primary)" aria-hidden="true" />
+                                            <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Rotaciones</h3>
+                                            <button type="button" onClick={() => document.getElementById('bulkRotacionSettings')?.click()} style={{ width: '100%' }}>Subir CSV</button>
+                                            <a href="/plantilla_rotaciones_potreros.csv" download className="settings-plantilla-link">Descargar Plantilla</a>
                                             <input type="file" id="bulkRotacionSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkRotacionesUpload} />
                                         </div>
                                     </div>
@@ -2401,36 +2802,36 @@ export default function Settings() {
                                     {/* Tabla de Cargas Masivas de Hoy */}
                                     <div style={{ marginTop: '28px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                            <h4 style={{ fontSize: '1rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                                            <h3 id="cargas-hoy-heading" style={{ fontSize: '1rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                                                 <span>Cargas Masivas Realizadas Hoy</span>
                                                 <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
                                                     {cargasMasivasHoy.length}
                                                 </span>
-                                            </h4>
+                                            </h3>
                                         </div>
-                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
-                                            Si cometiste un error al cargar datos hoy, puedes revertir la carga haciendo clic en la papelera. Esta opción de deshacer está disponible únicamente durante el día de la carga (a medianoche se cierra automáticamente por seguridad).
+                                        <p className="settings-helper-text" style={{ marginBottom: '14px' }}>
+                                            Si cometiste un error al cargar datos hoy, puedes revertir la carga. Esta opción está disponible únicamente durante el día de la carga (a medianoche se cierra por seguridad).
                                         </p>
                                         {cargasMasivasHoy.length === 0 ? (
                                             <div style={{ padding: '18px', textAlign: 'center', backgroundColor: 'var(--surface-inset)', borderRadius: '8px', border: '1px dashed var(--border-strong)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                                                 No se han realizado cargas masivas el día de hoy.
                                             </div>
                                         ) : (
-                                            <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-                                                    <thead style={{ backgroundColor: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+                                            <div tabIndex={0} role="region" aria-labelledby="cargas-hoy-heading" className="settings-table-wrapper">
+                                                <table>
+                                                    <thead>
                                                         <tr>
-                                                            <th style={{ padding: '10px 14px' }}>Tipo</th>
-                                                            <th style={{ padding: '10px 14px' }}>Archivo</th>
-                                                            <th style={{ padding: '10px 14px' }}>Registros</th>
-                                                            <th style={{ padding: '10px 14px' }}>Hora</th>
-                                                            <th style={{ padding: '10px 14px', textAlign: 'right' }}>Deshacer</th>
+                                                            <th scope="col">Tipo</th>
+                                                            <th scope="col">Archivo</th>
+                                                            <th scope="col">Registros</th>
+                                                            <th scope="col">Hora</th>
+                                                            <th scope="col" style={{ textAlign: 'right' }}>Deshacer</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {cargasMasivasHoy.map(c => (
-                                                            <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                                                <td style={{ padding: '10px 14px' }}>
+                                                            <tr key={c.id}>
+                                                                <td data-label="Tipo">
                                                                     <span style={{
                                                                         padding: '3px 8px',
                                                                         borderRadius: '6px',
@@ -2443,30 +2844,19 @@ export default function Settings() {
                                                                         {c.tipo === 'animales' ? 'Inventario' : 'Pesajes'}
                                                                     </span>
                                                                 </td>
-                                                                <td style={{ padding: '10px 14px', fontWeight: '500' }}>{c.nombre_archivo || 'Archivo CSV'}</td>
-                                                                <td style={{ padding: '10px 14px' }}>{c.total_registros}</td>
-                                                                <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
+                                                                <td data-label="Archivo" style={{ fontWeight: '500', overflowWrap: 'anywhere' }}>{c.nombre_archivo || 'Archivo CSV'}</td>
+                                                                <td data-label="Registros">{c.total_registros}</td>
+                                                                <td data-label="Hora" style={{ color: 'var(--text-muted)' }}>
                                                                     {new Date(c.creado_en).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </td>
-                                                                <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                                                                <td className="settings-table-actions" style={{ textAlign: 'right' }}>
                                                                     <button
+                                                                        type="button"
                                                                         onClick={() => handleRevertirCargaMasiva(c)}
-                                                                        title="Deshacer esta carga masiva"
-                                                                        style={{
-                                                                            padding: '6px 10px',
-                                                                            borderRadius: '6px',
-                                                                            backgroundColor: 'var(--error-soft-bg)',
-                                                                            border: '1px solid var(--error-soft-border)',
-                                                                            color: 'var(--error)',
-                                                                            cursor: 'pointer',
-                                                                            display: 'inline-flex',
-                                                                            alignItems: 'center',
-                                                                            gap: '6px',
-                                                                            fontSize: '0.8rem',
-                                                                            fontWeight: 500
-                                                                        }}
+                                                                        aria-label={`Deshacer carga masiva ${c.nombre_archivo || 'Archivo CSV'}`}
+                                                                        className="settings-revert-btn"
                                                                     >
-                                                                        <Trash2 size={15} />
+                                                                        <Trash2 size={16} aria-hidden="true" />
                                                                         <span>Deshacer</span>
                                                                     </button>
                                                                 </td>
@@ -2477,11 +2867,11 @@ export default function Settings() {
                                             </div>
                                         )}
                                     </div>
-                                </div>
+                                </section>
                             )}
-                        </div>
-                    </>
-                )}
+                        </>
+                    )}
+                </div>
             </div>
 
             {loading && (
