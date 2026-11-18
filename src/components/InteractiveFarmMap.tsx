@@ -6,6 +6,7 @@ import {
   ArrowRightLeft,
   Info,
   Layers,
+  LocateFixed,
   Lock,
   Maximize2,
   Minus,
@@ -301,6 +302,14 @@ function createBadgeMarker(center: L.LatLng, html: string, onClick: () => void):
   return marker;
 }
 
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   potreros,
   zonasAdicionales = [],
@@ -321,9 +330,16 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   const badgesGroupRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const farmBoundsRef = useRef<L.LatLngBounds | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const gpsTrackingRef = useRef(false);
+  const gpsFollowPausedRef = useRef(false);
+  const hasCenteredFirstFixRef = useRef(false);
+  const lastCenteredCoordsRef = useRef<L.LatLng | null>(null);
 
   const [mapType, setMapType] = useState<MapLayerMode>('satellite');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [gpsTracking, setGpsTracking] = useState(false);
+  const [gpsFollowPaused, setGpsFollowPaused] = useState(false);
   const [currentPaddock, setCurrentPaddock] = useState<PotreroMapData | null>(null);
   const [currentSpecialZone, setCurrentSpecialZone] = useState<ZonaAdicionalMapData | null>(null);
   const [selectedPotrero, setSelectedPotrero] = useState<PotreroMapData | null>(null);
@@ -372,6 +388,13 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         setCurrentZoom(map.getZoom());
       });
 
+      map.on('dragstart', () => {
+        if (gpsTrackingRef.current && !gpsFollowPausedRef.current) {
+          gpsFollowPausedRef.current = true;
+          setGpsFollowPaused(true);
+        }
+      });
+
       const polyGroup = L.featureGroup().addTo(map);
       const badgeGroup = L.layerGroup().addTo(map);
       polygonsGroupRef.current = polyGroup;
@@ -384,12 +407,18 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     }
 
     return () => {
+      if (watchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         polygonsGroupRef.current = null;
         badgesGroupRef.current = null;
         tileLayerRef.current = null;
+        userMarkerRef.current = null;
+        userAccuracyCircleRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -677,9 +706,78 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     setMapType(next);
   };
 
+  const stopGpsTracking = useCallback((clearVisuals = true) => {
+    if (watchIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    gpsTrackingRef.current = false;
+    gpsFollowPausedRef.current = false;
+    hasCenteredFirstFixRef.current = false;
+    lastCenteredCoordsRef.current = null;
+    setGpsTracking(false);
+    setGpsFollowPaused(false);
+    setGpsLoading(false);
+
+    if (clearVisuals) {
+      const map = mapInstanceRef.current;
+      if (map) {
+        if (userMarkerRef.current) {
+          map.removeLayer(userMarkerRef.current);
+          userMarkerRef.current = null;
+        }
+        if (userAccuracyCircleRef.current) {
+          map.removeLayer(userAccuracyCircleRef.current);
+          userAccuracyCircleRef.current = null;
+        }
+      }
+      setUserLocation(null);
+      setCurrentPaddock(null);
+      setCurrentSpecialZone(null);
+    }
+  }, []);
+
+  // Si la licencia deja de ser Premium mientras sigue el GPS, detener el watcher
+  useEffect(() => {
+    if (tipoLicencia !== 'premium' && gpsTrackingRef.current) {
+      stopGpsTracking(true);
+    }
+  }, [tipoLicencia, stopGpsTracking]);
+
+  // Detectar en vivo potrero o zona especial cada vez que cambia ubicación o inventario
+  useEffect(() => {
+    if (tipoLicencia !== 'premium' || !userLocation) {
+      setCurrentPaddock(null);
+      setCurrentSpecialZone(null);
+      return;
+    }
+
+    const foundPotrero = findCurrentPaddockByGps(userLocation.lat, userLocation.lng, potreros);
+    if (foundPotrero) {
+      const fullPotrero = potreros.find((p) => p.id === foundPotrero.id) || null;
+      setCurrentPaddock(fullPotrero);
+      setCurrentSpecialZone(null);
+      return;
+    }
+
+    setCurrentPaddock(null);
+    const foundZone = findCurrentPaddockByGps(userLocation.lat, userLocation.lng, zonasAdicionales);
+    if (foundZone) {
+      const fullZone = zonasAdicionales.find((z) => z.id === foundZone.id) || null;
+      setCurrentSpecialZone(fullZone);
+    } else {
+      setCurrentSpecialZone(null);
+    }
+  }, [userLocation, potreros, zonasAdicionales, tipoLicencia]);
+
   const handleFitFarmBounds = () => {
     const map = mapInstanceRef.current;
     if (!map) return;
+    // Al pedir vista panorámica, pausar el auto-centrado para que el siguiente tick GPS no devuelva la cámara
+    if (gpsTrackingRef.current) {
+      gpsFollowPausedRef.current = true;
+      setGpsFollowPaused(true);
+    }
     if (farmBoundsRef.current && farmBoundsRef.current.isValid()) {
       map.fitBounds(farmBoundsRef.current, { padding: isMobile ? [20, 20] : [40, 40], maxZoom: 17 });
     } else {
@@ -687,12 +785,82 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     }
   };
 
-  // Manejar Geolocalización GPS del Usuario (Exclusivo Plan Premium)
-  const handleTrackGps = () => {
+  const centerMapOnCoords = useCallback((coords: [number, number], ensureDetailZoom = false) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const noMotion = prefersReducedMotion();
+    if (ensureDetailZoom && map.getZoom() < 16) {
+      map.setView(coords, 17, { animate: !noMotion, duration: noMotion ? 0 : 0.65 });
+    } else {
+      map.panTo(coords, { animate: !noMotion, duration: noMotion ? 0 : 0.45 });
+    }
+    lastCenteredCoordsRef.current = L.latLng(coords[0], coords[1]);
+  }, []);
+
+  const applyGpsPosition = useCallback(
+    (pos: GeolocationPosition) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      const coords: [number, number] = [latitude, longitude];
+      const nextLatLng = L.latLng(latitude, longitude);
+
+      setUserLocation({ lat: latitude, lng: longitude, accuracy });
+      setGpsLoading(false);
+
+      const map = mapInstanceRef.current;
+      if (!map) return;
+
+      if (!userMarkerRef.current) {
+        const userIcon = L.divIcon({
+          html: `
+            <div class="farm-map-user-marker">
+              <div class="farm-map-user-pulse"></div>
+              <div class="farm-map-user-dot"></div>
+            </div>
+          `,
+          className: '',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        userMarkerRef.current = L.marker(coords, { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
+      } else {
+        userMarkerRef.current.setLatLng(coords);
+      }
+
+      if (!userAccuracyCircleRef.current) {
+        userAccuracyCircleRef.current = L.circle(coords, {
+          radius: accuracy,
+          color: '#3B82F6',
+          fillColor: '#3B82F6',
+          fillOpacity: 0.14,
+          weight: 1,
+        }).addTo(map);
+      } else {
+        userAccuracyCircleRef.current.setLatLng(coords);
+        userAccuracyCircleRef.current.setRadius(accuracy);
+      }
+
+      if (!gpsFollowPausedRef.current) {
+        if (!hasCenteredFirstFixRef.current) {
+          hasCenteredFirstFixRef.current = true;
+          centerMapOnCoords(coords, true);
+        } else {
+          const prev = lastCenteredCoordsRef.current;
+          const movedMeters = prev ? prev.distanceTo(nextLatLng) : Infinity;
+          if (movedMeters >= 4) {
+            centerMapOnCoords(coords, false);
+          }
+        }
+      }
+    },
+    [centerMapOnCoords]
+  );
+
+  // Activar/desactivar seguimiento continuo GPS (Modo Vuelta)
+  const handleToggleGps = () => {
     if (tipoLicencia !== 'premium') {
       showNotice({
         type: 'warning',
-        message: 'La ubicación GPS en campo está disponible en el Plan Premium.',
+        message: 'El seguimiento GPS en vivo está disponible en el Plan Premium.',
         actionLabel: 'Ver Planes',
         onAction: () => {
           window.location.href = '/suscripcion';
@@ -709,97 +877,61 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
       return;
     }
 
-    setGpsLoading(true);
+    if (gpsTrackingRef.current) {
+      stopGpsTracking(true);
+      return;
+    }
+
     setMapNotice(null);
+    setGpsLoading(true);
+    gpsTrackingRef.current = true;
+    gpsFollowPausedRef.current = false;
+    hasCenteredFirstFixRef.current = false;
+    lastCenteredCoordsRef.current = null;
+    setGpsTracking(true);
+    setGpsFollowPaused(false);
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        const coords: [number, number] = [latitude, longitude];
-
-        setUserLocation({ lat: latitude, lng: longitude, accuracy });
-        setGpsLoading(false);
-
-        const map = mapInstanceRef.current;
-        if (!map) return;
-
-        map.flyTo(coords, 17, { animate: true, duration: 1.5 });
-
-        if (!userMarkerRef.current) {
-          const userIcon = L.divIcon({
-            html: `
-              <div style="position: relative; width: 22px; height: 22px;">
-                <div style="
-                  position: absolute;
-                  width: 22px;
-                  height: 22px;
-                  background-color: #3B82F6;
-                  border-radius: 50%;
-                  opacity: 0.4;
-                  animation: pulse 2s infinite;
-                "></div>
-                <div style="
-                  position: absolute;
-                  top: 3px;
-                  left: 3px;
-                  width: 16px;
-                  height: 16px;
-                  background-color: #2563EB;
-                  border: 2px solid #FFFFFF;
-                  border-radius: 50%;
-                  box-shadow: 0 0 8px rgba(37, 99, 235, 0.8);
-                "></div>
-              </div>
-            `,
-            className: '',
-            iconSize: [22, 22],
-            iconAnchor: [11, 11],
-          });
-
-          userMarkerRef.current = L.marker(coords, { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
-        } else {
-          userMarkerRef.current.setLatLng(coords);
-        }
-
-        if (userAccuracyCircleRef.current) {
-          map.removeLayer(userAccuracyCircleRef.current);
-        }
-
-        userAccuracyCircleRef.current = L.circle(coords, {
-          radius: accuracy,
-          color: '#3B82F6',
-          fillColor: '#3B82F6',
-          fillOpacity: 0.15,
-          weight: 1,
-        }).addTo(map);
-
-        const foundPotrero = findCurrentPaddockByGps(latitude, longitude, potreros);
-        if (foundPotrero) {
-          const fullPotrero = potreros.find((p) => p.id === foundPotrero.id) || null;
-          setCurrentPaddock(fullPotrero);
-          setCurrentSpecialZone(null);
-        } else {
-          setCurrentPaddock(null);
-          const foundZone = findCurrentPaddockByGps(latitude, longitude, zonasAdicionales);
-          if (foundZone) {
-            const fullZone = zonasAdicionales.find((z) => z.id === foundZone.id) || null;
-            setCurrentSpecialZone(fullZone);
-          } else {
-            setCurrentSpecialZone(null);
-          }
-        }
-      },
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      applyGpsPosition,
       (err) => {
+        if (err.code === 1) {
+          stopGpsTracking(true);
+          showNotice({
+            type: 'error',
+            message: 'Permiso de GPS denegado. Habilita la ubicación en tu navegador o celular.',
+          });
+          return;
+        }
+
+        if (!hasCenteredFirstFixRef.current) {
+          stopGpsTracking(true);
+          showNotice({
+            type: 'error',
+            message: `No se pudo fijar tu posición GPS: ${err.message}`,
+            actionLabel: 'Reintentar',
+            onAction: handleToggleGps,
+          });
+          return;
+        }
+
+        // Fallo puntual en recorrido (ej. bajo árboles): conservar seguimiento activo
         setGpsLoading(false);
         showNotice({
-          type: 'error',
-          message: `No se pudo obtener tu GPS: ${err.message}`,
-          actionLabel: 'Reintentar',
-          onAction: handleTrackGps,
+          type: 'warning',
+          message: 'Señal GPS débil momentánea; manteniendo seguimiento en recorrido.',
         });
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
     );
+  };
+
+  const handleRecenterGps = () => {
+    gpsFollowPausedRef.current = false;
+    setGpsFollowPaused(false);
+    if (userLocation) {
+      const map = mapInstanceRef.current;
+      centerMapOnCoords([userLocation.lat, userLocation.lng], map ? map.getZoom() < 15.5 : false);
+    }
   };
 
   const hasOpenSheet = Boolean(selectedPotrero || selectedZona);
@@ -819,47 +951,72 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
       {/* Controles principales: arriba en PC, zona del pulgar abajo en móvil/tablet */}
       <div className="farm-map-topbar">
-        <button
-          type="button"
-          className={`farm-map-btn farm-map-gps-btn ${
-            tipoLicencia === 'premium' ? 'farm-map-gps-btn--premium' : 'farm-map-gps-btn--locked'
-          }`}
-          onClick={handleTrackGps}
-          disabled={gpsLoading}
-          aria-label="Ubicar mi posición GPS en el mapa"
-        >
-          {tipoLicencia !== 'premium' ? (
-            <>
-              <Lock size={15} color="var(--warning)" aria-hidden="true" />
-              <span>{isMobile ? 'GPS' : 'GPS (Plan Premium)'}</span>
-            </>
-          ) : gpsLoading ? (
-            <>
-              <RefreshCw className="animate-spin" size={16} aria-hidden="true" />
-              <span>{isMobile ? 'Buscando...' : 'Localizando GPS...'}</span>
-            </>
-          ) : (
-            <>
-              <Navigation
-                size={16}
-                aria-hidden="true"
-                style={{
-                  color: userLocation ? '#67E8F9' : '#FFFFFF',
-                  transform: userLocation ? 'rotate(45deg)' : 'none',
-                  transition: 'transform 0.3s ease',
-                }}
-              />
-              <span>{isMobile ? 'Mi GPS' : 'Mi Ubicación GPS'}</span>
-              {userLocation && (
-                <span
-                  title="GPS Activo"
+        <div className="farm-map-left-controls">
+          <button
+            type="button"
+            className={`farm-map-btn farm-map-gps-btn ${
+              tipoLicencia !== 'premium'
+                ? 'farm-map-gps-btn--locked'
+                : gpsTracking
+                ? 'farm-map-gps-btn--active'
+                : 'farm-map-gps-btn--premium'
+            }`}
+            onClick={handleToggleGps}
+            aria-pressed={tipoLicencia === 'premium' ? gpsTracking : undefined}
+            aria-busy={gpsLoading}
+            aria-label={
+              tipoLicencia !== 'premium'
+                ? 'GPS disponible en Plan Premium'
+                : gpsTracking
+                ? 'Desactivar seguimiento GPS continuo'
+                : 'Activar seguimiento GPS continuo'
+            }
+          >
+            {tipoLicencia !== 'premium' ? (
+              <>
+                <Lock size={15} color="var(--warning)" aria-hidden="true" />
+                <span>{isMobile ? 'GPS' : 'GPS (Plan Premium)'}</span>
+              </>
+            ) : gpsLoading ? (
+              <>
+                <RefreshCw className="animate-spin" size={16} aria-hidden="true" />
+                <span>{isMobile ? 'Buscando...' : 'Localizando GPS...'}</span>
+              </>
+            ) : (
+              <>
+                <Navigation
+                  size={16}
                   aria-hidden="true"
-                  className="farm-map-gps-dot"
+                  style={{
+                    color: gpsTracking ? '#A7F3D0' : '#FFFFFF',
+                    transform: gpsTracking ? 'rotate(45deg)' : 'none',
+                    transition: 'transform 0.25s ease',
+                  }}
                 />
-              )}
-            </>
+                <span>Seguir GPS</span>
+                {gpsTracking && (
+                  <span
+                    title="Seguimiento GPS en vivo activo"
+                    aria-hidden="true"
+                    className="farm-map-gps-dot"
+                  />
+                )}
+              </>
+            )}
+          </button>
+
+          {gpsTracking && gpsFollowPaused && (
+            <button
+              type="button"
+              className="farm-map-btn farm-map-recenter-btn"
+              onClick={handleRecenterGps}
+              aria-label="Recentrar mapa en mi ubicación"
+            >
+              <LocateFixed size={16} aria-hidden="true" />
+              <span>Recentrar</span>
+            </button>
           )}
-        </button>
+        </div>
 
         <div className="farm-map-right-controls">
           <button
@@ -981,91 +1138,112 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         )}
       </div>
 
-      {/* Banner de Estado GPS / Ubicación Actual (Solo Premium, posicionado bajo la barra superior) */}
-      {tipoLicencia === 'premium' && currentPaddock && (
+      {/* HUD en Vivo de Ubicación Actual (Modo Vuelta) */}
+      {tipoLicencia === 'premium' && gpsTracking && currentPaddock && (
         <div
           className="farm-map-gps-banner"
-          style={{
-            backgroundColor: 'var(--bg-elevated)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid var(--info)',
-            borderRadius: '16px',
-            padding: '10px 18px',
-            color: 'var(--text-main)',
-            fontSize: '0.82rem',
-            boxShadow: 'var(--shadow-popover)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-            gap: '5px',
-          }}
+          role="region"
+          aria-label="Potrero actual detectado por GPS"
         >
-          {/* Fila 1: dónde estás */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.88rem' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--info)', flexShrink: 0 }} />
-            📍 Estás en: <span style={{ color: 'var(--info)' }}>{currentPaddock.nombre}</span>
-            <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.78rem' }}>{currentPaddock.area_hectareas} Ha</span>
+          <div className="farm-map-gps-banner-top">
+            <div className="farm-map-gps-banner-title">
+              <span
+                aria-hidden="true"
+                style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--info)', flexShrink: 0 }}
+              />
+              <span>
+                Estás en: <span style={{ color: 'var(--info)' }}>{currentPaddock.nombre}</span>
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.78rem' }}>
+                {currentPaddock.area_hectareas} Ha
+              </span>
+              {userLocation && (
+                <span className="farm-map-gps-accuracy">±{Math.round(userLocation.accuracy)} m</span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="farm-map-gps-hud-btn"
+              onClick={() => {
+                setSelectedZona(null);
+                setSelectedPotrero(currentPaddock);
+              }}
+            >
+              Ver ficha
+            </button>
           </div>
-          {currentPaddock.potrerada_actual && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '18px' }}>
-              {/* Fila 2: animales */}
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-                <span>🐄 <strong style={{ color: 'var(--text-main)' }}>{currentPaddock.potrerada_actual.total_animales} animales</strong></span>
-                <span>⏱️ <strong>{currentPaddock.potrerada_actual.dias_en_potrero} días</strong></span>
+
+          {currentPaddock.potrerada_actual ? (
+            <>
+              <div className="farm-map-gps-metrics">
+                <span>🐄 <strong style={{ color: 'var(--text-main)' }}>{currentPaddock.potrerada_actual.total_animales} cab.</strong></span>
+                <span>⏱️ <strong>{currentPaddock.potrerada_actual.dias_en_potrero}d</strong></span>
                 <span>⚖️ Prom: <strong>{currentPaddock.potrerada_actual.peso_promedio} kg</strong></span>
                 <span>📈 Est: <strong>{currentPaddock.potrerada_actual.peso_promedio_estimado} kg</strong></span>
               </div>
-              {/* Fila 3: marcas / propietarios */}
               {currentPaddock.potrerada_actual.marcas && currentPaddock.potrerada_actual.marcas.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <div className="farm-map-gps-marcas">
                   <span>🏷️ Marca{currentPaddock.potrerada_actual.marcas.length > 1 ? 's' : ''}:</span>
                   {currentPaddock.potrerada_actual.marcas.map((m, i) => (
-                    <span key={i} style={{
-                      backgroundColor: 'var(--info-soft-bg)',
-                      color: 'var(--info)',
-                      border: '1px solid var(--info-soft-border)',
-                      padding: '1px 7px',
-                      borderRadius: '99px',
-                      fontWeight: 600,
-                      fontSize: '0.72rem',
-                    }}>{m}</span>
+                    <span key={i} className="farm-map-gps-marca-pill">{m}</span>
                   ))}
                 </div>
               )}
+            </>
+          ) : (
+            <div className="farm-map-gps-metrics">
+              <span>🌱 Potrero libre / en descanso</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Banner de Zona Especial Actual (Solo Premium, posicionado en la parte superior) */}
-      {tipoLicencia === 'premium' && !currentPaddock && currentSpecialZone && (() => {
+      {/* HUD de Zona Especial Actual */}
+      {tipoLicencia === 'premium' && gpsTracking && !currentPaddock && currentSpecialZone && (() => {
         const meta = ZONA_META_BY_TIPO[currentSpecialZone.tipo] || ZONA_META_BY_TIPO.otro;
         return (
           <div
             className="farm-map-gps-banner"
-            style={{
-              backgroundColor: 'var(--bg-elevated)',
-              backdropFilter: 'blur(10px)',
-              border: `1.5px solid ${meta.themeVar}`,
-              borderRadius: '20px',
-              padding: '10px 18px',
-              color: 'var(--text-main)',
-              fontSize: '0.85rem',
-              boxShadow: 'var(--shadow-popover)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontWeight: 700,
-            }}
+            style={{ borderColor: meta.themeVar }}
+            role="region"
+            aria-label="Zona especial actual detectada por GPS"
           >
-            <span>
-              📍 Estás en: <span style={{ color: meta.themeVar }}>
-                {meta.icon} {currentSpecialZone.nombre}
-              </span> ({currentSpecialZone.area_hectareas} Ha &bull; {meta.longLabel})
-            </span>
+            <div className="farm-map-gps-banner-top">
+              <div className="farm-map-gps-banner-title">
+                <span>
+                  📍 Estás en: <span style={{ color: meta.themeVar }}>
+                    {meta.icon} {currentSpecialZone.nombre}
+                  </span> ({currentSpecialZone.area_hectareas} Ha &bull; {meta.longLabel})
+                </span>
+              </div>
+              <button
+                type="button"
+                className="farm-map-gps-hud-btn"
+                onClick={() => {
+                  setSelectedPotrero(null);
+                  setSelectedZona(currentSpecialZone);
+                }}
+              >
+                Ver
+              </button>
+            </div>
           </div>
         );
       })()}
+
+      {/* HUD cuando estás en camino o fuera de polígonos delimitados */}
+      {tipoLicencia === 'premium' && gpsTracking && userLocation && !currentPaddock && !currentSpecialZone && (
+        <div
+          className="farm-map-gps-banner farm-map-gps-banner--corridor"
+          role="region"
+          aria-label="Estado de recorrido GPS"
+        >
+          <span style={{ fontWeight: 600 }}>
+            📍 En recorrido · Fuera de potrero delimitado
+          </span>
+          <span className="farm-map-gps-accuracy">±{Math.round(userLocation.accuracy)} m</span>
+        </div>
+      )}
 
       {/* Drawer / Modal de Detalle de Potrero Seleccionado */}
       {selectedPotrero && (

@@ -253,6 +253,87 @@
   box-shadow: var(--shadow-card);
 }
 
+.farm-map-gps-btn--active {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  border: 1.5px solid #6ee7b7;
+  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.farm-map-gps-btn--active:hover:not(:disabled) {
+  background: linear-gradient(135deg, #065f46 0%, #064e3b 100%);
+}
+
+.farm-map-left-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: auto;
+}
+
+.farm-map-recenter-btn {
+  background-color: var(--bg-elevated);
+  border: 1.5px solid #2563eb;
+  color: var(--info);
+  padding: 8px 14px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-popover);
+}
+
+.farm-map-recenter-btn:hover:not(:disabled) {
+  background-color: var(--info-soft-bg);
+  color: var(--info);
+}
+
+/* Marcador GPS del usuario en vivo (solo opacity/transform en compositor) */
+.farm-map-user-marker {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+
+.farm-map-user-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: #3b82f6;
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .farm-map-user-pulse {
+    animation: farmMapGpsPulse 2s ease-out infinite;
+  }
+}
+
+@keyframes farmMapGpsPulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+.farm-map-user-dot {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  background-color: #2563eb;
+  border: 2.5px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.85);
+}
+
 .farm-map-gps-dot {
   width: 8px;
   height: 8px;
@@ -378,8 +459,106 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 999;
-  max-width: 92%;
+  max-width: min(520px, 92%);
   box-sizing: border-box;
+  background-color: var(--bg-elevated);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1.5px solid var(--info);
+  border-radius: 16px;
+  padding: 10px 14px;
+  color: var(--text-main);
+  font-size: 0.84rem;
+  box-shadow: var(--shadow-popover);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.farm-map-gps-banner--corridor {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+
+.farm-map-gps-banner-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.farm-map-gps-banner-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.farm-map-gps-accuracy {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.farm-map-gps-hud-btn {
+  width: auto;
+  min-block-size: 36px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  background-color: var(--info);
+  color: var(--on-primary);
+  flex-shrink: 0;
+}
+
+.farm-map-gps-hud-btn:hover:not(:disabled) {
+  transform: none;
+  filter: brightness(0.95);
+}
+
+.farm-map-gps-metrics {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  padding-left: 17px;
+}
+
+.farm-map-gps-marcas {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-left: 17px;
+}
+
+.farm-map-gps-marca-pill {
+  background-color: var(--info-soft-bg);
+  color: var(--info);
+  border: 1px solid var(--info-soft-border);
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.72rem;
 }
 
 /* Toast no bloqueante dentro del mapa */
@@ -610,7 +789,8 @@
   }
 
   .farm-map-layers-btn,
-  .farm-map-kmz-btn {
+  .farm-map-kmz-btn,
+  .farm-map-recenter-btn {
     padding: 10px 14px;
     font-size: 0.86rem;
   }
@@ -662,8 +842,7 @@
   }
 
   .farm-map-wrapper--sheet-open .farm-map-gps-banner {
-    top: 124px;
-    right: 12px;
+    display: none;
   }
 
   .farm-map-toast-region {
@@ -731,10 +910,16 @@
 @media (pointer: coarse) {
   .farm-map-layers-btn,
   .farm-map-gps-btn,
+  .farm-map-recenter-btn,
+  .farm-map-gps-hud-btn,
   .farm-map-sheet-close,
   .farm-map-zoom-btn,
   .farm-map-toast-close {
     min-block-size: 48px;
+  }
+
+  .farm-map-gps-hud-btn {
+    min-block-size: 44px;
   }
 }
 
