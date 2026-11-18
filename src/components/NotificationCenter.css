@@ -1,6 +1,6 @@
 .notification-center {
     position: relative;
-    margin-right: 16px;
+    margin-right: 4px;
 }
 
 .notification-btn {
@@ -31,7 +31,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    border: 1.5px solid #1a1a1a;
+    border: 1.5px solid var(--bg-dark-paper);
     box-shadow: 0 0 8px rgba(244, 67, 54, 0.4);
 }
 
@@ -41,11 +41,10 @@
     right: 0;
     width: 360px;
     max-width: calc(100vw - 32px); /* Evita que se salga en móviles */
-    background: #1a1a1a;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
     border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5),
-                0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: var(--shadow-popover);
     z-index: 1000;
     overflow: hidden;
     animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -97,18 +96,18 @@
 
 .notification-header {
     padding: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--surface-subtle);
 }
 
 .notification-header h3 {
     margin: 0;
     font-size: 16px;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--text-main);
 }
 
 .notification-list {
@@ -118,7 +117,7 @@
 
 .notification-item {
     padding: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     gap: 12px;
     cursor: pointer;
@@ -126,11 +125,11 @@
 }
 
 .notification-item:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-subtle-hover);
 }
 
 .notification-item.unread {
-    background: rgba(76, 175, 80, 0.05);
+    background: var(--primary-soft-bg);
 }
 
 .notification-icon-wrapper {
@@ -150,7 +149,7 @@
 .notification-title {
     font-size: 0.85rem;
     font-weight: 600;
-    color: white;
+    color: var(--text-main);
     margin-bottom: 4px;
 }
 
@@ -170,7 +169,7 @@
 .notification-footer {
     padding: 12px;
     text-align: center;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--border-subtle);
 }
 
 .notification-footer-btn {
@@ -191,18 +190,18 @@
 }
 
 /* Tipos de notificaciones */
-.notification-success { background: rgba(76, 175, 80, 0.15); color: var(--success); }
-.notification-warning { background: rgba(255, 152, 0, 0.15); color: var(--warning); }
-.notification-error { background: rgba(244, 67, 54, 0.15); color: var(--error); }
-.notification-info { background: rgba(33, 150, 243, 0.15); color: #2196f3; }
+.notification-success { background: var(--success-soft-bg); color: var(--success); }
+.notification-warning { background: var(--warning-soft-bg); color: var(--warning); }
+.notification-error { background: var(--error-soft-bg); color: var(--error); }
+.notification-info { background: var(--info-soft-bg); color: var(--info); }
 
 /* Agrupación por Fincas */
 .notification-finca-group {
-    border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+    border-bottom: 2px solid var(--border-subtle);
 }
 
 .notification-finca-header {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-subtle);
     padding: 10px 16px;
     font-size: 0.65rem;
     font-weight: 800;
@@ -211,7 +210,7 @@
     color: var(--primary-light);
     display: flex;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .notification-finca-header::before {

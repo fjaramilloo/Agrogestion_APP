@@ -560,8 +560,8 @@ export default function Sales() {
                             Esto creará un registro de pesaje de salida y los quitará del inventario activo.
                         </p>
                         {animales.some(a => a.advertencia_fecha) && (
-                            <div style={{ backgroundColor: 'rgba(255, 152, 0, 0.15)', border: '1px solid #ff9800', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', textAlign: 'left', fontSize: '0.85rem' }}>
-                                <div style={{ color: '#ff9800', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                            <div style={{ backgroundColor: 'var(--warning-soft-bg)', border: '1px solid var(--warning-soft-border)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', textAlign: 'left', fontSize: '0.85rem' }}>
+                                <div style={{ color: 'var(--warning)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                                     <AlertTriangle size={18} aria-hidden="true" /> Atención: Advertencia de Fechas
                                 </div>
                                 <div style={{ color: 'var(--text-main)', fontSize: '0.82rem' }}>
@@ -605,9 +605,9 @@ export default function Sales() {
                         title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
                         className="trade-status-pill"
                         style={{
-                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
-                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800',
-                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.08)',
+                            backgroundColor: modoCampo ? 'var(--secondary-soft-bg)' : isOnline ? 'var(--success-soft-bg)' : 'var(--warning-soft-bg)',
+                            color: modoCampo ? 'var(--secondary)' : isOnline ? 'var(--success)' : 'var(--warning)',
+                            border: modoCampo ? '1px solid var(--secondary-soft-border)' : '1px solid var(--border-subtle)',
                         }}
                     >
                         {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} aria-hidden="true" /> Online</> : <><WifiOff size={14} aria-hidden="true" /> Offline</>}
@@ -645,15 +645,15 @@ export default function Sales() {
             {isBloqueado && (
                 <div className="trade-upsell-banner">
                     <div className="trade-upsell-text">
-                        <AlertOctagon size={24} color="#f87171" aria-hidden="true" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                        <AlertOctagon size={24} color="var(--error)" aria-hidden="true" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
                                     <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción ha vencido. Puedes consultar tu historial y reportes de ventas, pero el registro de nuevas ventas de ganado se encuentra pausado hasta la renovación.
                                 </>
                             ) : (
                                 <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar operaciones, actualiza tu suscripción.
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar operaciones, actualiza tu suscripción.
                                 </>
                             )}
                         </div>
@@ -752,16 +752,16 @@ export default function Sales() {
                 <>
                     {animales.some(a => a.advertencia_fecha) && (
                         <div role="status" className="sales-date-alert">
-                            <AlertTriangle size={24} color="#ff9800" aria-hidden="true" style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <AlertTriangle size={24} color="var(--warning)" aria-hidden="true" style={{ flexShrink: 0, marginTop: '2px' }} />
                             <div>
-                                <div style={{ fontWeight: 'bold', color: '#ff9800', fontSize: '0.95rem' }}>
+                                <div style={{ fontWeight: 'bold', color: 'var(--warning)', fontSize: '0.95rem' }}>
                                     ⚠️ Advertencia: Fecha de salida anterior al último pesaje
                                 </div>
                                 <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', marginTop: '4px', lineHeight: '1.4' }}>
                                     Hay {animales.filter(a => a.advertencia_fecha).length} animal(es) con pesajes o registros posteriores a la fecha de salida (<strong>{fechaVenta}</strong>):
                                     <ul style={{ margin: '6px 0 0 16px', padding: 0 }}>
                                         {animales.filter(a => a.advertencia_fecha).map(a => (
-                                            <li key={a.numero_chapeta} style={{ color: '#ff9800', fontSize: '0.82rem' }}>
+                                            <li key={a.numero_chapeta} style={{ color: 'var(--warning)', fontSize: '0.82rem' }}>
                                                 Chapeta <strong>{a.numero_chapeta}</strong>: {a.advertencia_fecha}
                                             </li>
                                         ))}
@@ -815,15 +815,15 @@ export default function Sales() {
                                                         aria-invalid={Boolean(finalError) || undefined}
                                                         className="sales-chapeta-input"
                                                         style={{
-                                                            borderColor: finalError ? 'var(--error)' : (a.advertencia_fecha ? '#ff9800' : (a.validado ? 'var(--success)' : '')),
-                                                            backgroundColor: isDuplicateInList ? 'rgba(244, 67, 54, 0.05)' : 'transparent'
+                                                            borderColor: finalError ? 'var(--error)' : (a.advertencia_fecha ? 'var(--warning)' : (a.validado ? 'var(--success)' : '')),
+                                                            backgroundColor: isDuplicateInList ? 'var(--error-soft-bg)' : 'var(--bg-input)'
                                                         }}
                                                     />
                                                     {a.validado && !isDuplicateInList && !a.advertencia_fecha && (
                                                         <CheckCircle2 size={20} color="var(--success)" aria-label="Chapeta validada" style={{ flexShrink: 0 }} />
                                                     )}
                                                     {a.validado && !isDuplicateInList && a.advertencia_fecha && (
-                                                        <div style={{ color: '#ff9800', display: 'flex', alignItems: 'center', flexShrink: 0 }} title={a.advertencia_fecha}>
+                                                        <div style={{ color: 'var(--warning)', display: 'flex', alignItems: 'center', flexShrink: 0 }} title={a.advertencia_fecha}>
                                                             <AlertTriangle size={20} aria-hidden="true" />
                                                         </div>
                                                     )}

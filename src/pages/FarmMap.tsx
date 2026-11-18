@@ -590,10 +590,11 @@ export const FarmMapPage: React.FC = () => {
       <div style={{
         padding: '48px 24px',
         textAlign: 'center',
-        backgroundColor: '#0F172A',
+        backgroundColor: 'var(--bg-dark-paper)',
         borderRadius: '16px',
-        color: '#F8FAFC',
-        border: '1px solid #334155',
+        color: 'var(--text-main)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: 'var(--shadow-card)',
         maxWidth: '600px',
         margin: '40px auto',
       }}>
@@ -601,17 +602,18 @@ export const FarmMapPage: React.FC = () => {
           width: '64px',
           height: '64px',
           borderRadius: '50%',
-          backgroundColor: '#3B82F620',
+          backgroundColor: 'var(--info-soft-bg)',
+          border: '1px solid var(--info-soft-border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           margin: '0 auto 16px auto',
-          color: '#3B82F6',
+          color: 'var(--info)',
         }}>
           <Lock size={32} />
         </div>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '8px' }}>Módulo Plano de Finca (KMZ/KML)</h2>
-        <p style={{ color: '#94A3B8', fontSize: '0.95rem', marginBottom: '24px', lineHeight: 1.5 }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '24px', lineHeight: 1.5 }}>
           La carga de mapas vectoriales, visualización satelital y localización por GPS requiere una suscripción activa.
         </p>
         <button
@@ -619,8 +621,8 @@ export const FarmMapPage: React.FC = () => {
           className="farm-map-inline-btn"
           onClick={() => window.location.href = '/suscripcion'}
           style={{
-            backgroundColor: '#10B981',
-            color: 'white',
+            backgroundColor: 'var(--primary)',
+            color: 'var(--on-primary)',
             border: 'none',
             padding: '12px 24px',
             borderRadius: '10px',
@@ -710,9 +712,9 @@ export const FarmMapPage: React.FC = () => {
                   onClick={handleClearFarmMap}
                   title="Eliminar plano y revertir potreros"
                   style={{
-                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                    color: '#FCA5A5',
+                    backgroundColor: 'var(--error-soft-bg)',
+                    border: '1px solid var(--error-soft-border)',
+                    color: 'var(--error)',
                     padding: '8px 14px',
                     borderRadius: '10px',
                     fontWeight: 600,
@@ -738,8 +740,8 @@ export const FarmMapPage: React.FC = () => {
                   }
                 }}
                 style={{
-                  backgroundColor: '#10B981',
-                  color: 'white',
+                  backgroundColor: 'var(--primary)',
+                  color: 'var(--on-primary)',
                   border: 'none',
                   padding: '8px 16px',
                   borderRadius: '10px',
@@ -761,21 +763,21 @@ export const FarmMapPage: React.FC = () => {
       {/* Banner Informativo para Licencia Vencida o Sobrecupo */}
       {isBloqueado ? (
         <div style={{
-          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-          border: '1px solid rgba(239, 68, 68, 0.4)',
+          background: 'var(--error-soft-bg)',
+          border: '1px solid var(--error-soft-border)',
           borderRadius: '12px',
           padding: '14px 18px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '12px',
-          color: '#FCA5A5',
+          color: 'var(--text-main)',
           fontSize: '0.85rem',
           flexWrap: 'wrap',
           marginBottom: '16px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertOctagon size={20} color="#F87171" style={{ flexShrink: 0 }} />
+            <AlertOctagon size={20} color="var(--error)" style={{ flexShrink: 0 }} />
             <span>
               {isVencida ? (
                 <>
@@ -793,8 +795,8 @@ export const FarmMapPage: React.FC = () => {
             className="farm-map-inline-btn"
             onClick={() => setShowUpsellModal(true)}
             style={{
-              backgroundColor: '#EF4444',
-              color: 'white',
+              backgroundColor: 'var(--error)',
+              color: 'var(--on-primary)',
               border: 'none',
               padding: '7px 16px',
               borderRadius: '8px',
@@ -809,21 +811,21 @@ export const FarmMapPage: React.FC = () => {
         </div>
       ) : licenciaInfo?.licencia === 'demo' ? (
         <div style={{
-          backgroundColor: 'rgba(59, 130, 246, 0.12)',
-          border: '1px solid rgba(59, 130, 246, 0.35)',
+          backgroundColor: 'var(--info-soft-bg)',
+          border: '1px solid var(--info-soft-border)',
           borderRadius: '12px',
           padding: '12px 18px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '12px',
-          color: '#93C5FD',
+          color: 'var(--text-main)',
           fontSize: '0.85rem',
           flexWrap: 'wrap',
           marginBottom: '16px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Sparkles size={18} color="#60A5FA" style={{ flexShrink: 0 }} />
+            <Sparkles size={18} color="var(--info)" style={{ flexShrink: 0 }} />
             <span>
               <strong>Vista Previa (Plan Demo):</strong> Estás visualizando la delimitación y áreas de tu plano. Pasa al <strong>Plan Finca</strong> para ver tus lotes de ganado, pesos y traslados, o al <strong>Plan Premium</strong> para activar la geolocalización GPS en campo.
             </span>
@@ -833,8 +835,8 @@ export const FarmMapPage: React.FC = () => {
             className="farm-map-inline-btn"
             onClick={() => (window.location.href = '/suscripcion')}
             style={{
-              backgroundColor: '#3B82F6',
-              color: 'white',
+              backgroundColor: 'var(--info)',
+              color: 'var(--on-primary)',
               border: 'none',
               padding: '7px 16px',
               borderRadius: '8px',
@@ -854,18 +856,18 @@ export const FarmMapPage: React.FC = () => {
         <div
           className="farm-map-offline-banner"
           style={{
-            backgroundColor: 'rgba(234, 179, 8, 0.12)',
-            border: '1px solid rgba(234, 179, 8, 0.35)',
+            backgroundColor: 'var(--warning-soft-bg)',
+            border: '1px solid var(--warning-soft-border)',
             borderRadius: '12px',
             padding: '12px 18px',
             display: 'flex',
             alignItems: 'center',
             gap: '12px',
-            color: '#FEF08A',
+            color: 'var(--warning)',
             fontSize: '0.85rem',
           }}
         >
-          <WifiOff size={20} color="#EAB308" aria-hidden="true" style={{ flexShrink: 0 }} />
+          <WifiOff size={20} color="var(--warning)" aria-hidden="true" style={{ flexShrink: 0 }} />
           <div style={{ minWidth: 0 }}>
             <strong>Modo Sin Conexión activo:</strong>{' '}
             <span>
@@ -874,7 +876,7 @@ export const FarmMapPage: React.FC = () => {
                 : `Estás navegando con el plano, potreros y distribución de ganado guardados en la memoria local ${offlineUpdatedTime ? `(${offlineUpdatedTime})` : ''}.`}
             </span>
             {!isMobile && (
-              <div style={{ fontSize: '0.8rem', color: '#FDE047', marginTop: '2px' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Tu posición GPS por satélite sigue activa en tiempo real para orientarte durante la vuelta a los potreros.
               </div>
             )}
@@ -884,8 +886,8 @@ export const FarmMapPage: React.FC = () => {
 
       {/* Contenido Principal: Mapa o Estado Vacío */}
       {loading && potreros.length === 0 ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8' }}>
-          <RefreshCw className="animate-spin" size={32} style={{ color: '#3B82F6', marginBottom: '12px' }} />
+        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <RefreshCw className="animate-spin" size={32} style={{ color: 'var(--info)', marginBottom: '12px' }} />
           <div>Cargando mapa e información geospacial...</div>
         </div>
       ) : viewMode === 'multi' ? (
@@ -899,28 +901,29 @@ export const FarmMapPage: React.FC = () => {
       ) : !hasMapPolygons ? (
         /* Estado sin plano cargado aún */
         <div style={{
-          backgroundColor: '#0F172A',
+          backgroundColor: 'var(--bg-dark-paper)',
           borderRadius: '16px',
-          border: '1px dashed #334155',
+          border: '1px dashed var(--border-strong)',
           padding: '48px 24px',
           textAlign: 'center',
-          color: '#F8FAFC',
+          color: 'var(--text-main)',
+          boxShadow: 'var(--shadow-card)',
         }}>
-          <MapPin size={48} color="#3B82F6" style={{ marginBottom: '16px' }} />
+          <MapPin size={48} color="var(--info)" style={{ marginBottom: '16px' }} />
           <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>
             Aún no has cargado el plano KMZ/KML de esta finca
           </h3>
-          <p style={{ color: '#94A3B8', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto 24px auto', lineHeight: 1.5 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto 24px auto', lineHeight: 1.5 }}>
             Sube el archivo de tu finca exportado desde Google Earth, QGIS o tu GPS. El sistema vinculará automáticamente tus potreros y calculará sus superficies.
           </p>
           {role === 'administrador' ? (
             isMobile ? (
               <div style={{
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
+                backgroundColor: 'var(--info-soft-bg)',
+                border: '1px solid var(--info-soft-border)',
                 borderRadius: '10px',
                 padding: '12px 16px',
-                color: '#93C5FD',
+                color: 'var(--info)',
                 fontSize: '0.85rem',
                 display: 'inline-block',
                 maxWidth: '420px',
@@ -939,8 +942,8 @@ export const FarmMapPage: React.FC = () => {
                   }
                 }}
                 style={{
-                  backgroundColor: '#3B82F6',
-                  color: 'white',
+                  backgroundColor: 'var(--info)',
+                  color: 'var(--on-primary)',
                   border: 'none',
                   padding: '12px 24px',
                   borderRadius: '10px',
@@ -955,7 +958,7 @@ export const FarmMapPage: React.FC = () => {
               </button>
             )
           ) : (
-            <div style={{ fontSize: '0.85rem', color: '#64748B' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
               Pide al administrador de la finca que suba el archivo KMZ para habilitar el mapa.
             </div>
           )}
@@ -1032,8 +1035,8 @@ export const FarmMapPage: React.FC = () => {
                   width: '20px',
                   height: '20px',
                   borderRadius: '50%',
-                  border: `2px solid ${isSelected ? '#10B981' : '#64748B'}`,
-                  backgroundColor: isSelected ? '#10B981' : 'transparent',
+                  border: `2px solid ${isSelected ? 'var(--success)' : 'var(--border-strong)'}`,
+                  backgroundColor: isSelected ? 'var(--success)' : 'transparent',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1047,7 +1050,7 @@ export const FarmMapPage: React.FC = () => {
                       width: '8px',
                       height: '8px',
                       borderRadius: '50%',
-                      backgroundColor: '#FFFFFF',
+                      backgroundColor: 'var(--on-primary)',
                     }}
                   />
                 )}
@@ -1065,7 +1068,7 @@ export const FarmMapPage: React.FC = () => {
                   <span style={{
                     fontSize: '0.95rem',
                     fontWeight: 700,
-                    color: '#F8FAFC',
+                    color: 'var(--text-main)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -1079,9 +1082,9 @@ export const FarmMapPage: React.FC = () => {
                         fontWeight: 700,
                         padding: '2px 7px',
                         borderRadius: '99px',
-                        backgroundColor: '#064E3B',
-                        color: '#34D399',
-                        border: '1px solid #059669',
+                        backgroundColor: 'var(--success-soft-bg)',
+                        color: 'var(--success)',
+                        border: '1px solid var(--success-soft-border)',
                       }}>
                         En Rotación
                       </span>
@@ -1091,9 +1094,9 @@ export const FarmMapPage: React.FC = () => {
                       fontWeight: 600,
                       padding: '2px 8px',
                       borderRadius: '99px',
-                      backgroundColor: isSelected ? '#064E3B' : '#1E293B',
-                      color: isSelected ? '#34D399' : '#94A3B8',
-                      border: `1px solid ${isSelected ? '#059669' : '#334155'}`,
+                      backgroundColor: isSelected ? 'var(--success-soft-bg)' : 'var(--surface-inset)',
+                      color: isSelected ? 'var(--success)' : 'var(--text-secondary)',
+                      border: `1px solid ${isSelected ? 'var(--success-soft-border)' : 'var(--border-subtle)'}`,
                     }}>
                       {p.total_animales} {p.total_animales === 1 ? 'cabeza' : 'cabezas'}
                     </span>
@@ -1107,16 +1110,16 @@ export const FarmMapPage: React.FC = () => {
                   alignItems: 'center',
                   gap: '6px',
                   fontSize: '0.8rem',
-                  color: '#CBD5E1',
+                  color: 'var(--text-secondary)',
                 }}>
                   {p.potrero_actual_nombre ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ color: '#38BDF8', fontWeight: 600 }}>📍 Potrero actual:</span>
-                      <strong style={{ color: '#F1F5F9' }}>{p.potrero_actual_nombre}</strong>
+                      <span style={{ color: 'var(--info)', fontWeight: 600 }}>📍 Potrero actual:</span>
+                      <strong style={{ color: 'var(--text-main)' }}>{p.potrero_actual_nombre}</strong>
                       <span style={{
-                        color: '#94A3B8',
+                        color: 'var(--text-muted)',
                         fontSize: '0.72rem',
-                        backgroundColor: '#1E293B',
+                        backgroundColor: 'var(--surface-inset)',
                         padding: '1px 6px',
                         borderRadius: '4px',
                         marginLeft: '2px',
@@ -1125,13 +1128,13 @@ export const FarmMapPage: React.FC = () => {
                       </span>
                     </span>
                   ) : (
-                    <span style={{ color: '#10B981', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                       🌱 <span>Sin potrero asignado</span>
                     </span>
                   )}
 
                   {p.peso_promedio > 0 && (
-                    <span style={{ color: '#94A3B8', fontSize: '0.74rem' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
                       • ⚖️ {p.peso_promedio} kg prom.
                     </span>
                   )}
@@ -1157,7 +1160,7 @@ export const FarmMapPage: React.FC = () => {
               {/* Header Fijo */}
               <div style={{
                 padding: '18px 20px 14px 20px',
-                borderBottom: '1px solid #334155',
+                borderBottom: '1px solid var(--border-subtle)',
                 display: 'flex',
                 alignItems: 'flex-start',
                 justifyContent: 'space-between',
@@ -1165,8 +1168,8 @@ export const FarmMapPage: React.FC = () => {
                 flexShrink: 0,
               }}>
                 <div style={{ minWidth: 0 }}>
-                  <h3 id="farm-map-transfer-title" style={{ margin: '0 0 6px 0', fontSize: '1.15rem', fontWeight: 700, color: '#F8FAFC' }}>
-                    Mover Ganado a: <span style={{ color: '#38BDF8' }}>{targetPotrero.nombre}</span>
+                  <h3 id="farm-map-transfer-title" style={{ margin: '0 0 6px 0', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    Mover Ganado a: <span style={{ color: 'var(--info)' }}>{targetPotrero.nombre}</span>
                   </h3>
                   {rotDestino ? (
                     <div style={{
@@ -1174,17 +1177,17 @@ export const FarmMapPage: React.FC = () => {
                       alignItems: 'center',
                       gap: '6px',
                       fontSize: '0.78rem',
-                      color: '#34D399',
-                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                      color: 'var(--success)',
+                      backgroundColor: 'var(--success-soft-bg)',
                       padding: '3px 9px',
                       borderRadius: '6px',
-                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      border: '1px solid var(--success-soft-border)',
                     }}>
                       <span>🔄</span>
                       <span>Rotación: <strong>{rotDestinoNombre || 'Asignada'}</strong></span>
                     </div>
                   ) : (
-                    <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                       Potrero libre sin rotación asignada
                     </span>
                   )}
@@ -1203,12 +1206,12 @@ export const FarmMapPage: React.FC = () => {
               <div className="farm-map-modal-body">
                 {disponibles.length === 0 ? (
                   <div style={{
-                    backgroundColor: '#0F172A',
-                    border: '1px solid #475569',
+                    backgroundColor: 'var(--surface-inset)',
+                    border: '1px solid var(--border-strong)',
                     borderRadius: '10px',
                     padding: '20px',
                     textAlign: 'center',
-                    color: '#94A3B8',
+                    color: 'var(--text-muted)',
                     fontSize: '0.88rem',
                   }}>
                     ⚠️ No hay lotes de ganado disponibles en esta finca.
@@ -1218,7 +1221,7 @@ export const FarmMapPage: React.FC = () => {
                     {/* Caso con rotación asignada */}
                     {rotDestino ? (
                       <>
-                        <div style={{ fontSize: '0.8rem', color: '#CBD5E1', marginBottom: '2px', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px', fontWeight: 600 }}>
                           Lote de animales de esta rotación:
                         </div>
 
@@ -1228,11 +1231,11 @@ export const FarmMapPage: React.FC = () => {
                           </div>
                         ) : (
                           <div style={{
-                            backgroundColor: '#0F172A',
-                            border: '1px dashed #475569',
+                            backgroundColor: 'var(--surface-inset)',
+                            border: '1px dashed var(--border-strong)',
                             borderRadius: '10px',
                             padding: '14px',
-                            color: '#94A3B8',
+                            color: 'var(--text-muted)',
                             fontSize: '0.84rem',
                             textAlign: 'center',
                           }}>
@@ -1251,11 +1254,11 @@ export const FarmMapPage: React.FC = () => {
                               style={{
                                 width: '100%',
                                 minHeight: '44px',
-                                background: 'transparent',
-                                border: '1px solid #334155',
+                                background: 'var(--surface-subtle)',
+                                border: '1px solid var(--border-strong)',
                                 borderRadius: '8px',
                                 padding: '8px 12px',
-                                color: '#CBD5E1',
+                                color: 'var(--text-secondary)',
                                 fontSize: '0.8rem',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1274,7 +1277,7 @@ export const FarmMapPage: React.FC = () => {
 
                             {mostrarOtrosLotes && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                                <div style={{ fontSize: '0.74rem', color: '#F59E0B', fontWeight: 600, paddingLeft: '2px' }}>
+                                <div style={{ fontSize: '0.74rem', color: 'var(--warning)', fontWeight: 600, paddingLeft: '2px' }}>
                                   ⚠️ Lotes de otras rotaciones o sin rotación:
                                 </div>
                                 {otrosLotes.map(p => renderCard(p, false))}
@@ -1286,7 +1289,7 @@ export const FarmMapPage: React.FC = () => {
                     ) : (
                       /* Caso potrero sin rotación */
                       <>
-                        <div style={{ fontSize: '0.8rem', color: '#CBD5E1', marginBottom: '2px', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px', fontWeight: 600 }}>
                           Selecciona el lote de ganado a trasladar:
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1305,9 +1308,9 @@ export const FarmMapPage: React.FC = () => {
                   className="farm-map-inline-btn"
                   onClick={() => setTransferModalOpen(false)}
                   style={{
-                    backgroundColor: 'transparent',
-                    border: '1px solid #475569',
-                    color: '#CBD5E1',
+                    backgroundColor: 'var(--surface-subtle)',
+                    border: '1px solid var(--border-strong)',
+                    color: 'var(--text-main)',
                     padding: '9px 18px',
                     borderRadius: '10px',
                     fontWeight: 500,
@@ -1324,9 +1327,9 @@ export const FarmMapPage: React.FC = () => {
                     onClick={handleExecuteTransfer}
                     disabled={!selectedPotreradaId || transferring}
                     style={{
-                      backgroundColor: !selectedPotreradaId || transferring ? '#334155' : '#10B981',
-                      color: !selectedPotreradaId || transferring ? '#94A3B8' : '#FFFFFF',
-                      border: 'none',
+                      backgroundColor: !selectedPotreradaId || transferring ? 'var(--surface-inset)' : 'var(--primary)',
+                      color: !selectedPotreradaId || transferring ? 'var(--text-muted)' : 'var(--on-primary)',
+                      border: !selectedPotreradaId || transferring ? '1px solid var(--border-subtle)' : 'none',
                       padding: '9px 20px',
                       borderRadius: '10px',
                       fontWeight: 700,

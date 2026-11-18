@@ -78,7 +78,7 @@ export default function UpdatePassword() {
                 </div>
 
                 {error && <div className="error-message text-center">{error}</div>}
-                {message && <div style={{ color: 'var(--success)', backgroundColor: 'rgba(76,175,80,0.1)', padding: '12px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px' }}>{message}</div>}
+                {message && <div style={{ color: 'var(--success)', backgroundColor: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', padding: '12px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px' }}>{message}</div>}
 
                 {!message ? (
                     <form onSubmit={handleUpdatePassword}>

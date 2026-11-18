@@ -311,10 +311,10 @@ export default function AgroBot() {
         <div className={`agrobot-container${isOpen ? ' agrobot-container--open' : ''}`}>
             {isOpen && (
                 <div className="card agrobot-panel" role="dialog" aria-label="Asistente AgroBot">
-                    <div style={{ padding: '16px', background: 'var(--bg-dark-paper)', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ padding: '16px', background: 'var(--bg-dark-paper)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Bot size={20} color="var(--primary-light)" aria-hidden="true" />
-                            <h3 style={{ margin: 0, fontSize: '1rem' }}>AgroBot</h3>
+                            <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-main)' }}>AgroBot</h3>
                         </div>
                         <button type="button" onClick={() => setIsOpen(false)} className="btn-icon agrobot-close-btn" aria-label="Cerrar AgroBot">
                             <X size={18} aria-hidden="true" />
@@ -322,24 +322,24 @@ export default function AgroBot() {
                     </div>
 
                     {esDemo ? (
-                        <div style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: 'linear-gradient(145deg, rgba(30,30,45,0.9), rgba(20,20,35,0.95))' }}>
-                            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255, 179, 0, 0.15)', border: '1px solid rgba(255, 179, 0, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                                <Lock size={28} color="#ffb74d" />
+                        <div style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: 'var(--bg-dark-paper)' }}>
+                            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--secondary-soft-bg)', border: '1px solid var(--secondary-soft-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+                                <Lock size={28} color="var(--secondary)" />
                             </div>
-                            <h4 style={{ margin: '0 0 8px', color: 'white', fontSize: '1.1rem', fontWeight: 800 }}>
+                            <h4 style={{ margin: '0 0 8px', color: 'var(--text-main)', fontSize: '1.1rem', fontWeight: 800 }}>
                                 AgroBot es Exclusivo
                             </h4>
                             <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                                AgroBot (nuestra IA Mentora Ganadera) está disponible únicamente para usuarios con <strong style={{ color: '#ffb74d' }}>Plan Finca</strong> o <strong style={{ color: '#c084fc' }}>Plan Premium</strong>.
+                                AgroBot (nuestra IA Mentora Ganadera) está disponible únicamente para usuarios con <strong style={{ color: 'var(--secondary)' }}>Plan Finca</strong> o <strong style={{ color: 'var(--primary-light)' }}>Plan Premium</strong>.
                             </p>
                             <button
                                 onClick={() => { setIsOpen(false); navigate('/suscripcion'); }}
                                 style={{
                                     width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
-                                    background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                                    background: 'linear-gradient(135deg, #6d28d9, #7c3aed)',
                                     color: 'white', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                    boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)'
+                                    boxShadow: '0 4px 14px rgba(109, 40, 217, 0.35)'
                                 }}
                             >
                                 <span>Ver Planes de Suscripción</span>
@@ -355,8 +355,9 @@ export default function AgroBot() {
                                             maxWidth: '85%', 
                                             padding: '10px 14px', 
                                             borderRadius: '12px',
-                                            background: m.role === 'user' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                                            color: m.role === 'user' ? 'white' : 'var(--text)',
+                                            background: m.role === 'user' ? 'var(--primary)' : 'var(--surface-subtle)',
+                                            border: m.role === 'user' ? 'none' : '1px solid var(--border-subtle)',
+                                            color: m.role === 'user' ? 'var(--on-primary)' : 'var(--text-main)',
                                             fontSize: '0.9rem',
                                             lineHeight: '1.4'
                                         }}>
@@ -365,8 +366,8 @@ export default function AgroBot() {
                                                     remarkPlugins={[remarkGfm]}
                                                     components={{
                                                         table: ({node, ...props}: any) => <div style={{ overflowX: 'auto', margin: '8px 0' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }} {...props} /></div>,
-                                                        th: ({node, ...props}: any) => <th style={{ border: '1px solid rgba(255,255,255,0.2)', padding: '6px', textAlign: 'left', background: 'rgba(255,255,255,0.1)' }} {...props} />,
-                                                        td: ({node, ...props}: any) => <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '6px' }} {...props} />,
+                                                        th: ({node, ...props}: any) => <th style={{ border: '1px solid var(--border-strong)', padding: '6px', textAlign: 'left', background: 'var(--surface-inset)' }} {...props} />,
+                                                        td: ({node, ...props}: any) => <td style={{ border: '1px solid var(--border-subtle)', padding: '6px' }} {...props} />,
                                                         p: ({node, ...props}: any) => <p style={{ margin: '0 0 8px 0' }} {...props} />,
                                                         ul: ({node, ...props}: any) => <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
                                                         ol: ({node, ...props}: any) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
@@ -383,7 +384,7 @@ export default function AgroBot() {
                                 ))}
                                 {isLoading && (
                                     <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 14px', borderRadius: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <div style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', padding: '10px 14px', borderRadius: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <Database size={14} className="spin-slow" /> Procesando datos...
                                         </div>
                                     </div>
@@ -391,7 +392,7 @@ export default function AgroBot() {
                                 <div ref={messagesEndRef} />
                             </div>
 
-                            <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg-dark-paper)' }}>
+                            <div style={{ padding: '12px', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-dark-paper)' }}>
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <input 
                                         type="text"

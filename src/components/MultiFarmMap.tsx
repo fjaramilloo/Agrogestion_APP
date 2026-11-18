@@ -150,10 +150,10 @@ export const MultiFarmMap: React.FC<MultiFarmMapProps> = ({ fincas, onSelectFinc
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
       <div className="multifarm-banner">
-        <h3 style={{ margin: '0 0 2px 0', fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <MapPin size={18} color="#10B981" aria-hidden="true" /> Tablero Multi-Finca
+        <h3 style={{ margin: '0 0 2px 0', fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+          <MapPin size={18} color="var(--success)" aria-hidden="true" /> Tablero Multi-Finca
         </h3>
-        <p style={{ margin: 0, fontSize: '0.8rem', color: '#94A3B8' }}>
+        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
           Visualiza la ubicación regional de tus {fincas.length} fincas registradas
         </p>
       </div>

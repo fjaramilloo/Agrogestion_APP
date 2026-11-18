@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award, CloudRain } from 'lucide-react';
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
@@ -115,6 +116,9 @@ const cleanNumber = (val: any): number => {
 export default function Settings() {
     const navigate = useNavigate();
     const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, setModoGanancia, licenciaInfo, refreshLicencia } = useAuth();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
+    const accentPurple = isLight ? '#7c3aed' : '#c084fc';
     const [umbral, setUmbral] = useState('0.434');
     const [participacionUtilidad, setParticipacionUtilidad] = useState('60');
     // Umbrales: siempre en la unidad seleccionada para display; se convierten a kg/mes al guardar
@@ -1551,33 +1555,33 @@ export default function Settings() {
 
             {/* Modal de Éxito para Cargas Masivas */}
             {showExitoModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--backdrop-scrim)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
                     <div className="card" style={{ maxWidth: '500px', width: '100%', textAlign: 'center', border: '1px solid var(--primary)', padding: '32px' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-                            <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.1)', padding: '16px', borderRadius: '50%' }}>
+                            <div style={{ backgroundColor: 'var(--success-soft-bg)', padding: '16px', borderRadius: '50%' }}>
                                 <CheckCircle2 size={48} color="var(--primary)" />
                             </div>
                         </div>
-                        <h2 style={{ marginBottom: '8px', color: 'white' }}>¡Importación Finalizada!</h2>
+                        <h2 style={{ marginBottom: '8px', color: 'var(--text-main)' }}>¡Importación Finalizada!</h2>
                         <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
                             {msjExito}
                         </p>
 
                         {reporteCarga && (
-                            <div style={{ textAlign: 'left', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', padding: '20px', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ textAlign: 'left', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', padding: '20px', marginBottom: '24px', border: '1px solid var(--border-subtle)' }}>
                                 <h4 style={{ color: 'var(--primary-light)', marginBottom: '16px', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Resumen de Operación</h4>
                                 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ color: 'white', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.creados}</div>
+                                        <div style={{ color: 'var(--text-main)', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.creados}</div>
                                         <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>CREADOS</div>
                                     </div>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ color: 'white', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.actualizados}</div>
+                                        <div style={{ color: 'var(--text-main)', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.actualizados}</div>
                                         <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>ACTUALIZADOS</div>
                                     </div>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ color: '#ef5350', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.omitidos}</div>
+                                        <div style={{ color: 'var(--error)', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.omitidos}</div>
                                         <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>OMITIDOS</div>
                                     </div>
                                 </div>
@@ -1588,11 +1592,12 @@ export default function Settings() {
                                             <span>Chapetas omitidas (por duplicidad):</span>
                                         </div>
                                         <div style={{ 
-                                            backgroundColor: 'rgba(0,0,0,0.2)', 
+                                            backgroundColor: 'var(--error-soft-bg)',
+                                            border: '1px solid var(--error-soft-border)',
                                             padding: '10px', 
                                             borderRadius: '8px', 
                                             fontSize: '0.85rem', 
-                                            color: '#ef5350',
+                                            color: 'var(--error)',
                                             maxHeight: '100px',
                                             overflowY: 'auto',
                                             wordBreak: 'break-all',
@@ -1607,7 +1612,7 @@ export default function Settings() {
 
                         <button
                             onClick={() => { setShowExitoModal(false); setMsjExito(''); setReporteCarga(null); }}
-                            style={{ backgroundColor: 'var(--primary)', padding: '12px 40px', fontSize: '1rem', width: '100%' }}
+                            style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', padding: '12px 40px', fontSize: '1rem', width: '100%' }}
                         >
                             Cerrar Reporte
                         </button>
@@ -1617,30 +1622,30 @@ export default function Settings() {
 
             {/* Modal de Error para Cargas Masivas / Errores Críticos */}
             {showErrorModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-                    <div className="card" style={{ maxWidth: '500px', width: '100%', textAlign: 'center', border: '1px solid #ef5350', padding: '40px' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--backdrop-scrim)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+                    <div className="card" style={{ maxWidth: '500px', width: '100%', textAlign: 'center', border: '1px solid var(--error)', padding: '40px' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                            <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', padding: '20px', borderRadius: '50%' }}>
-                                <Upload size={60} color="#ef5350" />
+                            <div style={{ backgroundColor: 'var(--error-soft-bg)', padding: '20px', borderRadius: '50%' }}>
+                                <Upload size={60} color="var(--error)" />
                             </div>
                         </div>
-                        <h2 style={{ marginBottom: '16px', color: 'white' }}>Error en la Carga</h2>
+                        <h2 style={{ marginBottom: '16px', color: 'var(--text-main)' }}>Error en la Carga</h2>
                         <div style={{ 
-                            backgroundColor: 'rgba(244, 67, 54, 0.05)', 
+                            backgroundColor: 'var(--error-soft-bg)', 
                             padding: '20px', 
                             borderRadius: '12px', 
                             marginBottom: '32px',
-                            border: '1px solid rgba(244, 67, 54, 0.1)',
+                            border: '1px solid var(--error-soft-border)',
                             maxHeight: '200px',
                             overflowY: 'auto'
                         }}>
-                            <p style={{ color: '#ef5350', fontSize: '1.05rem', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-line' }}>
+                            <p style={{ color: 'var(--error)', fontSize: '1.05rem', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-line' }}>
                                 {msjError}
                             </p>
                         </div>
                         <button
                             onClick={() => { setShowErrorModal(false); setMsjError(''); }}
-                            style={{ backgroundColor: '#ef5350', color: 'white', padding: '12px 40px', fontSize: '1rem', border: 'none' }}
+                            style={{ backgroundColor: 'var(--error)', color: 'white', padding: '12px 40px', fontSize: '1rem', border: 'none' }}
                         >
                             Corregir Archivo
                         </button>
@@ -1675,31 +1680,31 @@ export default function Settings() {
                                                 textAlign: 'center',
                                                 gap: '12px',
                                                 border: '2px solid transparent',
-                                                background: 'rgba(255,255,255,0.02)',
+                                                background: 'var(--surface-subtle)',
                                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                                             }}
-                                            onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.5)'}
+                                            onMouseEnter={(e) => e.currentTarget.style.borderColor = accentPurple}
                                             onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
                                         >
-                                            <div style={{ color: '#c084fc' }}>
+                                            <div style={{ color: accentPurple }}>
                                                 {section.icon}
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                                    <span style={{ fontWeight: 'bold', fontSize: '1rem', color: 'white' }}>{section.label}</span>
+                                                    <span style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--text-main)' }}>{section.label}</span>
                                                     <span style={{ 
                                                         fontSize: '0.62rem', 
                                                         padding: '2px 7px', 
                                                         borderRadius: '10px', 
                                                         fontWeight: 800, 
                                                         textTransform: 'uppercase', 
-                                                        background: licenciaInfo?.licencia === 'premium' ? 'rgba(168, 85, 247, 0.25)' : licenciaInfo?.licencia === 'finca' ? 'rgba(14, 165, 233, 0.25)' : 'rgba(255, 179, 0, 0.25)', 
-                                                        color: licenciaInfo?.licencia === 'premium' ? '#c084fc' : licenciaInfo?.licencia === 'finca' ? '#38bdf8' : '#ffb74d'
+                                                        background: licenciaInfo?.licencia === 'premium' ? (isLight ? '#f3e8ff' : 'rgba(168, 85, 247, 0.25)') : licenciaInfo?.licencia === 'finca' ? 'var(--info-soft-bg)' : 'var(--warning-soft-bg)', 
+                                                        color: licenciaInfo?.licencia === 'premium' ? accentPurple : licenciaInfo?.licencia === 'finca' ? 'var(--info)' : 'var(--warning)'
                                                     }}>
                                                         {licenciaInfo?.licencia || 'demo'}
                                                     </span>
                                                 </div>
-                                                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.8 }}>{section.desc}</small>
+                                                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.85 }}>{section.desc}</small>
                                             </div>
                                         </div>
                                     );
@@ -1720,11 +1725,11 @@ export default function Settings() {
                                             textAlign: 'center',
                                             gap: '12px',
                                             border: '2px solid',
-                                            borderColor: isActive ? 'var(--primary)' : 'transparent',
-                                            background: isActive ? 'rgba(76, 175, 80, 0.08)' : 'rgba(255,255,255,0.02)',
+                                            borderColor: isActive ? 'var(--primary)' : 'var(--border-subtle)',
+                                            background: isActive ? 'var(--primary-soft-bg)' : 'var(--surface-subtle)',
                                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                             transform: isActive ? 'scale(1.02)' : 'none',
-                                            boxShadow: isActive ? '0 10px 20px rgba(0,0,0,0.2)' : 'none'
+                                            boxShadow: isActive ? 'var(--shadow-card)' : 'none'
                                         }}
                                     >
                                         <div style={{ 
@@ -1737,12 +1742,12 @@ export default function Settings() {
                                             <span style={{ 
                                                 fontWeight: 'bold', 
                                                 fontSize: '1rem',
-                                                color: isActive ? 'white' : 'var(--text-muted)'
+                                                color: isActive ? 'var(--text-main)' : 'var(--text-muted)'
                                             }}>{section.label}</span>
                                             <small style={{ 
                                                 fontSize: '0.75rem', 
                                                 color: 'var(--text-muted)',
-                                                opacity: 0.8
+                                                opacity: 0.85
                                             }}>{section.desc}</small>
                                         </div>
                                     </div>
@@ -1755,7 +1760,7 @@ export default function Settings() {
                             {/* Seguridad */}
                             {!collapsed.seguridad && (
                                 <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <Lock size={20} color="var(--primary)" /> Seguridad de la Cuenta
                                     </h3>
                                     <form onSubmit={handleUpdatePassword}>
@@ -1779,7 +1784,7 @@ export default function Settings() {
                             {/* Datos Técnicos y Parámetros */}
                             {!collapsed.datosTecnicos && (
                                 <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <Home size={20} color="var(--primary)" /> Datos Técnicos y Parámetros
                                     </h3>
                                     <form onSubmit={guardarConfiguracionYFinca}>
@@ -1896,8 +1901,8 @@ export default function Settings() {
 
                                         {/* KPI Dinámico de Punto de Equilibrio */}
                                         <div style={{ 
-                                            background: 'rgba(76, 175, 80, 0.1)', 
-                                            border: '1px solid rgba(76, 175, 80, 0.2)', 
+                                            background: 'var(--primary-soft-bg)', 
+                                            border: '1px solid var(--primary-soft-border)', 
                                             borderRadius: '12px', 
                                             padding: '20px', 
                                             marginBottom: '24px',
@@ -1911,7 +1916,7 @@ export default function Settings() {
                                             <div style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
                                                 Punto de Equilibrio Estimado
                                             </div>
-                                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'white' }}>
+                                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
                                                 {(() => {
                                                     const costo = parseFloat(farmInfo.costo_mensual_animal) || 0;
                                                     const precio = parseFloat(farmInfo.precio_venta_promedio) || 0;
@@ -1932,14 +1937,14 @@ export default function Settings() {
 
                                         {/* Rangos de Peso para Dashboard y Despachos */}
                                         <div style={{
-                                            background: 'rgba(255,255,255,0.02)',
-                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            background: 'var(--surface-subtle)',
+                                            border: '1px solid var(--border-subtle)',
                                             borderRadius: '12px',
                                             padding: '20px',
                                             marginBottom: '24px'
                                         }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                                                <h4 style={{ color: 'white', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <h4 style={{ color: 'var(--text-main)', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <Scale size={18} color="var(--primary)" />
                                                     Rangos de Peso para Proyecciones y Despachos (Dashboard)
                                                 </h4>
@@ -2060,24 +2065,24 @@ export default function Settings() {
                                             </div>
 
                                             {/* Vista previa de cómo se verá la tabla */}
-                                            <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '12px 16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <div style={{ background: 'var(--surface-inset)', borderRadius: '8px', padding: '12px 16px', border: '1px solid var(--border-subtle)' }}>
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                                     Vista Previa de Rangos en el Dashboard:
                                                 </div>
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
-                                                    <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <div style={{ background: 'var(--surface)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--border-subtle)' }}>
                                                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Fila 1 (Entrada)</div>
-                                                        <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.9rem' }}>&lt; {farmInfo.corte_peso_1 || 0} kg</div>
+                                                        <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.9rem' }}>&lt; {farmInfo.corte_peso_1 || 0} kg</div>
                                                     </div>
-                                                    <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <div style={{ background: 'var(--surface)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--border-subtle)' }}>
                                                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Fila 2 (Levante)</div>
-                                                        <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.9rem' }}>{(parseFloat(farmInfo.corte_peso_1) || 0) + 1} - {farmInfo.corte_peso_2 || 0} kg</div>
+                                                        <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.9rem' }}>{(parseFloat(farmInfo.corte_peso_1) || 0) + 1} - {farmInfo.corte_peso_2 || 0} kg</div>
                                                     </div>
-                                                    <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <div style={{ background: 'var(--surface)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--border-subtle)' }}>
                                                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Fila 3 (Pre-Salida)</div>
-                                                        <div style={{ fontWeight: 'bold', color: 'white', fontSize: '0.9rem' }}>{(parseFloat(farmInfo.corte_peso_2) || 0) + 1} - {farmInfo.corte_peso_3 || 0} kg</div>
+                                                        <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.9rem' }}>{(parseFloat(farmInfo.corte_peso_2) || 0) + 1} - {farmInfo.corte_peso_3 || 0} kg</div>
                                                     </div>
-                                                    <div style={{ background: 'rgba(76, 175, 80, 0.1)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(76, 175, 80, 0.3)' }}>
+                                                    <div style={{ background: 'var(--success-soft-bg)', padding: '8px 10px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--success-soft-border)' }}>
                                                         <div style={{ fontSize: '0.7rem', color: 'var(--success)' }}>Fila 4 (Despacho 🚚)</div>
                                                         <div style={{ fontWeight: 'bold', color: 'var(--success)', fontSize: '0.9rem' }}>&gt; {farmInfo.corte_peso_3 || 0} kg</div>
                                                     </div>
@@ -2085,12 +2090,12 @@ export default function Settings() {
                                             </div>
                                         </div>
 
-                                        <h4 style={{ color: 'white', marginBottom: '16px', fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>Umbrales (Semáforo {getModoLabel(modoLocal)})</h4>
+                                        <h4 style={{ color: 'var(--text-main)', marginBottom: '16px', fontSize: '1rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>Umbrales (Semáforo {getModoLabel(modoLocal)})</h4>
 
                                         {/* Toggle GDP / GMP */}
                                         <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Unidad de ganancia:</span>
-                                            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                            <div style={{ display: 'flex', background: 'var(--surface-subtle)', borderRadius: '8px', padding: '4px', border: '1px solid var(--border-subtle)' }}>
                                                 {(['GMP', 'GDP'] as ModoGanancia[]).map(m => (
                                                     <button
                                                         key={m}
@@ -2106,7 +2111,7 @@ export default function Settings() {
                                                         style={{
                                                             padding: '6px 18px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', transition: 'all 0.2s',
                                                             background: modoLocal === m ? 'var(--primary)' : 'transparent',
-                                                            color: modoLocal === m ? 'white' : 'var(--text-muted)'
+                                                            color: modoLocal === m ? 'var(--on-primary)' : 'var(--text-muted)'
                                                         }}
                                                     >
                                                         {m} <span style={{ fontWeight: 400, fontSize: '0.75rem' }}>({m === 'GMP' ? 'kg/mes' : 'gr/día'})</span>
@@ -2126,7 +2131,7 @@ export default function Settings() {
                                             </div>
                                         </div>
 
-                                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary-dark)', border: '1px solid var(--primary)' }}>
+                                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', border: '1px solid var(--primary)' }}>
                                             {loading ? 'Guardando...' : 'Guardar Información'}
                                         </button>
                                     </form>
@@ -2135,21 +2140,21 @@ export default function Settings() {
                                     <div style={{
                                         marginTop: '28px',
                                         paddingTop: '24px',
-                                        borderTop: '1px solid rgba(255,255,255,0.08)'
+                                        borderTop: '1px solid var(--border-subtle)'
                                     }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                                            <h4 style={{ color: 'white', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <CloudRain size={18} color="#38bdf8" />
+                                            <h4 style={{ color: 'var(--text-main)', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <CloudRain size={18} color="var(--info)" />
                                                 Pluviómetros de la Finca
                                             </h4>
-                                            <span style={{ fontSize: '0.75rem', color: '#7dd3fc', background: 'rgba(56,189,248,0.1)', padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.25)' }}>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--info)', background: 'var(--info-soft-bg)', padding: '3px 10px', borderRadius: '12px', border: '1px solid var(--info-soft-border)' }}>
                                                 {pluviometros.filter(p => p.activo).length <= 1
                                                     ? 'Modo Estándar (1 pluviómetro)'
                                                     : `Multi-pluviómetro (${pluviometros.filter(p => p.activo).length} activos · Promedio Finca)`}
                                             </span>
                                         </div>
                                         <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
-                                            Si la finca solo tiene 1 pluviómetro, no necesitas agregar ninguno aquí. Si manejas 2 o más (ej. Casa y Sector Alto), agrégalos abajo: el mayordomo los verá juntos al registrar y la app calculará automáticamente el <strong style={{ color: 'white' }}>promedio diario de la finca</strong>. Cambiar el tipo de medición solo afecta lecturas futuras y <strong style={{ color: 'white' }}>nunca altera registros anteriores</strong>.
+                                            Si la finca solo tiene 1 pluviómetro, no necesitas agregar ninguno aquí. Si manejas 2 o más (ej. Casa y Sector Alto), agrégalos abajo: el mayordomo los verá juntos al registrar y la app calculará automáticamente el <strong style={{ color: 'var(--text-main)' }}>promedio diario de la finca</strong>. Cambiar el tipo de medición solo afecta lecturas futuras y <strong style={{ color: 'var(--text-main)' }}>nunca altera registros anteriores</strong>.
                                         </p>
 
                                         <form onSubmit={handleAddPluviometro} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 2fr) minmax(150px, 1.5fr) auto', gap: '10px', marginBottom: '16px', alignItems: 'end' }}>
@@ -2178,7 +2183,7 @@ export default function Settings() {
                                             <button
                                                 type="submit"
                                                 disabled={savingPluv || !nuevoPluvNombre.trim()}
-                                                style={{ width: 'auto', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(56,189,248,0.18)', border: '1px solid rgba(56,189,248,0.4)', color: '#7dd3fc' }}
+                                                style={{ width: 'auto', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--info-soft-bg)', border: '1px solid var(--info-soft-border)', color: 'var(--info)' }}
                                             >
                                                 <Plus size={16} /> Agregar
                                             </button>
@@ -2197,15 +2202,15 @@ export default function Settings() {
                                                             gap: '10px',
                                                             padding: '10px 14px',
                                                             borderRadius: '10px',
-                                                            background: pluv.activo ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)',
-                                                            border: `1px solid ${pluv.activo ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'}`,
-                                                            opacity: pluv.activo ? 1 : 0.65,
+                                                            background: pluv.activo ? 'var(--surface-subtle)' : 'var(--surface-inset)',
+                                                            border: `1px solid ${pluv.activo ? 'var(--border-subtle)' : 'var(--border-subtle)'}`,
+                                                            opacity: pluv.activo ? 1 : 0.72,
                                                         }}
                                                     >
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 180px' }}>
-                                                            <span style={{ fontWeight: 600, color: 'white' }}>📍 {pluv.nombre}</span>
+                                                            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>📍 {pluv.nombre}</span>
                                                             {!pluv.activo && (
-                                                                <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(148,163,184,0.15)', color: '#94a3b8' }}>
+                                                                <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
                                                                     Inactivo
                                                                 </span>
                                                             )}
@@ -2228,9 +2233,9 @@ export default function Settings() {
                                                                     width: 'auto',
                                                                     padding: '6px 12px',
                                                                     fontSize: '0.78rem',
-                                                                    background: pluv.activo ? 'rgba(76,175,80,0.12)' : 'rgba(255,255,255,0.05)',
-                                                                    border: `1px solid ${pluv.activo ? 'rgba(76,175,80,0.35)' : 'rgba(255,255,255,0.1)'}`,
-                                                                    color: pluv.activo ? '#81c784' : 'var(--text-muted)',
+                                                                    background: pluv.activo ? 'var(--success-soft-bg)' : 'var(--surface-subtle)',
+                                                                    border: `1px solid ${pluv.activo ? 'var(--success-soft-border)' : 'var(--border-strong)'}`,
+                                                                    color: pluv.activo ? 'var(--success)' : 'var(--text-muted)',
                                                                 }}
                                                             >
                                                                 {pluv.activo ? 'Activo' : 'Activar'}
@@ -2256,7 +2261,7 @@ export default function Settings() {
                             {/* Gestión de Personal */}
                             {!collapsed.usuarios && (
                                 <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <Users size={20} color="var(--primary)" /> Gestión de Personal
                                     </h3>
                                     <form onSubmit={handleCreateUser}>
@@ -2290,15 +2295,15 @@ export default function Settings() {
                                         </div>
 
                                         <label style={{ marginBottom: '12px', display: 'block' }}>Asignar a Fincas:</label>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', marginBottom: '24px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', marginBottom: '24px', padding: '16px', backgroundColor: 'var(--surface-inset)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
                                             {fincasAdmin.map((f: any) => (
-                                                <div key={f.id_finca} onClick={() => toggleFincaSelection(f.id_finca)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '6px', cursor: 'pointer', backgroundColor: selectedFincas.includes(f.id_finca) ? 'rgba(76, 175, 80, 0.1)' : 'transparent', border: '1px solid', borderColor: selectedFincas.includes(f.id_finca) ? 'var(--primary)' : 'transparent' }}>
+                                                <div key={f.id_finca} onClick={() => toggleFincaSelection(f.id_finca)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '6px', cursor: 'pointer', backgroundColor: selectedFincas.includes(f.id_finca) ? 'var(--primary-soft-bg)' : 'transparent', border: '1px solid', borderColor: selectedFincas.includes(f.id_finca) ? 'var(--primary)' : 'transparent' }}>
                                                     {selectedFincas.includes(f.id_finca) ? <CheckSquare size={16} color="var(--primary)" /> : <Square size={16} color="var(--text-muted)" />}
                                                     <span style={{ fontSize: '0.85rem' }}>{f.nombre_finca}</span>
                                                 </div>
                                             ))}
                                         </div>
-                                        <button type="submit" disabled={loading} style={{ backgroundColor: loading ? 'rgba(76, 175, 80, 0.5)' : 'var(--primary)', cursor: loading ? 'not-allowed' : 'pointer' }}>
+                                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', opacity: loading ? 0.65 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
                                             <UserPlus size={18} /> {loading ? 'Creando Usuario...' : 'Crear Usuario'}
                                         </button>
                                         {userFormMsg && (
@@ -2308,9 +2313,9 @@ export default function Settings() {
                                                 borderRadius: '10px',
                                                 fontSize: '0.9rem',
                                                 fontWeight: 600,
-                                                backgroundColor: userFormMsg.type === 'success' ? 'rgba(76, 175, 80, 0.12)' : 'rgba(239, 83, 80, 0.12)',
-                                                border: `1px solid ${userFormMsg.type === 'success' ? 'rgba(76, 175, 80, 0.4)' : 'rgba(239, 83, 80, 0.4)'}`,
-                                                color: userFormMsg.type === 'success' ? '#4caf50' : '#ef5350'
+                                                backgroundColor: userFormMsg.type === 'success' ? 'var(--success-soft-bg)' : 'var(--error-soft-bg)',
+                                                border: `1px solid ${userFormMsg.type === 'success' ? 'var(--success-soft-border)' : 'var(--error-soft-border)'}`,
+                                                color: userFormMsg.type === 'success' ? 'var(--success)' : 'var(--error)'
                                             }}>
                                                 {userFormMsg.text}
                                             </div>
@@ -2322,7 +2327,7 @@ export default function Settings() {
                             {/* Contactos de Negocio */}
                             {!collapsed.contactosNegocio && (
                                 <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <Briefcase size={20} color="var(--primary)" /> Contactos de Negocios
                                     </h3>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
@@ -2334,9 +2339,9 @@ export default function Settings() {
                                             </form>
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
                                                 {propietarios.map(p => (
-                                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>
                                                         <span style={{ fontSize: '0.9rem' }}>{p.nombre}</span>
-                                                        <Trash2 size={16} style={{ cursor: 'pointer', color: '#ef5350' }} onClick={() => removePropietario(p.id)} />
+                                                        <Trash2 size={16} style={{ cursor: 'pointer', color: 'var(--error)' }} onClick={() => removePropietario(p.id)} />
                                                     </div>
                                                 ))}
                                             </div>
@@ -2348,7 +2353,7 @@ export default function Settings() {
                                                     <input type="text" placeholder="Nuevo Proveedor" value={nuevoProveedor} onChange={e => setNuevoProveedor(e.target.value)} style={{ margin: 0 }} />
                                                     <button type="submit" style={{ width: 'auto' }} disabled={loading}><Plus size={18}/></button>
                                                 </form>
-                                                {proveedores.map(p => <div key={p.id} style={{ padding: '8px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>{p.nombre}<Trash2 size={14} style={{ color: '#ef5350', cursor: 'pointer' }} onClick={() => removeProveedor(p.id)}/></div>)}
+                                                {proveedores.map(p => <div key={p.id} style={{ padding: '8px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)' }}>{p.nombre}<Trash2 size={14} style={{ color: 'var(--error)', cursor: 'pointer' }} onClick={() => removeProveedor(p.id)}/></div>)}
                                             </div>
                                             <div>
                                                 <h4 style={{ color: 'var(--primary-light)', marginBottom: '12px' }}><ShoppingCart size={16}/> Compradores</h4>
@@ -2356,7 +2361,7 @@ export default function Settings() {
                                                     <input type="text" placeholder="Nuevo Comprador" value={nuevoComprador} onChange={e => setNuevoComprador(e.target.value)} style={{ margin: 0 }} />
                                                     <button type="submit" style={{ width: 'auto' }} disabled={loading}><Plus size={18}/></button>
                                                 </form>
-                                                {compradores.map(c => <div key={c.id} style={{ padding: '8px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>{c.nombre}<Trash2 size={14} style={{ color: '#ef5350', cursor: 'pointer' }} onClick={() => removeComprador(c.id)}/></div>)}
+                                                {compradores.map(c => <div key={c.id} style={{ padding: '8px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)' }}>{c.nombre}<Trash2 size={14} style={{ color: 'var(--error)', cursor: 'pointer' }} onClick={() => removeComprador(c.id)}/></div>)}
                                             </div>
                                         </div>
                                     </div>
@@ -2366,25 +2371,25 @@ export default function Settings() {
                             {/* Cargas Masivas */}
                             {!collapsed.cargasMasivas && (
                                 <div className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '15px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <Upload size={20} color="var(--primary)" /> Carga Masiva (CSV)
                                     </h3>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                                        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                                        <div style={{ padding: '20px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
                                             <FileText size={24} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
                                             <h4 style={{ marginBottom: '8px' }}>Inventario</h4>
                                             <button onClick={() => document.getElementById('bulkAnimalSettings')?.click()} style={{ width: '100%', marginBottom: '10px' }}>Subir CSV</button>
                                             <a href="/plantilla_animales.csv" download style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>Plantilla</a>
                                             <input type="file" id="bulkAnimalSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkAnimalUpload} />
                                         </div>
-                                        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                                        <div style={{ padding: '20px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
                                             <Maximize size={24} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
                                             <h4 style={{ marginBottom: '8px' }}>Pesajes</h4>
                                             <button onClick={() => document.getElementById('bulkPesajeSettings')?.click()} style={{ width: '100%', marginBottom: '10px' }}>Subir CSV</button>
                                             <a href="/plantilla_pesajes.csv" download style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>Plantilla</a>
                                             <input type="file" id="bulkPesajeSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkPesajeUpload} />
                                         </div>
-                                        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                                        <div style={{ padding: '20px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
                                             <Upload size={24} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
                                             <h4 style={{ marginBottom: '8px' }}>Rotaciones</h4>
                                             <button onClick={() => document.getElementById('bulkRotacionSettings')?.click()} style={{ width: '100%', marginBottom: '10px' }}>Subir CSV</button>
@@ -2394,11 +2399,11 @@ export default function Settings() {
                                     </div>
 
                                     {/* Tabla de Cargas Masivas de Hoy */}
-                                    <div style={{ marginTop: '28px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '20px' }}>
+                                    <div style={{ marginTop: '28px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                                             <h4 style={{ fontSize: '1rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                                                 <span>Cargas Masivas Realizadas Hoy</span>
-                                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>
+                                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
                                                     {cargasMasivasHoy.length}
                                                 </span>
                                             </h4>
@@ -2407,13 +2412,13 @@ export default function Settings() {
                                             Si cometiste un error al cargar datos hoy, puedes revertir la carga haciendo clic en la papelera. Esta opción de deshacer está disponible únicamente durante el día de la carga (a medianoche se cierra automáticamente por seguridad).
                                         </p>
                                         {cargasMasivasHoy.length === 0 ? (
-                                            <div style={{ padding: '18px', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.08)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                            <div style={{ padding: '18px', textAlign: 'center', backgroundColor: 'var(--surface-inset)', borderRadius: '8px', border: '1px dashed var(--border-strong)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                                                 No se han realizado cargas masivas el día de hoy.
                                             </div>
                                         ) : (
-                                            <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                            <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                                                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-                                                    <thead style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <thead style={{ backgroundColor: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
                                                         <tr>
                                                             <th style={{ padding: '10px 14px' }}>Tipo</th>
                                                             <th style={{ padding: '10px 14px' }}>Archivo</th>
@@ -2424,15 +2429,16 @@ export default function Settings() {
                                                     </thead>
                                                     <tbody>
                                                         {cargasMasivasHoy.map(c => (
-                                                            <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                            <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                                                 <td style={{ padding: '10px 14px' }}>
                                                                     <span style={{
                                                                         padding: '3px 8px',
                                                                         borderRadius: '6px',
                                                                         fontSize: '0.75rem',
                                                                         fontWeight: 'bold',
-                                                                        backgroundColor: c.tipo === 'animales' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                                                                        color: c.tipo === 'animales' ? '#4ade80' : '#60a5fa'
+                                                                        backgroundColor: c.tipo === 'animales' ? 'var(--success-soft-bg)' : 'var(--info-soft-bg)',
+                                                                        color: c.tipo === 'animales' ? 'var(--success)' : 'var(--info)',
+                                                                        border: `1px solid ${c.tipo === 'animales' ? 'var(--success-soft-border)' : 'var(--info-soft-border)'}`
                                                                     }}>
                                                                         {c.tipo === 'animales' ? 'Inventario' : 'Pesajes'}
                                                                     </span>
@@ -2449,9 +2455,9 @@ export default function Settings() {
                                                                         style={{
                                                                             padding: '6px 10px',
                                                                             borderRadius: '6px',
-                                                                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
-                                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                                                                            color: '#f87171',
+                                                                            backgroundColor: 'var(--error-soft-bg)',
+                                                                            border: '1px solid var(--error-soft-border)',
+                                                                            color: 'var(--error)',
                                                                             cursor: 'pointer',
                                                                             display: 'inline-flex',
                                                                             alignItems: 'center',
@@ -2479,25 +2485,25 @@ export default function Settings() {
             </div>
 
             {loading && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[3000] p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+                <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-[3000] p-4" style={{ backgroundColor: 'var(--backdrop-scrim)' }}>
+                    <div className="rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)' }}>
                         <div className="relative w-20 h-20 mx-auto mb-6">
-                            <div className="absolute inset-0 border-4 border-emerald-100 rounded-full"></div>
-                            <div className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent animate-spin"></div>
+                            <div className="absolute inset-0 border-4 rounded-full" style={{ borderColor: 'var(--primary-soft-border)' }}></div>
+                            <div className="absolute inset-0 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }}></div>
                         </div>
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">Procesando...</h3>
-                        <p className="text-gray-500 mb-6">Por favor espera un momento mientras guardamos los datos.</p>
+                        <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>Procesando...</h3>
+                        <p className="mb-6" style={{ color: 'var(--text-muted)' }}>Por favor espera un momento mientras guardamos los datos.</p>
                         
                         {importProgress && (
-                            <div className="w-full bg-gray-100 rounded-full h-3 mb-2 overflow-hidden">
+                            <div className="w-full rounded-full h-3 mb-2 overflow-hidden" style={{ backgroundColor: 'var(--border-subtle)' }}>
                                 <div 
-                                    className="bg-emerald-500 h-full transition-all duration-300 ease-out"
-                                    style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                                    className="h-full transition-all duration-300 ease-out"
+                                    style={{ width: `${(importProgress.current / importProgress.total) * 100}%`, backgroundColor: 'var(--primary)' }}
                                 ></div>
                             </div>
                         )}
                         {importProgress && (
-                            <p className="text-sm font-medium text-emerald-600">
+                            <p className="text-sm font-medium" style={{ color: 'var(--primary-light)' }}>
                                 {importProgress.current} de {importProgress.total} registros
                             </p>
                         )}

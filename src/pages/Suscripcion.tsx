@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import {
     Award, CheckCircle2, ShieldCheck,
     Building2, Calendar, MessageCircle,
@@ -21,6 +22,9 @@ type Periodicidad = 'mensual' | 'semestral' | 'anual';
 
 export default function Suscripcion() {
     const { licenciaInfo } = useAuth();
+    const { theme } = useTheme();
+    const accentPurple = theme === 'light' ? '#7c3aed' : '#a78bfa';
+    const accentPurpleSoft = theme === 'light' ? '#6d28d9' : '#c084fc';
     const { licencia, limiteAnimales, totalAnimalesOrganizacion, fechaInicioLicencia, fechaVencimientoLicencia, organizacionNombre } = licenciaInfo;
 
     const [periodicidad, setPeriodicidad] = useState<Periodicidad>('anual');
@@ -121,15 +125,16 @@ export default function Suscripcion() {
         }
     };
 
+    const isLight = theme === 'light';
     const planes = [
         {
             id: 'demo',
             nombre: 'Plan Demo',
             badge: 'Gratuito',
             limite: 'Hasta 40 animales',
-            color: '#ffb74d',
-            border: 'rgba(255, 183, 77, 0.3)',
-            bg: 'rgba(255, 183, 77, 0.05)',
+            color: isLight ? '#b45309' : '#ffb74d',
+            border: isLight ? 'rgba(217, 119, 6, 0.35)' : 'rgba(255, 183, 77, 0.3)',
+            bg: isLight ? '#fffbeb' : 'rgba(255, 183, 77, 0.05)',
             caracteristicas: [
                 'Hasta 40 animales activos',
                 '1 finca autorizada',
@@ -144,9 +149,9 @@ export default function Suscripcion() {
             nombre: 'Plan Finca',
             badge: 'Más Popular',
             limite: 'Hasta 500 animales',
-            color: '#38bdf8',
-            border: 'rgba(56, 189, 248, 0.4)',
-            bg: 'rgba(56, 189, 248, 0.08)',
+            color: isLight ? '#0369a1' : '#38bdf8',
+            border: isLight ? 'rgba(2, 132, 199, 0.45)' : 'rgba(56, 189, 248, 0.4)',
+            bg: isLight ? '#f0f9ff' : 'rgba(56, 189, 248, 0.08)',
             popular: true,
             caracteristicas: [
                 'Acceso a AgroBot (IA Mentora)',
@@ -165,9 +170,9 @@ export default function Suscripcion() {
             nombre: 'Plan Hacienda (Premium)',
             badge: 'Empresarial',
             limite: 'Animales Ilimitados',
-            color: '#c084fc',
-            border: 'rgba(192, 132, 252, 0.4)',
-            bg: 'rgba(192, 132, 252, 0.08)',
+            color: accentPurpleSoft,
+            border: isLight ? 'rgba(124, 58, 237, 0.4)' : 'rgba(192, 132, 252, 0.4)',
+            bg: isLight ? '#faf5ff' : 'rgba(192, 132, 252, 0.08)',
             caracteristicas: [
                 'Animales activos ilimitados',
                 'Geolocalización GPS en campo en tiempo real sobre el plano de la finca',
@@ -190,7 +195,7 @@ export default function Suscripcion() {
             <div className="suscripcion-header">
                 <div className="suscripcion-header-inner">
                     <div className="suscripcion-header-icon">
-                        <Award size={26} color="#a78bfa" />
+                        <Award size={26} color={accentPurple} />
                     </div>
                     <div>
                         <h1 className="suscripcion-title">
@@ -208,7 +213,7 @@ export default function Suscripcion() {
                 <div className="suscripcion-current-header">
                     <div>
                         <div className="suscripcion-org-meta">
-                            <Building2 size={16} color="#a78bfa" />
+                            <Building2 size={16} color={accentPurple} />
                             <span className="suscripcion-org-name">
                                 {organizacionNombre || 'Tu Organización'}
                             </span>
@@ -221,7 +226,7 @@ export default function Suscripcion() {
                     <div className="suscripcion-status-chips">
                         {/* Inicio de Plan */}
                         <div className="suscripcion-chip">
-                            <Clock size={16} color="#a78bfa" style={{ flexShrink: 0 }} />
+                            <Clock size={16} color={accentPurple} style={{ flexShrink: 0 }} />
                             <div>
                                 <div className="suscripcion-chip-label">Inicio de Plan</div>
                                 <div className="suscripcion-chip-value">{formatDate(fechaInicioLicencia)}</div>
@@ -230,7 +235,7 @@ export default function Suscripcion() {
 
                         {/* Fin de Vigencia */}
                         {(licencia === 'demo' || !fechaVencimientoLicencia) ? (
-                            <div className="suscripcion-chip" style={{ background: 'rgba(76, 175, 80, 0.08)', borderColor: 'rgba(76, 175, 80, 0.25)' }}>
+                            <div className="suscripcion-chip" style={{ background: 'var(--success-soft-bg)', borderColor: 'var(--success-soft-border)' }}>
                                 <CheckCircle2 size={16} color="var(--success)" style={{ flexShrink: 0 }} />
                                 <div>
                                     <div className="suscripcion-chip-label" style={{ color: 'var(--success)' }}>Fin de Vigencia</div>
@@ -241,15 +246,15 @@ export default function Suscripcion() {
                             <div
                                 className="suscripcion-chip"
                                 style={{
-                                    background: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'rgba(244,67,54,0.12)' : 'rgba(14, 165, 233, 0.08)',
-                                    borderColor: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'rgba(244,67,54,0.35)' : 'rgba(14, 165, 233, 0.25)',
+                                    background: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'var(--error-soft-bg)' : 'var(--info-soft-bg)',
+                                    borderColor: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'var(--error-soft-border)' : 'var(--info-soft-border)',
                                 }}
                             >
-                                <Calendar size={16} color={diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '#f87171' : '#38bdf8'} style={{ flexShrink: 0 }} />
+                                <Calendar size={16} color={diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'var(--error)' : 'var(--info)'} style={{ flexShrink: 0 }} />
                                 <div>
                                     <div
                                         className="suscripcion-chip-label"
-                                        style={{ color: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? '#f87171' : '#38bdf8' }}
+                                        style={{ color: diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 ? 'var(--error)' : 'var(--info)' }}
                                     >
                                         Fin de Vigencia
                                     </div>
@@ -261,8 +266,8 @@ export default function Suscripcion() {
                                                 padding: '2px 6px',
                                                 borderRadius: '5px',
                                                 fontWeight: 700,
-                                                background: diasRestantesVencimiento < 0 ? 'rgba(244,67,54,0.25)' : diasRestantesVencimiento <= 8 ? 'rgba(255,152,0,0.25)' : 'rgba(76,175,80,0.2)',
-                                                color: diasRestantesVencimiento < 0 ? '#ef5350' : diasRestantesVencimiento <= 8 ? '#ffb74d' : 'var(--success)'
+                                                background: diasRestantesVencimiento < 0 ? 'var(--error-soft-bg)' : diasRestantesVencimiento <= 8 ? 'var(--warning-soft-bg)' : 'var(--success-soft-bg)',
+                                                color: diasRestantesVencimiento < 0 ? 'var(--error)' : diasRestantesVencimiento <= 8 ? 'var(--warning)' : 'var(--success)'
                                             }}>
                                                 {diasRestantesVencimiento < 0
                                                     ? 'Vencida'
@@ -282,7 +287,7 @@ export default function Suscripcion() {
                 {diasRestantesVencimiento !== null && diasRestantesVencimiento <= 8 && (
                     <div className="suscripcion-alert-banner expiry">
                         <div className="suscripcion-alert-content">
-                            <AlertTriangle size={20} color="#f87171" style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <AlertTriangle size={20} color="var(--error)" style={{ flexShrink: 0, marginTop: '2px' }} />
                             <div>
                                 <div className="suscripcion-alert-title">
                                     {diasRestantesVencimiento < 0
@@ -311,7 +316,7 @@ export default function Suscripcion() {
                 {(totalAnimalesOrganizacion > limiteAnimales) && (
                     <div className="suscripcion-alert-banner overflow">
                         <div className="suscripcion-alert-content">
-                            <AlertTriangle size={20} color="#f87171" style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <AlertTriangle size={20} color="var(--error)" style={{ flexShrink: 0, marginTop: '2px' }} />
                             <div>
                                 <div className="suscripcion-alert-title">
                                     ¡Capacidad Excedida - Modo Solo Lectura Activo!
@@ -332,15 +337,15 @@ export default function Suscripcion() {
                             Capacidad utilizada de animales activos:
                         </span>
                         <div className="suscripcion-usage-stat">
-                            <span style={{ color: porcentajeUso >= 90 ? '#f87171' : '#ffffff' }}>
+                            <span style={{ color: porcentajeUso >= 90 ? 'var(--error)' : 'var(--text-main)' }}>
                                 {totalAnimalesOrganizacion.toLocaleString('es-CO')} / {limiteAnimales >= 999999 ? '∞ (Ilimitado)' : limiteAnimales.toLocaleString('es-CO')}
                             </span>
                             <span
                                 className="suscripcion-usage-badge"
                                 style={{
-                                    color: porcentajeUso >= 90 ? '#f87171' : porcentajeUso >= 75 ? '#ffb74d' : '#34d399',
-                                    background: porcentajeUso >= 90 ? 'rgba(239, 68, 68, 0.15)' : porcentajeUso >= 75 ? 'rgba(255, 152, 0, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                                    border: `1px solid ${porcentajeUso >= 90 ? 'rgba(239,68,68,0.3)' : porcentajeUso >= 75 ? 'rgba(255,152,0,0.3)' : 'rgba(16,185,129,0.3)'}`
+                                    color: porcentajeUso >= 90 ? 'var(--error)' : porcentajeUso >= 75 ? 'var(--warning)' : 'var(--success)',
+                                    background: porcentajeUso >= 90 ? 'var(--error-soft-bg)' : porcentajeUso >= 75 ? 'var(--warning-soft-bg)' : 'var(--success-soft-bg)',
+                                    border: `1px solid ${porcentajeUso >= 90 ? 'var(--error-soft-border)' : porcentajeUso >= 75 ? 'var(--warning-soft-border)' : 'var(--success-soft-border)'}`
                                 }}
                             >
                                 {porcentajeUso}% usado
@@ -434,7 +439,8 @@ export default function Suscripcion() {
                             className={`suscripcion-plan-card ${esPlanActual ? 'actual' : ''}`}
                             style={{
                                 background: plan.bg,
-                                border: `1.5px solid ${esPlanActual ? '#a78bfa' : plan.border}`,
+                                border: `1.5px solid ${esPlanActual ? accentPurple : plan.border}`,
+                                boxShadow: isLight ? 'var(--shadow-card)' : undefined,
                             }}
                         >
                             {esPlanActual && (
@@ -500,15 +506,21 @@ export default function Suscripcion() {
                                 className="suscripcion-plan-btn"
                                 style={{
                                     background: esPlanActual
-                                        ? 'rgba(255,255,255,0.08)'
+                                        ? 'var(--surface-subtle)'
                                         : actionType === 'mejora'
-                                            ? `linear-gradient(135deg, ${plan.color}, #7c3aed)`
-                                            : 'rgba(255,255,255,0.05)',
-                                    color: actionType === 'disminucion' ? 'var(--text-muted)' : '#ffffff',
+                                            ? (isLight
+                                                ? (plan.id === 'finca' ? 'linear-gradient(135deg, #0284c7, #6d28d9)' : 'linear-gradient(135deg, #7c3aed, #5b21b6)')
+                                                : `linear-gradient(135deg, ${plan.color}, #7c3aed)`)
+                                            : 'var(--surface-subtle)',
+                                    color: esPlanActual
+                                        ? 'var(--text-main)'
+                                        : actionType === 'mejora'
+                                            ? '#ffffff'
+                                            : 'var(--text-muted)',
                                     border: esPlanActual
-                                        ? '1px solid rgba(255,255,255,0.2)'
+                                        ? '1px solid var(--border-strong)'
                                         : actionType === 'disminucion'
-                                            ? '1px solid rgba(255,255,255,0.1)'
+                                            ? '1px solid var(--border-subtle)'
                                             : 'none'
                                 }}
                             >
@@ -523,7 +535,7 @@ export default function Suscripcion() {
             {/* Manual Payment Section */}
             <div className="suscripcion-activacion-card">
                 <div className="suscripcion-activacion-header">
-                    <ShieldCheck size={22} color="#a78bfa" />
+                    <ShieldCheck size={22} color={accentPurple} />
                     <h3 className="suscripcion-activacion-title">
                         ¿Cómo realizar la activación de tu plan?
                     </h3>

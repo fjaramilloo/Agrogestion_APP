@@ -730,15 +730,15 @@ export default function Weighing() {
             {isBloqueado && (
                 <div className="weighing-upsell-banner">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} aria-hidden="true" />
-                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} aria-hidden="true" />
+                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
                                     <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Tu información histórica está disponible, pero el registro de nuevos pesajes y cálculos de GDP está pausado.
                                 </>
                             ) : (
                                 <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu hato cuenta con <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite del plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar nuevos pesajes y GDP, actualiza tu suscripción.
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu hato cuenta con <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite del plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar nuevos pesajes y GDP, actualiza tu suscripción.
                                 </>
                             )}
                         </div>
@@ -820,7 +820,7 @@ export default function Weighing() {
 
                 {animalNoEncontrado && !showCrearAnimal && !animal && (
                     <div className="weighing-not-found-box">
-                        <p style={{ color: 'white', marginBottom: '16px' }}>El animal no está en la base de datos.</p>
+                        <p style={{ color: 'var(--text-main)', marginBottom: '16px', fontWeight: 500 }}>El animal no está en la base de datos.</p>
                         <button
                             type="button"
                             className="weighing-btn-warning"
@@ -856,7 +856,7 @@ export default function Weighing() {
                                 ))}
                             </select>
                         ) : (
-                            <div style={{ padding: '12px', marginBottom: '16px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', fontSize: '0.9rem', color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <div style={{ padding: '12px', marginBottom: '16px', borderRadius: '8px', backgroundColor: 'var(--surface-subtle)', fontSize: '0.9rem', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
                                 No hay propietarios configurados en esta finca. Vaya a <b>Ajustes</b> para crearlos.
                                 <input
                                     type="text"
@@ -921,7 +921,6 @@ export default function Weighing() {
                                     fontSize: '1.5rem',
                                     fontWeight: 'bold',
                                     color: (animal.gmp || 0) < 0 ? 'var(--error)' : ((animal.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((animal.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
-                                    textShadow: (animal.gmp !== undefined && animal.gmp > umbralMedio && animal.gmp <= umbralAlto) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
                                 }}>
                                     {animal.gmp ? toDisplayValue(animal.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1) : '0'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{getUnidadLabel(modoGanancia)}</span>
                                 </div>
@@ -947,7 +946,7 @@ export default function Weighing() {
                         {animal.sexo === 'M' && (
                             <div style={{ marginBottom: '14px' }}>
                                 {animal.tipo_macho === 'novillo' ? (
-                                    <div style={{ padding: '12px 16px', background: 'rgba(33,150,243,0.08)', border: '1px solid rgba(33,150,243,0.25)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: '#42a5f5', fontSize: '0.9rem' }}>
+                                    <div style={{ padding: '12px 16px', background: 'var(--info-soft-bg)', border: '1px solid var(--info-soft-border)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--info)', fontSize: '0.9rem' }}>
                                         <span style={{ fontSize: '1.2rem' }} aria-hidden="true">✂️</span>
                                         <div>
                                             <strong>Novillo</strong> (castrado)
@@ -955,7 +954,7 @@ export default function Weighing() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div style={{ padding: '12px 14px', background: 'rgba(255,152,0,0.06)', border: `1px solid ${castrarHoy ? 'rgba(33,150,243,0.4)' : 'rgba(255,152,0,0.2)'}`, borderRadius: '10px', transition: 'border-color 0.2s' }}>
+                                    <div style={{ padding: '12px 14px', background: 'var(--warning-soft-bg)', border: `1px solid ${castrarHoy ? 'var(--info)' : 'var(--warning-soft-border)'}`, borderRadius: '10px', transition: 'border-color 0.2s' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                                                 <span style={{ fontSize: '1.1rem' }} aria-hidden="true">🐂</span>
@@ -979,7 +978,7 @@ export default function Weighing() {
                                             </label>
                                         </div>
                                         {castrarHoy && (
-                                            <div style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(33,150,243,0.1)', borderRadius: '6px', color: '#42a5f5', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <div style={{ marginTop: '10px', padding: '8px 12px', background: 'var(--info-soft-bg)', borderRadius: '6px', color: 'var(--info)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <AlertTriangle size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
                                                 Al guardar el pesaje, este animal quedará registrado como <strong>Novillo</strong> para siempre.
                                             </div>
@@ -991,21 +990,21 @@ export default function Weighing() {
 
                         {/* Indicador si ya tiene marca ok_ceba - Solo mostrar si está en levante */}
                         {animal.ok_ceba && animal.etapa === 'levante' && (
-                            <div style={{ padding: '10px 14px', background: 'rgba(76,175,80,0.1)', border: '1px solid rgba(76,175,80,0.3)', borderRadius: '8px', marginBottom: '12px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+                            <div style={{ padding: '10px 14px', background: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', borderRadius: '8px', marginBottom: '12px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
                                 <CheckCircle2 size={18} aria-hidden="true" style={{ flexShrink: 0 }} /> Este animal ya está marcado para pasar a Ceba
                             </div>
                         )}
 
                         {/* Indicador del umbral - Solo mostrar si está en levante */}
                         {animal.etapa === 'levante' && (
-                            <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', marginBottom: '14px', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                            <div style={{ padding: '10px 14px', background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '8px', marginBottom: '14px', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
                                 Si el nuevo peso ≥ <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>, el animal quedará marcado para pasar a Ceba.
                             </div>
                         )}
 
                         {/* Indicador de peso repetido el mismo día */}
                         {animal.fecha_ultimo_peso && animal.fecha_ultimo_peso.split('T')[0] === fechaPesaje && (
-                            <div style={{ padding: '10px 14px', background: 'rgba(244,67,54,0.1)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', marginBottom: '14px', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+                            <div style={{ padding: '10px 14px', background: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', borderRadius: '8px', marginBottom: '14px', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
                                 <AlertTriangle size={18} style={{ flexShrink: 0 }} aria-hidden="true" /> Este animal ya tiene un pesaje registrado en esta fecha.
                             </div>
                         )}

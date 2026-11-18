@@ -205,8 +205,8 @@ export default function Login() {
                 style={{ 
                     maxWidth: mode === 'register' ? '480px' : mode === 'awaiting_confirmation' ? '450px' : '400px', 
                     transition: 'all 0.3s ease',
-                    boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)'
+                    boxShadow: 'var(--shadow-popover)',
+                    border: '1px solid var(--border-subtle)'
                 }}
             >
                 {/* Header */}
@@ -218,8 +218,8 @@ export default function Login() {
                         width: '56px',
                         height: '56px',
                         borderRadius: '16px',
-                        background: 'rgba(96, 173, 94, 0.12)',
-                        border: '1px solid rgba(96, 173, 94, 0.3)',
+                        background: 'var(--primary-soft-bg)',
+                        border: '1px solid var(--primary-soft-border)',
                         marginBottom: '8px'
                     }}>
                         <Leaf size={32} color="var(--primary-light)" />
@@ -231,8 +231,8 @@ export default function Login() {
                             display: 'inline-flex', 
                             alignItems: 'center', 
                             gap: '6px',
-                            background: 'rgba(46, 125, 50, 0.2)', 
-                            border: '1px solid rgba(96, 173, 94, 0.35)',
+                            background: 'var(--primary-soft-bg)', 
+                            border: '1px solid var(--primary-soft-border)',
                             color: 'var(--primary-light)', 
                             padding: '4px 12px', 
                             borderRadius: '20px', 
@@ -248,9 +248,9 @@ export default function Login() {
                             display: 'inline-flex', 
                             alignItems: 'center', 
                             gap: '6px',
-                            background: 'rgba(74, 222, 128, 0.15)', 
-                            border: '1px solid rgba(74, 222, 128, 0.4)',
-                            color: '#4ade80', 
+                            background: 'var(--success-soft-bg)', 
+                            border: '1px solid var(--success-soft-border)',
+                            color: 'var(--success)', 
                             padding: '4px 12px', 
                             borderRadius: '20px', 
                             fontSize: '0.82rem',
@@ -272,8 +272,8 @@ export default function Login() {
                 {message && (
                     <div style={{ 
                         color: 'var(--success)', 
-                        backgroundColor: 'rgba(76, 175, 80, 0.15)', 
-                        border: '1px solid rgba(76, 175, 80, 0.3)',
+                        backgroundColor: 'var(--success-soft-bg)', 
+                        border: '1px solid var(--success-soft-border)',
                         padding: '12px', 
                         borderRadius: '8px', 
                         textAlign: 'center', 
@@ -366,13 +366,13 @@ export default function Login() {
                             display: 'flex', 
                             alignItems: 'center', 
                             margin: '22px 0 16px', 
-                            color: 'rgba(255,255,255,0.2)' 
+                            color: 'var(--text-faint)' 
                         }}>
-                            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                            <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
                             <span style={{ padding: '0 12px', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                 ¿Aún no tienes cuenta?
                             </span>
-                            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                            <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
                         </div>
 
                         <button 
@@ -382,19 +382,19 @@ export default function Login() {
                                 resetFormStatus();
                             }}
                             style={{
-                                background: 'rgba(255, 255, 255, 0.04)',
-                                border: '1px solid rgba(96, 173, 94, 0.4)',
+                                background: 'var(--primary-soft-bg)',
+                                border: '1px solid var(--primary-soft-border)',
                                 color: 'var(--primary-light)',
                                 width: '100%',
                                 transition: 'all 0.25s ease'
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'rgba(96, 173, 94, 0.12)';
+                                e.currentTarget.style.background = 'var(--surface-subtle-hover)';
                                 e.currentTarget.style.borderColor = 'var(--primary-light)';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-                                e.currentTarget.style.borderColor = 'rgba(96, 173, 94, 0.4)';
+                                e.currentTarget.style.background = 'var(--primary-soft-bg)';
+                                e.currentTarget.style.borderColor = 'var(--primary-soft-border)';
                             }}
                         >
                             <Sparkles size={16} />
@@ -485,10 +485,10 @@ export default function Login() {
                                     display: 'grid', 
                                     gridTemplateColumns: '1fr 1fr', 
                                     gap: '6px', 
-                                    background: 'rgba(0,0,0,0.25)', 
+                                    background: 'var(--surface-inset)', 
                                     padding: '8px 10px', 
                                     borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.06)',
+                                    border: '1px solid var(--border-subtle)',
                                     marginBottom: '14px'
                                 }}>
                                     <div style={{ 
@@ -496,7 +496,7 @@ export default function Login() {
                                         alignItems: 'center', 
                                         gap: '5px', 
                                         fontSize: '0.75rem', 
-                                        color: passwordRequirements.minLength ? '#4caf50' : 'var(--text-muted)' 
+                                        color: passwordRequirements.minLength ? 'var(--success)' : 'var(--text-muted)' 
                                     }}>
                                         {passwordRequirements.minLength ? <Check size={13} /> : <X size={13} />}
                                         <span>Mín. 8 caracteres</span>
@@ -506,7 +506,7 @@ export default function Login() {
                                         alignItems: 'center', 
                                         gap: '5px', 
                                         fontSize: '0.75rem', 
-                                        color: passwordRequirements.hasUpper ? '#4caf50' : 'var(--text-muted)' 
+                                        color: passwordRequirements.hasUpper ? 'var(--success)' : 'var(--text-muted)' 
                                     }}>
                                         {passwordRequirements.hasUpper ? <Check size={13} /> : <X size={13} />}
                                         <span>Una mayúscula</span>
@@ -516,7 +516,7 @@ export default function Login() {
                                         alignItems: 'center', 
                                         gap: '5px', 
                                         fontSize: '0.75rem', 
-                                        color: passwordRequirements.hasLower ? '#4caf50' : 'var(--text-muted)' 
+                                        color: passwordRequirements.hasLower ? 'var(--success)' : 'var(--text-muted)' 
                                     }}>
                                         {passwordRequirements.hasLower ? <Check size={13} /> : <X size={13} />}
                                         <span>Una minúscula</span>
@@ -526,7 +526,7 @@ export default function Login() {
                                         alignItems: 'center', 
                                         gap: '5px', 
                                         fontSize: '0.75rem', 
-                                        color: passwordRequirements.hasSpecial ? '#4caf50' : 'var(--text-muted)' 
+                                        color: passwordRequirements.hasSpecial ? 'var(--success)' : 'var(--text-muted)' 
                                     }}>
                                         {passwordRequirements.hasSpecial ? <Check size={13} /> : <X size={13} />}
                                         <span>Carácter especial</span>
@@ -659,18 +659,17 @@ export default function Login() {
                             width: '64px',
                             height: '64px',
                             borderRadius: '50%',
-                            background: 'rgba(74, 222, 128, 0.12)',
-                            border: '2px solid rgba(74, 222, 128, 0.35)',
+                            background: 'var(--success-soft-bg)',
+                            border: '2px solid var(--success-soft-border)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            margin: '0 auto 16px',
-                            boxShadow: '0 0 24px rgba(74, 222, 128, 0.2)'
+                            margin: '0 auto 16px'
                         }}>
-                            <Mail size={32} color="#4ade80" />
+                            <Mail size={32} color="var(--success)" />
                         </div>
 
-                        <h3 style={{ color: '#ffffff', fontSize: '1.2rem', fontWeight: 700, margin: '0 0 8px' }}>
+                        <h3 style={{ color: 'var(--text-main)', fontSize: '1.2rem', fontWeight: 700, margin: '0 0 8px' }}>
                             ¡Revisa tu correo para activar tu cuenta!
                         </h3>
 
@@ -679,12 +678,12 @@ export default function Login() {
                         </p>
 
                         <div style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(74, 222, 128, 0.3)',
+                            background: 'var(--surface-subtle)',
+                            border: '1px solid var(--success-soft-border)',
                             borderRadius: '10px',
                             padding: '10px 14px',
                             marginBottom: '18px',
-                            color: '#4ade80',
+                            color: 'var(--success)',
                             fontWeight: 600,
                             fontSize: '0.95rem',
                             wordBreak: 'break-all'
@@ -694,13 +693,13 @@ export default function Login() {
 
                         {/* Pasos / Instrucciones */}
                         <div style={{
-                            background: 'rgba(255, 255, 255, 0.03)',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            background: 'var(--surface-subtle)',
+                            border: '1px solid var(--border-subtle)',
                             borderRadius: '10px',
                             padding: '14px',
                             textAlign: 'left',
                             fontSize: '0.82rem',
-                            color: '#cbd5e1',
+                            color: 'var(--text-secondary)',
                             lineHeight: 1.5,
                             marginBottom: '18px'
                         }}>
@@ -712,7 +711,7 @@ export default function Login() {
                                 <span>2️⃣</span>
                                 <span>Toca el botón verde para activar tu cuenta y entrar de una vez a tu finca.</span>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px', color: '#fbbf24', fontSize: '0.8rem' }}>
+                            <div style={{ display: 'flex', gap: '8px', color: 'var(--warning)', fontSize: '0.8rem' }}>
                                 <span>💡</span>
                                 <span>¿No lo ves en Recibidos? Revisa tu carpeta de <strong>Spam o Correo no deseado</strong>.</span>
                             </div>
@@ -731,13 +730,14 @@ export default function Login() {
                                     gap: '8px',
                                     background: '#ffffff',
                                     color: '#0f172a',
+                                    border: '1px solid var(--border-strong)',
                                     padding: '12px 18px',
                                     borderRadius: '10px',
                                     fontWeight: 700,
                                     fontSize: '0.88rem',
                                     textDecoration: 'none',
                                     marginBottom: '12px',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                                    boxShadow: 'var(--shadow-card)'
                                 }}
                             >
                                 <Mail size={16} />
@@ -776,9 +776,9 @@ export default function Login() {
                         {/* Mensaje de feedback al reenviar */}
                         {resendMessage && (
                             <div style={{
-                                color: '#4ade80',
-                                background: 'rgba(74, 222, 128, 0.12)',
-                                border: '1px solid rgba(74, 222, 128, 0.3)',
+                                color: 'var(--success)',
+                                background: 'var(--success-soft-bg)',
+                                border: '1px solid var(--success-soft-border)',
                                 padding: '10px',
                                 borderRadius: '8px',
                                 fontSize: '0.82rem',
@@ -790,9 +790,9 @@ export default function Login() {
 
                         {resendError && (
                             <div style={{
-                                color: '#f87171',
-                                background: 'rgba(239, 68, 68, 0.12)',
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                color: 'var(--error)',
+                                background: 'var(--error-soft-bg)',
+                                border: '1px solid var(--error-soft-border)',
                                 padding: '10px',
                                 borderRadius: '8px',
                                 fontSize: '0.82rem',
@@ -812,9 +812,9 @@ export default function Login() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '8px',
-                                background: 'rgba(46, 125, 50, 0.25)',
-                                border: '1px solid #4ade80',
-                                color: '#4ade80',
+                                background: 'var(--primary-soft-bg)',
+                                border: '1px solid var(--primary-soft-border)',
+                                color: 'var(--primary-light)',
                                 width: '100%',
                                 padding: '11px',
                                 borderRadius: '10px',

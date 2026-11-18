@@ -879,8 +879,8 @@ export default function Inventory() {
 
             {isBloqueado && (
                 <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    background: 'var(--error-soft-bg)',
+                    border: '1px solid var(--error-soft-border)',
                     borderRadius: '12px',
                     padding: '16px 20px',
                     marginBottom: '24px',
@@ -891,15 +891,15 @@ export default function Inventory() {
                     flexWrap: 'wrap'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
                                     <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Toda tu información histórica está visible e intacta. Para habilitar nuevos pesajes y operaciones, renueva tu suscripción.
                                 </>
                             ) : (
                                 <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> en su hato (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Toda tu información histórica está visible e intacta. Para habilitar nuevos pesajes y compras, actualiza al Plan Finca.
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> en su hato (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Toda tu información histórica está visible e intacta. Para habilitar nuevos pesajes y compras, actualiza al Plan Finca.
                                 </>
                             )}
                         </div>
@@ -911,8 +911,8 @@ export default function Inventory() {
                             width: 'auto',
                             padding: '8px 16px',
                             fontSize: '0.85rem',
-                            backgroundColor: '#ef4444',
-                            color: 'white',
+                            backgroundColor: 'var(--error)',
+                            color: 'var(--on-primary)',
                             border: 'none',
                             borderRadius: '8px',
                             fontWeight: 700,
@@ -926,19 +926,19 @@ export default function Inventory() {
             )}
             
             <div className="inventory-kpi-grid">
-                <div className="card inventory-kpi-card" style={{ background: 'rgba(46, 125, 50, 0.1)', border: '1px solid rgba(46, 125, 50, 0.2)' }}>
+                <div className="card inventory-kpi-card" style={{ background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)' }}>
                     <div className="inventory-kpi-label">Total Animales</div>
                     <div className="inventory-kpi-value" style={{ color: 'var(--primary-light)' }}>{statsFiltrados.total}</div>
                 </div>
-                <div className="card inventory-kpi-card" style={{ background: 'rgba(255, 179, 0, 0.05)', border: '1px solid rgba(255, 179, 0, 0.1)' }}>
+                <div className="card inventory-kpi-card" style={{ background: 'var(--secondary-soft-bg)', border: '1px solid var(--secondary-soft-border)' }}>
                     <div className="inventory-kpi-label">Potreradas</div>
                     <div className="inventory-kpi-value" style={{ color: 'var(--secondary)' }}>{statsFiltrados.potreradas}</div>
                 </div>
-                <div className="card inventory-kpi-card" style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <div className="card inventory-kpi-card" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)' }}>
                     <div className="inventory-kpi-label">Potreros en Uso</div>
                     <div className="inventory-kpi-value">{statsFiltrados.potreros}</div>
                 </div>
-                <div className="card inventory-kpi-card" style={{ background: 'rgba(244, 67, 54, 0.05)', border: '1px solid rgba(244, 67, 54, 0.1)' }}>
+                <div className="card inventory-kpi-card" style={{ background: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)' }}>
                     <div className="inventory-kpi-label">Alertas ({getModoLabel(modoGanancia)} Bajo)</div>
                     <div className="inventory-kpi-value" style={{ color: 'var(--error)' }}>
                         {statsFiltrados.alertas}
@@ -1076,7 +1076,7 @@ export default function Inventory() {
             <div className="table-container inventory-table-wrap" style={{ padding: 0 }}>
                 <table className="inventory-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                        <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                             <th scope="col" aria-sort={sortBy === 'chapeta' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}>
                                 <button type="button" className="inventory-sort-btn" onClick={() => handleSort('chapeta')}>
                                     <span>Chapeta</span>
@@ -1164,7 +1164,7 @@ export default function Inventory() {
                                         }}
                                         className={`table-row-hover${isAlerta ? ' is-alerta' : ''}`}
                                         style={{
-                                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                            borderBottom: '1px solid var(--border-subtle)',
                                             transition: 'background 0.2s',
                                             cursor: 'pointer'
                                         }}>
@@ -1184,7 +1184,7 @@ export default function Inventory() {
                                             <div style={{ 
                                                 fontWeight: 'bold', 
                                                 fontSize: '1.05rem', 
-                                                color: (animal.diasDesdeUltimoPesaje || 0) > 90 ? 'var(--error)' : 'white' 
+                                                color: (animal.diasDesdeUltimoPesaje || 0) > 90 ? 'var(--error)' : 'var(--text-main)' 
                                             }}>
                                                 Hace {animal.diasDesdeUltimoPesaje} {animal.diasDesdeUltimoPesaje === 1 ? 'día' : 'días'}
                                             </div>
@@ -1206,7 +1206,7 @@ export default function Inventory() {
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         gap: '8px',
-                                                        color: gmpColor === 'var(--text-light)' ? 'white' : gmpColor,
+                                                        color: gmpColor === 'var(--text-light)' ? 'var(--text-main)' : gmpColor,
                                                         fontWeight: 'bold'
                                                     }}>
                                                         <div style={{ 
@@ -1214,7 +1214,7 @@ export default function Inventory() {
                                                             height: '10px', 
                                                             borderRadius: '50%', 
                                                             backgroundColor: gmpColor,
-                                                            border: gmpColor === 'var(--text-light)' ? '1px solid rgba(255,255,255,0.4)' : 'none'
+                                                            border: gmpColor === 'var(--text-light)' ? '1px solid var(--border-strong)' : 'none'
                                                         }}></div>
                                                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Últ:</span>
                                                         {toDisplayValue(gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
@@ -1222,7 +1222,7 @@ export default function Inventory() {
                                                     {gmpHistorico !== null && (
                                                         <div style={{ fontSize: '0.76rem', paddingLeft: isMobile ? 0 : '18px', color: 'var(--text-muted)' }}>
                                                             Hist:{' '}
-                                                            <span style={{ color: gmpHistColor === 'var(--text-light)' ? 'rgba(255,255,255,0.9)' : gmpHistColor, fontWeight: 600 }}>
+                                                            <span style={{ color: gmpHistColor === 'var(--text-light)' ? 'var(--text-secondary)' : gmpHistColor, fontWeight: 600 }}>
                                                                 {toDisplayValue(gmpHistorico, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
                                                             </span>
                                                         </div>
@@ -1245,12 +1245,12 @@ export default function Inventory() {
                     <div className="card inventory-modal-card" style={{ maxWidth: '450px', border: '1px solid var(--error)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                             <Skull size={48} color="var(--error)" aria-hidden="true" style={{ marginBottom: '12px' }} />
-                            <h2 style={{ color: 'white', margin: '0 0 8px 0' }}>Reportar Fallecimiento</h2>
+                            <h2 style={{ color: 'var(--text-main)', margin: '0 0 8px 0' }}>Reportar Fallecimiento</h2>
                             <p style={{ color: 'var(--text-muted)', margin: 0 }}>Esta acción inactivará al animal permanentemente.</p>
                         </div>
 
                         {msjErrorMuerte && (
-                            <div role="alert" style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div role="alert" style={{ backgroundColor: 'var(--error-soft-bg)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 <AlertCircle size={16} aria-hidden="true" /> {msjErrorMuerte}
                             </div>
                         )}
@@ -1375,14 +1375,14 @@ export default function Inventory() {
 
                 return (
                     <div className="modal-overlay" onClick={() => setSelectedAnimal(null)}>
-                        <div className="card inventory-modal-card" style={{ maxWidth: '640px', backgroundColor: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} onClick={e => e.stopPropagation()}>
+                        <div className="card inventory-modal-card" style={{ maxWidth: '640px', backgroundColor: 'var(--surface)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-popover)' }} onClick={e => e.stopPropagation()}>
 
                             {/* Modal Header: Title, badges, subtle actions */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
                                 <div style={{ minWidth: 0, flex: 1 }}>
                                     {!isEditingChapeta ? (
                                         <h2 style={{
-                                            color: 'white',
+                                            color: 'var(--text-main)',
                                             margin: 0,
                                             fontSize: isMobile ? '1.5rem' : '1.75rem',
                                             fontWeight: 700,
@@ -1413,9 +1413,9 @@ export default function Inventory() {
                                                     style={{
                                                         padding: '6px 10px',
                                                         borderRadius: '6px',
-                                                        border: isEditChapetaTaken ? '1px solid #ef4444' : '1px solid var(--primary)',
-                                                        backgroundColor: 'rgba(255,255,255,0.08)',
-                                                        color: 'white',
+                                                        border: isEditChapetaTaken ? '1px solid var(--error)' : '1px solid var(--primary)',
+                                                        backgroundColor: 'var(--bg-input)',
+                                                        color: 'var(--text-main)',
                                                         fontSize: '1.1rem',
                                                         fontWeight: 'bold',
                                                         width: '140px',
@@ -1432,7 +1432,7 @@ export default function Inventory() {
                                                         padding: '8px 12px',
                                                         borderRadius: '6px',
                                                         backgroundColor: 'var(--primary)',
-                                                        color: 'white',
+                                                        color: 'var(--on-primary)',
                                                         border: 'none',
                                                         cursor: (loading || validatingEditChapeta || isEditChapetaTaken || !editChapetaVal.trim()) ? 'not-allowed' : 'pointer',
                                                         display: 'inline-flex',
@@ -1466,7 +1466,7 @@ export default function Inventory() {
                                                 </div>
                                             )}
                                             {editChapetaError && (
-                                                <div style={{ fontSize: '0.8rem', color: '#f87171', marginTop: '4px', fontWeight: 500 }}>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--error)', marginTop: '4px', fontWeight: 500 }}>
                                                     {editChapetaError}
                                                 </div>
                                             )}
@@ -1476,9 +1476,9 @@ export default function Inventory() {
                                     {/* Metadata Badges / Info */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                                         <span style={{
-                                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                                            color: '#34d399',
-                                            border: '1px solid rgba(16, 185, 129, 0.25)',
+                                            backgroundColor: 'var(--success-soft-bg)',
+                                            color: 'var(--success)',
+                                            border: '1px solid var(--success-soft-border)',
                                             padding: '2px 8px',
                                             borderRadius: '6px',
                                             fontSize: '0.72rem',
@@ -1489,15 +1489,15 @@ export default function Inventory() {
                                             {selectedAnimal.etapa}
                                         </span>
 
-                                        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>•</span>
+                                        <span style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>•</span>
 
-                                        <span style={{ color: 'var(--text-light)', fontSize: '0.82rem', fontWeight: 500 }}>
+                                        <span style={{ color: 'var(--text-main)', fontSize: '0.82rem', fontWeight: 500 }}>
                                             {selectedAnimal.nombre_propietario}
                                         </span>
 
                                         {selectedAnimal.especie && (
                                             <>
-                                                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>•</span>
+                                                <span style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>•</span>
                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'capitalize' }}>
                                                     {selectedAnimal.especie} {selectedAnimal.sexo ? `(${selectedAnimal.sexo})` : ''}
                                                 </span>
@@ -1549,10 +1549,10 @@ export default function Inventory() {
 
                             {/* Location / Potrerada Bar */}
                             <div style={{
-                                backgroundColor: 'rgba(255,255,255,0.02)',
+                                backgroundColor: 'var(--surface-subtle)',
                                 padding: '10px 14px',
                                 borderRadius: '10px',
-                                border: '1px solid rgba(255,255,255,0.06)',
+                                border: '1px solid var(--border-subtle)',
                                 marginBottom: '16px',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1569,7 +1569,7 @@ export default function Inventory() {
                                 </div>
                                 {selectedAnimal.potreroNombre && (
                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                        Potrero: <strong style={{ color: 'white' }}>{selectedAnimal.potreroNombre}</strong>
+                                        Potrero: <strong style={{ color: 'var(--text-main)' }}>{selectedAnimal.potreroNombre}</strong>
                                     </div>
                                 )}
                             </div>
@@ -1581,30 +1581,30 @@ export default function Inventory() {
                                 gap: '12px',
                                 marginBottom: '28px'
                             }}>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Último Pesaje</div>
-                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: 'white' }}>{pesoU} kg</div>
+                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{pesoU} kg</div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Llegada: '} {fechaU}</div>
                                 </div>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Última {getModoLabel(modoGanancia)}</div>
-                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: gmpUltimoModal === null ? 'var(--text-muted)' : (gmpUltimoModal < 0 ? 'var(--error)' : (gmpUltimoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpUltimoModal <= umbralAltoGmp ? 'white' : 'var(--success)'))) }}>
+                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: gmpUltimoModal === null ? 'var(--text-muted)' : (gmpUltimoModal < 0 ? 'var(--error)' : (gmpUltimoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpUltimoModal <= umbralAltoGmp ? 'var(--text-main)' : 'var(--success)'))) }}>
                                         {gmpUltimoModal !== null ? `${toDisplayValue(gmpUltimoModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'Sin pesajes'}
                                     </div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                        Histórica: <strong style={{ color: gmpHistoricoModal === null ? 'var(--text-muted)' : (gmpHistoricoModal < 0 ? 'var(--error)' : (gmpHistoricoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpHistoricoModal <= umbralAltoGmp ? 'white' : 'var(--success)'))) }}>
+                                        Histórica: <strong style={{ color: gmpHistoricoModal === null ? 'var(--text-muted)' : (gmpHistoricoModal < 0 ? 'var(--error)' : (gmpHistoricoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpHistoricoModal <= umbralAltoGmp ? 'var(--text-main)' : 'var(--success)'))) }}>
                                             {gmpHistoricoModal !== null ? `${toDisplayValue(gmpHistoricoModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'N/A'}
                                         </strong>
                                     </div>
                                 </div>
                                 {selectedAnimal.peso_compra && (
-                                    <div style={{ backgroundColor: 'rgba(255, 193, 7, 0.04)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.18)' }}>
+                                    <div style={{ backgroundColor: 'var(--secondary-soft-bg)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--secondary-soft-border)' }}>
                                         <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso de Compra</div>
-                                        <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: '#ffc107' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
+                                        <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
                                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Llegada: {selectedAnimal.peso_ingreso} kg</div>
                                     </div>
                                 )}
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
                                     <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
                                         {estimadoHoy.toFixed(1)} kg
@@ -1615,27 +1615,27 @@ export default function Inventory() {
                                 </div>
                             </div>
 
-                            <h3 style={{ fontSize: '1.05rem', marginBottom: '12px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Evolución de Peso</h3>
+                            <h3 style={{ fontSize: '1.05rem', marginBottom: '12px', fontWeight: '600', color: 'var(--text-main)' }}>Evolución de Peso</h3>
                             <div className="inventory-detail-chart" style={{ height: '240px', width: '100%', marginBottom: '28px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                        <XAxis dataKey="fechaStr" stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
-                                        <YAxis stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                                        <XAxis dataKey="fechaStr" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                        <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
                                         <RechartsTooltip
-                                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                                            contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: '8px', boxShadow: 'var(--shadow-popover)', color: 'var(--text-main)' }}
                                             itemStyle={{ color: 'var(--primary-light)' }}
                                             labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
                                         />
-                                        <Line type="monotone" dataKey="peso" stroke="var(--primary)" strokeWidth={3} dot={{ fill: 'var(--primary-light)', strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: 'var(--primary)', stroke: 'white', strokeWidth: 2 }} name="Peso (kg)" />
+                                        <Line type="monotone" dataKey="peso" stroke="var(--primary)" strokeWidth={3} dot={{ fill: 'var(--primary-light)', strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: 'var(--primary)', stroke: 'var(--bg-card)', strokeWidth: 2 }} name="Peso (kg)" />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
 
-                            <h3 style={{ fontSize: '1.05rem', marginBottom: '12px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Historial de Registros</h3>
-                            <div className="inventory-history-wrap" style={{ overflowX: 'auto', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <h3 style={{ fontSize: '1.05rem', marginBottom: '12px', fontWeight: '600', color: 'var(--text-main)' }}>Historial de Registros</h3>
+                            <div className="inventory-history-wrap" style={{ overflowX: 'auto', backgroundColor: 'var(--surface-inset)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                                 <table className="inventory-history-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                    <thead style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                    <thead style={{ backgroundColor: 'var(--surface-subtle)' }}>
                                         <tr>
                                             <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
                                             <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
@@ -1650,7 +1650,7 @@ export default function Inventory() {
                                             const isEditingThis = Boolean(editingPesaje && item.pesajeId && editingPesaje.id === item.pesajeId);
                                             if (isEditingThis && editingPesaje) {
                                                 return (
-                                                    <tr key={index} className="is-editing" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(16, 185, 129, 0.06)' }}>
+                                                    <tr key={index} className="is-editing" style={{ borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'var(--success-soft-bg)' }}>
                                                         <td colSpan={4} style={{ padding: '14px 16px' }}>
                                                             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
                                                                 <div style={{ flex: '1 1 130px' }}>
@@ -1660,7 +1660,7 @@ export default function Inventory() {
                                                                         type="date"
                                                                         value={editingPesaje.fecha}
                                                                         onChange={e => setEditingPesaje(prev => prev ? { ...prev, fecha: e.target.value } : null)}
-                                                                        style={{ padding: '6px 10px', marginBottom: 0, borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.85rem' }}
+                                                                        style={{ padding: '6px 10px', marginBottom: 0, borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '0.85rem' }}
                                                                     />
                                                                 </div>
                                                                 <div style={{ flex: '1 1 100px' }}>
@@ -1672,7 +1672,7 @@ export default function Inventory() {
                                                                         step="0.1"
                                                                         value={editingPesaje.peso}
                                                                         onChange={e => setEditingPesaje(prev => prev ? { ...prev, peso: e.target.value } : null)}
-                                                                        style={{ width: isMobile ? '100%' : '100px', marginBottom: 0, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.85rem' }}
+                                                                        style={{ width: isMobile ? '100%' : '100px', marginBottom: 0, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '0.85rem' }}
                                                                     />
                                                                 </div>
                                                                 <div style={{ display: 'flex', gap: '8px', flex: isMobile ? '1 1 100%' : undefined }}>
@@ -1680,7 +1680,7 @@ export default function Inventory() {
                                                                         type="button"
                                                                         onClick={handleGuardarEdicionPesaje}
                                                                         disabled={loading}
-                                                                        style={{ padding: '7px 14px', minHeight: isMobile ? '44px' : undefined, flex: isMobile ? 1 : undefined, borderRadius: '6px', backgroundColor: 'var(--primary)', border: 'none', color: 'white', fontSize: '0.82rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                                                        style={{ padding: '7px 14px', minHeight: isMobile ? '44px' : undefined, flex: isMobile ? 1 : undefined, borderRadius: '6px', backgroundColor: 'var(--primary)', border: 'none', color: 'var(--on-primary)', fontSize: '0.82rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                                                                     >
                                                                         <Check size={14} aria-hidden="true" /> Guardar
                                                                     </button>
@@ -1703,7 +1703,7 @@ export default function Inventory() {
                                             }
 
                                             return (
-                                                <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <tr key={index} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                                     <td className="inventory-hist-fecha" style={{ padding: '12px 16px' }}>
                                                         <div style={{ fontWeight: '500' }}>{format(new Date(item.fecha), 'dd/MM/yyyy')}</div>
                                                         {item.esIngreso && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 'bold' }}>INGRESO</div>}
@@ -1716,9 +1716,8 @@ export default function Inventory() {
                                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
                                                         ) : (
                                                             <div style={{
-                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedioGmp ? 'var(--warning)' : (item.gmp <= umbralAltoGmp ? 'var(--text-light)' : 'var(--success)')),
-                                                                fontWeight: 'bold',
-                                                                textShadow: (item.gmp > umbralMedioGmp && item.gmp <= umbralAltoGmp) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
+                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedioGmp ? 'var(--warning)' : (item.gmp <= umbralAltoGmp ? 'var(--text-main)' : 'var(--success)')),
+                                                                fontWeight: 'bold'
                                                             }}>
                                                                 {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
                                                             </div>
@@ -1736,7 +1735,7 @@ export default function Inventory() {
                                                                         onClick={() => setEditingPesaje({ id: item.pesajeId!, fecha: item.fecha.split('T')[0], peso: item.peso.toString() })}
                                                                         title="Editar este pesaje"
                                                                         aria-label={`Editar pesaje del ${format(new Date(item.fecha), 'dd/MM/yyyy')}`}
-                                                                        style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--primary-light)' }}
+                                                                        style={{ backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border-strong)', color: 'var(--primary-light)' }}
                                                                     >
                                                                         <Pencil size={14} aria-hidden="true" />
                                                                     </button>
@@ -1746,7 +1745,7 @@ export default function Inventory() {
                                                                         onClick={() => handleEliminarPesaje(item.pesajeId!, format(new Date(item.fecha), 'dd/MM/yyyy'))}
                                                                         title="Eliminar este pesaje"
                                                                         aria-label={`Eliminar pesaje del ${format(new Date(item.fecha), 'dd/MM/yyyy')}`}
-                                                                        style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#f87171' }}
+                                                                        style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)' }}
                                                                     >
                                                                         <Trash2 size={14} aria-hidden="true" />
                                                                     </button>
@@ -1769,12 +1768,12 @@ export default function Inventory() {
                 <div className="modal-overlay" onClick={() => setShowCrearModal(false)}>
                     <div className="card inventory-modal-card" style={{ maxWidth: '600px', border: '1px solid var(--primary)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h2 style={{ color: 'white', margin: 0 }}>Crear Nuevo Animal</h2>
+                            <h2 style={{ color: 'var(--text-main)', margin: 0 }}>Crear Nuevo Animal</h2>
                             <button type="button" aria-label="Cerrar" onClick={() => setShowCrearModal(false)} className="btn-icon" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)' }}><X aria-hidden="true" /></button>
                         </div>
 
                         {msjErrorCrear && (
-                            <div role="alert" style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem' }}>
+                            <div role="alert" style={{ backgroundColor: 'var(--error-soft-bg)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem' }}>
                                 {msjErrorCrear}
                             </div>
                         )}
@@ -1866,7 +1865,7 @@ export default function Inventory() {
                             </select>
                         </div>
 
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '18px', marginBottom: '20px' }}>
+                        <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '18px', marginBottom: '20px' }}>
                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '8px', flexWrap: 'wrap' }}>
                                 <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--primary-light)' }}>Historial de Pesajes</h3>
                                 <button
@@ -1912,7 +1911,7 @@ export default function Inventory() {
                                         className="inventory-history-action-btn"
                                         aria-label={`Eliminar pesaje adicional ${idx + 1}`}
                                         onClick={() => setNuevosPesajes(nuevosPesajes.filter((_, i) => i !== idx))}
-                                        style={{ backgroundColor: 'transparent', border: '1px solid rgba(244,67,54,0.3)', color: 'var(--error)', padding: '8px', marginBottom: '2px' }}
+                                        style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', padding: '8px', marginBottom: '2px' }}
                                     >
                                         <Trash2 size={18} aria-hidden="true" />
                                     </button>
@@ -1941,10 +1940,10 @@ export default function Inventory() {
             {/* Modal para ingresar capital invertido antes de generar el informe */}
             {showCapitalModal && filterPropietario && (
                 <div className="modal-overlay" onClick={() => setShowCapitalModal(false)}>
-                    <div className="card inventory-modal-card" style={{ maxWidth: '480px', border: '1px solid rgba(76,175,80,0.3)' }} onClick={e => e.stopPropagation()}>
+                    <div className="card inventory-modal-card" style={{ maxWidth: '480px', border: '1px solid var(--primary-soft-border)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                             <div style={{ fontSize: '2.5rem', marginBottom: '10px' }} aria-hidden="true">💰</div>
-                            <h2 style={{ color: 'white', margin: '0 0 8px 0' }}>Capital Invertido</h2>
+                            <h2 style={{ color: 'var(--text-main)', margin: '0 0 8px 0' }}>Capital Invertido</h2>
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
                                 Ingresa el valor total que tiene <strong style={{ color: 'var(--primary-light)' }}>{filterPropietario}</strong> invertido en la finca (valor de compra total de sus animales).
                             </p>
@@ -1985,7 +1984,7 @@ export default function Inventory() {
                                     setShowCapitalModal(false);
                                     setShowPropietarioDashboard(true);
                                 }}
-                                style={{ backgroundColor: 'var(--primary)', flex: 2 }}
+                                style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', flex: 2 }}
                                 disabled={!capitalInvertido || parseFloat(capitalInvertido) <= 0}
                             >
                                 Generar Informe

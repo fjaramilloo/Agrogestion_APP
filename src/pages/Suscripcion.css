@@ -31,12 +31,24 @@
     flex-shrink: 0;
 }
 
+html[data-theme="light"] .suscripcion-header-icon {
+    background: #ede9fe;
+    border-color: #a78bfa;
+}
+
 .suscripcion-title {
     margin: 0 0 4px;
     font-size: 1.75rem;
     font-weight: 800;
     letter-spacing: -0.5px;
     background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+html[data-theme="light"] .suscripcion-title {
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -51,12 +63,12 @@
 
 /* Current Plan Card */
 .suscripcion-current-card {
-    background: linear-gradient(145deg, rgba(30, 30, 48, 0.9), rgba(18, 18, 32, 0.95));
+    background: var(--bg-card);
     border: 1px solid rgba(124, 58, 237, 0.35);
     border-radius: 16px;
     padding: 24px;
     margin-bottom: 32px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    box-shadow: var(--shadow-card);
     box-sizing: border-box;
     position: relative;
 }
@@ -89,7 +101,7 @@
     margin: 0;
     font-size: 1.4rem;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--text-main);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -100,6 +112,10 @@
     text-transform: uppercase;
 }
 
+html[data-theme="light"] .suscripcion-current-plan-badge {
+    color: #6d28d9;
+}
+
 /* Status chips (dates) */
 .suscripcion-status-chips {
     display: flex;
@@ -108,8 +124,8 @@
 }
 
 .suscripcion-chip {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     padding: 10px 14px;
     display: flex;
@@ -129,7 +145,7 @@
 .suscripcion-chip-value {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--text-main);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -149,13 +165,13 @@
 }
 
 .suscripcion-alert-banner.expiry {
-    background: rgba(244, 67, 54, 0.12);
-    border: 1px solid rgba(244, 67, 54, 0.35);
+    background: var(--error-soft-bg);
+    border: 1px solid var(--error-soft-border);
 }
 
 .suscripcion-alert-banner.overflow {
-    background: rgba(239, 68, 68, 0.14);
-    border: 1px solid rgba(239, 68, 68, 0.4);
+    background: var(--error-soft-bg);
+    border: 1px solid var(--error-soft-border);
 }
 
 .suscripcion-alert-content {
@@ -169,12 +185,12 @@
 .suscripcion-alert-title {
     font-size: 0.9rem;
     font-weight: 700;
-    color: #f87171;
+    color: var(--error);
 }
 
 .suscripcion-alert-desc {
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--text-secondary);
     margin-top: 3px;
     line-height: 1.4;
 }
@@ -184,21 +200,21 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    background: linear-gradient(135deg, #6d28d9, #7c3aed);
     color: #ffffff;
     padding: 9px 18px;
     border-radius: 8px;
     font-size: 0.85rem;
     font-weight: 700;
     text-decoration: none;
-    box-shadow: 0 2px 10px rgba(124, 58, 237, 0.4);
+    box-shadow: 0 2px 10px rgba(124, 58, 237, 0.35);
     white-space: nowrap;
 }
 
 /* Usage Progress Box */
 .suscripcion-usage-box {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: var(--surface-inset);
+    border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: 16px 18px;
 }
@@ -224,7 +240,7 @@
 .suscripcion-usage-stat {
     font-size: 1.05rem;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--text-main);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -235,13 +251,14 @@
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
 }
 
 .suscripcion-progress-track {
     width: 100%;
     height: 10px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--border-subtle);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -263,7 +280,7 @@
     margin: 0 0 6px;
     font-size: 1.45rem;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--text-main);
     letter-spacing: -0.3px;
 }
 
@@ -289,12 +306,12 @@
     grid-template-columns: repeat(3, 1fr);
     width: 100%;
     max-width: 480px;
-    background: rgba(20, 20, 32, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--surface-inset);
+    border: 1px solid var(--border-subtle);
     border-radius: 14px;
     padding: 4px;
     gap: 4px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-card);
     box-sizing: border-box;
 }
 
@@ -320,13 +337,13 @@
 .suscripcion-periodo-btn.active {
     color: #ffffff;
     font-weight: 700;
-    background: linear-gradient(135deg, #7c3aed, #a78bfa);
-    box-shadow: 0 3px 12px rgba(124, 58, 237, 0.45);
+    background: linear-gradient(135deg, #6d28d9, #7c3aed);
+    box-shadow: 0 3px 12px rgba(124, 58, 237, 0.35);
 }
 
 .suscripcion-periodo-btn:hover:not(.active) {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+    background: var(--surface-subtle-hover);
 }
 
 .suscripcion-periodo-badge {
@@ -339,9 +356,9 @@
 }
 
 .suscripcion-periodo-badge.semestral {
-    background: rgba(56, 189, 248, 0.18);
-    color: #38bdf8;
-    border: 1px solid rgba(56, 189, 248, 0.35);
+    background: var(--info-soft-bg);
+    color: var(--info);
+    border: 1px solid var(--info-soft-border);
 }
 
 .suscripcion-periodo-btn.active .suscripcion-periodo-badge.semestral {
@@ -351,9 +368,9 @@
 }
 
 .suscripcion-periodo-badge.anual {
-    background: rgba(16, 185, 129, 0.18);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.35);
+    background: var(--success-soft-bg);
+    color: var(--success);
+    border: 1px solid var(--success-soft-border);
 }
 
 .suscripcion-periodo-btn.active .suscripcion-periodo-badge.anual {
@@ -388,11 +405,16 @@
     box-shadow: 0 0 28px rgba(167, 139, 250, 0.22);
 }
 
+html[data-theme="light"] .suscripcion-plan-card.actual {
+    border-color: #7c3aed !important;
+    box-shadow: 0 6px 24px rgba(124, 58, 237, 0.16);
+}
+
 .suscripcion-plan-actual-tag {
     position: absolute;
     top: -12px;
     right: 20px;
-    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    background: linear-gradient(135deg, #6d28d9, #7c3aed);
     color: #ffffff;
     padding: 3px 12px;
     border-radius: 12px;
@@ -400,7 +422,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
 }
 
 .suscripcion-plan-top {
@@ -418,7 +440,8 @@
 }
 
 .suscripcion-plan-badge {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
     padding: 3px 10px;
     border-radius: 12px;
     font-size: 0.72rem;
@@ -428,13 +451,13 @@
 .suscripcion-plan-pricing {
     margin-bottom: 18px;
     padding-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .suscripcion-plan-price-main {
     font-size: 1.6rem;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--text-main);
     letter-spacing: -0.5px;
 }
 
@@ -452,9 +475,9 @@
 .suscripcion-plan-ahorro-tag {
     font-size: 0.72rem;
     font-weight: 700;
-    color: #34d399;
-    background: rgba(16, 185, 129, 0.12);
-    border: 1px solid rgba(16, 185, 129, 0.28);
+    color: var(--success);
+    background: var(--success-soft-bg);
+    border: 1px solid var(--success-soft-border);
     border-radius: 6px;
     padding: 2px 8px;
     display: inline-flex;
@@ -488,7 +511,7 @@
     gap: 10px;
     font-size: 0.88rem;
     line-height: 1.45;
-    color: rgba(255, 255, 255, 0.92);
+    color: var(--text-secondary);
 }
 
 .suscripcion-feature-icon {
@@ -524,11 +547,12 @@
 
 /* Manual Payment / Activation Section */
 .suscripcion-activacion-card {
-    background: rgba(25, 25, 38, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: 16px;
     padding: 28px;
     box-sizing: border-box;
+    box-shadow: var(--shadow-card);
 }
 
 .suscripcion-activacion-header {
@@ -542,7 +566,7 @@
     margin: 0;
     font-size: 1.15rem;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text-main);
 }
 
 .suscripcion-activacion-desc {
@@ -560,8 +584,8 @@
 }
 
 .suscripcion-step-item {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: 16px;
 }
@@ -580,10 +604,15 @@
     margin-bottom: 10px;
 }
 
+html[data-theme="light"] .suscripcion-step-num {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
 .suscripcion-step-title {
     font-weight: 600;
     font-size: 0.92rem;
-    color: #ffffff;
+    color: var(--text-main);
     margin-bottom: 4px;
 }
 
@@ -594,7 +623,7 @@
 }
 
 .suscripcion-activacion-btn {
-    background: #25D366;
+    background: #128C7E;
     color: #ffffff;
     padding: 13px 24px;
     border-radius: 12px;

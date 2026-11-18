@@ -147,19 +147,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         className="sidebar-section-header" 
                         onClick={() => setShowFincas(!showFincas)}
                         style={{
-                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            backgroundColor: 'var(--surface-subtle)',
                             padding: '12px',
                             borderRadius: '8px',
                             cursor: 'pointer',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            border: '1px solid rgba(255,255,255,0.1)'
+                            border: '1px solid var(--border-subtle)'
                         }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
                             <MapPin size={18} color="var(--primary)" style={{ flexShrink: 0 }} />
-                            <span style={{ fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {currentFincaName}
                             </span>
                         </div>
@@ -231,11 +231,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     cursor: 'pointer' 
                                 }}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
                                     <Briefcase size={16} />
                                     <span className="section-title" style={{ fontSize: '0.75rem', margin: 0 }}>TRABAJO DE CAMPO</span>
                                 </div>
-                                {showTrabajoCampo ? <ChevronUp size={14} color="#9ca3af" /> : <ChevronDown size={14} color="#9ca3af" />}
+                                {showTrabajoCampo ? <ChevronUp size={14} color="var(--text-muted)" /> : <ChevronDown size={14} color="var(--text-muted)" />}
                             </div>
                             
                             {showTrabajoCampo && (
@@ -296,11 +296,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 cursor: 'pointer' 
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
                                 <Info size={16} />
                                 <span className="section-title" style={{ fontSize: '0.75rem', margin: 0 }}>INFORMACIÓN</span>
                             </div>
-                            {showInformacion ? <ChevronUp size={14} color="#9ca3af" /> : <ChevronDown size={14} color="#9ca3af" />}
+                            {showInformacion ? <ChevronUp size={14} color="var(--text-muted)" /> : <ChevronDown size={14} color="var(--text-muted)" />}
                         </div>
 
                         {showInformacion && (

@@ -1075,10 +1075,11 @@ export default function Potreradas() {
 
             // Añadir las gráficas si existen y se pueden capturar
             if (chartsRef.current && detailData.history.length > 1) {
+                const exportBg = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#1E1E1E';
                 const canvas = await html2canvas(chartsRef.current, {
                     scale: 2,
                     useCORS: true,
-                    backgroundColor: '#1E1E1E'
+                    backgroundColor: exportBg
                 });
                 const imgData = canvas.toDataURL('image/png');
                 
@@ -1449,8 +1450,8 @@ export default function Potreradas() {
 
             {isBloqueado && (
                 <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    background: 'var(--error-soft-bg)',
+                    border: '1px solid var(--error-soft-border)',
                     borderRadius: '12px',
                     padding: '16px 20px',
                     marginBottom: '24px',
@@ -1461,15 +1462,15 @@ export default function Potreradas() {
                     flexWrap: 'wrap'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
                                     <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción ha vencido. Puedes consultar los lotes, métricas e historial de pesajes, pero la creación de nuevos lotes, pesajes grupales y traslados se encuentran pausados hasta la renovación.
                                 </>
                             ) : (
                                 <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar pesajes grupales y crear nuevos lotes, actualiza tu suscripción.
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar pesajes grupales y crear nuevos lotes, actualiza tu suscripción.
                                 </>
                             )}
                         </div>
@@ -1481,8 +1482,8 @@ export default function Potreradas() {
                             width: 'auto',
                             padding: '8px 16px',
                             fontSize: '0.85rem',
-                            backgroundColor: '#ef4444',
-                            color: 'white',
+                            backgroundColor: 'var(--error)',
+                            color: 'var(--on-primary)',
                             border: 'none',
                             borderRadius: '8px',
                             fontWeight: 700,
@@ -1526,7 +1527,7 @@ export default function Potreradas() {
                 <div className="table-container potreradas-list-wrap">
                     <table className="potreradas-main-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
-                            <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                            <tr style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
                                 <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nombre Potrerada</th>
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Rotación / Potrero</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Marcas</th>
@@ -1544,7 +1545,7 @@ export default function Potreradas() {
                                     p.marcas.some(m => m.nombre.toLowerCase().includes(potreradaSearch.toLowerCase()))
                                 )
                                 .map((p, idx) => (
-                                <tr key={p.id} className="table-row-hover" style={{ borderBottom: idx < potreradas.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                <tr key={p.id} className="table-row-hover" style={{ borderBottom: idx < potreradas.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                                     <td className="potreradas-col-name" style={{ padding: '16px 24px' }}>
                                         <button type="button" onClick={() => handleOpenDetail(p)} className="potreradas-name-btn">
                                             <span className="potreradas-name-title">{p.nombre}</span>
@@ -1566,7 +1567,7 @@ export default function Potreradas() {
                                                 )}
                                             </div>
                                         ) : (
-                                            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)' }}>Sin potrero asignado</span>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-faint)' }}>Sin potrero asignado</span>
                                         )}
                                     </td>
                                     <td className="potreradas-col-marcas" style={{ padding: '16px 24px' }}>
@@ -1576,24 +1577,24 @@ export default function Potreradas() {
                                                     {p.marcas.slice(0, 3).map((m, i) => (
                                                         <span key={i} title={`${m.nombre} (${m.count})`} style={{
                                                             fontSize: '0.7rem',
-                                                            background: 'rgba(255,255,255,0.05)',
+                                                            background: 'var(--surface-subtle)',
                                                             padding: '2px 8px',
                                                             borderRadius: '4px',
-                                                            color: 'var(--text-muted)',
-                                                            border: '1px solid rgba(255,255,255,0.1)',
+                                                            color: 'var(--text-secondary)',
+                                                            border: '1px solid var(--border-subtle)',
                                                             whiteSpace: 'nowrap'
                                                         }}>
-                                                            {m.nombre} <span style={{ opacity: 0.6 }}>({m.count})</span>
+                                                            {m.nombre} <span style={{ opacity: 0.7 }}>({m.count})</span>
                                                         </span>
                                                     ))}
                                                     {p.marcas.length > 3 && (
                                                         <span title={p.marcas.slice(3).map(m => `${m.nombre} (${m.count})`).join(', ')} style={{
                                                             fontSize: '0.7rem',
-                                                            background: 'rgba(255,255,255,0.02)',
+                                                            background: 'var(--surface-inset)',
                                                             padding: '2px 8px',
                                                             borderRadius: '4px',
                                                             color: 'var(--text-muted)',
-                                                            border: '1px dashed rgba(255,255,255,0.2)',
+                                                            border: '1px dashed var(--border-strong)',
                                                             cursor: 'help',
                                                             whiteSpace: 'nowrap'
                                                         }}>
@@ -1602,7 +1603,7 @@ export default function Potreradas() {
                                                     )}
                                                 </>
                                             ) : (
-                                                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)' }}>-</span>
+                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-faint)' }}>-</span>
                                             )}
                                         </div>
                                     </td>
@@ -1614,7 +1615,7 @@ export default function Potreradas() {
                                                 <span className="potreradas-action-label" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>anim.</span>
                                             </div>
                                             {p.vendidoCount > 0 && (
-                                                <div style={{ fontSize: '0.68rem', color: '#e67e22', fontWeight: 'bold', marginTop: '2px', background: 'rgba(230,126,34,0.1)', padding: '1px 6px', borderRadius: '8px' }}>
+                                                <div style={{ fontSize: '0.68rem', color: 'var(--warning)', fontWeight: 'bold', marginTop: '2px', background: 'var(--warning-soft-bg)', padding: '1px 6px', borderRadius: '8px' }}>
                                                     {p.vendidoCount} vendido{p.vendidoCount > 1 ? 's' : ''}
                                                 </div>
                                             )}
@@ -1636,9 +1637,8 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Últ:</span>
                                                 <span style={{
-                                                    color: p.gmpPromedio < 0 ? 'var(--error)' : (p.gmpPromedio <= umbralMedio ? 'var(--warning)' : (p.gmpPromedio <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
-                                                    fontWeight: 'bold',
-                                                    textShadow: (p.gmpPromedio > umbralMedio && p.gmpPromedio <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                                    color: p.gmpPromedio < 0 ? 'var(--error)' : (p.gmpPromedio <= umbralMedio ? 'var(--warning)' : (p.gmpPromedio <= umbralAlto ? 'var(--text-main)' : 'var(--success)')),
+                                                    fontWeight: 'bold'
                                                 }}>
                                                     {toDisplayValue(p.gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                 </span>
@@ -1646,9 +1646,8 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Acum:</span>
                                                 <span style={{
-                                                    color: p.gmpAcumulado === null ? 'var(--text-muted)' : (p.gmpAcumulado < 0 ? 'var(--error)' : (p.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (p.gmpAcumulado <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))),
-                                                    fontWeight: '500',
-                                                    textShadow: (p.gmpAcumulado !== null && p.gmpAcumulado > umbralMedio && p.gmpAcumulado <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                                    color: p.gmpAcumulado === null ? 'var(--text-muted)' : (p.gmpAcumulado < 0 ? 'var(--error)' : (p.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (p.gmpAcumulado <= umbralAlto ? 'var(--text-main)' : 'var(--success)'))),
+                                                    fontWeight: '500'
                                                 }}>
                                                     {p.gmpAcumulado === null ? 'N/A' : toDisplayValue(p.gmpAcumulado, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                 </span>
@@ -1659,7 +1658,7 @@ export default function Potreradas() {
                                         <div style={{
                                             padding: '4px 10px',
                                             borderRadius: '20px',
-                                            background: p.diasPesajePromedio > 60 ? 'rgba(255,152,0,0.1)' : 'rgba(255,255,255,0.05)',
+                                            background: p.diasPesajePromedio > 60 ? 'var(--warning-soft-bg)' : 'var(--surface-subtle)',
                                             color: p.diasPesajePromedio > 60 ? 'var(--warning)' : 'var(--text)',
                                             fontSize: '0.85rem',
                                             display: 'inline-flex',
@@ -1778,7 +1777,7 @@ export default function Potreradas() {
                         )}
 
                         {/* Content Area */}
-                        <div className="responsive-grid" style={{ flex: 1, gap: '1px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden', minHeight: 0, display: isMobile ? 'flex' : undefined, flexDirection: isMobile ? 'column' : undefined }}>
+                        <div className="responsive-grid" style={{ flex: 1, gap: '1px', background: 'var(--border-subtle)', overflow: 'hidden', minHeight: 0, display: isMobile ? 'flex' : undefined, flexDirection: isMobile ? 'column' : undefined }}>
 
                             {/* Current Animals Column */}
                             <div
@@ -1830,7 +1829,7 @@ export default function Potreradas() {
 
                                         if (filtrados.length === 0) {
                                             return (
-                                                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                                                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px dashed var(--border-strong)', borderRadius: '12px' }}>
                                                     {searchTermEnLote ? 'No se encontraron resultados' : 'Vacío'}
                                                 </div>
                                             );
@@ -1839,12 +1838,12 @@ export default function Potreradas() {
                                         return filtrados.map(a => {
                                             const esVendido = a.estado === 'vendido';
                                             return (
-                                                <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', background: esVendido ? 'rgba(230,126,34,0.04)' : 'rgba(255,255,255,0.02)', opacity: esVendido ? 0.7 : 1 }}>
+                                                <div key={a.id} className="glass-panel" style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', background: esVendido ? 'var(--warning-soft-bg)' : 'var(--surface-subtle)', opacity: esVendido ? 0.78 : 1 }}>
                                                     <div style={{ minWidth: 0 }}>
                                                         <div style={{ fontWeight: 'bold', fontSize: '0.95rem', textDecoration: esVendido ? 'line-through' : 'none', color: esVendido ? 'var(--text-muted)' : 'inherit' }}>#{a.numero_chapeta}</div>
                                                         <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</div>
                                                         {esVendido && (
-                                                            <div style={{ fontSize: '0.6rem', fontWeight: 'bold', color: '#e67e22', background: 'rgba(230,126,34,0.15)', padding: '1px 5px', borderRadius: '6px', display: 'inline-block', marginTop: '2px' }}>VENDIDO</div>
+                                                            <div style={{ fontSize: '0.6rem', fontWeight: 'bold', color: 'var(--warning)', background: 'var(--warning-soft-bg)', padding: '1px 5px', borderRadius: '6px', display: 'inline-block', marginTop: '2px' }}>VENDIDO</div>
                                                         )}
                                                     </div>
                                                     {!esVendido && (
@@ -1854,7 +1853,7 @@ export default function Potreradas() {
                                                             onClick={() => handleRemoveAnimal(a.id)}
                                                             aria-label={`Quitar animal #${a.numero_chapeta} del lote`}
                                                             className="btn-icon potreradas-manage-action-btn"
-                                                            style={{ color: '#e74c3c', padding: '6px', flexShrink: 0 }}
+                                                            style={{ color: 'var(--error)', padding: '6px', flexShrink: 0 }}
                                                         >
                                                             {updatingAnimal === a.id ? '...' : <Trash2 size={16} aria-hidden="true" />}
                                                         </button>
@@ -1952,7 +1951,7 @@ export default function Potreradas() {
                                                 onClick={() => handleAddAnimal(a.id)}
                                                 aria-label={`Agregar animal #${a.numero_chapeta} al lote`}
                                                 className="btn-icon potreradas-manage-action-btn"
-                                                style={{ color: '#2ecc71', padding: '6px', flexShrink: 0 }}
+                                                style={{ color: 'var(--success)', padding: '6px', flexShrink: 0 }}
                                             >
                                                 {updatingAnimal === a.id ? '...' : <Plus size={16} aria-hidden="true" />}
                                             </button>
@@ -2059,7 +2058,7 @@ export default function Potreradas() {
                                                 </span>
                                                 <span>Historial</span>
                                             </label>
-                                            <div className="potreradas-detail-divider" style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }}></div>
+                                            <div className="potreradas-detail-divider" style={{ width: '1px', height: '24px', background: 'var(--border-subtle)' }}></div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 {role !== 'observador' && (
                                                     <>
@@ -2070,12 +2069,12 @@ export default function Potreradas() {
                                                         data-tooltip="Mover Animales"
                                                         aria-label="Mover animales a otro lote"
                                                         style={{
-                                                            background: 'rgba(251, 191, 36, 0.12)',
-                                                            color: '#fbbf24',
-                                                            border: '1px solid rgba(251, 191, 36, 0.3)',
+                                                            background: 'var(--secondary-soft-bg)',
+                                                            color: 'var(--secondary)',
+                                                            border: '1px solid var(--secondary-soft-border)',
                                                         }}
                                                     >
-                                                        <Users size={16} color="#fbbf24" aria-hidden="true" />
+                                                        <Users size={16} color="var(--secondary)" aria-hidden="true" />
                                                     </button>
                                                     <button
                                                         type="button"
@@ -2084,12 +2083,12 @@ export default function Potreradas() {
                                                         data-tooltip="Nuevo Pesaje"
                                                         aria-label="Registrar nuevo pesaje grupal"
                                                         style={{
-                                                            background: 'rgba(46, 204, 113, 0.12)',
+                                                            background: 'var(--success-soft-bg)',
                                                             color: 'var(--success)',
-                                                            border: '1px solid rgba(46, 204, 113, 0.3)',
+                                                            border: '1px solid var(--success-soft-border)',
                                                         }}
                                                     >
-                                                        <Scale size={16} color="#2ecc71" aria-hidden="true" />
+                                                        <Scale size={16} color="var(--success)" aria-hidden="true" />
                                                     </button>
                                                     </>
                                                 )}
@@ -2101,12 +2100,12 @@ export default function Potreradas() {
                                                     data-tooltip="Descargar PDF"
                                                     aria-label="Descargar reporte PDF del lote"
                                                     style={{
-                                                        background: 'rgba(255, 255, 255, 0.05)',
-                                                        color: 'white',
-                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        background: 'var(--surface-subtle)',
+                                                        color: 'var(--text-main)',
+                                                        border: '1px solid var(--border-strong)',
                                                     }}
                                                 >
-                                                    {exportingPdf ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <Download size={16} color="white" aria-hidden="true" />}
+                                                    {exportingPdf ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <Download size={16} color="var(--text-main)" aria-hidden="true" />}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -2116,11 +2115,12 @@ export default function Potreradas() {
                                                     aria-label="Cerrar detalle"
                                                     style={{
                                                         margin: 0,
-                                                        background: 'rgba(255, 255, 255, 0.05)',
-                                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                        background: 'var(--surface-subtle)',
+                                                        color: 'var(--text-main)',
+                                                        border: '1px solid var(--border-strong)',
                                                     }}
                                                 >
-                                                    <X size={18} color="white" aria-hidden="true" />
+                                                    <X size={18} color="var(--text-main)" aria-hidden="true" />
                                                 </button>
                                             </div>
                                         </div>
@@ -2137,10 +2137,10 @@ export default function Potreradas() {
                                             {detailData.history.length > 1 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
                                                     <LineChart data={detailData.history}>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                                        <XAxis dataKey="fecha" stroke="var(--text-muted)" fontSize={12} />
-                                                        <YAxis stroke="var(--text-muted)" fontSize={12} />
-                                                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                                                        <XAxis dataKey="fecha" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                                        <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                                        <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)' }} />
                                                         <Line type="monotone" dataKey="pesoPromedio" name="Peso (kg)" stroke="var(--primary)" strokeWidth={3} dot={{ fill: 'var(--primary)', r: 4 }} activeDot={{ r: 6 }} />
                                                     </LineChart>
                                                 </ResponsiveContainer>
@@ -2154,10 +2154,10 @@ export default function Potreradas() {
                                             {detailData.history.some(d => d.gmpPromedio !== null) ? (
                                                 <ResponsiveContainer width="100%" height="85%">
                                                     <LineChart data={detailData.history.filter(d => d.gmpPromedio !== null)}>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                                        <XAxis dataKey="fecha" stroke="var(--text-muted)" fontSize={12} />
-                                                        <YAxis stroke="var(--text-muted)" fontSize={12} />
-                                                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                                                        <XAxis dataKey="fecha" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                                        <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                                        <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
                                                         <Line type="monotone" dataKey="gmpPromedio" name={`${getModoLabel(modoGanancia)}`} stroke="var(--success)" strokeWidth={3} dot={{ fill: 'var(--success)', r: 4 }} activeDot={{ r: 6 }} />
                                                     </LineChart>
                                                 </ResponsiveContainer>
@@ -2234,13 +2234,13 @@ export default function Potreradas() {
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                                                         <strong style={{ fontSize: '1.05rem', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</strong>
                                                                         {a.estado === 'vendido' && (
-                                                                            <span style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', border: '1px solid rgba(231, 76, 60, 0.2)', fontWeight: 'bold' }}>Vendido</span>
+                                                                            <span style={{ background: 'var(--error-soft-bg)', color: 'var(--error)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', border: '1px solid var(--error-soft-border)', fontWeight: 'bold' }}>Vendido</span>
                                                                         )}
                                                                     </div>
                                                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{a.nombre_propietario}</div>
                                                                 </div>
                                                                 <div style={{ textAlign: 'right' }}>
-                                                                    <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#ffffff' }}>
+                                                                    <div style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-main)' }}>
                                                                         {a.pesoActual ? `${Math.round(a.pesoActual)} kg` : '-'}
                                                                     </div>
                                                                     {a.hasCalculatedGmp && (
@@ -2292,7 +2292,7 @@ export default function Potreradas() {
                                         <div className="table-container">
                                             <table className="potreradas-detail-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                                                 <thead>
-                                                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <tr style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
                                                         <th scope="col" aria-sort={getSortAria('numero_chapeta')}>
                                                             <button type="button" onClick={() => handleSort('numero_chapeta')} className="potreradas-sort-btn">
                                                                 <span>CHAPETA</span>
@@ -2336,12 +2336,12 @@ export default function Potreradas() {
                                                 </thead>
                                                 <tbody>
                                                     {sortedAnimals.map((a, idx) => (
-                                                        <tr key={a.id} style={{ borderBottom: idx < sortedAnimals.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                                        <tr key={a.id} style={{ borderBottom: idx < sortedAnimals.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                                                             <td style={{ padding: '12px 16px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                     <span>#{a.numero_chapeta}</span>
                                                                     {a.estado === 'vendido' && (
-                                                                        <span style={{ background: 'rgba(231, 76, 60, 0.1)', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', border: '1px solid rgba(231, 76, 60, 0.2)', fontWeight: 'bold' }}>Vendido</span>
+                                                                        <span style={{ background: 'var(--error-soft-bg)', color: 'var(--error)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', border: '1px solid var(--error-soft-border)', fontWeight: 'bold' }}>Vendido</span>
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -2374,8 +2374,7 @@ export default function Potreradas() {
                                                                             <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginRight: '4px' }}>Últ:</span>
                                                                             <span style={{
                                                                                 color: getGmpColor(a.gmp || 0),
-                                                                                fontWeight: 'bold',
-                                                                                textShadow: ((a.gmp || 0) > umbralMedio && (a.gmp || 0) <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                                                                fontWeight: 'bold'
                                                                             }}>
                                                                                 {toDisplayValue(a.gmp || 0, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                                             </span>
@@ -2408,7 +2407,7 @@ export default function Potreradas() {
                                                 </tbody>
                                                 {detailData.animales.length > 0 && (
                                                     <tfoot>
-                                                        <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                                                        <tr style={{ borderTop: '2px solid var(--border-strong)', background: 'var(--surface-subtle)' }}>
                                                             <td colSpan={2} style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold' }}>TOTALES:</td>
                                                             {detailData.potrerada.etapa === 'levante' && (
                                                                 <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
@@ -2431,7 +2430,7 @@ export default function Potreradas() {
                                                             })}
                                                             <td></td>
                                                         </tr>
-                                                        <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <tr style={{ background: 'var(--surface-inset)', borderBottom: '1px solid var(--border-subtle)' }}>
                                                             <td colSpan={2} style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem' }}>PROMEDIOS:</td>
                                                             {detailData.potrerada.etapa === 'levante' && (
                                                                 <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
@@ -2486,7 +2485,7 @@ export default function Potreradas() {
                         <div className="potreradas-modal-header">
                             <div className="potreradas-modal-header-top">
                                 <div>
-                                    <h2 style={{ margin: '0 0 4px 0', color: '#fbbf24', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <h2 style={{ margin: '0 0 4px 0', color: 'var(--secondary)', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Users size={20} aria-hidden="true" /> Mover Animales de Potrerada
                                     </h2>
                                     <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
@@ -2500,7 +2499,7 @@ export default function Potreradas() {
                         </div>
 
                         {/* Destino */}
-                        <div style={{ padding: isMobile ? '12px 16px' : '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ padding: isMobile ? '12px 16px' : '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
                             <label htmlFor="potreradas-move-target" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '600' }}>
                                 Potrerada destino
                             </label>
@@ -2512,8 +2511,8 @@ export default function Potreradas() {
                                     width: '100%',
                                     padding: '10px 14px',
                                     marginBottom: 0,
-                                    background: 'rgba(255,255,255,0.06)',
-                                    border: `1px solid ${targetPotreradaId ? 'rgba(251,191,36,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                                    background: 'var(--bg-input)',
+                                    border: `1px solid ${targetPotreradaId ? 'var(--secondary)' : 'var(--border-input)'}`,
                                     borderRadius: '8px',
                                     color: 'var(--text)',
                                     fontSize: '0.9rem',
@@ -2541,7 +2540,7 @@ export default function Potreradas() {
                         </div>
 
                         {/* Fecha de Movimiento */}
-                        <div style={{ padding: isMobile ? '12px 16px' : '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ padding: isMobile ? '12px 16px' : '12px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
                             <label htmlFor="potreradas-move-date" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '600' }}>
                                 Fecha de movimiento
                             </label>
@@ -2554,8 +2553,8 @@ export default function Potreradas() {
                                     width: '100%',
                                     marginBottom: 0,
                                     padding: '10px 14px',
-                                    background: 'rgba(255,255,255,0.06)',
-                                    border: '1px solid rgba(255,255,255,0.12)',
+                                    background: 'var(--bg-input)',
+                                    border: '1px solid var(--border-input)',
                                     borderRadius: '8px',
                                     color: 'var(--text)',
                                     fontSize: '0.9rem'
@@ -2582,8 +2581,8 @@ export default function Potreradas() {
                                         width: '100%',
                                         marginBottom: 0,
                                         padding: '8px 36px 8px 32px',
-                                        background: 'rgba(255,255,255,0.05)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        background: 'var(--bg-input)',
+                                        border: '1px solid var(--border-input)',
                                         borderRadius: '8px',
                                         color: 'var(--text)',
                                         fontSize: isMobile ? '1rem' : '0.85rem',
@@ -2611,10 +2610,10 @@ export default function Potreradas() {
                                     className="potreradas-select-all-btn"
                                     style={{
                                         width: 'auto',
-                                        background: 'none',
-                                        border: '1px solid rgba(251,191,36,0.4)',
+                                        background: 'var(--secondary-soft-bg)',
+                                        border: '1px solid var(--secondary-soft-border)',
                                         borderRadius: '6px',
-                                        color: '#fbbf24',
+                                        color: 'var(--secondary)',
                                         fontSize: '0.78rem',
                                         padding: '4px 10px',
                                         textTransform: 'none',
@@ -2668,18 +2667,18 @@ export default function Potreradas() {
                                                     padding: '10px 12px',
                                                     marginBottom: '6px',
                                                     borderRadius: '8px',
-                                                    background: checked ? 'rgba(251,191,36,0.10)' : 'rgba(255,255,255,0.03)',
-                                                    border: `1px solid ${checked ? 'rgba(251,191,36,0.35)' : 'rgba(255,255,255,0.06)'}`,
+                                                    background: checked ? 'var(--secondary-soft-bg)' : 'var(--surface-subtle)',
+                                                    border: `1px solid ${checked ? 'var(--secondary-soft-border)' : 'var(--border-subtle)'}`,
                                                     boxShadow: 'none',
                                                 }}
                                             >
                                                 <div style={{
                                                     width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0,
                                                     background: checked ? '#fbbf24' : 'transparent',
-                                                    border: `2px solid ${checked ? '#fbbf24' : 'rgba(255,255,255,0.3)'}`,
+                                                    border: `2px solid ${checked ? '#fbbf24' : 'var(--border-strong)'}`,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 }}>
-                                                    {checked && <span style={{ color: '#000', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
+                                                    {checked && <span style={{ color: '#111812', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
                                                 </div>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#{animal.numero_chapeta}</div>
@@ -2717,10 +2716,10 @@ export default function Potreradas() {
                                 disabled={movingAnimals || selectedAnimalsToMove.size === 0 || !targetPotreradaId}
                                 style={{
                                     width: 'auto',
-                                    background: selectedAnimalsToMove.size > 0 && targetPotreradaId ? '#fbbf24' : 'rgba(251,191,36,0.2)',
-                                    border: 'none',
+                                    background: selectedAnimalsToMove.size > 0 && targetPotreradaId ? '#fbbf24' : 'var(--surface-subtle)',
+                                    border: selectedAnimalsToMove.size > 0 && targetPotreradaId ? 'none' : '1px solid var(--border-subtle)',
                                     borderRadius: '8px', padding: '9px 20px',
-                                    color: selectedAnimalsToMove.size > 0 && targetPotreradaId ? '#000' : 'rgba(251,191,36,0.5)',
+                                    color: selectedAnimalsToMove.size > 0 && targetPotreradaId ? '#111812' : 'var(--text-faint)',
                                     cursor: selectedAnimalsToMove.size > 0 && targetPotreradaId ? 'pointer' : 'not-allowed',
                                     fontSize: '0.88rem', fontWeight: '700',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
@@ -2772,10 +2771,10 @@ export default function Potreradas() {
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 0, marginBottom: '12px' }}>
                                 Ingresa el nuevo peso de cada animal. Puedes dejar en blanco los que no se pesaron.
                             </p>
-                            <div className="potreradas-weighing-wrap" style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+                            <div className="potreradas-weighing-wrap" style={{ background: 'var(--surface-inset)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
                                 <table className="potreradas-weighing-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <thead>
-                                        <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                        <tr style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
                                             <th scope="col" style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Chapeta</th>
                                             <th scope="col" style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Propietario</th>
                                             <th scope="col" style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', width: '25%' }}>Peso Actual</th>
@@ -2791,8 +2790,8 @@ export default function Potreradas() {
                                                 const hasWeight = newVal !== '' && Number(newVal) > 0;
                                                 return (
                                                     <tr key={a.id} style={{
-                                                        borderBottom: idx < detailData.animales.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                                                        background: hasWeight ? 'rgba(46,204,113,0.04)' : undefined
+                                                        borderBottom: idx < detailData.animales.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                                                        background: hasWeight ? 'var(--success-soft-bg)' : undefined
                                                     }}>
                                                         <td className="potreradas-w-chapeta" style={{ padding: '10px 16px', fontWeight: 'bold', fontSize: '0.95rem', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
                                                         <td className="potreradas-w-prop" style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{a.nombre_propietario}</td>
@@ -2813,8 +2812,8 @@ export default function Potreradas() {
                                                                 style={{
                                                                     width: '100%', padding: '7px 10px', fontSize: '0.9rem',
                                                                     marginBottom: 0,
-                                                                    background: hasWeight ? 'rgba(46,204,113,0.08)' : 'rgba(255,255,255,0.05)',
-                                                                    border: hasWeight ? '1px solid rgba(46,204,113,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                                                                    background: hasWeight ? 'var(--success-soft-bg)' : 'var(--bg-input)',
+                                                                    border: hasWeight ? '1px solid var(--success)' : '1px solid var(--border-input)',
                                                                     borderRadius: '8px', color: 'var(--text)'
                                                                 }}
                                                             />
@@ -2831,7 +2830,7 @@ export default function Potreradas() {
                             {(() => {
                                 const filled = Object.values(weighingData).filter(v => v !== '' && Number(v) > 0).length;
                                 return filled > 0 ? (
-                                    <div style={{ marginTop: '12px', padding: '10px 16px', background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--success)' }}>
+                                    <div style={{ marginTop: '12px', padding: '10px 16px', background: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--success)' }}>
                                         ✅ {filled} de {detailData.animales.length} animales con peso ingresado.
                                     </div>
                                 ) : null;
@@ -2966,7 +2965,7 @@ export default function Potreradas() {
                                     <option value="ceba">Ceba</option>
                                 </select>
                                 {newEtapa !== editingPotrerada.etapa && (
-                                    <div style={{ marginTop: '8px', padding: '12px', background: 'rgba(255,152,0,0.1)', color: 'var(--warning)', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <div style={{ marginTop: '8px', padding: '12px', background: 'var(--warning-soft-bg)', color: 'var(--warning)', border: '1px solid var(--warning-soft-border)', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
                                         <AlertTriangle size={16} style={{ flexShrink: 0 }} aria-hidden="true" />
                                         <span>
                                             <strong>Atención:</strong> Se cambiará la etapa a todos los animales del lote. Esto afectará el cálculo de sus ganancias de peso y reiniciará su etapa si pasan a Ceba.

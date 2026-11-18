@@ -21,6 +21,11 @@
     flex-shrink: 0;
 }
 
+html[data-theme="light"] .superadmin-header-icon {
+    background: #ede9fe;
+    border-color: #a78bfa;
+}
+
 .superadmin-title {
     margin: 0;
     font-size: 1.75rem;
@@ -30,6 +35,13 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
     line-height: 1.2;
+}
+
+html[data-theme="light"] .superadmin-title {
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .superadmin-subtitle {
@@ -59,10 +71,10 @@
     display: flex;
     gap: 6px;
     margin-bottom: 24px;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-subtle);
     padding: 4px;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-subtle);
     width: fit-content;
     max-width: 100%;
     overflow-x: auto;
@@ -187,19 +199,19 @@
 .superadmin-search-input {
     width: 100%;
     padding: 10px 38px 10px 40px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--bg-input);
+    border: 1px solid var(--border-input);
     border-radius: 12px;
-    color: white;
+    color: var(--text-main);
     font-size: 0.88rem;
     outline: none;
     transition: all 0.2s ease;
 }
 
 .superadmin-search-input:focus {
-    border-color: #a78bfa;
-    background: rgba(124, 58, 237, 0.08);
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    border-color: #7c3aed;
+    background: var(--bg-input-focus);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
 }
 
 .superadmin-search-clear {
@@ -232,8 +244,8 @@
 .superadmin-chip {
     padding: 7px 14px;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
     color: var(--text-muted);
     font-size: 0.8rem;
     font-weight: 600;
@@ -250,8 +262,8 @@
 }
 
 .superadmin-chip:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: white;
+    background: var(--surface-subtle-hover);
+    color: var(--text-main);
 }
 
 .superadmin-chip.active {
@@ -296,6 +308,48 @@
     box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
 }
 
+html[data-theme="light"] .superadmin-chip.active {
+    background: #ede9fe;
+    border-color: #7c3aed;
+    color: #5b21b6;
+    box-shadow: none;
+}
+
+html[data-theme="light"] .superadmin-chip.chip-danger.active {
+    background: var(--error-soft-bg);
+    border-color: var(--error);
+    color: var(--error);
+    box-shadow: none;
+}
+
+html[data-theme="light"] .superadmin-chip.chip-warning.active {
+    background: var(--warning-soft-bg);
+    border-color: var(--warning);
+    color: #9a3412;
+    box-shadow: none;
+}
+
+html[data-theme="light"] .superadmin-chip.chip-success.active {
+    background: var(--success-soft-bg);
+    border-color: var(--success);
+    color: var(--success);
+    box-shadow: none;
+}
+
+html[data-theme="light"] .superadmin-chip.chip-amber.active {
+    background: #fef3c7;
+    border-color: #b45309;
+    color: #92400e;
+    box-shadow: none;
+}
+
+html[data-theme="light"] .superadmin-chip.chip-purple.active {
+    background: #f3e8ff;
+    border-color: #7e22ce;
+    color: #6b21a8;
+    box-shadow: none;
+}
+
 /* Semáforo badge */
 .semaforo-badge {
     display: inline-flex;
@@ -309,8 +363,8 @@
 }
 
 .superadmin-card-user-row {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     padding: 10px 12px;
 }
@@ -339,16 +393,16 @@
 
 /* Mobile Account Card */
 .superadmin-card {
-    background: rgba(30, 30, 30, 0.75);
+    background: var(--bg-card);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-subtle);
     border-radius: 14px;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    box-shadow: var(--shadow-card);
 }
 
 .superadmin-card-header {
@@ -368,7 +422,7 @@
 .superadmin-card-title {
     font-weight: 700;
     font-size: 1rem;
-    color: white;
+    color: var(--text-main);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -388,10 +442,10 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 6px;
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--surface-inset);
     padding: 8px;
     border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-subtle);
 }
 
 .superadmin-metric-chip {
@@ -406,7 +460,7 @@
 .superadmin-metric-chip-val {
     font-weight: 700;
     font-size: 0.95rem;
-    color: white;
+    color: var(--text-main);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -427,7 +481,7 @@
     justify-content: space-between;
     gap: 8px;
     padding-top: 6px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border-subtle);
 }
 
 .superadmin-btn-action {
@@ -448,8 +502,8 @@
 
 /* Fincas Accordion on Mobile */
 .superadmin-fincas-accordion {
-    background: rgba(124, 58, 237, 0.04);
-    border: 1px solid rgba(124, 58, 237, 0.15);
+    background: rgba(124, 58, 237, 0.06);
+    border: 1px solid rgba(124, 58, 237, 0.22);
     border-radius: 10px;
     padding: 12px;
     display: flex;
@@ -459,8 +513,8 @@
 }
 
 .superadmin-finca-item {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
     padding: 10px 12px;
     display: flex;
@@ -476,7 +530,7 @@
 }
 
 .superadmin-form-right-col {
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 1px solid var(--border-subtle);
     padding-left: 24px;
 }
 
@@ -488,7 +542,7 @@
     .superadmin-form-right-col {
         border-left: none;
         padding-left: 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        border-top: 1px solid var(--border-subtle);
         padding-top: 20px;
     }
 }

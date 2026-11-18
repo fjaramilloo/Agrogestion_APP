@@ -204,7 +204,7 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.65)',
+      backgroundColor: 'var(--backdrop-scrim)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -213,21 +213,21 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
       backdropFilter: 'blur(4px)',
     }}>
       <div style={{
-        backgroundColor: '#1E293B',
+        backgroundColor: 'var(--bg-dark-paper)',
         borderRadius: '16px',
         width: '100%',
         maxWidth: '720px',
         maxHeight: '90vh',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-        border: '1px solid #334155',
-        color: '#F8FAFC',
+        boxShadow: 'var(--shadow-popover)',
+        border: '1px solid var(--border-strong)',
+        color: 'var(--text-main)',
       }}>
         {/* Encabezado */}
         <div style={{
           padding: '20px 24px',
-          borderBottom: '1px solid #334155',
+          borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -237,17 +237,17 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
               width: '40px',
               height: '40px',
               borderRadius: '10px',
-              backgroundColor: '#10B98120',
+              backgroundColor: 'var(--success-soft-bg)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#10B981',
+              color: 'var(--success)',
             }}>
               <MapPin size={22} />
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>Cargar Plano de la Finca (KMZ / KML)</h3>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: '#94A3B8' }}>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 {step === 1
                   ? 'Selecciona tu archivo de potreros para importarlo al mapa'
                   : `Revisa la vinculación (${matchedCount} vinculados, ${newPastureCount} nuevos${specialZoneCount > 0 ? `, ${specialZoneCount} zonas ambientales` : ''}${omittedCount > 0 ? `, ${omittedCount} omitidos` : ''})`}
@@ -259,10 +259,12 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#94A3B8',
+              color: 'var(--text-muted)',
               cursor: 'pointer',
               padding: '6px',
               borderRadius: '8px',
+              width: 'auto',
+              boxShadow: 'none',
             }}
           >
             <X size={20} />
@@ -273,9 +275,9 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
         <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
           {error && (
             <div style={{
-              backgroundColor: '#EF444415',
-              border: '1px solid #EF444440',
-              color: '#FCA5A5',
+              backgroundColor: 'var(--error-soft-bg)',
+              border: '1px solid var(--error-soft-border)',
+              color: 'var(--error)',
               padding: '12px 16px',
               borderRadius: '10px',
               marginBottom: '16px',
@@ -291,7 +293,7 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
           {step === 1 && (
             <div style={{ textAlign: 'center', padding: '32px 16px' }}>
               <label style={{
-                border: '2px dashed #3B82F660',
+                border: '2px dashed var(--info-soft-border)',
                 borderRadius: '16px',
                 padding: '40px 24px',
                 display: 'flex',
@@ -299,7 +301,7 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: loading ? 'wait' : 'pointer',
-                backgroundColor: '#1E293B50',
+                backgroundColor: 'var(--surface-subtle)',
                 transition: 'border-color 0.2s',
               }}>
                 <input
@@ -310,14 +312,14 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                   style={{ display: 'none' }}
                 />
                 {loading ? (
-                  <RefreshCw className="animate-spin" size={42} style={{ color: '#3B82F6', marginBottom: '16px' }} />
+                  <RefreshCw className="animate-spin" size={42} style={{ color: 'var(--info)', marginBottom: '16px' }} />
                 ) : (
-                  <Upload size={48} style={{ color: '#3B82F6', marginBottom: '16px' }} />
+                  <Upload size={48} style={{ color: 'var(--info)', marginBottom: '16px' }} />
                 )}
-                <span style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px' }}>
+                <span style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>
                   {loading ? 'Procesando archivo KMZ/KML...' : 'Haz clic para seleccionar tu plano (.KMZ o .KML)'}
                 </span>
-                <span style={{ fontSize: '0.85rem', color: '#94A3B8' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                   Soporta planos exportados desde Google Earth, QGIS, GPS Garmin o Drones
                 </span>
               </label>
@@ -327,25 +329,25 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
           {step === 2 && parsedData && (
             <div>
               <div style={{
-                backgroundColor: '#1E293B80',
+                backgroundColor: 'var(--surface-subtle)',
                 borderRadius: '10px',
                 padding: '12px 16px',
                 marginBottom: '16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                border: '1px solid #334155',
+                border: '1px solid var(--border-subtle)',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <FileSpreadsheet size={18} color="#10B981" />
+                  <FileSpreadsheet size={18} color="var(--success)" />
                   <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{parsedData.fileName}</span>
                 </div>
-                <span style={{ fontSize: '0.85rem', color: '#94A3B8' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                   {parsedData.polygons.length} Polígonos detectados
                 </span>
               </div>
 
-              <div style={{ marginBottom: '12px', fontSize: '0.85rem', color: '#CBD5E1' }}>
+              <div style={{ marginBottom: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 Asigna el tipo de cada polígono. Puedes vincularlo a un potrero existente, crearlo como nuevo, o cargarlo como <strong>zona ambiental (bosque, agua, infraestructura)</strong> para que se vea en el mapa sin crear potreros de pastoreo:
               </div>
 
@@ -365,26 +367,26 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                   const isSpecial = isBosque || isAgua || isInfra;
 
                   const rowBg = isOmitted
-                    ? '#0F172A60'
+                    ? 'var(--surface-inset)'
                     : isBosque
-                    ? 'rgba(5, 150, 105, 0.08)'
+                    ? 'var(--success-soft-bg)'
                     : isAgua
-                    ? 'rgba(2, 132, 199, 0.08)'
+                    ? 'var(--info-soft-bg)'
                     : isInfra
-                    ? 'rgba(217, 119, 6, 0.08)'
-                    : '#0F172A';
+                    ? 'var(--warning-soft-bg)'
+                    : 'var(--surface-subtle)';
 
                   const rowBorder = isOmitted
-                    ? '1px dashed #EF444450'
+                    ? '1px dashed var(--error-soft-border)'
                     : isBosque
-                    ? '1px solid rgba(5, 150, 105, 0.4)'
+                    ? '1px solid var(--success-soft-border)'
                     : isAgua
-                    ? '1px solid rgba(2, 132, 199, 0.4)'
+                    ? '1px solid var(--info-soft-border)'
                     : isInfra
-                    ? '1px solid rgba(217, 119, 6, 0.4)'
+                    ? '1px solid var(--warning-soft-border)'
                     : match.status === 'exact'
-                    ? '1px solid rgba(16, 185, 129, 0.4)'
-                    : '1px solid #334155';
+                    ? '1px solid var(--success-soft-border)'
+                    : '1px solid var(--border-subtle)';
 
                   const selectValue = isOmitted
                     ? 'OMIT'
@@ -410,6 +412,7 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                         gap: '12px',
                         opacity: isOmitted ? 0.65 : 1,
                         transition: 'all 0.2s',
+                        flexWrap: 'wrap',
                       }}
                     >
                       <div style={{ flex: 1 }}>
@@ -417,27 +420,27 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                           fontWeight: 600,
                           fontSize: '0.95rem',
                           color: isOmitted
-                            ? '#94A3B8'
+                            ? 'var(--text-muted)'
                             : isBosque
-                            ? '#34D399'
+                            ? 'var(--success)'
                             : isAgua
-                            ? '#38BDF8'
+                            ? 'var(--info)'
                             : isInfra
-                            ? '#FBBF24'
-                            : '#F1F5F9',
+                            ? 'var(--warning)'
+                            : 'var(--text-main)',
                           textDecoration: isOmitted ? 'line-through' : 'none',
                         }}>
                           {match.kmzFeature.name}
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: isOmitted ? '#EF4444' : '#94A3B8', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.8rem', color: isOmitted ? 'var(--error)' : 'var(--text-muted)', marginTop: '2px' }}>
                           {isOmitted
                             ? '🚫 Omitido (No se incluirá en el mapa)'
                             : isBosque
-                            ? `🌳 Bosque / Reforestación (${match.kmzFeature.areaHa} Ha &bull; Visual en mapa)`
+                            ? `🌳 Bosque / Reforestación (${match.kmzFeature.areaHa} Ha • Visual en mapa)`
                             : isAgua
-                            ? `💧 Cuerpo de Agua / Lago (${match.kmzFeature.areaHa} Ha &bull; Visual en mapa)`
+                            ? `💧 Cuerpo de Agua / Lago (${match.kmzFeature.areaHa} Ha • Visual en mapa)`
                             : isInfra
-                            ? `🏠 Infraestructura / Corrales (${match.kmzFeature.areaHa} Ha &bull; Visual en mapa)`
+                            ? `🏠 Infraestructura / Corrales (${match.kmzFeature.areaHa} Ha • Visual en mapa)`
                             : `Superficie: ${match.kmzFeature.areaHa} Hectáreas (Potrero)`}
                         </div>
                       </div>
@@ -448,27 +451,28 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                           onChange={(e) => handleSelectPotrero(idx, e.target.value)}
                           style={{
                             width: '100%',
-                            backgroundColor: isOmitted ? '#1E293B80' : '#1E293B',
+                            backgroundColor: isOmitted ? 'var(--surface-inset)' : 'var(--bg-input)',
                             color: isOmitted
-                              ? '#FCA5A5'
+                              ? 'var(--error)'
                               : isBosque
-                              ? '#34D399'
+                              ? 'var(--success)'
                               : isAgua
-                              ? '#38BDF8'
+                              ? 'var(--info)'
                               : isInfra
-                              ? '#FBBF24'
-                              : '#F8FAFC',
+                              ? 'var(--warning)'
+                              : 'var(--text-main)',
                             border: isOmitted
-                              ? '1px solid #EF444470'
+                              ? '1px solid var(--error-soft-border)'
                               : isSpecial
-                              ? '1px solid #3B82F6'
+                              ? '1px solid var(--info)'
                               : match.status === 'exact'
-                              ? '1px solid #10B981'
-                              : '1px solid #475569',
+                              ? '1px solid var(--success)'
+                              : '1px solid var(--border-input)',
                             padding: '8px 12px',
                             borderRadius: '8px',
                             fontSize: '0.85rem',
                             outline: 'none',
+                            marginBottom: 0,
                           }}
                         >
                           <option value="NEW">➕ Crear como nuevo potrero</option>
@@ -477,7 +481,7 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                             <option value="AGUA">💧 Cargar como Cuerpo de Agua / Lago</option>
                             <option value="INFRA">🏠 Cargar como Infraestructura / Instalación</option>
                           </optgroup>
-                          <option value="OMIT" style={{ color: '#EF4444' }}>
+                          <option value="OMIT" style={{ color: 'var(--error)' }}>
                             🚫 Omitir / No incluir en el mapa
                           </option>
                           <optgroup label="Vincular a potrero existente:">
@@ -500,11 +504,11 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
         {/* Pie de modal */}
         <div style={{
           padding: '16px 24px',
-          borderTop: '1px solid #334155',
+          borderTop: '1px solid var(--border-subtle)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          backgroundColor: '#0F172A',
+          backgroundColor: 'var(--surface-subtle)',
           borderBottomLeftRadius: '16px',
           borderBottomRightRadius: '16px',
         }}>
@@ -513,12 +517,14 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
               onClick={() => setStep(1)}
               style={{
                 backgroundColor: 'transparent',
-                border: '1px solid #475569',
-                color: '#CBD5E1',
+                border: '1px solid var(--border-strong)',
+                color: 'var(--text-secondary)',
                 padding: '10px 18px',
                 borderRadius: '10px',
                 cursor: 'pointer',
                 fontSize: '0.9rem',
+                width: 'auto',
+                boxShadow: 'none',
               }}
             >
               Cambiar archivo
@@ -532,8 +538,8 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
               onClick={handleSaveMap}
               disabled={saving}
               style={{
-                backgroundColor: '#10B981',
-                color: '#FFFFFF',
+                backgroundColor: 'var(--primary)',
+                color: 'var(--on-primary)',
                 border: 'none',
                 padding: '10px 24px',
                 borderRadius: '10px',
@@ -543,7 +549,8 @@ export const KmzUploaderModal: React.FC<KmzUploaderModalProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                width: 'auto',
+                boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)',
               }}
             >
               {saving ? <RefreshCw className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}

@@ -536,9 +536,9 @@ export default function Purchase() {
                         title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
                         className="trade-status-pill"
                         style={{
-                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
-                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800',
-                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.08)',
+                            backgroundColor: modoCampo ? 'var(--secondary-soft-bg)' : isOnline ? 'var(--success-soft-bg)' : 'var(--warning-soft-bg)',
+                            color: modoCampo ? 'var(--secondary)' : isOnline ? 'var(--success)' : 'var(--warning)',
+                            border: modoCampo ? '1px solid var(--secondary-soft-border)' : '1px solid var(--border-subtle)',
                         }}
                     >
                         {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} aria-hidden="true" /> Online</> : <><WifiOff size={14} aria-hidden="true" /> Offline</>}
@@ -592,15 +592,15 @@ export default function Purchase() {
             {isBloqueado && (
                 <div className="trade-upsell-banner">
                     <div className="trade-upsell-text">
-                        <AlertOctagon size={24} color="#f87171" aria-hidden="true" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                        <AlertOctagon size={24} color="var(--error)" aria-hidden="true" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
                                     <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Para registrar nuevas compras e ingresar ganado al hato, renueva tu suscripción.
                                 </>
                             ) : (
                                 <>
-                                    <strong>Capacidad del Plan Superada:</strong> Tu hato actual cuenta con <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar nuevas compras e ingresar ganado al hato, actualiza tu suscripción.
+                                    <strong>Capacidad del Plan Superada:</strong> Tu hato actual cuenta con <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar nuevas compras e ingresar ganado al hato, actualiza tu suscripción.
                                 </>
                             )}
                         </div>
@@ -631,7 +631,7 @@ export default function Purchase() {
                         <div className="trade-dialog-body">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px' }}>
                                 <h2 id="purchase-quick-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: 0, fontSize: '1.2rem' }}>
-                                    <ShoppingCart size={22} color="#3498db" aria-hidden="true" style={{ flexShrink: 0 }} /> Compra Rápida — Calculadora de Merma
+                                    <ShoppingCart size={22} color="var(--info)" aria-hidden="true" style={{ flexShrink: 0 }} /> Compra Rápida — Calculadora de Merma
                                 </h2>
                                 <button
                                     type="button"
@@ -718,7 +718,7 @@ export default function Purchase() {
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>% Merma</div>
-                                    <div className="purchase-merma-pct" style={{ color: mermaPorc > 0 ? '#e53935' : 'var(--success)' }}>
+                                    <div className="purchase-merma-pct" style={{ color: mermaPorc > 0 ? 'var(--error)' : 'var(--success)' }}>
                                         {mermaPorc.toFixed(2)}%
                                     </div>
                                 </div>
@@ -778,7 +778,7 @@ export default function Purchase() {
                                         setShowQuickModal(false);
                                         setShowQuickReport(true);
                                     }}
-                                    style={{ backgroundColor: '#3498db' }}
+                                    style={{ backgroundColor: 'var(--info)', color: 'var(--on-primary)' }}
                                 >
                                     <CheckCircle2 size={18} aria-hidden="true" /> Generar Reporte de Merma
                                 </button>
@@ -799,11 +799,11 @@ export default function Purchase() {
                     onClick={() => setShowLastTags(!showLastTags)}
                     className="purchase-last-tags-btn"
                     style={{
-                        backgroundColor: showLastTags ? '#ffc107' : 'rgba(255, 193, 7, 0.1)',
-                        color: showLastTags ? '#000' : '#ffc107',
+                        backgroundColor: showLastTags ? '#f59e0b' : 'var(--secondary-soft-bg)',
+                        color: showLastTags ? '#111812' : 'var(--secondary)',
                     }}
                 >
-                    <Info size={18} color={showLastTags ? '#000' : '#ffc107'} aria-hidden="true" /> {showLastTags ? 'Ocultar últimas chapetas' : 'Ver últimas chapetas por dueño'}
+                    <Info size={18} color={showLastTags ? '#111812' : 'var(--secondary)'} aria-hidden="true" /> {showLastTags ? 'Ocultar últimas chapetas' : 'Ver últimas chapetas por dueño'}
                 </button>
             </div>
 
@@ -814,7 +814,7 @@ export default function Purchase() {
                     </h3>
                     <div className="purchase-last-tags-grid">
                         {lastTags.length > 0 ? lastTags.map((lt, idx) => (
-                            <div key={idx} style={{ padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div key={idx} style={{ padding: '12px', backgroundColor: 'var(--surface-subtle)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{lt.owner}</div>
                                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>{lt.tag}</div>
                             </div>
@@ -1011,8 +1011,8 @@ export default function Purchase() {
                                                 style={{
                                                     marginBottom: 0,
                                                     padding: '10px',
-                                                    border: hasError ? '2px solid var(--error)' : '1px solid rgba(255,255,255,0.1)',
-                                                    backgroundColor: hasError ? 'rgba(244, 67, 54, 0.05)' : 'transparent'
+                                                    border: hasError ? '2px solid var(--error)' : '1px solid var(--border-input)',
+                                                    backgroundColor: hasError ? 'var(--error-soft-bg)' : 'var(--bg-input)'
                                                 }}
                                             />
                                             {isDuplicateInList && <div role="alert" style={{ color: 'var(--error)', fontSize: '0.72rem', marginTop: '4px' }}>Repetido en la lista</div>}

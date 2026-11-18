@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import {
     CloudRain, Plus, Trash2, Calendar, Droplets,
@@ -41,10 +42,10 @@ interface MesGroup {
 }
 
 const COLORES_INTENSIDAD = {
-    fuerte:   { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.5)',   text: '#60a5fa', label: 'Fuerte',            emoji: '🌊' },
-    moderada: { bg: 'rgba(96, 165, 250, 0.10)', border: 'rgba(96, 165, 250, 0.3)',   text: '#7dd3fc', label: 'Moderada (Efectiva)', emoji: '🔵' },
-    leve:     { bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.2)', text: '#94a3b8', label: 'Leve',               emoji: '💧' },
-    trazas:   { bg: 'rgba(100, 116, 139, 0.05)', border: 'rgba(100, 116, 139, 0.15)', text: '#64748b', label: 'Trazas',             emoji: '·' },
+    fuerte:   { bg: 'var(--info-soft-bg)',    border: 'var(--info-soft-border)', text: 'var(--info)',           label: 'Fuerte',            emoji: '🌊' },
+    moderada: { bg: 'var(--primary-soft-bg)', border: 'var(--primary-soft-border)', text: 'var(--primary-light)', label: 'Moderada (Efectiva)', emoji: '🔵' },
+    leve:     { bg: 'var(--surface-subtle)',  border: 'var(--border-subtle)',    text: 'var(--text-secondary)', label: 'Leve',               emoji: '💧' },
+    trazas:   { bg: 'var(--surface-inset)',   border: 'var(--border-subtle)',    text: 'var(--text-muted)',     label: 'Trazas',             emoji: '·' },
 };
 
 // Clasifica la intensidad de un registro de lluvia en 4 niveles:
@@ -65,6 +66,8 @@ const TAB_YOY = 'yoy';
 
 export default function Rainfall() {
     const { fincaId, role, licenciaInfo } = useAuth();
+    const { theme } = useTheme();
+    const accentPurple = theme === 'light' ? '#7c3aed' : '#c084fc';
     const navigate = useNavigate();
     const esDemo = licenciaInfo?.licencia === 'demo';
     const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
@@ -568,16 +571,17 @@ export default function Rainfall() {
     }, [fincaId, esDemo]);
 
     const colorSemaforoSecos = (dias: number) => {
-        if (dias >= perfil.diasSecosAlerta) return '#f44336';
-        if (dias >= perfil.diasSecosAlerta * 0.6) return '#ff9800';
-        return '#4caf50';
+        if (dias >= perfil.diasSecosAlerta) return 'var(--error)';
+        if (dias >= perfil.diasSecosAlerta * 0.6) return 'var(--warning)';
+        return 'var(--success)';
     };
 
     const tooltipStyle = {
-        backgroundColor: '#1e1e1e',
-        border: '1px solid rgba(255,255,255,0.1)',
+        backgroundColor: 'var(--bg-elevated)',
+        border: '1px solid var(--border-strong)',
         borderRadius: '8px',
-        color: 'white',
+        color: 'var(--text-main)',
+        boxShadow: 'var(--shadow-popover)',
     };
 
     // ── Render ────────────────────────────────────────────────────────
@@ -618,15 +622,15 @@ export default function Rainfall() {
                     <div style={{
                         display: 'inline-flex', alignItems: 'center', gap: '8px',
                         padding: '6px 14px', borderRadius: '20px',
-                        background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)',
-                        fontSize: '0.8rem', color: '#7dd3fc',
+                        background: 'var(--info-soft-bg)', border: '1px solid var(--info-soft-border)',
+                        fontSize: '0.8rem', color: 'var(--info)',
                     }}>
                         <span>{perfil.emoji}</span>
                         <span style={{ fontWeight: 600 }}>{municipioFinca ? `${municipioFinca} (${perfil.zona})` : perfil.zona}</span>
-                        <span style={{ color: 'rgba(125,211,252,0.6)' }}>•</span>
+                        <span style={{ opacity: 0.6 }}>•</span>
                         <span>Lluvia efectiva ≥ {perfil.umbralEfectivoMm} mm</span>
                         {!ubicacionFinca && (
-                            <span style={{ color: '#ff9800', marginLeft: '4px' }}>· <a href="/configuracion" onClick={e => { e.preventDefault(); navigate('/configuracion'); }} style={{ color: '#ffb74d', textDecoration: 'none' }}>Configura tu ubicación</a></span>
+                            <span style={{ color: 'var(--warning)', marginLeft: '4px' }}>· <a href="/configuracion" onClick={e => { e.preventDefault(); navigate('/configuracion'); }} style={{ color: 'var(--secondary)', textDecoration: 'underline' }}>Configura tu ubicación</a></span>
                         )}
                     </div>
                 </div>
@@ -657,9 +661,9 @@ export default function Rainfall() {
                             textTransform: 'none',
                             letterSpacing: 0,
                             fontWeight: filtroPluviometro === 'todos' ? 700 : 400,
-                            background: filtroPluviometro === 'todos' ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.04)',
-                            border: `1px solid ${filtroPluviometro === 'todos' ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                            color: filtroPluviometro === 'todos' ? '#7dd3fc' : 'var(--text-muted)',
+                            background: filtroPluviometro === 'todos' ? 'var(--info-soft-bg)' : 'var(--surface-subtle)',
+                            border: `1px solid ${filtroPluviometro === 'todos' ? 'var(--info)' : 'var(--border-subtle)'}`,
+                            color: filtroPluviometro === 'todos' ? 'var(--info)' : 'var(--text-muted)',
                             cursor: 'pointer',
                         }}
                     >
@@ -678,9 +682,9 @@ export default function Rainfall() {
                                 textTransform: 'none',
                                 letterSpacing: 0,
                                 fontWeight: filtroPluviometro === pluv.id ? 700 : 400,
-                                background: filtroPluviometro === pluv.id ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.04)',
-                                border: `1px solid ${filtroPluviometro === pluv.id ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                                color: filtroPluviometro === pluv.id ? '#7dd3fc' : 'var(--text-muted)',
+                                background: filtroPluviometro === pluv.id ? 'var(--info-soft-bg)' : 'var(--surface-subtle)',
+                                border: `1px solid ${filtroPluviometro === pluv.id ? 'var(--info)' : 'var(--border-subtle)'}`,
+                                color: filtroPluviometro === pluv.id ? 'var(--info)' : 'var(--text-muted)',
                                 cursor: 'pointer',
                                 opacity: pluv.activo ? 1 : 0.7,
                             }}
@@ -717,27 +721,27 @@ export default function Rainfall() {
                         <div className="rainfall-kpi-grid">
                             {/* 1. Lluvia de Hoy */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #38bdf8, #0ea5e9)' }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--info), #0ea5e9)' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Lluvia de Hoy</p>
-                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: '#38bdf8', margin: '6px 0 4px' }}>{kpis.lluviaHoy}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> mm</span></p>
+                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--info)', margin: '6px 0 4px' }}>{kpis.lluviaHoy}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> mm</span></p>
                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                                             {format(new Date(), "dd 'de' MMMM", { locale: es })}
                                         </span>
                                     </div>
-                                    <Droplets size={28} style={{ color: '#38bdf8', opacity: 0.5 }} />
+                                    <Droplets size={28} style={{ color: 'var(--info)', opacity: 0.65 }} />
                                 </div>
                             </div>
 
                             {/* 2. Racha Seca */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: `linear-gradient(90deg, ${colorSemaforoSecos(kpis.diasSecos)}, ${colorSemaforoSecos(kpis.diasSecos)}88)` }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: colorSemaforoSecos(kpis.diasSecos) }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Racha Seca</p>
                                         <p style={{ fontSize: '2rem', fontWeight: 700, color: colorSemaforoSecos(kpis.diasSecos), margin: '6px 0 4px' }}>{kpis.diasSecos}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> días</span></p>
-                                        <span style={{ fontSize: '0.8rem', color: kpis.diasSecos >= perfil.diasSecosAlerta ? '#f44336' : 'var(--text-muted)' }}>
+                                        <span style={{ fontSize: '0.8rem', color: kpis.diasSecos >= perfil.diasSecosAlerta ? 'var(--error)' : 'var(--text-muted)' }}>
                                             {recomendacion?.tipo === 'oreo'
                                                 ? `🌾 En Oreo (buffer ${perfil.diasBufferPostExceso}d post-lluvia)`
                                                 : kpis.diasSecos >= perfil.diasSecosAlerta
@@ -746,66 +750,66 @@ export default function Rainfall() {
                                         </span>
                                     </div>
                                     {kpis.diasSecos >= perfil.diasSecosAlerta
-                                        ? <AlertTriangle size={28} style={{ color: '#f44336', opacity: 0.7 }} />
-                                        : <Sun size={28} style={{ color: '#ff9800', opacity: 0.5 }} />}
+                                        ? <AlertTriangle size={28} style={{ color: 'var(--error)', opacity: 0.8 }} />
+                                        : <Sun size={28} style={{ color: 'var(--warning)', opacity: 0.65 }} />}
                                 </div>
                             </div>
 
                             {/* 3. Lluvia Mes Actual */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #3b82f6, #60a5fa)' }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #0284c7, var(--info))' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Lluvia Mes Actual</p>
-                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: '#60a5fa', margin: '6px 0 4px' }}>{kpis.mmMesActual}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> mm</span></p>
+                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--info)', margin: '6px 0 4px' }}>{kpis.mmMesActual}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> mm</span></p>
                                         {kpis.variacionMes !== null && (
-                                            <span style={{ fontSize: '0.8rem', color: kpis.variacionMes >= 0 ? '#4caf50' : '#f44336' }}>
+                                            <span style={{ fontSize: '0.8rem', color: kpis.variacionMes >= 0 ? 'var(--success)' : 'var(--error)' }}>
                                                 {kpis.variacionMes >= 0 ? '▲' : '▼'} {Math.abs(kpis.variacionMes)}% vs mes anterior
                                             </span>
                                         )}
                                     </div>
-                                    <CloudRain size={28} style={{ color: '#60a5fa', opacity: 0.5 }} />
+                                    <CloudRain size={28} style={{ color: 'var(--info)', opacity: 0.65 }} />
                                 </div>
                             </div>
 
                             {/* 4. Días Lluvia Efectiva */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #4caf50, #60ad5e)' }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--primary), var(--success))' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Días Lluvia Efectiva</p>
-                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: '#4caf50', margin: '6px 0 4px' }}>{kpis.diasEfectivos}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> días</span></p>
+                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--success)', margin: '6px 0 4px' }}>{kpis.diasEfectivos}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> días</span></p>
                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>≥ {perfil.umbralEfectivoMm} mm este mes</span>
                                     </div>
-                                    <CloudRain size={28} style={{ color: '#4caf50', opacity: 0.5 }} />
+                                    <CloudRain size={28} style={{ color: 'var(--success)', opacity: 0.65 }} />
                                 </div>
                             </div>
 
                             {/* 5. Días sin Lluvia (Mes) */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #f59e0b, #d97706)' }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--warning), #d97706)' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Días sin Lluvia (Mes)</p>
-                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: '#f59e0b', margin: '6px 0 4px' }}>{kpis.diasSecosMes}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> días</span></p>
+                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--warning)', margin: '6px 0 4px' }}>{kpis.diasSecosMes}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> días</span></p>
                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                                             En lo que va de {kpis.nombreMesActual}
                                         </span>
                                     </div>
-                                    <Calendar size={28} style={{ color: '#f59e0b', opacity: 0.5 }} />
+                                    <Calendar size={28} style={{ color: 'var(--warning)', opacity: 0.65 }} />
                                 </div>
                             </div>
 
                             {/* 6. Acumulado Anual */}
                             <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #a855f7, #c084fc)' }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: `linear-gradient(90deg, #9333ea, ${accentPurple})` }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Acumulado Anual</p>
-                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: '#c084fc', margin: '6px 0 4px' }}>{kpis.mmAnual.toLocaleString('es-CO')}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> mm</span></p>
+                                        <p style={{ fontSize: '2rem', fontWeight: 700, color: accentPurple, margin: '6px 0 4px' }}>{kpis.mmAnual.toLocaleString('es-CO')}<span style={{ fontSize: '1rem', fontWeight: 400, color: 'var(--text-muted)' }}> mm</span></p>
                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ref. zona: ~{perfil.mmAnualReferencia.toLocaleString('es-CO')} mm/año</span>
                                     </div>
-                                    <TrendingUp size={28} style={{ color: '#c084fc', opacity: 0.5 }} />
+                                    <TrendingUp size={28} style={{ color: accentPurple, opacity: 0.65 }} />
                                 </div>
                             </div>
                         </div>
@@ -829,9 +833,9 @@ export default function Rainfall() {
                                         onClick={() => setTabGrafica(tab.id)}
                                         style={{
                                             padding: '6px 16px', fontSize: '0.85rem', width: 'auto',
-                                            background: tabGrafica === tab.id ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.05)',
-                                            border: `1px solid ${tabGrafica === tab.id ? 'rgba(96,165,250,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                                            color: tabGrafica === tab.id ? '#7dd3fc' : 'var(--text-muted)',
+                                            background: tabGrafica === tab.id ? 'var(--info-soft-bg)' : 'var(--surface-subtle)',
+                                            border: `1px solid ${tabGrafica === tab.id ? 'var(--info)' : 'var(--border-subtle)'}`,
+                                            color: tabGrafica === tab.id ? 'var(--info)' : 'var(--text-muted)',
                                             borderRadius: '8px', textTransform: 'none', letterSpacing: 0, fontWeight: tabGrafica === tab.id ? 600 : 400,
                                         }}
                                     >
@@ -842,7 +846,7 @@ export default function Rainfall() {
                                     <select
                                         value={anoSeleccionado}
                                         onChange={e => setAnoSeleccionado(Number(e.target.value))}
-                                        style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'white', marginBottom: 0 }}
+                                        style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto', borderRadius: '8px', border: '1px solid var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-main)', marginBottom: 0 }}
                                     >
                                         {anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
                                     </select>
@@ -853,16 +857,16 @@ export default function Rainfall() {
                         {tabGrafica === TAB_MENSUAL && (
                             <ResponsiveContainer width="100%" height={260}>
                                 <BarChart data={dataMensual} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                    <XAxis dataKey="name" tick={{ fill: '#aaa', fontSize: 12 }} />
-                                    <YAxis tick={{ fill: '#aaa', fontSize: 12 }} unit=" mm" />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                                    <XAxis dataKey="name" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                    <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} unit=" mm" />
                                     <Tooltip contentStyle={tooltipStyle} formatter={(v: number | undefined) => [`${v ?? 0} mm`, 'Lluvia']} />
                                     <Bar dataKey="mm" name="Lluvia (mm)" radius={[4, 4, 0, 0]}
                                         fill="url(#barGradient)" />
                                     <defs>
                                         <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.9} />
-                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.6} />
+                                            <stop offset="5%" stopColor={theme === 'light' ? '#0284c7' : '#60a5fa'} stopOpacity={0.95} />
+                                            <stop offset="95%" stopColor={theme === 'light' ? '#0369a1' : '#3b82f6'} stopOpacity={0.7} />
                                         </linearGradient>
                                     </defs>
                                 </BarChart>
@@ -872,13 +876,13 @@ export default function Rainfall() {
                         {tabGrafica === TAB_DIARIA && (
                             <ResponsiveContainer width="100%" height={260}>
                                 <BarChart data={dataDiaria} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                    <XAxis dataKey="name" tick={{ fill: '#aaa', fontSize: 10 }} interval="preserveStartEnd" />
-                                    <YAxis tick={{ fill: '#aaa', fontSize: 12 }} unit=" mm" />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                                    <XAxis dataKey="name" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 10 }} interval="preserveStartEnd" />
+                                    <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} unit=" mm" />
                                     <Tooltip contentStyle={tooltipStyle} formatter={(v: number | undefined) => [`${v ?? 0} mm`, 'Lluvia']} />
-                                    <ReferenceLine y={perfil.umbralEfectivoMm} stroke="#4caf50" strokeDasharray="4 4"
-                                        label={{ value: `Efectiva (${perfil.umbralEfectivoMm}mm)`, fill: '#4caf50', fontSize: 11 }} />
-                                    <Bar dataKey="mm" name="Lluvia (mm)" radius={[3, 3, 0, 0]} fill="#60a5fa" />
+                                    <ReferenceLine y={perfil.umbralEfectivoMm} stroke="var(--success)" strokeDasharray="4 4"
+                                        label={{ value: `Efectiva (${perfil.umbralEfectivoMm}mm)`, fill: 'var(--success)', fontSize: 11 }} />
+                                    <Bar dataKey="mm" name="Lluvia (mm)" radius={[3, 3, 0, 0]} fill={theme === 'light' ? '#0284c7' : '#60a5fa'} />
                                 </BarChart>
                             </ResponsiveContainer>
                         )}
@@ -886,13 +890,13 @@ export default function Rainfall() {
                         {tabGrafica === TAB_YOY && (
                             <ResponsiveContainer width="100%" height={260}>
                                 <LineChart data={dataYoY} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                    <XAxis dataKey="name" tick={{ fill: '#aaa', fontSize: 12 }} />
-                                    <YAxis tick={{ fill: '#aaa', fontSize: 12 }} unit=" mm" />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                                    <XAxis dataKey="name" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                    <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} unit=" mm" />
                                     <Tooltip contentStyle={tooltipStyle} />
-                                    <Legend wrapperStyle={{ color: '#aaa', fontSize: '0.85rem' }} />
-                                    <Line type="monotone" dataKey={String(new Date().getFullYear())} stroke="#60a5fa" strokeWidth={2} dot={{ fill: '#60a5fa', r: 3 }} />
-                                    <Line type="monotone" dataKey={String(new Date().getFullYear() - 1)} stroke="#a855f7" strokeWidth={2} strokeDasharray="5 5" dot={{ fill: '#a855f7', r: 3 }} />
+                                    <Legend wrapperStyle={{ color: 'var(--chart-tick)', fontSize: '0.85rem' }} />
+                                    <Line type="monotone" dataKey={String(new Date().getFullYear())} stroke={theme === 'light' ? '#0284c7' : '#60a5fa'} strokeWidth={2} dot={{ fill: theme === 'light' ? '#0284c7' : '#60a5fa', r: 3 }} />
+                                    <Line type="monotone" dataKey={String(new Date().getFullYear() - 1)} stroke={accentPurple} strokeWidth={2} strokeDasharray="5 5" dot={{ fill: accentPurple, r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         )}
@@ -902,24 +906,25 @@ export default function Rainfall() {
                     {esDemo ? (
                         <div style={{
                             borderRadius: '12px', marginBottom: '28px', overflow: 'hidden',
-                            background: 'rgba(30,30,30,0.7)', backdropFilter: 'blur(10px)',
-                            border: '1px solid rgba(255,255,255,0.08)',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border-subtle)',
+                            boxShadow: 'var(--shadow-card)',
                         }}>
                             <div style={{
                                 padding: '28px', display: 'flex', flexDirection: 'column', alignItems: 'center',
                                 textAlign: 'center', gap: '12px',
-                                background: 'linear-gradient(135deg, rgba(168,85,247,0.08) 0%, rgba(96,165,250,0.08) 100%)',
+                                background: 'var(--surface-subtle)',
                             }}>
                                 <div style={{ padding: '14px', borderRadius: '50%', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)' }}>
-                                    <Lock size={28} color="#c084fc" />
+                                    <Lock size={28} color={accentPurple} />
                                 </div>
-                                <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'white' }}>Asistente Zootécnico IA</h3>
+                                <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-main)' }}>Asistente Zootécnico IA</h3>
                                 <p style={{ color: 'var(--text-muted)', margin: 0, maxWidth: '420px', lineHeight: 1.6 }}>
-                                    Recomendaciones de manejo de pasturas y carga animal personalizadas para la <strong style={{ color: '#c084fc' }}>zona {perfil.zona}</strong>, disponibles en los planes <strong>Finca</strong> y <strong>Premium</strong>.
+                                    Recomendaciones de manejo de pasturas y carga animal personalizadas para la <strong style={{ color: accentPurple }}>zona {perfil.zona}</strong>, disponibles en los planes <strong>Finca</strong> y <strong>Premium</strong>.
                                 </p>
                                 <button
                                     className="btn btn-primary"
-                                    style={{ width: 'auto', padding: '10px 28px', marginTop: '4px', background: 'linear-gradient(135deg, #a855f7, #60a5fa)' }}
+                                    style={{ width: 'auto', padding: '10px 28px', marginTop: '4px', background: 'linear-gradient(135deg, #9333ea, #0284c7)', color: '#ffffff' }}
                                     onClick={() => navigate('/suscripcion')}
                                 >
                                     Ver Planes
@@ -934,13 +939,13 @@ export default function Rainfall() {
                         const recomLocal = recomendacion;  // motor local con BH15
 
                         const COLOR_MAP: Record<string, { bg: string; border: string; text: string; badge: string }> = {
-                            estres:           { bg: 'rgba(244,67,54,0.08)',   border: 'rgba(244,67,54,0.28)',   text: '#f44336', badge: 'rgba(244,67,54,0.20)' },
-                            excesoCritico:    { bg: 'rgba(30,100,200,0.10)',  border: 'rgba(59,130,246,0.35)',  text: '#3b82f6', badge: 'rgba(59,130,246,0.22)' },
-                            preAlerta:        { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.30)',  text: '#f59e0b', badge: 'rgba(245,158,11,0.20)' },
-                            excesoPreventivo: { bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.28)',   text: '#06b6d4', badge: 'rgba(6,182,212,0.20)' },
-                            oreo:             { bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.30)',  text: '#10b981', badge: 'rgba(16,185,129,0.20)' },
-                            transicion:       { bg: 'rgba(255,179,0,0.07)',   border: 'rgba(255,179,0,0.25)',   text: '#ffb300', badge: 'rgba(255,179,0,0.18)' },
-                            optima:           { bg: 'rgba(76,175,80,0.08)',   border: 'rgba(76,175,80,0.25)',   text: '#4caf50', badge: 'rgba(76,175,80,0.18)' },
+                            estres:           { bg: 'var(--error-soft-bg)',     border: 'var(--error-soft-border)',     text: 'var(--error)',     badge: 'var(--surface-subtle)' },
+                            excesoCritico:    { bg: 'var(--info-soft-bg)',      border: 'var(--info-soft-border)',      text: 'var(--info)',      badge: 'var(--surface-subtle)' },
+                            preAlerta:        { bg: 'var(--warning-soft-bg)',   border: 'var(--warning-soft-border)',   text: 'var(--warning)',   badge: 'var(--surface-subtle)' },
+                            excesoPreventivo: { bg: 'var(--info-soft-bg)',      border: 'var(--info-soft-border)',      text: 'var(--info)',      badge: 'var(--surface-subtle)' },
+                            oreo:             { bg: 'var(--success-soft-bg)',   border: 'var(--success-soft-border)',   text: 'var(--success)',   badge: 'var(--surface-subtle)' },
+                            transicion:       { bg: 'var(--secondary-soft-bg)', border: 'var(--secondary-soft-border)', text: 'var(--secondary)', badge: 'var(--surface-subtle)' },
+                            optima:           { bg: 'var(--success-soft-bg)',   border: 'var(--success-soft-border)',   text: 'var(--success)',   badge: 'var(--surface-subtle)' },
                         };
                         const LABEL_MAP: Record<string, string> = {
                             estres: 'ALERTA ROJA – SEQUÍA', excesoCritico: 'ANEGAMIENTO CRÍTICO',
@@ -983,17 +988,17 @@ export default function Rainfall() {
                                     <span style={{ fontSize: '1.3rem', lineHeight: 1 }}>{emojiActivo}</span>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                            <p style={{ margin: 0, fontWeight: 700, color: 'white', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-main)', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
                                                 Asistente Zootécnico – {perfil.emoji} {perfil.zona}
                                             </p>
-                                            <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: c.badge, color: c.text, whiteSpace: 'nowrap' }}>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: c.badge, border: `1px solid ${c.border}`, color: c.text, whiteSpace: 'nowrap' }}>
                                                 {LABEL_MAP[nivelActivo]}
                                             </span>
                                             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>{fuenteLabel}</span>
                                         </div>
                                         {bh15 !== null && (
                                             <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                                {estadoHidrico} · Balance 15d: <span style={{ color: bh15 < 0 ? '#f59e0b' : '#4caf50', fontWeight: 600 }}>{bh15 > 0 ? '+' : ''}{bh15.toFixed(1)} mm</span>
+                                                {estadoHidrico} · Balance 15d: <span style={{ color: bh15 < 0 ? 'var(--warning)' : 'var(--success)', fontWeight: 600 }}>{bh15 > 0 ? '+' : ''}{bh15.toFixed(1)} mm</span>
                                                 {kpis && <> · {kpis.diasSecosMes}/{kpis.diasTranscurridos} días secos</>}
                                             </p>
                                         )}
@@ -1005,7 +1010,7 @@ export default function Rainfall() {
                                             disabled={analysisLoading}
                                             title="Solicitar análisis completo a la IA"
                                             style={{
-                                                background: 'transparent', border: `1px solid ${c.border}`,
+                                                background: 'var(--bg-card)', border: `1px solid ${c.border}`,
                                                 borderRadius: '8px', padding: '5px 8px', cursor: 'pointer',
                                                 color: c.text, display: 'flex', alignItems: 'center', gap: '4px',
                                                 fontSize: '0.7rem', opacity: analysisLoading ? 0.5 : 1,
@@ -1016,7 +1021,7 @@ export default function Rainfall() {
                                             {analysisLoading ? 'Analizando…' : 'Reanalizar'}
                                         </button>
                                         {analysisError && (
-                                            <span style={{ fontSize: '0.62rem', color: '#f87171', maxWidth: '160px', textAlign: 'right', lineHeight: 1.3 }}>
+                                            <span style={{ fontSize: '0.62rem', color: 'var(--error)', maxWidth: '160px', textAlign: 'right', lineHeight: 1.3 }}>
                                                 ⚠️ {analysisError}
                                             </span>
                                         )}
@@ -1025,11 +1030,11 @@ export default function Rainfall() {
 
                                 {/* Resumen e impacto */}
                                 <div style={{ padding: '10px 18px 8px' }}>
-                                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.55 }}>
+                                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.55 }}>
                                         {resumen}
                                     </p>
                                     {impacto && (
-                                        <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.76rem', lineHeight: 1.4 }}>
+                                        <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '0.76rem', lineHeight: 1.4 }}>
                                             {impacto}
                                         </p>
                                     )}
@@ -1039,26 +1044,26 @@ export default function Rainfall() {
                                 {(recRotacion || recFertilizacion || recNutricion) && (
                                     <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                                         {recRotacion && (
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: 'rgba(255,255,255,0.04)', borderRadius: '7px', padding: '7px 10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '7px', padding: '7px 10px' }}>
                                                 <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>🌾</span>
-                                                <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                                                    <strong style={{ color: 'white', fontWeight: 600 }}>Rotación:</strong> {recRotacion}
+                                                <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                                                    <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>Rotación:</strong> {recRotacion}
                                                 </p>
                                             </div>
                                         )}
                                         {recFertilizacion && (
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: 'rgba(255,255,255,0.04)', borderRadius: '7px', padding: '7px 10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '7px', padding: '7px 10px' }}>
                                                 <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>⛔</span>
-                                                <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                                                    <strong style={{ color: 'white', fontWeight: 600 }}>Fertilización:</strong> {recFertilizacion}
+                                                <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                                                    <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>Fertilización:</strong> {recFertilizacion}
                                                 </p>
                                             </div>
                                         )}
                                         {recNutricion && (
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: 'rgba(255,255,255,0.04)', borderRadius: '7px', padding: '7px 10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '7px', padding: '7px 10px' }}>
                                                 <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>🧂</span>
-                                                <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                                                    <strong style={{ color: 'white', fontWeight: 600 }}>Nutrición:</strong> {recNutricion}
+                                                <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                                                    <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>Nutrición:</strong> {recNutricion}
                                                 </p>
                                             </div>
                                         )}
@@ -1072,13 +1077,13 @@ export default function Rainfall() {
                     {!diagnosticoIA && !esDemo && recomendacion && (() => {
                         // ── Paleta de color por estado (7 estados) ───────────────────────────
                         const colorMap: Record<string, { bg: string; border: string; text: string; badge: string; emoji: string; label: string }> = {
-                            estres:           { bg: 'rgba(244,67,54,0.08)',   border: 'rgba(244,67,54,0.28)',   text: '#f44336', badge: 'rgba(244,67,54,0.20)',   emoji: '🔴', label: 'ALERTA ROJA – SEQUÍA' },
-                            excesoCritico:    { bg: 'rgba(30,100,200,0.10)',  border: 'rgba(59,130,246,0.35)',  text: '#3b82f6', badge: 'rgba(59,130,246,0.22)',  emoji: '🌊', label: 'ANEGAMIENTO CRÍTICO' },
-                            preAlerta:        { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.30)',  text: '#f59e0b', badge: 'rgba(245,158,11,0.20)',  emoji: '🟡', label: 'PRE-ALERTA SEQUÍA' },
-                            excesoPreventivo: { bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.28)',   text: '#06b6d4', badge: 'rgba(6,182,212,0.20)',   emoji: '💧', label: 'ENCHARCAMIENTO PREVENTIVO' },
-                            oreo:             { bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.30)',  text: '#10b981', badge: 'rgba(16,185,129,0.20)',  emoji: '🌾', label: 'OREO ACTIVO – MANEJO TOPOGRÁFICO' },
-                            transicion:       { bg: 'rgba(255,179,0,0.07)',   border: 'rgba(255,179,0,0.25)',   text: '#ffb300', badge: 'rgba(255,179,0,0.18)',   emoji: '🌤️', label: 'TRANSICIÓN' },
-                            optima:           { bg: 'rgba(76,175,80,0.08)',   border: 'rgba(76,175,80,0.25)',   text: '#4caf50', badge: 'rgba(76,175,80,0.18)',   emoji: '✅', label: 'CONDICIÓN ÓPTIMA' },
+                            estres:           { bg: 'var(--error-soft-bg)',     border: 'var(--error-soft-border)',     text: 'var(--error)',     badge: 'var(--surface-subtle)', emoji: '🔴', label: 'ALERTA ROJA – SEQUÍA' },
+                            excesoCritico:    { bg: 'var(--info-soft-bg)',      border: 'var(--info-soft-border)',      text: 'var(--info)',      badge: 'var(--surface-subtle)', emoji: '🌊', label: 'ANEGAMIENTO CRÍTICO' },
+                            preAlerta:        { bg: 'var(--warning-soft-bg)',   border: 'var(--warning-soft-border)',   text: 'var(--warning)',   badge: 'var(--surface-subtle)', emoji: '🟡', label: 'PRE-ALERTA SEQUÍA' },
+                            excesoPreventivo: { bg: 'var(--info-soft-bg)',      border: 'var(--info-soft-border)',      text: 'var(--info)',      badge: 'var(--surface-subtle)', emoji: '💧', label: 'ENCHARCAMIENTO PREVENTIVO' },
+                            oreo:             { bg: 'var(--success-soft-bg)',   border: 'var(--success-soft-border)',   text: 'var(--success)',   badge: 'var(--surface-subtle)', emoji: '🌾', label: 'OREO ACTIVO – MANEJO TOPOGRÁFICO' },
+                            transicion:       { bg: 'var(--secondary-soft-bg)', border: 'var(--secondary-soft-border)', text: 'var(--secondary)', badge: 'var(--surface-subtle)', emoji: '🌤️', label: 'TRANSICIÓN' },
+                            optima:           { bg: 'var(--success-soft-bg)',   border: 'var(--success-soft-border)',   text: 'var(--success)',   badge: 'var(--surface-subtle)', emoji: '✅', label: 'CONDICIÓN ÓPTIMA' },
                         };
                         const c = colorMap[recomendacion.tipo] ?? colorMap.optima;
 
@@ -1095,14 +1100,14 @@ export default function Rainfall() {
                                     <div style={{ fontSize: '1.6rem', lineHeight: 1 }}>{c.emoji}</div>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                                            <p style={{ margin: 0, fontWeight: 600, color: 'white', fontSize: '0.95rem' }}>
+                                            <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-main)', fontSize: '0.95rem' }}>
                                                 Asistente Zootécnico – {perfil.emoji} {perfil.zona}
                                             </p>
                                             {/* Badge de estado */}
                                             <span style={{
                                                 fontSize: '0.72rem', fontWeight: 700, padding: '2px 10px',
                                                 borderRadius: '20px', letterSpacing: '0.5px',
-                                                background: c.badge, color: c.text,
+                                                background: c.badge, border: `1px solid ${c.border}`, color: c.text,
                                             }}>
                                                 {c.label}
                                             </span>
@@ -1112,7 +1117,7 @@ export default function Rainfall() {
                                             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '10px' }}>
                                                 {esOreo ? (
                                                     <>
-                                                        <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600 }}>
                                                             🌾 Día {kpis.diasSecos} de {perfil.diasBufferPostExceso} de amortiguación hídrica
                                                         </span>
                                                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -1153,7 +1158,7 @@ export default function Rainfall() {
                     {/* ── TABLA AGRUPADA POR MES ── */}
                     <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
                         {/* Controles de la tabla */}
-                        <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                             <h3 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Calendar size={18} color="var(--primary-light)" />
                                 Historial de Registros
@@ -1161,7 +1166,7 @@ export default function Rainfall() {
                             <select
                                 value={anoSeleccionado}
                                 onChange={e => setAnoSeleccionado(Number(e.target.value))}
-                                style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'white', marginBottom: 0 }}
+                                style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto', borderRadius: '8px', border: '1px solid var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-main)', marginBottom: 0 }}
                             >
                                 {anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
                             </select>
@@ -1173,27 +1178,27 @@ export default function Rainfall() {
                             </div>
                         ) : (
                             mesGroups.map(grupo => (
-                                <div key={grupo.key} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                <div key={grupo.key} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                     {/* Cabecera del mes */}
                                     <button
                                         onClick={() => toggleMes(grupo.key)}
                                         style={{
                                             width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                            padding: '14px 24px', background: 'rgba(255,255,255,0.02)',
-                                            border: 'none', borderRadius: 0, color: 'white',
+                                            padding: '14px 24px', background: 'var(--surface-subtle)',
+                                            border: 'none', borderRadius: 0, color: 'var(--text-main)',
                                             fontSize: '0.9rem', letterSpacing: 0, textTransform: 'none', fontWeight: 500,
-                                            cursor: 'pointer', transition: 'background 0.2s',
+                                            cursor: 'pointer', transition: 'background 0.2s', boxShadow: 'none',
                                         }}
-                                        onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'}
-                                        onMouseOut={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
+                                        onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--surface-subtle-hover)'}
+                                        onMouseOut={e => e.currentTarget.style.backgroundColor = 'var(--surface-subtle)'}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{grupo.label}</span>
                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{grupo.registros.length} registros</span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <span style={{ fontWeight: 700, color: '#60a5fa' }}>{grupo.totalMm} mm</span>
-                                            {grupo.open ? <ChevronUp size={16} color="#aaa" /> : <ChevronDown size={16} color="#aaa" />}
+                                            <span style={{ fontWeight: 700, color: 'var(--info)' }}>{grupo.totalMm} mm</span>
+                                            {grupo.open ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
                                         </div>
                                     </button>
 
@@ -1202,7 +1207,7 @@ export default function Rainfall() {
                                         <div style={{ overflowX: 'auto' }}>
                                             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                                 <thead>
-                                                    <tr style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                                                    <tr style={{ backgroundColor: 'var(--surface-inset)' }}>
                                                         {['Fecha', 'Lectura Pluviómetro', 'Lluvia Neta', 'Intensidad', 'Notas', ''].map(h => (
                                                             <th key={h} style={{ padding: '10px 20px', color: 'var(--text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', whiteSpace: 'nowrap' }}>{h}</th>
                                                         ))}
@@ -1215,8 +1220,8 @@ export default function Rainfall() {
                                                         const esPromedioMulti = filtroPluviometro === 'todos' && detalles.length > 1;
                                                         return (
                                                             <tr key={r.id}
-                                                                style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}
-                                                                onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.015)'}
+                                                                style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s' }}
+                                                                onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--surface-subtle)'}
                                                                 onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                                             >
                                                                 <td style={{ padding: '14px 20px', whiteSpace: 'nowrap' }}>
@@ -1242,9 +1247,9 @@ export default function Rainfall() {
                                                                                             padding: '2px 8px',
                                                                                             borderRadius: '10px',
                                                                                             fontSize: '0.75rem',
-                                                                                            background: 'rgba(255,255,255,0.05)',
-                                                                                            border: '1px solid rgba(255,255,255,0.09)',
-                                                                                            color: '#cbd5e1',
+                                                                                            background: 'var(--surface-subtle)',
+                                                                                            border: '1px solid var(--border-subtle)',
+                                                                                            color: 'var(--text-secondary)',
                                                                                         }}
                                                                                     >
                                                                                         <span>{pluvNombre}: <strong>{d.milimetros} mm</strong></span>
@@ -1253,7 +1258,7 @@ export default function Rainfall() {
                                                                                                 type="button"
                                                                                                 onClick={() => handleEliminar(d.id!, pluvNombre)}
                                                                                                 title={`Eliminar lectura de ${pluvNombre}`}
-                                                                                                style={{ background: 'none', border: 'none', color: 'var(--error)', opacity: 0.7, padding: 0, width: 'auto', cursor: 'pointer', fontSize: '0.75rem', lineHeight: 1 }}
+                                                                                                style={{ background: 'none', border: 'none', color: 'var(--error)', opacity: 0.75, padding: 0, width: 'auto', cursor: 'pointer', fontSize: '0.75rem', lineHeight: 1 }}
                                                                                             >
                                                                                                 ✕
                                                                                             </button>
@@ -1266,7 +1271,7 @@ export default function Rainfall() {
                                                                         <div>
                                                                             <span>{r.lectura_acumulada ? `${r.lectura_acumulada} mm` : '—'}</span>
                                                                             {esMultiPluviometro && filtroPluviometro === 'todos' && (
-                                                                                <div style={{ fontSize: '0.73rem', color: '#94a3b8', marginTop: '2px' }}>
+                                                                                <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                                                                                     📍 {r.id_pluviometro ? (pluviometrosMap.get(r.id_pluviometro)?.nombre || 'Estación') : 'Registro general'}
                                                                                 </div>
                                                                             )}
@@ -1274,12 +1279,12 @@ export default function Rainfall() {
                                                                     )}
                                                                 </td>
                                                                 <td style={{ padding: '14px 20px' }}>
-                                                                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#60a5fa' }}>
+                                                                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--info)' }}>
                                                                         {r.milimetros > 0 ? '+' : ''}{r.milimetros}
                                                                     </span>
                                                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>mm</span>
                                                                     {esPromedioMulti && (
-                                                                        <div style={{ fontSize: '0.7rem', color: '#7dd3fc' }}>
+                                                                        <div style={{ fontSize: '0.7rem', color: 'var(--info)' }}>
                                                                             Prom. ({detalles.length} est.)
                                                                         </div>
                                                                     )}
@@ -1303,7 +1308,7 @@ export default function Rainfall() {
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={() => openRegistroModal(r.fecha)}
-                                                                                    style={{ background: 'none', border: 'none', color: '#7dd3fc', cursor: 'pointer', opacity: 0.75, padding: '4px', width: 'auto' }}
+                                                                                    style={{ background: 'none', border: 'none', color: 'var(--info)', cursor: 'pointer', opacity: 0.8, padding: '4px', width: 'auto' }}
                                                                                     title="Completar o editar lecturas de este día"
                                                                                 >
                                                                                     <Pencil size={15} />
@@ -1361,7 +1366,7 @@ export default function Rainfall() {
                                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                                             Tipo de Medición
                                         </label>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'var(--surface-inset)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
                                             <button
                                                 type="button"
                                                 onClick={() => { setModoEntrada('diaria'); setError(''); }}
@@ -1369,15 +1374,15 @@ export default function Rainfall() {
                                                     padding: '9px 10px',
                                                     fontSize: '0.82rem',
                                                     borderRadius: '8px',
-                                                    border: modoEntrada === 'diaria' ? '1px solid rgba(56,189,248,0.5)' : '1px solid transparent',
-                                                    background: modoEntrada === 'diaria' ? 'rgba(56,189,248,0.15)' : 'transparent',
-                                                    color: modoEntrada === 'diaria' ? '#38bdf8' : 'var(--text-muted)',
+                                                    border: modoEntrada === 'diaria' ? '1px solid var(--info)' : '1px solid transparent',
+                                                    background: modoEntrada === 'diaria' ? 'var(--info-soft-bg)' : 'transparent',
+                                                    color: modoEntrada === 'diaria' ? 'var(--info)' : 'var(--text-muted)',
                                                     fontWeight: modoEntrada === 'diaria' ? 600 : 400,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                                                     cursor: 'pointer', transition: 'all 0.2s', width: '100%', textTransform: 'none', letterSpacing: 0,
                                                 }}
                                             >
-                                                <Droplets size={15} color={modoEntrada === 'diaria' ? '#38bdf8' : '#94a3b8'} />
+                                                <Droplets size={15} color={modoEntrada === 'diaria' ? 'var(--info)' : 'var(--text-muted)'} />
                                                 Lluvia del Día
                                             </button>
                                             <button
@@ -1387,15 +1392,15 @@ export default function Rainfall() {
                                                     padding: '9px 10px',
                                                     fontSize: '0.82rem',
                                                     borderRadius: '8px',
-                                                    border: modoEntrada === 'acumulada' ? '1px solid rgba(168,85,247,0.5)' : '1px solid transparent',
-                                                    background: modoEntrada === 'acumulada' ? 'rgba(168,85,247,0.15)' : 'transparent',
-                                                    color: modoEntrada === 'acumulada' ? '#c084fc' : 'var(--text-muted)',
+                                                    border: modoEntrada === 'acumulada' ? `1px solid ${accentPurple}` : '1px solid transparent',
+                                                    background: modoEntrada === 'acumulada' ? 'rgba(168,85,247,0.14)' : 'transparent',
+                                                    color: modoEntrada === 'acumulada' ? accentPurple : 'var(--text-muted)',
                                                     fontWeight: modoEntrada === 'acumulada' ? 600 : 400,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                                                     cursor: 'pointer', transition: 'all 0.2s', width: '100%', textTransform: 'none', letterSpacing: 0,
                                                 }}
                                             >
-                                                <TrendingUp size={15} color={modoEntrada === 'acumulada' ? '#c084fc' : '#94a3b8'} />
+                                                <TrendingUp size={15} color={modoEntrada === 'acumulada' ? accentPurple : 'var(--text-muted)'} />
                                                 Acumulada Digital
                                             </button>
                                         </div>
@@ -1424,7 +1429,7 @@ export default function Rainfall() {
                                                 })()}
                                         </p>
                                         {modoEntrada === 'acumulada' && obtenerUltimaLecturaAcumulada(registrosRaw, fecha, null) !== null && (
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '0.76rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                                                 <input
                                                     type="checkbox"
                                                     checked={reiniciarLegacy}
@@ -1460,21 +1465,21 @@ export default function Rainfall() {
                                                 style={{
                                                     padding: '14px',
                                                     borderRadius: '10px',
-                                                    background: existente && !enEdicion ? 'rgba(76,175,80,0.08)' : 'rgba(255,255,255,0.03)',
-                                                    border: `1px solid ${existente && !enEdicion ? 'rgba(76,175,80,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                                                    background: existente && !enEdicion ? 'var(--success-soft-bg)' : 'var(--surface-subtle)',
+                                                    border: `1px solid ${existente && !enEdicion ? 'var(--success-soft-border)' : 'var(--border-subtle)'}`,
                                                 }}
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: existente && !enEdicion ? '6px' : '10px', flexWrap: 'wrap' }}>
-                                                    <span style={{ fontWeight: 700, color: 'white', fontSize: '0.92rem' }}>
+                                                    <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.92rem' }}>
                                                         📍 {pluv.nombre}
                                                     </span>
                                                     <span style={{
                                                         fontSize: '0.7rem',
                                                         padding: '2px 8px',
                                                         borderRadius: '12px',
-                                                        background: esAcum ? 'rgba(168,85,247,0.15)' : 'rgba(56,189,248,0.15)',
-                                                        color: esAcum ? '#c084fc' : '#7dd3fc',
-                                                        border: `1px solid ${esAcum ? 'rgba(168,85,247,0.35)' : 'rgba(56,189,248,0.35)'}`,
+                                                        background: esAcum ? 'rgba(168,85,247,0.14)' : 'var(--info-soft-bg)',
+                                                        color: esAcum ? accentPurple : 'var(--info)',
+                                                        border: `1px solid ${esAcum ? 'rgba(168,85,247,0.35)' : 'var(--info-soft-border)'}`,
                                                     }}>
                                                         {esAcum ? '📟 Acumulada Digital' : '💧 Lluvia del Día'}
                                                     </span>
@@ -1482,7 +1487,7 @@ export default function Rainfall() {
 
                                                 {existente && !enEdicion ? (
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#81c784', fontSize: '0.84rem', fontWeight: 600 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)', fontSize: '0.84rem', fontWeight: 600 }}>
                                                             <CheckCircle2 size={16} />
                                                             <span>
                                                                 Ya registrado: {existente.milimetros} mm
@@ -1503,9 +1508,9 @@ export default function Rainfall() {
                                                                 width: 'auto',
                                                                 padding: '4px 10px',
                                                                 fontSize: '0.75rem',
-                                                                background: 'rgba(255,255,255,0.06)',
-                                                                border: '1px solid rgba(255,255,255,0.15)',
-                                                                color: 'white',
+                                                                background: 'var(--surface-inset)',
+                                                                border: '1px solid var(--border-strong)',
+                                                                color: 'var(--text-main)',
                                                                 borderRadius: '8px',
                                                                 cursor: 'pointer',
                                                             }}
@@ -1534,7 +1539,7 @@ export default function Rainfall() {
                                                                         : 'Primera lectura acumulada de este pluviómetro'}
                                                                 </p>
                                                                 {prevAcum !== null && (
-                                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                                                                         <input
                                                                             type="checkbox"
                                                                             checked={Boolean(reiniciarPorPluv[pluv.id])}
@@ -1579,9 +1584,9 @@ export default function Rainfall() {
                                 />
                             </div>
 
-                            {error && <p style={{ color: 'var(--error)', marginBottom: '16px', fontSize: '0.9rem', background: 'rgba(244,67,54,0.1)', padding: '10px', borderRadius: '8px' }}>{error}</p>}
+                            {error && <p style={{ color: 'var(--error)', marginBottom: '16px', fontSize: '0.9rem', background: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', padding: '10px', borderRadius: '8px' }}>{error}</p>}
                             <div style={{ display: 'flex', gap: '12px' }}>
-                                <button type="button" style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setShowModal(false)}>Cancelar</button>
+                                <button type="button" style={{ flex: 1, backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border-strong)', color: 'var(--text-main)' }} onClick={() => setShowModal(false)}>Cancelar</button>
                                 <button type="submit" className="btn btn-primary" style={{ flex: 2 }} disabled={saving}>
                                     {saving ? 'Guardando...' : 'Guardar Registro'}
                                 </button>

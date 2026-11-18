@@ -47,10 +47,11 @@
 
 .inventory-header-btn--danger {
   background-color: var(--error);
+  color: var(--on-primary);
 }
 
 .inventory-header-btn--danger:hover:not(:disabled) {
-  background-color: #d32f2f;
+  background-color: #b91c1c;
 }
 
 .inventory-kpi-grid {
@@ -128,8 +129,8 @@
 }
 
 .inventory-clear-btn:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background-color: var(--surface-subtle-hover);
+  color: var(--text-main);
   transform: translateY(-50%);
   box-shadow: none;
 }
@@ -151,9 +152,9 @@
 
 .inventory-btn-ghost {
   width: auto;
-  background-color: transparent;
-  color: var(--text-muted);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background-color: var(--surface-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
   padding: 12px 16px;
   text-transform: none;
   letter-spacing: normal;
@@ -161,8 +162,8 @@
 }
 
 .inventory-btn-ghost:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background-color: var(--surface-subtle-hover);
+  color: var(--text-main);
   transform: none;
   box-shadow: none;
 }
@@ -170,7 +171,7 @@
 .inventory-btn-informe {
   width: auto;
   background-color: var(--primary);
-  color: white;
+  color: var(--on-primary);
   border: none;
   padding: 12px 16px;
   display: inline-flex;
@@ -194,8 +195,8 @@
 }
 
 .inventory-sort-btn:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.04);
-  color: #ffffff;
+  background-color: var(--surface-subtle);
+  color: var(--text-main);
   transform: none;
   box-shadow: none;
 }
@@ -230,36 +231,37 @@
 }
 
 .inventory-icon-btn--edit {
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border-strong);
   color: var(--primary-light);
 }
 
 .inventory-icon-btn--edit:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.12);
+  background-color: var(--surface-subtle-hover);
   border-color: var(--primary);
 }
 
 .inventory-icon-btn--delete {
-  background-color: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #f87171;
+  background-color: var(--error-soft-bg);
+  border: 1px solid var(--error-soft-border);
+  color: var(--error);
 }
 
 .inventory-icon-btn--delete:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.45);
+  background-color: var(--error);
+  border-color: var(--error);
+  color: var(--on-primary);
 }
 
 .inventory-icon-btn--close {
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--text-muted);
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
 }
 
 .inventory-icon-btn--close:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  background-color: var(--surface-subtle-hover);
+  color: var(--text-main);
 }
 
 .inventory-modal-card {
@@ -294,15 +296,16 @@
   width: auto;
   padding: 6px 12px;
   font-size: 0.82rem;
-  background-color: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border-strong);
+  color: var(--text-main);
   text-transform: none;
   letter-spacing: normal;
   box-shadow: none;
 }
 
 .inventory-btn-add-weighing:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.12);
+  background-color: var(--surface-subtle-hover);
   transform: none;
   box-shadow: none;
 }
@@ -322,7 +325,7 @@
 }
 
 .inventory-table tbody tr.is-alerta {
-  background-color: rgba(244, 67, 54, 0.05);
+  background-color: var(--error-soft-bg);
 }
 
 /* ================================================================
@@ -415,9 +418,9 @@
     min-height: 40px;
     padding: 6px 12px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: var(--text-muted);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
     font-size: 0.8rem;
     font-weight: 600;
     text-transform: none;
@@ -426,9 +429,9 @@
   }
 
   .inventory-mobile-sort-chip.is-active {
-    background: rgba(46, 125, 50, 0.22);
+    background: var(--primary-soft-bg);
     border-color: var(--primary-light);
-    color: #ffffff;
+    color: var(--primary-light);
   }
 
   .inventory-mobile-sort-chip:hover:not(:disabled) {
@@ -465,8 +468,8 @@
     margin-bottom: 10px;
     border-radius: 14px;
     background-color: var(--bg-dark-paper);
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--border-subtle) !important;
+    box-shadow: var(--shadow-card);
   }
 
   .inventory-table tbody tr.is-status-row {
@@ -494,7 +497,7 @@
   .inventory-col-pesaje {
     grid-area: pesaje;
     padding-top: 8px !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border-subtle);
   }
 
   .inventory-col-peso {
@@ -505,7 +508,7 @@
   .inventory-col-gmp {
     grid-area: gmp;
     padding-top: 8px !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border-subtle);
     display: flex !important;
     flex-direction: column;
     align-items: flex-end;
@@ -560,8 +563,8 @@
     flex-wrap: wrap;
     padding: 10px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
     gap: 8px;
   }
 
@@ -606,8 +609,8 @@
     padding: 12px;
     margin-bottom: 8px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle) !important;
   }
 
   .inventory-history-table tbody tr.is-editing {
@@ -626,7 +629,7 @@
   .inventory-hist-peso {
     grid-area: peso;
     font-size: 1rem;
-    color: #ffffff;
+    color: var(--text-main);
   }
 
   .inventory-hist-peso::after {

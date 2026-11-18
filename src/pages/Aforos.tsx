@@ -430,13 +430,13 @@ export default function Aforos() {
         const diasTranscurridos = obtenerDiasTranscurridos(aforo.fecha);
         
         if (diasTranscurridos > 45) {
-            return { color: '#9e9e9e', label: 'Aforo Vencido', desc: 'Requiere nueva medición (>45 días)' };
+            return { color: '#64748b', label: 'Aforo Vencido', desc: 'Requiere nueva medición (>45 días)' };
         }
         if (densidad >= 12000) {
             return { color: 'var(--success)', label: 'Óptimo', desc: 'Excelente oferta de pasto' };
         }
         if (densidad >= 7000) {
-            return { color: '#ffc107', label: 'Medio', desc: 'Oferta suficiente de pasto' };
+            return { color: 'var(--warning)', label: 'Medio', desc: 'Oferta suficiente de pasto' };
         }
         return { color: 'var(--error)', label: 'Crítico', desc: 'Baja disponibilidad de pasto' };
     };
@@ -527,9 +527,9 @@ export default function Aforos() {
                         className="aforos-status-pill"
                         title="Clic para cambiar entre Modo Campo (Offline) y En Línea"
                         style={{
-                            backgroundColor: modoCampo ? 'rgba(245, 158, 11, 0.15)' : isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
-                            color: modoCampo ? '#fbbf24' : isOnline ? 'var(--success)' : '#ff9800',
-                            border: modoCampo ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.08)',
+                            backgroundColor: modoCampo ? 'var(--secondary-soft-bg)' : isOnline ? 'var(--success-soft-bg)' : 'var(--warning-soft-bg)',
+                            color: modoCampo ? 'var(--secondary)' : isOnline ? 'var(--success)' : 'var(--warning)',
+                            border: modoCampo ? '1px solid var(--secondary-soft-border)' : '1px solid var(--border-subtle)',
                         }}
                     >
                         {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} aria-hidden="true" /> Online</> : <><WifiOff size={14} aria-hidden="true" /> Offline</>}
@@ -564,12 +564,12 @@ export default function Aforos() {
             <div className="aforos-kpi-grid">
                 {/* Autonomía alimentaria */}
                 <div className="card aforos-kpi-card" style={{ borderLeft: '4px solid var(--success)' }}>
-                    <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: 'rgba(76, 175, 80, 0.1)', color: 'var(--success)' }}>
+                    <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: 'var(--success-soft-bg)', color: 'var(--success)' }}>
                         <Activity size={26} aria-hidden="true" />
                     </div>
                     <div>
                         <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Autonomía Forrajera</span>
-                        <h3 style={{ margin: 0, fontSize: '2rem', color: 'white', fontWeight: 'bold' }}>
+                        <h3 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-main)', fontWeight: 'bold' }}>
                             {autonomiaDiasFinca !== null ? `${Math.round(autonomiaDiasFinca)} días` : '---'}
                         </h3>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Para {totalAnimalesFinca} animales activos en finca</span>
@@ -577,13 +577,13 @@ export default function Aforos() {
                 </div>
 
                 {/* Oferta promedio */}
-                <div className="card aforos-kpi-card" style={{ borderLeft: '4px solid #2196f3' }}>
-                    <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: 'rgba(33, 150, 243, 0.1)', color: '#2196f3' }}>
+                <div className="card aforos-kpi-card" style={{ borderLeft: '4px solid var(--info)' }}>
+                    <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: 'var(--info-soft-bg)', color: 'var(--info)' }}>
                         <TrendingUp size={26} aria-hidden="true" />
                     </div>
                     <div>
                         <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Densidad Forraje Promedio</span>
-                        <h3 style={{ margin: 0, fontSize: '2rem', color: 'white', fontWeight: 'bold' }}>
+                        <h3 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-main)', fontWeight: 'bold' }}>
                             {ofertaPromedioKgHa > 0 ? `${Math.round(ofertaPromedioKgHa).toLocaleString('es-CO')} Kg/Ha` : '---'}
                         </h3>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Forraje Verde (FV) Utilizable</span>
@@ -591,13 +591,13 @@ export default function Aforos() {
                 </div>
 
                 {/* Comida útil total */}
-                <div className="card aforos-kpi-card" style={{ borderLeft: '4px solid #ffc107' }}>
-                    <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: 'rgba(255, 193, 7, 0.1)', color: '#ffc107' }}>
+                <div className="card aforos-kpi-card" style={{ borderLeft: '4px solid var(--secondary)' }}>
+                    <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: 'var(--secondary-soft-bg)', color: 'var(--secondary)' }}>
                         <Layers size={26} aria-hidden="true" />
                     </div>
                     <div>
                         <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Forraje Verde Total</span>
-                        <h3 style={{ margin: 0, fontSize: '2rem', color: 'white', fontWeight: 'bold' }}>
+                        <h3 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-main)', fontWeight: 'bold' }}>
                             {totalComidaUtilKg > 0 ? `${Math.round(totalComidaUtilKg).toLocaleString('es-CO')} Kg` : '---'}
                         </h3>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>FV total disponible en potreros</span>
@@ -605,8 +605,8 @@ export default function Aforos() {
                 </div>
             </div>
 
-            {msjExito && <div role="status" aria-live="polite" style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
-            {msjError && <div role="alert" aria-live="assertive" style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
+            {msjExito && <div role="status" aria-live="polite" style={{ backgroundColor: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjExito}</div>}
+            {msjError && <div role="alert" aria-live="assertive" style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold' }}>{msjError}</div>}
 
             <div className="aforos-layout">
 
@@ -669,10 +669,10 @@ export default function Aforos() {
 
                         {/* CONTEXT INFO BLOCK */}
                         {selectedPotreroId && (
-                            <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Área:</span>
-                                    <span style={{ fontWeight: 'bold', color: 'white' }}>{areaInfo ? `${areaInfo} Ha` : 'No configurada'}</span>
+                                    <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{areaInfo ? `${areaInfo} Ha` : 'No configurada'}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Ocupación Actual:</span>
@@ -682,7 +682,7 @@ export default function Aforos() {
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Animales activos:</span>
-                                    <span style={{ fontWeight: 'bold', color: 'white' }}>{animalCount} reses</span>
+                                    <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{animalCount} reses</span>
                                 </div>
                             </div>
                         )}
@@ -757,10 +757,10 @@ export default function Aforos() {
                         </div>
 
                         {/* LIVE PREVIEW ENRIQUECIDO */}
-                        <div style={{ backgroundColor: 'rgba(46, 125, 50, 0.08)', border: '1px solid rgba(46, 125, 50, 0.25)', padding: '16px', borderRadius: '12px', marginTop: '8px' }}>
+                        <div style={{ backgroundColor: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)', padding: '16px', borderRadius: '12px', marginTop: '8px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
                                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Densidad Promedio:</span>
-                                <strong style={{ color: 'white' }}>{(avgMuestra * 10000 * (parseFloat(viabilidad) / 100 || 0)).toLocaleString('es-CO', { maximumFractionDigits: 0 })} Kg FV/Ha</strong>
+                                <strong style={{ color: 'var(--text-main)' }}>{(avgMuestra * 10000 * (parseFloat(viabilidad) / 100 || 0)).toLocaleString('es-CO', { maximumFractionDigits: 0 })} Kg FV/Ha</strong>
                             </div>
                             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--primary-light)', fontWeight: '500' }}>Forraje Verde Utilizable Estimado:</p>
                             <h2 style={{ margin: '4px 0 0 0', color: 'var(--success)', fontSize: '2rem', fontWeight: 'bold' }}>
@@ -852,14 +852,14 @@ export default function Aforos() {
                                                         <span style={{
                                                             fontSize: '0.8rem',
                                                             fontWeight: 'bold',
-                                                            color: 'white',
-                                                            backgroundColor: 'rgba(255,255,255,0.08)',
+                                                            color: 'var(--text-main)',
+                                                            backgroundColor: 'var(--surface-subtle-hover)',
                                                             padding: '2px 8px',
                                                             borderRadius: '10px'
                                                         }}>
                                                             #{idx + 1}
                                                         </span>
-                                                        <strong style={{ fontSize: '1.08rem', color: 'white' }}>{item.nombre}</strong>
+                                                        <strong style={{ fontSize: '1.08rem', color: 'var(--text-main)' }}>{item.nombre}</strong>
                                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>({item.area} Ha)</span>
                                                     </div>
                                                     <span style={{
@@ -879,7 +879,7 @@ export default function Aforos() {
                                                         <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                                                             Densidad Forraje Verde:
                                                         </span>
-                                                        <strong style={{ fontSize: '1.2rem', color: 'white' }}>
+                                                        <strong style={{ fontSize: '1.2rem', color: 'var(--text-main)' }}>
                                                             {Math.round(item.densidad).toLocaleString('es-CO')}
                                                             <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-muted)', marginLeft: '4px' }}>Kg/Ha</span>
                                                         </strong>
@@ -896,7 +896,7 @@ export default function Aforos() {
                                                 </div>
 
                                                 {/* Mini barra de progreso */}
-                                                <div style={{ height: '4px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '2px', marginTop: '12px', overflow: 'hidden' }}>
+                                                <div style={{ height: '4px', backgroundColor: 'var(--surface-inset)', borderRadius: '2px', marginTop: '12px', overflow: 'hidden' }}>
                                                     <div style={{ height: '100%', width: `${pct}%`, backgroundColor: aforoClasif.color, borderRadius: '2px', transition: 'width 0.3s ease' }} />
                                                 </div>
                                             </div>
@@ -935,7 +935,7 @@ export default function Aforos() {
                                                     borderLeft: `4px solid ${aforoClasif.color}`,
                                                     cursor: 'pointer',
                                                     transition: 'all 0.2s',
-                                                    backgroundColor: 'rgba(255,255,255,0.015)'
+                                                    backgroundColor: 'var(--bg-dark-paper)'
                                                 }}
                                                 onClick={() => openCalculadora(h)}
                                                 onKeyDown={(e) => {
@@ -946,9 +946,9 @@ export default function Aforos() {
                                                 }}
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
-                                                    <strong style={{ color: 'white', fontSize: '1.08rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <strong style={{ color: 'var(--text-main)', fontSize: '1.08rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                         {h.potrero?.nombre || pot?.nombre || 'Potrero'}
-                                                        {h.isOffline && <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--error)', padding: '2px 6px', borderRadius: '10px' }}>Pendiente Sync</span>}
+                                                        {h.isOffline && <span style={{ fontSize: '0.7rem', color: 'var(--on-primary)', backgroundColor: 'var(--error)', padding: '2px 6px', borderRadius: '10px' }}>Pendiente Sync</span>}
                                                     </strong>
                                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         <Calendar size={14} aria-hidden="true" /> {h.fecha}
@@ -958,10 +958,10 @@ export default function Aforos() {
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                                                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                         <p style={{ margin: 0 }}>
-                                                            Muestras Promedio: <strong style={{ color: 'white' }}>{h.promedio_muestras_kg.toFixed(2)} Kg/m²</strong>
+                                                            Muestras Promedio: <strong style={{ color: 'var(--text-main)' }}>{h.promedio_muestras_kg.toFixed(2)} Kg/m²</strong>
                                                         </p>
                                                         <p style={{ margin: 0 }}>
-                                                            Densidad: <strong style={{ color: 'white' }}>{Math.round(densidad).toLocaleString('es-CO')} Kg/Ha</strong>
+                                                            Densidad: <strong style={{ color: 'var(--text-main)' }}>{Math.round(densidad).toLocaleString('es-CO')} Kg/Ha</strong>
                                                         </p>
                                                         {animales > 0 ? (
                                                             <p style={{ margin: 0, color: 'var(--primary-light)', fontWeight: '500' }}>
@@ -1001,7 +1001,7 @@ export default function Aforos() {
 
             {/* MODAL CALCULADORA */}
             {modalCalcOpen.open && modalCalcOpen.aforo && (
-                <div className="modal-overlay" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }} onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })}>
+                <div className="modal-overlay" onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })}>
                     <div className="card aforos-calc-modal" onClick={e => e.stopPropagation()}>
                         <button type="button" aria-label="Cerrar calculadora" onClick={() => setModalCalcOpen({ open: false, aforo: null, diasLleva: '-' })} className="aforos-calc-close-btn">
                             <X size={24} aria-hidden="true" />
@@ -1012,23 +1012,23 @@ export default function Aforos() {
                             Cálculo de Ocupación
                         </h3>
                         
-                        <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: 'var(--surface-subtle)', borderRadius: '8px', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Potrero:</span>
-                                <strong style={{ color: 'white', fontSize: '0.9rem' }}>{modalCalcOpen.aforo.potrero?.nombre || 'Potrero'}</strong>
+                                <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>{modalCalcOpen.aforo.potrero?.nombre || 'Potrero'}</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Aforo Disponible:</span>
                                 <strong style={{ color: 'var(--success)', fontSize: '0.9rem' }}>{modalCalcOpen.aforo.aforo_real_kg.toLocaleString('es-CO', { maximumFractionDigits: 0 })} Kg</strong>
                             </div>
-                            <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
+                            <div style={{ height: '1px', backgroundColor: 'var(--border-subtle)', margin: '4px 0' }} />
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Animales Presentes:</span>
-                                <strong style={{ color: 'white', fontSize: '0.9rem' }}>{modalCalcOpen.aforo.animales_presentes || 0} reses</strong>
+                                <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>{modalCalcOpen.aforo.animales_presentes || 0} reses</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Tiempo en Potrero:</span>
-                                <strong style={{ color: 'white', fontSize: '0.9rem' }}>{modalCalcOpen.diasLleva}</strong>
+                                <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>{modalCalcOpen.diasLleva}</strong>
                             </div>
                         </div>
 
@@ -1074,7 +1074,7 @@ export default function Aforos() {
                                 />
                             </div>
 
-                            <div style={{ gridColumn: '1 / -1', backgroundColor: 'rgba(46, 125, 50, 0.1)', borderRadius: '8px', padding: '12px', border: '1px solid rgba(46, 125, 50, 0.3)' }}>
+                            <div style={{ gridColumn: '1 / -1', backgroundColor: 'var(--primary-soft-bg)', borderRadius: '8px', padding: '12px', border: '1px solid var(--primary-soft-border)' }}>
                                 <label htmlFor="aforos-calc-dias" style={{ display: 'block', marginBottom: '8px', color: 'var(--primary-light)', fontSize: '0.9rem', fontWeight: 'bold' }}>Días Ocupación</label>
                                 <input
                                     id="aforos-calc-dias"

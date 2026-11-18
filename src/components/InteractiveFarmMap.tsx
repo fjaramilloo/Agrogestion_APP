@@ -787,7 +787,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   return (
     <div className={`farm-map-wrapper${hasOpenSheet ? ' farm-map-wrapper--sheet-open' : ''}`}>
       {/* Contenedor del Mapa Leaflet */}
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1, backgroundColor: '#0f1715' }} />
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1, backgroundColor: 'var(--surface-inset)' }} />
 
       {/* Barra Flotante: en PC arriba-izq GPS y arriba-der Capas; en móvil/tablet GPS abajo-izq y Capas arriba-izq */}
       <div className="farm-map-topbar">
@@ -800,18 +800,18 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           style={{
             background: tipoLicencia === 'premium'
               ? 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)'
-              : '#1E293B',
-            border: tipoLicencia === 'premium' ? '1px solid rgba(147, 197, 253, 0.45)' : '1px solid #475569',
-            color: tipoLicencia === 'premium' ? '#FFFFFF' : '#94A3B8',
+              : 'var(--bg-elevated)',
+            border: tipoLicencia === 'premium' ? '1px solid rgba(147, 197, 253, 0.45)' : '1px solid var(--border-strong)',
+            color: tipoLicencia === 'premium' ? '#FFFFFF' : 'var(--text-secondary)',
             cursor: gpsLoading ? 'wait' : 'pointer',
             boxShadow: tipoLicencia === 'premium'
-              ? '0 4px 18px rgba(37, 99, 235, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35)'
-              : '0 4px 12px rgba(0, 0, 0, 0.4)',
+              ? '0 4px 18px rgba(37, 99, 235, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25)'
+              : 'var(--shadow-card)',
           }}
         >
           {tipoLicencia !== 'premium' ? (
             <>
-              <Lock size={15} color="#F59E0B" aria-hidden="true" />
+              <Lock size={15} color="var(--warning)" aria-hidden="true" />
               <span>GPS (Plan Premium)</span>
             </>
           ) : gpsLoading ? (
@@ -860,7 +860,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             onClick={() => setMapType(mapType === 'satellite' ? 'street' : 'satellite')}
             title="Cambiar tipo de mapa"
           >
-            <Layers size={15} color="#38BDF8" aria-hidden="true" />
+            <Layers size={15} color="var(--info)" aria-hidden="true" />
             <span>{mapType === 'satellite' ? 'Satélite' : 'Terreno'}</span>
           </button>
 
@@ -882,14 +882,14 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         <div
           className="farm-map-gps-banner"
           style={{
-            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            backgroundColor: 'var(--bg-elevated)',
             backdropFilter: 'blur(10px)',
-            border: '1px solid #3B82F6',
+            border: '1px solid var(--info)',
             borderRadius: '16px',
             padding: '10px 18px',
-            color: '#F8FAFC',
+            color: 'var(--text-main)',
             fontSize: '0.82rem',
-            boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
+            boxShadow: 'var(--shadow-popover)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-start',
@@ -898,27 +898,28 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         >
           {/* Fila 1: dónde estás */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.88rem' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3B82F6', flexShrink: 0 }} />
-            📍 Estás en: <span style={{ color: '#60A5FA' }}>{currentPaddock.nombre}</span>
-            <span style={{ color: '#94A3B8', fontWeight: 400, fontSize: '0.78rem' }}>{currentPaddock.area_hectareas} Ha</span>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--info)', flexShrink: 0 }} />
+            📍 Estás en: <span style={{ color: 'var(--info)' }}>{currentPaddock.nombre}</span>
+            <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.78rem' }}>{currentPaddock.area_hectareas} Ha</span>
           </div>
           {currentPaddock.potrerada_actual && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '18px' }}>
               {/* Fila 2: animales */}
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', color: '#CBD5E1', fontSize: '0.78rem' }}>
-                <span>🐄 <strong style={{ color: '#F8FAFC' }}>{currentPaddock.potrerada_actual.total_animales} animales</strong></span>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                <span>🐄 <strong style={{ color: 'var(--text-main)' }}>{currentPaddock.potrerada_actual.total_animales} animales</strong></span>
                 <span>⏱️ <strong>{currentPaddock.potrerada_actual.dias_en_potrero} días</strong></span>
                 <span>⚖️ Prom: <strong>{currentPaddock.potrerada_actual.peso_promedio} kg</strong></span>
                 <span>📈 Est: <strong>{currentPaddock.potrerada_actual.peso_promedio_estimado} kg</strong></span>
               </div>
               {/* Fila 3: marcas / propietarios */}
               {currentPaddock.potrerada_actual.marcas && currentPaddock.potrerada_actual.marcas.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '0.75rem', color: '#94A3B8' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   <span>🏷️ Marca{currentPaddock.potrerada_actual.marcas.length > 1 ? 's' : ''}:</span>
                   {currentPaddock.potrerada_actual.marcas.map((m, i) => (
                     <span key={i} style={{
-                      backgroundColor: '#1E3A5F',
-                      color: '#93C5FD',
+                      backgroundColor: 'var(--info-soft-bg)',
+                      color: 'var(--info)',
+                      border: '1px solid var(--info-soft-border)',
                       padding: '1px 7px',
                       borderRadius: '99px',
                       fontWeight: 600,
@@ -937,14 +938,14 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         <div
           className="farm-map-gps-banner"
           style={{
-            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            backgroundColor: 'var(--bg-elevated)',
             backdropFilter: 'blur(10px)',
-            border: currentSpecialZone.tipo === 'bosque' ? '1px solid #059669' : currentSpecialZone.tipo === 'agua' ? '1px solid #0284C7' : '1px solid #D97706',
+            border: currentSpecialZone.tipo === 'bosque' ? '1px solid var(--success)' : currentSpecialZone.tipo === 'agua' ? '1px solid var(--info)' : '1px solid var(--warning)',
             borderRadius: '20px',
             padding: '10px 22px',
-            color: '#F8FAFC',
+            color: 'var(--text-main)',
             fontSize: '0.85rem',
-            boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6)',
+            boxShadow: 'var(--shadow-popover)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
@@ -952,7 +953,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           }}
         >
           <span>
-            📍 Estás en: <span style={{ color: currentSpecialZone.tipo === 'bosque' ? '#34D399' : currentSpecialZone.tipo === 'agua' ? '#38BDF8' : '#FBBF24' }}>
+            📍 Estás en: <span style={{ color: currentSpecialZone.tipo === 'bosque' ? 'var(--success)' : currentSpecialZone.tipo === 'agua' ? 'var(--info)' : 'var(--warning)' }}>
               {currentSpecialZone.tipo === 'bosque' ? '🌳' : currentSpecialZone.tipo === 'agua' ? '💧' : '🏠'} {currentSpecialZone.nombre}
             </span> ({currentSpecialZone.area_hectareas} Ha &bull; {currentSpecialZone.tipo === 'bosque' ? 'Zona Ambiental / Forestal' : currentSpecialZone.tipo === 'agua' ? 'Cuerpo de Agua' : 'Infraestructura'})
           </span>
@@ -964,8 +965,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         <div className="farm-map-sheet" role="region" aria-label={`Detalle del potrero ${selectedPotrero.nombre}`}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '8px' }}>
             <div style={{ minWidth: 0 }}>
-              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 600 }}>Potrero de Pastoreo</span>
-              <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700 }}>{selectedPotrero.nombre}</h3>
+              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>Potrero de Pastoreo</span>
+              <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>{selectedPotrero.nombre}</h3>
             </div>
             <button
               type="button"
@@ -978,16 +979,16 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-            <div style={{ backgroundColor: '#1E293B', padding: '10px', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Área</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#10B981' }}>{selectedPotrero.area_hectareas} Ha</div>
+            <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Área</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--success)' }}>{selectedPotrero.area_hectareas} Ha</div>
             </div>
-            <div style={{ backgroundColor: '#1E293B', padding: '10px', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Estado</div>
+            <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Estado</div>
               <div style={{
                 fontSize: '0.9rem',
                 fontWeight: 600,
-                color: tipoLicencia === 'demo' ? '#94A3B8' : selectedPotrero.potrerada_actual ? '#CBD5E1' : '#34D399',
+                color: tipoLicencia === 'demo' ? 'var(--text-muted)' : selectedPotrero.potrerada_actual ? 'var(--text-main)' : 'var(--success)',
               }}>
                 {tipoLicencia === 'demo' ? 'Vista Previa' : selectedPotrero.potrerada_actual ? 'Ocupado' : 'Libre'}
               </div>
@@ -997,8 +998,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           {/* Si es Plan Demo: Mostrar tarjeta bloqueada invitando a Plan Finca */}
           {tipoLicencia === 'demo' ? (
             <div style={{
-              backgroundColor: '#1E293B80',
-              border: '1px solid #3B82F640',
+              backgroundColor: 'var(--info-soft-bg)',
+              border: '1px solid var(--info-soft-border)',
               borderRadius: '12px',
               padding: '16px',
               marginBottom: '16px',
@@ -1008,19 +1009,20 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                backgroundColor: '#3B82F620',
+                backgroundColor: 'var(--surface-subtle)',
+                border: '1px solid var(--info-soft-border)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '0 auto 8px auto',
-                color: '#60A5FA',
+                color: 'var(--info)',
               }}>
                 <Lock size={18} />
               </div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#F1F5F9', marginBottom: '4px' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>
                 Integración de Lotes y Pesos
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#94A3B8', lineHeight: 1.4, marginBottom: '12px' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '12px' }}>
                 Actualiza al <strong>Plan Finca</strong> o <strong>Premium</strong> para vincular tus animales, ver pesos y mover ganado sobre el mapa.
               </div>
               <button
@@ -1028,8 +1030,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                 className="farm-map-cta-btn"
                 onClick={() => (window.location.href = '/suscripcion')}
                 style={{
-                  backgroundColor: '#3B82F6',
-                  color: 'white',
+                  backgroundColor: 'var(--info)',
+                  color: 'var(--on-primary)',
                   border: 'none',
                   padding: '8px 16px',
                   borderRadius: '8px',
@@ -1044,20 +1046,20 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             </div>
           ) : selectedPotrero.potrerada_actual ? (
             <div style={{
-              backgroundColor: '#1E293B90',
-              border: '1px solid #64748B50',
+              backgroundColor: 'var(--surface-subtle)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: '12px',
               padding: '14px',
               marginBottom: '16px',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', borderBottom: '1px solid #334155', paddingBottom: '8px' }}>
-                <Users size={18} color="#94A3B8" />
-                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#F1F5F9' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
+                <Users size={18} color="var(--text-muted)" />
+                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>
                   Lote de Ganado
                 </span>
                 {/* Mostrar nombre del lote solo si difiere del nombre del potrero */}
                 {selectedPotrero.potrerada_actual.nombre !== selectedPotrero.nombre && (
-                  <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 400 }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 400 }}>
                     · {selectedPotrero.potrerada_actual.nombre}
                   </span>
                 )}
@@ -1065,49 +1067,50 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
               {/* Grid de 4 Métricas Clave */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                <div style={{ backgroundColor: '#0F172A', padding: '8px', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>🐄 Animales</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#F8FAFC' }}>
-                    {selectedPotrero.potrerada_actual.total_animales} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#94A3B8' }}>cabezas</span>
+                <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '8px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>🐄 Animales</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    {selectedPotrero.potrerada_actual.total_animales} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)' }}>cabezas</span>
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: '#0F172A', padding: '8px', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>⏱️ Ocupación</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#F59E0B' }}>
-                    {selectedPotrero.potrerada_actual.dias_en_potrero} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#94A3B8' }}>días</span>
+                <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '8px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>⏱️ Ocupación</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--warning)' }}>
+                    {selectedPotrero.potrerada_actual.dias_en_potrero} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)' }}>días</span>
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: '#0F172A', padding: '8px', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>⚖️ Peso Promedio</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#38BDF8' }}>
-                    {selectedPotrero.potrerada_actual.peso_promedio} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#94A3B8' }}>kg</span>
+                <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '8px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>⚖️ Peso Promedio</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--info)' }}>
+                    {selectedPotrero.potrerada_actual.peso_promedio} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)' }}>kg</span>
                   </div>
                   {selectedPotrero.potrerada_actual.fecha_ultimo_pesaje && (
-                    <div style={{ fontSize: '0.65rem', color: '#94A3B8', marginTop: '2px', fontWeight: 500 }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
                       📅 {selectedPotrero.potrerada_actual.fecha_ultimo_pesaje}
                     </div>
                   )}
                 </div>
 
-                <div style={{ backgroundColor: '#0F172A', padding: '8px', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>📈 Peso Estimado</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#34D399' }}>
-                    {selectedPotrero.potrerada_actual.peso_promedio_estimado} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#94A3B8' }}>kg</span>
+                <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '8px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>📈 Peso Estimado</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--success)' }}>
+                    {selectedPotrero.potrerada_actual.peso_promedio_estimado} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)' }}>kg</span>
                   </div>
                 </div>
               </div>
 
               {/* Marcas / Propietarios */}
               {selectedPotrero.potrerada_actual.marcas && selectedPotrero.potrerada_actual.marcas.length > 0 && (
-                <div style={{ backgroundColor: '#0F172A', padding: '10px 12px', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginBottom: '6px' }}>🏷️ Marca / Propietario</div>
+                <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '10px 12px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '6px' }}>🏷️ Marca / Propietario</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {selectedPotrero.potrerada_actual.marcas.map((m, i) => (
                       <span key={i} style={{
-                        backgroundColor: '#1E3A5F',
-                        color: '#93C5FD',
+                        backgroundColor: 'var(--info-soft-bg)',
+                        color: 'var(--info)',
+                        border: '1px solid var(--info-soft-border)',
                         padding: '3px 10px',
                         borderRadius: '99px',
                         fontSize: '0.78rem',
@@ -1119,7 +1122,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
               )}
             </div>
           ) : (
-            <div style={{ fontSize: '0.85rem', color: '#94A3B8', marginBottom: '16px', fontStyle: 'italic', backgroundColor: '#1E293B50', padding: '12px', borderRadius: '10px' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px', fontStyle: 'italic', backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '12px', borderRadius: '10px' }}>
               🌱 Potrero en descanso. Sin lote de ganado asignado actualmente.
             </div>
           )}
@@ -1135,8 +1138,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
               }}
               style={{
                 width: '100%',
-                backgroundColor: '#3B82F6',
-                color: '#FFFFFF',
+                backgroundColor: 'var(--info)',
+                color: 'var(--on-primary)',
                 border: 'none',
                 padding: '10px',
                 borderRadius: '10px',
@@ -1164,10 +1167,10 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                 fontSize: '0.75rem',
                 textTransform: 'uppercase',
                 color: selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva'
-                  ? '#34D399'
+                  ? 'var(--success)'
                   : selectedZona.tipo === 'agua'
-                  ? '#38BDF8'
-                  : '#FBBF24',
+                  ? 'var(--info)'
+                  : 'var(--warning)',
                 fontWeight: 700,
               }}>
                 {selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva'
@@ -1176,7 +1179,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                   ? '💧 Cuerpo de Agua'
                   : '🏠 Infraestructura'}
               </span>
-              <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700 }}>{selectedZona.nombre}</h3>
+              <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>{selectedZona.nombre}</h3>
             </div>
             <button
               type="button"
@@ -1189,23 +1192,23 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-            <div style={{ backgroundColor: '#1E293B', padding: '10px', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Superficie</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#10B981' }}>{selectedZona.area_hectareas} Ha</div>
+            <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Superficie</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--success)' }}>{selectedZona.area_hectareas} Ha</div>
             </div>
-            <div style={{ backgroundColor: '#1E293B', padding: '10px', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Uso</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#CBD5E1' }}>No ganadero</div>
+            <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Uso</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>No ganadero</div>
             </div>
           </div>
 
           <div style={{
-            backgroundColor: '#1E293B80',
-            border: '1px solid #334155',
+            backgroundColor: 'var(--surface-subtle)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: '12px',
             padding: '14px',
             fontSize: '0.85rem',
-            color: '#94A3B8',
+            color: 'var(--text-muted)',
             lineHeight: 1.5,
           }}>
             {(selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva') && (

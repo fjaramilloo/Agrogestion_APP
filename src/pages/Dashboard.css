@@ -42,8 +42,8 @@
 .dashboard-finca-card {
   margin-bottom: 32px;
   padding: 32px;
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(25, 25, 25, 0.5) 100%);
-  border: 1px solid rgba(76, 175, 80, 0.2);
+  background: linear-gradient(135deg, var(--primary-soft-bg) 0%, var(--bg-dark-paper) 100%);
+  border: 1px solid var(--primary-soft-border);
   display: flex;
   flex-wrap: wrap;
   gap: 32px;
@@ -53,7 +53,7 @@
 .dashboard-finca-icon {
   padding: 24px;
   border-radius: 20px;
-  background: rgba(76, 175, 80, 0.2);
+  background: var(--primary-soft-bg);
   color: var(--primary-light);
   display: flex;
   align-items: center;
@@ -73,17 +73,17 @@
 }
 
 .dashboard-finca-stat {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-subtle);
   padding: 20px 32px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
   text-align: center;
   min-width: 150px;
 }
 
 .dashboard-finca-stat--danger {
-  background: rgba(255, 100, 100, 0.05);
-  border-color: rgba(255, 100, 100, 0.1);
+  background: var(--error-soft-bg);
+  border-color: var(--error-soft-border);
 }
 
 button.dashboard-finca-stat {
@@ -99,17 +99,18 @@ button.dashboard-finca-stat {
   justify-content: center;
   gap: 0;
   color: inherit;
+  box-shadow: none;
   transition: background-color 0.2s ease;
 }
 
 button.dashboard-finca-stat:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-subtle-hover);
   box-shadow: none;
   transform: none;
 }
 
 button.dashboard-finca-stat--danger:hover:not(:disabled) {
-  background: rgba(255, 100, 100, 0.15);
+  filter: brightness(0.95);
 }
 
 .dashboard-kpi-grid {
@@ -136,9 +137,9 @@ button.dashboard-finca-stat--danger:hover:not(:disabled) {
   flex-direction: column;
   justify-content: center;
   padding: 28px;
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
+  background: var(--primary-soft-bg);
   border-radius: 16px;
-  border: 1px solid rgba(76, 175, 80, 0.3);
+  border: 1px solid var(--primary-soft-border);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -146,6 +147,38 @@ button.dashboard-finca-stat--danger:hover:not(:disabled) {
 
 .dashboard-rain-card {
   padding: 24px;
+}
+
+.dashboard-filter-toggle {
+  display: flex;
+  gap: 6px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.dashboard-filter-toggle .btn-toggle {
+  width: auto;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+}
+
+.dashboard-filter-toggle .btn-toggle:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  color: var(--text-main);
+  transform: none;
+  box-shadow: none;
+}
+
+.dashboard-filter-toggle .btn-toggle.active {
+  background: var(--primary);
+  color: var(--on-primary);
 }
 
 .dashboard-modal-card {
@@ -157,7 +190,8 @@ button.dashboard-finca-stat--danger:hover:not(:disabled) {
   max-height: 85dvh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-popover);
 }
 
 .dashboard-modal-table th,
@@ -241,12 +275,12 @@ button.dashboard-finca-stat--danger:hover:not(:disabled) {
     padding: 12px 14px;
     border-radius: 14px;
     background: var(--bg-dark-paper);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--border-subtle);
     transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
   }
 
   .dashboard-quick-link:hover .dashboard-quick-card {
-    border-color: rgba(255, 255, 255, 0.24);
+    border-color: var(--border-strong);
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -257,23 +291,23 @@ button.dashboard-finca-stat--danger:hover:not(:disabled) {
   }
 
   .dashboard-quick-card--green {
-    border-color: rgba(76, 175, 80, 0.32);
-    background: linear-gradient(135deg, rgba(46, 125, 50, 0.18) 0%, rgba(30, 30, 30, 0.96) 100%);
+    border-color: var(--success-soft-border);
+    background: linear-gradient(135deg, var(--success-soft-bg) 0%, var(--bg-dark-paper) 100%);
   }
 
   .dashboard-quick-card--amber {
-    border-color: rgba(255, 152, 0, 0.32);
-    background: linear-gradient(135deg, rgba(255, 152, 0, 0.16) 0%, rgba(30, 30, 30, 0.96) 100%);
+    border-color: var(--warning-soft-border);
+    background: linear-gradient(135deg, var(--warning-soft-bg) 0%, var(--bg-dark-paper) 100%);
   }
 
   .dashboard-quick-card--blue {
-    border-color: rgba(56, 189, 248, 0.32);
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.16) 0%, rgba(30, 30, 30, 0.96) 100%);
+    border-color: var(--info-soft-border);
+    background: linear-gradient(135deg, var(--info-soft-bg) 0%, var(--bg-dark-paper) 100%);
   }
 
   .dashboard-quick-card--teal {
-    border-color: rgba(16, 185, 129, 0.32);
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(30, 30, 30, 0.96) 100%);
+    border-color: var(--primary-soft-border);
+    background: linear-gradient(135deg, var(--primary-soft-bg) 0%, var(--bg-dark-paper) 100%);
   }
 
   .dashboard-quick-icon {
@@ -287,23 +321,23 @@ button.dashboard-finca-stat--danger:hover:not(:disabled) {
   }
 
   .dashboard-quick-icon--green {
-    background: rgba(46, 125, 50, 0.25);
-    color: #81c784;
+    background: var(--success-soft-bg);
+    color: var(--success);
   }
 
   .dashboard-quick-icon--amber {
-    background: rgba(255, 152, 0, 0.22);
-    color: #ffb74d;
+    background: var(--warning-soft-bg);
+    color: var(--warning);
   }
 
   .dashboard-quick-icon--blue {
-    background: rgba(56, 189, 248, 0.2);
-    color: #38bdf8;
+    background: var(--info-soft-bg);
+    color: var(--info);
   }
 
   .dashboard-quick-icon--teal {
-    background: rgba(16, 185, 129, 0.22);
-    color: #34d399;
+    background: var(--primary-soft-bg);
+    color: var(--primary-light);
   }
 
   .dashboard-quick-text {
@@ -317,7 +351,7 @@ button.dashboard-finca-stat--danger:hover:not(:disabled) {
     margin: 0;
     font-size: 0.96rem;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text-main);
     line-height: 1.2;
   }
 
@@ -345,9 +379,9 @@ button.dashboard-finca-stat--danger:hover:not(:disabled) {
     min-height: 48px;
     padding: 10px 12px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    background: var(--bg-dark-paper);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-main);
     text-decoration: none;
     font-size: 0.86rem;
     font-weight: 600;

@@ -11,15 +11,15 @@
         z-index: 210;
         height: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px));
         padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
-        background: rgba(24, 24, 24, 0.96);
+        background: var(--bg-bottom-nav);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        border-top: 1px solid var(--border-subtle);
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 4px;
         align-items: stretch;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.16);
     }
 
     .bottom-nav-item,
@@ -33,7 +33,7 @@
         background: transparent;
         border: 1px solid transparent;
         border-radius: 10px;
-        color: #b8c4d0;
+        color: var(--text-muted);
         text-decoration: none;
         display: flex;
         flex-direction: column;
@@ -46,13 +46,14 @@
         text-transform: none;
         letter-spacing: normal;
         cursor: pointer;
+        box-shadow: none;
         transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
     }
 
     .bottom-nav-item:hover:not(:disabled),
     .bottom-nav-btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.06);
-        color: #ffffff;
+        background: var(--surface-subtle-hover);
+        color: var(--text-main);
         transform: none;
         box-shadow: none;
     }
@@ -67,10 +68,10 @@
 
     .bottom-nav-item[aria-current="page"],
     .bottom-nav-btn--open {
-        color: #ffffff;
+        color: var(--text-main);
         font-weight: 700;
-        background: rgba(46, 125, 50, 0.24);
-        border-color: rgba(96, 173, 94, 0.45);
+        background: var(--primary-soft-bg);
+        border-color: var(--primary-soft-border);
     }
 
     .bottom-nav-item[aria-current="page"]::before {

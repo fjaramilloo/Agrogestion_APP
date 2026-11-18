@@ -395,7 +395,7 @@ export default function HistorialCompras() {
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                     <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-muted)' }}>PROVEEDOR</th>
                                     <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>COMPRAS</th>
                                     <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>ANIMALES</th>
@@ -404,13 +404,13 @@ export default function HistorialCompras() {
                             </thead>
                             <tbody>
                                 {resumenProveedores.map((p, i) => (
-                                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                         <td style={{ padding: '12px', fontWeight: 'bold' }}>{p.nombre}</td>
                                         <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{p.compras}</td>
                                         <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{p.animales}</td>
                                         <td style={{ padding: '12px', textAlign: 'right' }}>
                                             <span style={{ 
-                                                background: 'rgba(244, 67, 54, 0.1)', 
+                                                background: 'var(--error-soft-bg)', 
                                                 color: 'var(--error)', 
                                                 padding: '4px 10px', 
                                                 borderRadius: '20px', 
@@ -439,11 +439,11 @@ export default function HistorialCompras() {
                         style={{
                             marginBottom: 0,
                             cursor: 'pointer',
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            background: 'var(--bg-input)',
+                            border: '1px solid var(--border-input)',
                             borderRadius: '8px',
                             padding: '10px 14px',
-                            color: 'var(--text-main, #ffffff)',
+                            color: 'var(--text-main)',
                             fontSize: '0.85rem',
                             fontWeight: 500,
                             outline: 'none',
@@ -453,7 +453,6 @@ export default function HistorialCompras() {
                             <option
                                 key={opt}
                                 value={opt}
-                                style={{ background: '#1e293b', color: '#ffffff' }}
                             >
                                 {DATE_RANGE_LABELS[opt]}
                             </option>
@@ -487,7 +486,7 @@ export default function HistorialCompras() {
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                             <thead>
-                                <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <tr style={{ backgroundColor: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Compra / Fecha</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Proveedor</th>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Animales</th>
@@ -499,10 +498,10 @@ export default function HistorialCompras() {
                             </thead>
                             <tbody>
                                 {filteredCompras.map((compra, idx) => (
-                                    <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s ease' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.01)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--surface-subtle)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                                         <td style={{ padding: '16px 24px' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1rem' }}>{compra.fechaCompra}</div>
+                                                <div style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1rem' }}>{compra.fechaCompra}</div>
                                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <Calendar size={12} /> {formatFecha(compra.fechaCompra)}
                                                 </div>
@@ -512,20 +511,20 @@ export default function HistorialCompras() {
                                             <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{compra.proveedor}</div>
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                                            <span style={{ fontWeight: 'bold', color: 'white' }}>{compra.animalesCount}</span>
+                                            <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{compra.animalesCount}</span>
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             <span style={{ fontWeight: 'bold', color: 'var(--text-muted)' }}>{Math.round(compra.pesoPromedioIngreso)}</span>
                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                                            <span style={{ fontWeight: 'bold', color: 'white' }}>{Math.round(compra.pesoPromedioActual)}</span>
+                                            <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{Math.round(compra.pesoPromedioActual)}</span>
                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             {compra.gmpPromedio !== null ? (
                                                 <span style={{
-                                                    color: compra.gmpPromedio < 0 ? 'var(--error)' : (compra.gmpPromedio <= umbralMedio ? 'var(--warning)' : (compra.gmpPromedio <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
+                                                    color: compra.gmpPromedio < 0 ? 'var(--error)' : (compra.gmpPromedio <= umbralMedio ? 'var(--warning)' : (compra.gmpPromedio <= umbralAlto ? 'var(--text-main)' : 'var(--success)')),
                                                     fontWeight: 'bold'
                                                 }}>
                                                     {toDisplayValue(compra.gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
@@ -540,8 +539,8 @@ export default function HistorialCompras() {
                                                 <button
                                                     onClick={() => setDetalleCompra(compra)}
                                                     style={{ 
-                                                        background: 'rgba(76, 175, 80, 0.1)', 
-                                                        border: '1px solid rgba(76, 175, 80, 0.3)', 
+                                                        background: 'var(--success-soft-bg)', 
+                                                        border: '1px solid var(--success-soft-border)', 
                                                         color: 'var(--success)', 
                                                         padding: '6px 12px', 
                                                         borderRadius: '6px', 
@@ -559,9 +558,9 @@ export default function HistorialCompras() {
                                                 <button
                                                     onClick={() => setSelectedCompraSimple(compra)}
                                                     style={{ 
-                                                        background: 'rgba(33, 150, 243, 0.1)', 
-                                                        border: '1px solid rgba(33, 150, 243, 0.3)', 
-                                                        color: '#64b5f6', 
+                                                        background: 'var(--info-soft-bg)', 
+                                                        border: '1px solid var(--info-soft-border)', 
+                                                        color: 'var(--info)', 
                                                         padding: '6px 12px', 
                                                         borderRadius: '6px', 
                                                         cursor: 'pointer', 
@@ -578,8 +577,8 @@ export default function HistorialCompras() {
                                                 <button
                                                     onClick={() => setSelectedCompra(compra)}
                                                     style={{ 
-                                                        background: 'rgba(244, 67, 54, 0.1)', 
-                                                        border: '1px solid rgba(244, 67, 54, 0.3)', 
+                                                        background: 'var(--error-soft-bg)', 
+                                                        border: '1px solid var(--error-soft-border)', 
                                                         color: 'var(--error)', 
                                                         padding: '6px 12px', 
                                                         borderRadius: '6px', 
@@ -638,7 +637,7 @@ export default function HistorialCompras() {
                 return (
                     <div className="modal-overlay">
                         <div className="card modal-content" style={{ maxWidth: '960px' }}>
-                            <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <h2 style={{ margin: '0 0 8px 0', color: 'var(--primary-light)', fontSize: 'clamp(1.1rem, 4vw, 1.5rem)' }}>
@@ -673,9 +672,9 @@ export default function HistorialCompras() {
                                 <div style={{ 
                                     marginTop: '20px', 
                                     padding: '16px 20px', 
-                                    background: 'linear-gradient(to right, rgba(76, 175, 80, 0.05), rgba(76, 175, 80, 0.02))', 
+                                    background: 'var(--success-soft-bg)', 
                                     borderRadius: '12px', 
-                                    border: '1px solid rgba(76, 175, 80, 0.2)',
+                                    border: '1px solid var(--success-soft-border)',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     gap: '16px'
@@ -687,7 +686,8 @@ export default function HistorialCompras() {
                                                     width: '40px', 
                                                     height: '40px', 
                                                     borderRadius: '8px', 
-                                                    background: 'rgba(76, 175, 80, 0.1)', 
+                                                    background: 'var(--surface-subtle)', 
+                                                    border: '1px solid var(--success-soft-border)',
                                                     display: 'flex', 
                                                     alignItems: 'center', 
                                                     justifyContent: 'center',
@@ -697,7 +697,7 @@ export default function HistorialCompras() {
                                                 </div>
                                                 <div>
                                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Peso Total de Compra</div>
-                                                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.4rem', lineHeight: '1' }}>
+                                                    <div style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.4rem', lineHeight: '1' }}>
                                                         {detalleCompra.pesoTotalCompra > 0 ? `${Math.round(detalleCompra.pesoTotalCompra).toLocaleString()} kg` : <span style={{ color: 'var(--text-muted)', fontSize: '1.1rem', fontWeight: 'normal' }}>No asignado</span>}
                                                     </div>
                                                 </div>
@@ -715,7 +715,7 @@ export default function HistorialCompras() {
                                         </div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                                 <TrendingUp size={18} color="var(--success)" /> Asignar Peso Total de Compra
                                             </div>
                                             <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -726,26 +726,26 @@ export default function HistorialCompras() {
                                                         placeholder="Ej. 2500"
                                                         value={pesoTotalCompraInput}
                                                         onChange={e => setPesoTotalCompraInput(e.target.value)}
-                                                        style={{ marginBottom: '12px', width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: 'white', fontSize: '1.1rem' }}
+                                                        style={{ marginBottom: '12px', width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '1.1rem' }}
                                                         disabled={savingPesoCompra}
                                                     />
                                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: '1.4' }}>
-                                                        Este peso se repartirá proporcionalmente a los <strong style={{ color: 'white' }}>{detalleCompra.animalesCount} animales</strong> según su peso de ingreso en báscula ({Math.round(detalleCompra.pesoTotalIngreso).toLocaleString()} kg).
+                                                        Este peso se repartirá proporcionalmente a los <strong style={{ color: 'var(--text-main)' }}>{detalleCompra.animalesCount} animales</strong> según su peso de ingreso en báscula ({Math.round(detalleCompra.pesoTotalIngreso).toLocaleString()} kg).
                                                     </div>
                                                 </div>
                                                 
                                                 {showCalculos && (
-                                                    <div style={{ flex: '1 1 300px', background: 'rgba(0,0,0,0.25)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <div style={{ flex: '1 1 300px', background: 'var(--surface-inset)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                                                         <h4 style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Resumen de Merma</h4>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                                            <span style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>Peso Compra:</span>
-                                                            <span style={{ color: 'white', fontWeight: 'bold' }}>{inputPeso.toLocaleString()} kg</span>
+                                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Peso Compra:</span>
+                                                            <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{inputPeso.toLocaleString()} kg</span>
                                                         </div>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                                            <span style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>Peso Ingreso (Finca):</span>
-                                                            <span style={{ color: 'white', fontWeight: 'bold' }}>{Math.round(detalleCompra.pesoTotalIngreso).toLocaleString()} kg</span>
+                                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Peso Ingreso (Finca):</span>
+                                                            <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{Math.round(detalleCompra.pesoTotalIngreso).toLocaleString()} kg</span>
                                                         </div>
-                                                        <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '12px 0' }}></div>
+                                                        <div style={{ borderTop: '1px dashed var(--border-strong)', margin: '12px 0' }}></div>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <span style={{ color: mermaKg > 0 ? 'var(--error)' : 'var(--success)', fontSize: '0.9rem', fontWeight: 'bold' }}>
                                                                 {mermaKg > 0 ? 'Pérdida/Merma:' : 'Ganancia/Exceso:'}
@@ -793,7 +793,7 @@ export default function HistorialCompras() {
                                 <div className="table-container">
                                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                         <thead>
-                                            <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                            <tr style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
                                                 <th 
                                                     onClick={() => handleSort('numero_chapeta')}
                                                     style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer' }}
@@ -886,7 +886,7 @@ export default function HistorialCompras() {
                                                 <tr
                                                     key={a.id}
                                                     className="table-row-hover"
-                                                    style={{ borderBottom: idx < detalleCompra.animalesDetalle.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor: 'pointer' }}
+                                                    style={{ borderBottom: idx < detalleCompra.animalesDetalle.length - 1 ? '1px solid var(--border-subtle)' : 'none', cursor: 'pointer' }}
                                                     onClick={() => setSelectedAnimalDetalle(a)}
                                                 >
                                                     <td style={{ padding: '12px', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
@@ -905,9 +905,8 @@ export default function HistorialCompras() {
                                                     <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                         {a.gmp !== null ? (
                                                             <span style={{
-                                                                color: a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
-                                                                fontWeight: 'bold',
-                                                                textShadow: (a.gmp > umbralMedio && a.gmp <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                                                color: a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-main)' : 'var(--success)')),
+                                                                fontWeight: 'bold'
                                                             }}>
                                                                 {toDisplayValue(a.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                                             </span>
@@ -919,7 +918,7 @@ export default function HistorialCompras() {
                                             ))}
                                         </tbody>
                                         <tfoot>
-                                            <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                                            <tr style={{ borderTop: '2px solid var(--border-strong)', background: 'var(--surface-subtle)' }}>
                                                 <td colSpan={2} style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold' }}>TOTALES:</td>
                                                 <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                                     {Math.round(detalleCompra.pesoTotalCompra || 0).toLocaleString()} kg
@@ -937,7 +936,7 @@ export default function HistorialCompras() {
                                                 })}
                                                 <td></td>
                                             </tr>
-                                            <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <tr style={{ background: 'var(--surface-inset)', borderBottom: '1px solid var(--border-subtle)' }}>
                                                 <td colSpan={2} style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem' }}>PROMEDIOS:</td>
                                                 <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--primary-light)', fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
                                                     {detalleCompra.animalesCount > 0 ? Math.round((detalleCompra.pesoTotalCompra || 0) / detalleCompra.animalesCount) : 0} kg
@@ -962,11 +961,11 @@ export default function HistorialCompras() {
                                 </div>
                             </div>
 
-                            <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                                 <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Kilos (Llegada)</span>
-                                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                        <span style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.2rem' }}>
                                             {Math.round(detalleCompra.animalesDetalle.reduce((acc, a) => acc + (a.peso_ingreso || 0), 0)).toLocaleString()} kg
                                         </span>
                                     </div>
@@ -978,7 +977,7 @@ export default function HistorialCompras() {
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cantidad</span>
-                                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                        <span style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.2rem' }}>
                                             {detalleCompra.animalesCount} animales
                                         </span>
                                     </div>
@@ -1021,8 +1020,8 @@ export default function HistorialCompras() {
                 }));
 
                 return (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }} onClick={() => setSelectedAnimalDetalle(null)}>
-                        <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--backdrop-scrim)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }} onClick={() => setSelectedAnimalDetalle(null)}>
+                        <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-popover)' }} onClick={e => e.stopPropagation()}>
                             <button
                                 onClick={() => setSelectedAnimalDetalle(null)}
                                 style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px' }}
@@ -1031,7 +1030,7 @@ export default function HistorialCompras() {
                             </button>
 
                             <div style={{ paddingRight: '40px', marginBottom: '24px' }}>
-                                <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem', whiteSpace: 'nowrap' }}>
+                                <h2 style={{ color: 'var(--text-main)', margin: 0, fontSize: '1.8rem', whiteSpace: 'nowrap' }}>
                                     <span style={{ color: 'var(--primary)', marginRight: '8px' }}>#</span>
                                     {a.numero_chapeta}
                                 </h2>
@@ -1041,7 +1040,7 @@ export default function HistorialCompras() {
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso de Llegada</div>
                                     <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{a.peso_ingreso} kg</div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--primary-light)', marginTop: '4px' }}>
@@ -1053,31 +1052,31 @@ export default function HistorialCompras() {
                                         </div>
                                     )}
                                 </div>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso Actual</div>
                                     <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{Math.round(a.pesoActual)} kg</div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                                         Último: {fechaU}
                                     </div>
                                 </div>
-                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>{getModoLabel(modoGanancia)}</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))) : 'var(--text-muted)' }}>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: a.gmp !== null ? (a.gmp < 0 ? 'var(--error)' : (a.gmp <= umbralMedio ? 'var(--warning)' : (a.gmp <= umbralAlto ? 'var(--text-main)' : 'var(--success)'))) : 'var(--text-muted)' }}>
                                         {a.gmp !== null ? `${toDisplayValue(a.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : '-'}
                                     </div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ganancia ({getUnidadLabel(modoGanancia)})</div>
                                 </div>
                             </div>
 
-                            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Evolución de Peso</h3>
+                            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600', color: 'var(--text-main)' }}>Evolución de Peso</h3>
                             <div style={{ height: '220px', width: '100%', marginBottom: '32px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                        <XAxis dataKey="fechaStr" stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
-                                        <YAxis stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                                        <XAxis dataKey="fechaStr" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                        <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
                                         <RechartsTooltip
-                                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                            contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)' }}
                                             itemStyle={{ color: 'var(--primary-light)' }}
                                             labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
                                         />
@@ -1086,10 +1085,10 @@ export default function HistorialCompras() {
                                 </ResponsiveContainer>
                             </div>
 
-                            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>Historial de Registros</h3>
-                            <div style={{ overflowX: 'auto', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600', color: 'var(--text-main)' }}>Historial de Registros</h3>
+                            <div style={{ overflowX: 'auto', backgroundColor: 'var(--surface-inset)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                    <thead style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                    <thead style={{ backgroundColor: 'var(--surface-subtle)' }}>
                                         <tr>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
                                             <th style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
@@ -1100,7 +1099,7 @@ export default function HistorialCompras() {
                                     </thead>
                                     <tbody>
                                         {timeline.map((item, index) => (
-                                            <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <tr key={index} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                                 <td style={{ padding: '12px 16px' }}>
                                                     <div style={{ fontWeight: '500' }}>{format(new Date(item.fecha + 'T12:00:00'), 'dd/MM/yyyy')}</div>
                                                     {item.esIngreso && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 'bold' }}>INGRESO</div>}
@@ -1112,9 +1111,8 @@ export default function HistorialCompras() {
                                                     ) : (
                                                         <>
                                                             <div style={{ 
-                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedio ? 'var(--warning)' : (item.gmp <= umbralAlto ? 'var(--text-light)' : 'var(--success)')), 
-                                                                fontWeight: 'bold',
-                                                                textShadow: (item.gmp > umbralMedio && item.gmp <= umbralAlto) ? '0 0 2px rgba(255,255,255,0.2)' : 'none'
+                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedio ? 'var(--warning)' : (item.gmp <= umbralAlto ? 'var(--text-main)' : 'var(--success)')), 
+                                                                fontWeight: 'bold'
                                                             }}>
                                                                 {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
                                                             </div>

@@ -61,7 +61,7 @@ export default function VersionNotifier() {
     <div className="version-popup" role="status" aria-live="polite">
       <div style={{ display: 'flex', gap: '16px' }}>
         <div style={{ 
-          backgroundColor: 'rgba(76, 175, 80, 0.15)', 
+          backgroundColor: 'var(--success-soft-bg)', 
           borderRadius: '14px', 
           width: '52px', 
           height: '52px', 
@@ -69,16 +69,16 @@ export default function VersionNotifier() {
           alignItems: 'center', 
           justifyContent: 'center',
           flexShrink: 0,
-          border: '1px solid rgba(76, 175, 80, 0.2)'
+          border: '1px solid var(--success-soft-border)'
         }}>
-          <RefreshCw className="animate-spin-custom" size={26} color="#4CAF50" aria-hidden="true" />
+          <RefreshCw className="animate-spin-custom" size={26} color="var(--success)" aria-hidden="true" />
         </div>
         
         <div style={{ flex: 1 }}>
-          <h4 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', fontWeight: '700', letterSpacing: '-0.3px' }}>
+          <h4 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', fontWeight: '700', letterSpacing: '-0.3px', color: 'var(--text-main)' }}>
             Actualización Lista
           </h4>
-          <p style={{ margin: 0, color: 'rgba(255,255,255,0.78)', fontSize: '0.88rem', lineHeight: '1.45' }}>
+          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: '1.45' }}>
             Hemos realizado mejoras en Agrogestión. Refresca ahora para activarlas.
           </p>
         </div>

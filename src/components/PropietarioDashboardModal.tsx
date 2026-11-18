@@ -282,44 +282,44 @@ export default function PropietarioDashboardModal({
 
     const hasFinanciero = capitalInvertido > 0 && precioVentaPromedio > 0;
 
-    // Tema dinámico para el PDF (blanco) vs Vista normal (oscuro)
+    // Tema dinámico para el PDF (blanco) vs tema activo en pantalla
     const theme = {
         bg: isExporting ? '#ffffff' : 'var(--surface)',
-        cardBg: isExporting ? '#f8f9fa' : 'rgba(0,0,0,0.2)',
-        borderColor: isExporting ? '#dee2e6' : 'rgba(255,255,255,0.05)',
-        borderDivider: isExporting ? '#dee2e6' : 'rgba(255,255,255,0.1)',
-        textMain: isExporting ? '#212529' : 'white',
+        cardBg: isExporting ? '#f8f9fa' : 'var(--surface-subtle)',
+        borderColor: isExporting ? '#dee2e6' : 'var(--border-subtle)',
+        borderDivider: isExporting ? '#dee2e6' : 'var(--border-strong)',
+        textMain: isExporting ? '#212529' : 'var(--text-main)',
         textMuted: isExporting ? '#6c757d' : 'var(--text-muted)',
-        textLight: isExporting ? '#495057' : 'var(--text-light)',
-        kpiGreenBg: isExporting ? '#e8f5e9' : 'rgba(46, 125, 50, 0.1)',
-        kpiGreenBorder: isExporting ? '#c8e6c9' : 'rgba(46, 125, 50, 0.2)',
-        kpiAmberBg: isExporting ? '#fff8e1' : 'rgba(255, 179, 0, 0.05)',
-        kpiAmberBorder: isExporting ? '#ffecb3' : 'rgba(255, 179, 0, 0.1)',
-        kpiBlueBg: isExporting ? '#e3f2fd' : 'rgba(33, 150, 243, 0.05)',
-        kpiBlueBorder: isExporting ? '#bbdefb' : 'rgba(33, 150, 243, 0.1)',
-        kpiRedBg: isExporting ? '#ffebee' : 'rgba(244,67,54,0.08)',
-        kpiRedBorder: isExporting ? '#ffcdd2' : 'rgba(244,67,54,0.2)',
+        textLight: isExporting ? '#495057' : 'var(--text-secondary)',
+        kpiGreenBg: isExporting ? '#e8f5e9' : 'var(--primary-soft-bg)',
+        kpiGreenBorder: isExporting ? '#c8e6c9' : 'var(--primary-soft-border)',
+        kpiAmberBg: isExporting ? '#fff8e1' : 'var(--secondary-soft-bg)',
+        kpiAmberBorder: isExporting ? '#ffecb3' : 'var(--secondary-soft-border)',
+        kpiBlueBg: isExporting ? '#e3f2fd' : 'var(--info-soft-bg)',
+        kpiBlueBorder: isExporting ? '#bbdefb' : 'var(--info-soft-border)',
+        kpiRedBg: isExporting ? '#ffebee' : 'var(--error-soft-bg)',
+        kpiRedBorder: isExporting ? '#ffcdd2' : 'var(--error-soft-border)',
     };
 
     return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--backdrop-scrim)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
             <div className="card" style={{ maxWidth: '900px', width: '100%', maxHeight: '95vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', padding: '0' }} onClick={e => e.stopPropagation()}>
                 {/* Header estático con botón de cerrar */}
-                <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface)', padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface)', padding: '20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <h2 style={{ margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <Target color="var(--primary)" /> Informe: {propietario}
                     </h2>
                     <div style={{ display: 'flex', gap: '12px' }}>
                         <button 
                             onClick={handleDownloadPdf}
                             disabled={isExporting}
-                            style={{ backgroundColor: 'var(--primary)', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}
+                            style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', width: 'auto' }}
                         >
                             <Download size={18} /> {isExporting ? 'Generando...' : 'Descargar PDF'}
                         </button>
                         <button 
                             onClick={onClose}
-                            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--text-muted)', padding: '8px', display: 'flex', alignItems: 'center' }}
+                            style={{ background: 'transparent', border: '1px solid var(--border-strong)', color: 'var(--text-muted)', padding: '8px', display: 'flex', alignItems: 'center', width: 'auto', boxShadow: 'none' }}
                         >
                             <X size={20} />
                         </button>
@@ -379,7 +379,7 @@ export default function PropietarioDashboardModal({
                                         </Pie>
                                         {!isExporting && (
                                             <RechartsTooltip 
-                                                contentStyle={{ backgroundColor: 'rgba(30, 30, 45, 0.9)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                                contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', color: 'var(--text-main)', borderRadius: '8px' }}
                                                 formatter={(value: any, name: any) => [`${value} animales`, name]}
                                             />
                                         )}
@@ -422,7 +422,7 @@ export default function PropietarioDashboardModal({
                                             <YAxis stroke={theme.textMuted} tick={{fill: theme.textMuted, fontSize: 12}} />
                                             {!isExporting && (
                                             <RechartsTooltip 
-                                                contentStyle={{ backgroundColor: 'rgba(30, 30, 45, 0.9)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                                contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', color: 'var(--text-main)', borderRadius: '8px' }}
                                                 formatter={(value: any) => [`${toDisplayValue(Number(value), modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 2)} ${getUnidadLabel(modoGanancia)}`, getModoLabel(modoGanancia)]}
                                             />
                                             )}

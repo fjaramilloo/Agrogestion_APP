@@ -302,7 +302,7 @@ export default function Mercado() {
                 {(role === 'administrador' || role === 'vaquero') && animales.length > 0 && (
                     <button
                         onClick={handleOpenModal}
-                        style={{ backgroundColor: '#2e7d32', border: '1px solid #4caf50', color: 'white', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 28px', fontSize: '1rem', width: 'auto' }}
+                        style={{ backgroundColor: 'var(--primary)', border: '1px solid var(--primary)', color: 'var(--on-primary)', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 28px', fontSize: '1rem', width: 'auto' }}
                     >
                         <ArrowRight size={20} /> Pasar a Ceba
                     </button>
@@ -310,7 +310,7 @@ export default function Mercado() {
             </div>
 
             {msjExito && (
-                <div style={{ backgroundColor: 'rgba(76,175,80,0.2)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', fontWeight: 'bold' }}>
+                <div style={{ backgroundColor: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', fontWeight: 'bold' }}>
                     {msjExito}
                 </div>
             )}
@@ -327,7 +327,7 @@ export default function Mercado() {
                     <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '24px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                <tr style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
                                     <th onClick={() => handleSort('chapeta')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             Chapeta <ArrowUpDown size={12} opacity={sortBy === 'chapeta' ? 1 : 0.4} />
@@ -363,7 +363,7 @@ export default function Mercado() {
                             </thead>
                             <tbody>
                                 {sortedAnimals.map((a, i) => (
-                                    <tr key={a.id} style={{ borderBottom: i < animales.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                    <tr key={a.id} style={{ borderBottom: i < animales.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                                         <td style={{ padding: '16px', fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
                                         <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{a.nombre_propietario}</td>
                                         <td style={{ padding: '16px', color: 'var(--text-muted)' }}>
@@ -379,7 +379,7 @@ export default function Mercado() {
                                             {a.diasUltimoPesaje}d
                                         </td>
                                         <td style={{ padding: '16px', textAlign: 'center' }}>
-                                            <span style={{ background: 'rgba(76,175,80,0.15)', color: 'var(--success)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                            <span style={{ background: 'var(--success-soft-bg)', color: 'var(--success)', border: '1px solid var(--success-soft-border)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                                                 ✓ Listo Ceba
                                             </span>
                                         </td>
@@ -394,7 +394,7 @@ export default function Mercado() {
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                             <button
                                 onClick={handleDevolverALevante}
-                                style={{ backgroundColor: 'rgba(244,67,54,0.15)', border: '1px solid rgba(244,67,54,0.4)', color: '#ef5350', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', width: 'auto' }}
+                                style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', width: 'auto' }}
                             >
                                 <RotateCcw size={18} /> Devolver a Levante
                             </button>
@@ -415,7 +415,7 @@ export default function Mercado() {
                         </div>
 
                         {msjError && (
-                            <div style={{ backgroundColor: 'rgba(244,67,54,0.15)', color: '#ef5350', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+                            <div style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
                                 <AlertTriangle size={16} /> {msjError}
                             </div>
                         )}
@@ -424,14 +424,14 @@ export default function Mercado() {
                             <button
                                 type="button"
                                 onClick={() => setModoDestino('nuevo')}
-                                style={{ flex: 1, padding: '10px', background: modoDestino === 'nuevo' ? 'rgba(76,175,80,0.1)' : 'transparent', border: modoDestino === 'nuevo' ? '1px solid var(--success)' : '1px solid rgba(255,255,255,0.1)', color: modoDestino === 'nuevo' ? 'var(--success)' : 'var(--text-muted)' }}
+                                style={{ flex: 1, padding: '10px', background: modoDestino === 'nuevo' ? 'var(--success-soft-bg)' : 'transparent', border: modoDestino === 'nuevo' ? '1px solid var(--success)' : '1px solid var(--border-strong)', color: modoDestino === 'nuevo' ? 'var(--success)' : 'var(--text-muted)' }}
                             >
                                 Crear Nueva Potrerada
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setModoDestino('existente')}
-                                style={{ flex: 1, padding: '10px', background: modoDestino === 'existente' ? 'rgba(76,175,80,0.1)' : 'transparent', border: modoDestino === 'existente' ? '1px solid var(--success)' : '1px solid rgba(255,255,255,0.1)', color: modoDestino === 'existente' ? 'var(--success)' : 'var(--text-muted)' }}
+                                style={{ flex: 1, padding: '10px', background: modoDestino === 'existente' ? 'var(--success-soft-bg)' : 'transparent', border: modoDestino === 'existente' ? '1px solid var(--success)' : '1px solid var(--border-strong)', color: modoDestino === 'existente' ? 'var(--success)' : 'var(--text-muted)' }}
                             >
                                 Añadir a Existente
                             </button>
@@ -467,7 +467,7 @@ export default function Mercado() {
                             <div style={{ marginBottom: '20px' }}>
                                 <label>Seleccionar Potrerada de Ceba</label>
                                 {potreradasCeba.length === 0 ? (
-                                    <div style={{ color: 'var(--warning)', fontSize: '0.9rem', padding: '12px', background: 'rgba(255,152,0,0.1)', borderRadius: '6px' }}>
+                                    <div style={{ color: 'var(--warning)', fontSize: '0.9rem', padding: '12px', background: 'var(--warning-soft-bg)', border: '1px solid var(--warning-soft-border)', borderRadius: '6px' }}>
                                         No hay potreradas de Ceba creadas actualmente. Crea una nueva potrerada.
                                     </div>
                                 ) : (
@@ -493,7 +493,7 @@ export default function Mercado() {
                                 <button
                                     type="button"
                                     onClick={seleccionarTodos}
-                                    style={{ background: 'rgba(76,175,80,0.1)', border: '1px solid rgba(76,175,80,0.3)', color: 'var(--success)', padding: '6px 14px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', width: 'auto' }}
+                                    style={{ background: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', color: 'var(--success)', padding: '6px 14px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', width: 'auto' }}
                                 >
                                     Todos
                                 </button>
@@ -507,8 +507,8 @@ export default function Mercado() {
                                             alignItems: 'center',
                                             gap: '12px',
                                             padding: '12px 16px',
-                                            background: animalesSeleccionados.has(a.id) ? 'rgba(76,175,80,0.1)' : 'rgba(255,255,255,0.03)',
-                                            border: animalesSeleccionados.has(a.id) ? '1px solid rgba(76,175,80,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                                            background: animalesSeleccionados.has(a.id) ? 'var(--success-soft-bg)' : 'var(--surface-subtle)',
+                                            border: animalesSeleccionados.has(a.id) ? '1px solid var(--success-soft-border)' : '1px solid var(--border-subtle)',
                                             borderRadius: '8px',
                                             cursor: 'pointer',
                                             transition: 'all 0.15s'
@@ -522,7 +522,7 @@ export default function Mercado() {
                                         />
                                         <span style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</span>
                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', flex: 1 }}>{a.nombre_propietario}</span>
-                                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '0.9rem' }}>{a.ultimo_peso} kg</span>
+                                        <span style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '0.9rem' }}>{a.ultimo_peso} kg</span>
                                     </label>
                                 ))}
                             </div>
@@ -531,14 +531,14 @@ export default function Mercado() {
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <button
                                 onClick={() => setShowModal(false)}
-                                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                style={{ flex: 1, background: 'var(--surface-subtle)', border: '1px solid var(--border-strong)', color: 'var(--text-main)' }}
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handlePasarACeba}
                                 disabled={creando || animalesSeleccionados.size === 0 || (modoDestino === 'nuevo' ? (!nombrePotrerada.trim() || !potreroSeleccionado) : !potreradaExistenteId)}
-                                style={{ flex: 1, backgroundColor: '#2e7d32', border: '1px solid #4caf50', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                style={{ flex: 1, backgroundColor: 'var(--primary)', border: '1px solid var(--primary)', color: 'var(--on-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                             >
                                 {creando ? 'Creando...' : <><ArrowRight size={18} /> Confirmar Pase a Ceba</>}
                             </button>

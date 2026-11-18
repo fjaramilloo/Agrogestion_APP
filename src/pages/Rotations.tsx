@@ -293,10 +293,10 @@ export default function Rotations() {
                     </h1>
                     <div style={{ display: 'flex', gap: '20px', marginTop: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                            <Layers size={16} /> <strong style={{ color: 'white' }}>{rotaciones.length}</strong> Rotaciones
+                            <Layers size={16} /> <strong style={{ color: 'var(--text-main)' }}>{rotaciones.length}</strong> Rotaciones
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                            <MapPin size={16} /> <strong style={{ color: 'white' }}>{potreros.length}</strong> Potreros
+                            <MapPin size={16} /> <strong style={{ color: 'var(--text-main)' }}>{potreros.length}</strong> Potreros
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                             <strong style={{ color: 'var(--primary-light)' }}>{areaFinca.toFixed(2)}</strong> Ha Totales
@@ -315,9 +315,9 @@ export default function Rotations() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
-                            backgroundColor: showCalculadora ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                            border: `1px solid ${showCalculadora ? 'var(--primary-light)' : 'rgba(255, 255, 255, 0.12)'}`,
-                            color: showCalculadora ? 'var(--primary-light)' : 'white',
+                            backgroundColor: showCalculadora ? 'var(--primary-soft-bg)' : 'var(--surface-subtle)',
+                            border: `1px solid ${showCalculadora ? 'var(--primary-light)' : 'var(--border-strong)'}`,
+                            color: showCalculadora ? 'var(--primary-light)' : 'var(--text-main)',
                             cursor: 'pointer',
                             transition: 'all 0.2s ease'
                         }}
@@ -336,7 +336,7 @@ export default function Rotations() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '10px',
-                                boxShadow: '0 4px 15px rgba(46, 125, 50, 0.3)'
+                                boxShadow: 'var(--shadow-card)'
                             }}
                         >
                             <Plus size={20} /> Nueva Rotación
@@ -345,10 +345,10 @@ export default function Rotations() {
                 </div>
             </div>
 
-            {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>{msjError}</div>}
+            {msjError && <div style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>{msjError}</div>}
 
             {showNuevaRotacion && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--backdrop-scrim)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
                     <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
                         <h2>Nueva Rotación</h2>
                         <form onSubmit={handleAddRotacion} style={{ marginTop: '20px' }}>
@@ -416,8 +416,9 @@ export default function Rotations() {
 
                 return (
                     <div style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        backgroundColor: 'var(--bg-card)',
+                        border: '1px solid var(--border-subtle)',
+                        boxShadow: 'var(--shadow-card)',
                         borderRadius: '16px',
                         padding: '24px',
                         marginBottom: '32px'
@@ -428,18 +429,19 @@ export default function Rotations() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <div style={{
                                         width: '32px', height: '32px', borderRadius: '8px',
-                                        backgroundColor: 'rgba(76, 175, 80, 0.15)',
+                                        backgroundColor: 'var(--primary-soft-bg)',
                                         color: 'var(--primary-light)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
                                         <Calculator size={18} />
                                     </div>
-                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white', fontWeight: 600 }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-main)', fontWeight: 600 }}>
                                         Calculadora de Rotación (Fórmula de Voisin)
                                     </h3>
                                     <span style={{
                                         fontSize: '0.75rem',
-                                        backgroundColor: 'rgba(255,255,255,0.06)',
+                                        backgroundColor: 'var(--surface-inset)',
+                                        border: '1px solid var(--border-subtle)',
                                         padding: '3px 8px',
                                         borderRadius: '6px',
                                         color: 'var(--text-muted)',
@@ -475,7 +477,7 @@ export default function Rotations() {
                             gap: '8px',
                             marginBottom: '20px',
                             flexWrap: 'wrap',
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                            borderBottom: '1px solid var(--border-subtle)',
                             paddingBottom: '14px'
                         }}>
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', alignSelf: 'center', marginRight: '8px' }}>
@@ -492,8 +494,8 @@ export default function Rotations() {
                                     fontWeight: 500,
                                     cursor: 'pointer',
                                     border: '1px solid',
-                                    backgroundColor: calcModo === 'potreros' ? 'rgba(76, 175, 80, 0.2)' : 'transparent',
-                                    borderColor: calcModo === 'potreros' ? 'var(--primary-light)' : 'rgba(255,255,255,0.1)',
+                                    backgroundColor: calcModo === 'potreros' ? 'var(--primary-soft-bg)' : 'transparent',
+                                    borderColor: calcModo === 'potreros' ? 'var(--primary-light)' : 'var(--border-strong)',
                                     color: calcModo === 'potreros' ? 'var(--primary-light)' : 'var(--text-muted)'
                                 }}
                             >
@@ -510,8 +512,8 @@ export default function Rotations() {
                                     fontWeight: 500,
                                     cursor: 'pointer',
                                     border: '1px solid',
-                                    backgroundColor: calcModo === 'ocupacion' ? 'rgba(76, 175, 80, 0.2)' : 'transparent',
-                                    borderColor: calcModo === 'ocupacion' ? 'var(--primary-light)' : 'rgba(255,255,255,0.1)',
+                                    backgroundColor: calcModo === 'ocupacion' ? 'var(--primary-soft-bg)' : 'transparent',
+                                    borderColor: calcModo === 'ocupacion' ? 'var(--primary-light)' : 'var(--border-strong)',
                                     color: calcModo === 'ocupacion' ? 'var(--primary-light)' : 'var(--text-muted)'
                                 }}
                             >
@@ -528,8 +530,8 @@ export default function Rotations() {
                                     fontWeight: 500,
                                     cursor: 'pointer',
                                     border: '1px solid',
-                                    backgroundColor: calcModo === 'descanso' ? 'rgba(76, 175, 80, 0.2)' : 'transparent',
-                                    borderColor: calcModo === 'descanso' ? 'var(--primary-light)' : 'rgba(255,255,255,0.1)',
+                                    backgroundColor: calcModo === 'descanso' ? 'var(--primary-soft-bg)' : 'transparent',
+                                    borderColor: calcModo === 'descanso' ? 'var(--primary-light)' : 'var(--border-strong)',
                                     color: calcModo === 'descanso' ? 'var(--primary-light)' : 'var(--text-muted)'
                                 }}
                             >
@@ -570,7 +572,7 @@ export default function Rotations() {
                                                 <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
                                                     Días de Ocupación por potrero (O)
                                                 </label>
-                                                <span style={{ fontSize: '0.75rem', color: calcOcupacion > 3 ? '#ff9800' : 'var(--success)' }}>
+                                                <span style={{ fontSize: '0.75rem', color: calcOcupacion > 3 ? 'var(--warning)' : 'var(--success)' }}>
                                                     {calcOcupacion <= 3 ? 'Ideal ≤ 3 días' : '⚠️ > 3 días daña rebrote'}
                                                 </span>
                                             </div>
@@ -620,10 +622,10 @@ export default function Rotations() {
                                                             style={{
                                                                 padding: '1px 8px',
                                                                 fontSize: '0.75rem',
-                                                                background: 'rgba(255,255,255,0.05)',
-                                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                                background: 'var(--surface-subtle)',
+                                                                border: '1px solid var(--border-subtle)',
                                                                 borderRadius: '4px',
-                                                                color: 'var(--text-muted)',
+                                                                color: 'var(--text-secondary)',
                                                                 cursor: 'pointer',
                                                                 width: 'auto'
                                                             }}
@@ -689,10 +691,10 @@ export default function Rotations() {
                                                             style={{
                                                                 padding: '1px 8px',
                                                                 fontSize: '0.75rem',
-                                                                background: 'rgba(255,255,255,0.05)',
-                                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                                background: 'var(--surface-subtle)',
+                                                                border: '1px solid var(--border-subtle)',
                                                                 borderRadius: '4px',
-                                                                color: 'var(--text-muted)',
+                                                                color: 'var(--text-secondary)',
                                                                 cursor: 'pointer',
                                                                 width: 'auto'
                                                             }}
@@ -709,7 +711,7 @@ export default function Rotations() {
                                                 <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
                                                     Días de Ocupación actuales (O)
                                                 </label>
-                                                <span style={{ fontSize: '0.75rem', color: calcOcupacion > 3 ? '#ff9800' : 'var(--success)' }}>
+                                                <span style={{ fontSize: '0.75rem', color: calcOcupacion > 3 ? 'var(--warning)' : 'var(--success)' }}>
                                                     {calcOcupacion <= 3 ? 'Ideal ≤ 3 días' : '⚠️ > 3 días daña rebrote'}
                                                 </span>
                                             </div>
@@ -732,8 +734,8 @@ export default function Rotations() {
 
                             {/* Columna Derecha: Tarjeta de Resultado Sobrio */}
                             <div style={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                                border: `1px solid ${res.alerta ? 'rgba(255, 152, 0, 0.3)' : 'rgba(76, 175, 80, 0.3)'}`,
+                                backgroundColor: 'var(--surface-subtle)',
+                                border: `1px solid ${res.alerta ? 'var(--warning-soft-border)' : 'var(--success-soft-border)'}`,
                                 borderRadius: '12px',
                                 padding: '20px',
                                 display: 'flex',
@@ -745,7 +747,7 @@ export default function Rotations() {
                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>
                                         {res.etiqueta}
                                     </span>
-                                    <h2 style={{ margin: 0, fontSize: '2.4rem', color: res.alerta ? '#ff9800' : 'var(--success)', fontWeight: 'bold' }}>
+                                    <h2 style={{ margin: 0, fontSize: '2.4rem', color: res.alerta ? 'var(--warning)' : 'var(--success)', fontWeight: 'bold' }}>
                                         {res.valorPrincipal}
                                     </h2>
                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace', display: 'block', marginTop: '6px' }}>
@@ -754,7 +756,7 @@ export default function Rotations() {
                                 </div>
 
                                 <div style={{
-                                    backgroundColor: res.alerta ? 'rgba(255, 152, 0, 0.08)' : 'rgba(76, 175, 80, 0.08)',
+                                    backgroundColor: res.alerta ? 'var(--warning-soft-bg)' : 'var(--success-soft-bg)',
                                     borderRadius: '8px',
                                     padding: '12px',
                                     display: 'flex',
@@ -762,11 +764,11 @@ export default function Rotations() {
                                     alignItems: 'flex-start'
                                 }}>
                                     {res.alerta ? (
-                                        <AlertTriangle size={18} color="#ff9800" style={{ flexShrink: 0, marginTop: '2px' }} />
+                                        <AlertTriangle size={18} color="var(--warning)" style={{ flexShrink: 0, marginTop: '2px' }} />
                                     ) : (
                                         <CheckCircle2 size={18} color="var(--success)" style={{ flexShrink: 0, marginTop: '2px' }} />
                                     )}
-                                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(255,255,255,0.85)', lineHeight: '1.45' }}>
+                                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)', lineHeight: '1.45' }}>
                                         {res.mensajeZootecnico}
                                     </p>
                                 </div>
@@ -791,12 +793,12 @@ export default function Rotations() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {filteredGroupedData.map(rot => (
-                    <div key={rot.id} className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div key={rot.id} className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
                         {/* Header de la Rotación */}
                         <div style={{ 
                             padding: '16px 24px', 
-                            backgroundColor: 'rgba(255,255,255,0.02)', 
-                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            backgroundColor: 'var(--surface-subtle)', 
+                            borderBottom: '1px solid var(--border-subtle)',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center'
@@ -816,11 +818,11 @@ export default function Rotations() {
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <h3 style={{ margin: 0, color: 'white', fontWeight: 600 }}>{rot.nombre}</h3>
+                                        <h3 style={{ margin: 0, color: 'var(--text-main)', fontWeight: 600 }}>{rot.nombre}</h3>
                                         {isAdmin && <Edit2 size={14} style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => { setEditingRot(rot.id); setEditRotNombre(rot.nombre); }} />}
                                     </div>
                                 )}
-                                <span style={{ fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
+                                <span style={{ fontSize: '0.8rem', backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
                                     {rot.pots.length} potreros • {rot.areaTotal.toFixed(2)} Ha
                                 </span>
                                 <button
@@ -837,8 +839,8 @@ export default function Rotations() {
                                         padding: '2px 10px',
                                         fontSize: '0.75rem',
                                         borderRadius: '100px',
-                                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                                        border: '1px solid rgba(76, 175, 80, 0.25)',
+                                        backgroundColor: 'var(--primary-soft-bg)',
+                                        border: '1px solid var(--primary-soft-border)',
                                         color: 'var(--primary-light)',
                                         cursor: 'pointer',
                                         display: 'flex',
@@ -859,20 +861,20 @@ export default function Rotations() {
                                             fontSize: '0.8rem', 
                                             borderRadius: '100px',
                                             backgroundColor: 'var(--primary)',
-                                            color: 'white',
+                                            color: 'var(--on-primary)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: '6px',
                                             textTransform: 'none',
                                             fontWeight: 600,
                                             border: 'none',
-                                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                                            boxShadow: 'var(--shadow-card)'
                                         }}
                                     >
                                         <Plus size={14} /> Potrero
                                     </button>
                                     {role === 'administrador' && (
-                                        <button onClick={() => deleteRotacion(rot.id)} style={{ width: 'auto', padding: '6px', background: 'none', color: 'rgba(244, 67, 54, 0.4)' }} title="Eliminar Rotación">
+                                        <button onClick={() => deleteRotacion(rot.id)} style={{ width: 'auto', padding: '6px', background: 'none', color: 'var(--error)' }} title="Eliminar Rotación">
                                             <Trash2 size={16} />
                                         </button>
                                     )}
@@ -884,7 +886,7 @@ export default function Rotations() {
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                         <th style={{ padding: '12px 24px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>Potrero</th>
                                         <th style={{ padding: '12px 24px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', width: '120px' }}>Área (Ha)</th>
                                         {isAdmin && <th style={{ padding: '12px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', width: '100px' }}></th>}
@@ -895,7 +897,7 @@ export default function Rotations() {
                                         <tr><td colSpan={isAdmin ? 3 : 2} style={{ padding: '20px 24px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>No hay potreros asignados.</td></tr>
                                     ) : (
                                         rot.pots.map(p => (
-                                             <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                             <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                                 <td style={{ padding: '12px 24px' }}>
                                                     {editingPot === p.id ? (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -910,7 +912,7 @@ export default function Rotations() {
                                                             </select>
                                                         </div>
                                                     ) : (
-                                                        <span style={{ fontWeight: 500, color: 'white' }}>{p.nombre}</span>
+                                                        <span style={{ fontWeight: 500, color: 'var(--text-main)' }}>{p.nombre}</span>
                                                     )}
                                                 </td>
                                                 <td style={{ padding: '12px 24px', textAlign: 'right', width: '120px' }}>
@@ -930,8 +932,8 @@ export default function Rotations() {
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: p.id_rotacion || '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.2)' }}><Edit2 size={16} /></button>
-                                                                    {role === 'administrador' && <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.1)' }}><Trash2 size={16} /></button>}
+                                                                    <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: p.id_rotacion || '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--text-muted)' }}><Edit2 size={16} /></button>
+                                                                    {role === 'administrador' && <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--error)' }}><Trash2 size={16} /></button>}
                                                                 </>
                                                             )}
                                                         </div>
@@ -948,12 +950,12 @@ export default function Rotations() {
 
                 {/* Potreros Sin Rotación */}
                 {filteredSinRotacion.length > 0 && (
-                    <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                        <div style={{ padding: '16px 24px', backgroundColor: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px dashed var(--border-strong)' }}>
+                        <div style={{ padding: '16px 24px', backgroundColor: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <Info size={20} color="var(--text-muted)" />
-                                <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Sin Rotación Asignada</h3>
-                                <span style={{ fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
+                                <h3 style={{ margin: 0, color: 'var(--text-secondary)' }}>Sin Rotación Asignada</h3>
+                                <span style={{ fontSize: '0.8rem', backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
                                     {filteredSinRotacion.length} potreros • {areaTotalSin.toFixed(2)} Ha
                                 </span>
                             </div>
@@ -965,9 +967,9 @@ export default function Rotations() {
                                         padding: '6px 16px', 
                                         fontSize: '0.8rem', 
                                         borderRadius: '100px',
-                                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        color: 'white',
+                                        backgroundColor: 'var(--surface-inset)',
+                                        border: '1px solid var(--border-strong)',
+                                        color: 'var(--text-main)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '6px',
@@ -983,7 +985,7 @@ export default function Rotations() {
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <tbody>
                                     {filteredSinRotacion.map(p => (
-                                        <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                        <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                             <td style={{ padding: '12px 24px' }}>
                                                 {editingPot === p.id ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1018,8 +1020,8 @@ export default function Rotations() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.2)' }}><Edit2 size={16} /></button>
-                                                                {role === 'administrador' && <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.1)' }}><Trash2 size={16} /></button>}
+                                                                <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--text-muted)' }}><Edit2 size={16} /></button>
+                                                                {role === 'administrador' && <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--error)' }}><Trash2 size={16} /></button>}
                                                             </>
                                                         )}
                                                     </div>
@@ -1042,7 +1044,7 @@ export default function Rotations() {
                     left: 0, 
                     right: 0, 
                     bottom: 0, 
-                    backgroundColor: 'rgba(0,0,0,0.85)', 
+                    backgroundColor: 'var(--backdrop-scrim)', 
                     backdropFilter: 'blur(6px)', 
                     zIndex: 1000, 
                     display: 'flex', 
@@ -1075,7 +1077,8 @@ export default function Rotations() {
                             <div style={{ 
                                 display: 'grid', 
                                 gridTemplateColumns: '1fr 1fr', 
-                                backgroundColor: 'rgba(255,255,255,0.05)', 
+                                backgroundColor: 'var(--surface-inset)', 
+                                border: '1px solid var(--border-subtle)',
                                 padding: '4px', 
                                 borderRadius: '10px', 
                                 marginBottom: '20px' 
@@ -1088,9 +1091,9 @@ export default function Rotations() {
                                         fontSize: '0.85rem',
                                         borderRadius: '8px',
                                         backgroundColor: potreroModalTab === 'existente' ? 'var(--primary)' : 'transparent',
-                                        color: potreroModalTab === 'existente' ? 'white' : 'var(--text-muted)',
+                                        color: potreroModalTab === 'existente' ? 'var(--on-primary)' : 'var(--text-muted)',
                                         border: 'none',
-                                        boxShadow: potreroModalTab === 'existente' ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
+                                        boxShadow: potreroModalTab === 'existente' ? 'var(--shadow-card)' : 'none',
                                         fontWeight: 600,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1108,9 +1111,9 @@ export default function Rotations() {
                                         fontSize: '0.85rem',
                                         borderRadius: '8px',
                                         backgroundColor: potreroModalTab === 'nuevo' ? 'var(--primary)' : 'transparent',
-                                        color: potreroModalTab === 'nuevo' ? 'white' : 'var(--text-muted)',
+                                        color: potreroModalTab === 'nuevo' ? 'var(--on-primary)' : 'var(--text-muted)',
                                         border: 'none',
-                                        boxShadow: potreroModalTab === 'nuevo' ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
+                                        boxShadow: potreroModalTab === 'nuevo' ? 'var(--shadow-card)' : 'none',
                                         fontWeight: 600,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1145,11 +1148,11 @@ export default function Rotations() {
                                 <div style={{ 
                                     overflowY: 'auto', 
                                     maxHeight: '320px', 
-                                    border: '1px solid rgba(255,255,255,0.08)', 
+                                    border: '1px solid var(--border-subtle)', 
                                     borderRadius: '8px', 
                                     padding: '6px',
                                     marginBottom: '16px',
-                                    backgroundColor: 'rgba(0,0,0,0.2)'
+                                    backgroundColor: 'var(--surface-inset)'
                                 }}>
                                     {availableExistingPotreros.length === 0 ? (
                                         <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
@@ -1186,7 +1189,7 @@ export default function Rotations() {
                                                             padding: '10px 12px',
                                                             borderRadius: '6px',
                                                             cursor: 'pointer',
-                                                            backgroundColor: isSelected ? 'rgba(46, 125, 50, 0.2)' : 'rgba(255,255,255,0.02)',
+                                                            backgroundColor: isSelected ? 'var(--primary-soft-bg)' : 'var(--surface-subtle)',
                                                             border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
                                                             transition: 'all 0.15s ease'
                                                         }}
@@ -1198,7 +1201,7 @@ export default function Rotations() {
                                                                 <Square size={18} color="var(--text-muted)" />
                                                             )}
                                                             <div>
-                                                                <div style={{ fontWeight: 500, color: 'white', fontSize: '0.9rem' }}>
+                                                                <div style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '0.9rem' }}>
                                                                     {p.nombre}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.75rem', color: isUnassigned ? 'var(--primary-light)' : 'var(--text-muted)' }}>

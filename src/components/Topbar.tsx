@@ -1,6 +1,7 @@
-import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, WifiOff, RefreshCw } from 'lucide-react';
+import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, WifiOff, RefreshCw, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useTheme } from '../contexts/ThemeContext';
 import NotificationCenter from './NotificationCenter';
 import './Topbar.css';
 
@@ -18,6 +19,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         conteoPendienteTotal,
         sincronizarTodo
     } = useConnection();
+    const { isSunMode, toggleTheme } = useTheme();
 
     // Disparar sincronización manual
     const handleSync = async () => {
@@ -100,6 +102,16 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                 )}
 
                 <NotificationCenter />
+
+                <button
+                    type="button"
+                    className="topbar-theme-btn"
+                    onClick={toggleTheme}
+                    aria-label={isSunMode ? 'Cambiar a modo oscuro' : 'Activar modo sol'}
+                    title={isSunMode ? 'Modo oscuro' : 'Modo sol'}
+                >
+                    {isSunMode ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
+                </button>
 
                 <div className="topbar-user">
                     <div className="topbar-avatar" title={getUserDisplay()}>

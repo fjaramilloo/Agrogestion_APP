@@ -370,7 +370,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
             <FileSpreadsheet size={24} color="var(--secondary)" />
             <h2 style={{ margin: 0 }}>Informe de Inventario por potreros</h2>
           </div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', padding: '4px' }}>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', padding: '4px', width: 'auto', boxShadow: 'none' }}>
             <X size={24} />
           </button>
         </div>
@@ -389,13 +389,13 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
             <>
                 <div style={{ 
                     overflowX: 'auto', 
-                    background: 'rgba(0,0,0,0.2)', 
+                    background: 'var(--surface-inset)', 
                     borderRadius: '12px', 
-                    border: '1px solid rgba(255,255,255,0.05)'
+                    border: '1px solid var(--border-subtle)'
                 }}>
                     <table style={{ width: '100%', minWidth: '750px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                     <thead>
-                        <tr style={{ borderBottom: '2px solid rgba(76, 175, 80, 0.3)' }}>
+                        <tr style={{ borderBottom: '2px solid var(--primary-soft-border)' }}>
                             <th style={{ textAlign: 'left', padding: '12px 10px', color: 'var(--primary-light)', fontWeight: 700 }}>Rotación</th>
                             <th style={{ textAlign: 'left', padding: '12px 10px', fontWeight: 700 }}>Potrero</th>
                             {marcas.map(m => (
@@ -411,14 +411,14 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                     <tbody>
                         {reportData.map((row, idx) => (
                             <tr key={idx} style={{ 
-                                borderBottom: '1px solid rgba(255,255,255,0.05)', 
-                                background: isTotal(row) ? 'rgba(76, 175, 80, 0.1)' : 'transparent',
+                                borderBottom: '1px solid var(--border-subtle)', 
+                                background: isTotal(row) ? 'var(--primary-soft-bg)' : 'transparent',
                                 fontWeight: isTotal(row) ? 700 : 400
                             }}>
                                 <td style={{ padding: '10px', color: isTotal(row) ? 'var(--primary-light)' : 'inherit' }}>{row['Rotación']}</td>
                                 <td style={{ padding: '10px' }}>{row['Potrero']}</td>
                                 {marcas.map(m => (
-                                    <td key={m} style={{ textAlign: 'center', padding: '10px', color: row[m] > 0 ? 'white' : 'rgba(255,255,255,0.2)' }}>
+                                    <td key={m} style={{ textAlign: 'center', padding: '10px', color: row[m] > 0 ? 'var(--text-main)' : 'var(--text-faint)' }}>
                                         {row[m] || '-'}
                                     </td>
                                 ))}
@@ -457,9 +457,9 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
                             style={{ 
                                 display: 'flex', alignItems: 'center', gap: '8px',
                                 padding: '10px 20px', borderRadius: '10px', cursor: 'pointer',
-                                background: 'rgba(239, 83, 80, 0.15)', 
-                                border: '1px solid rgba(239, 83, 80, 0.3)', 
-                                color: '#EF5350', fontWeight: 600, fontSize: '0.9rem'
+                                background: 'var(--error-soft-bg)', 
+                                border: '1px solid var(--error-soft-border)', 
+                                color: 'var(--error)', fontWeight: 600, fontSize: '0.9rem', width: 'auto', boxShadow: 'none'
                             }}
                         >
                             <FileText size={18} /> Descargar PDF

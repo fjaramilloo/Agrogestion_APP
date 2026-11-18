@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ConnectionProvider } from './contexts/ConnectionContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Topbar from './components/Topbar';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
@@ -73,8 +74,8 @@ const PantallaCargando = ({ fullScreen = false }: { fullScreen?: boolean }) => {
               padding: '10px 18px',
               borderRadius: '10px',
               border: '1px solid var(--primary)',
-              backgroundColor: 'rgba(46, 125, 50, 0.25)',
-              color: '#fff',
+              backgroundColor: 'var(--primary)',
+              color: 'var(--on-primary)',
               fontWeight: 700,
               fontSize: '0.85rem',
               cursor: 'pointer'
@@ -322,20 +323,22 @@ const AgroBotConSesion = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <ConnectionProvider>
-        <Router>
-          <Suspense fallback={<PantallaCargando fullScreen />}>
-            <AppRoutes />
-          </Suspense>
-          <VersionNotifier />
-          <SyncSummaryModal />
-          <Suspense fallback={null}>
-            <AgroBotConSesion />
-          </Suspense>
-        </Router>
-      </ConnectionProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ConnectionProvider>
+          <Router>
+            <Suspense fallback={<PantallaCargando fullScreen />}>
+              <AppRoutes />
+            </Suspense>
+            <VersionNotifier />
+            <SyncSummaryModal />
+            <Suspense fallback={null}>
+              <AgroBotConSesion />
+            </Suspense>
+          </Router>
+        </ConnectionProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

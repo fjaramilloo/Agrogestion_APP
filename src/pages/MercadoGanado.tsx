@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import {
     TrendingUp,
     TrendingDown,
@@ -386,6 +387,10 @@ export default function MercadoGanado() {
     );
     const whatsappLink = `https://wa.me/fedejaramilloo?text=${whatsappMessage}`;
 
+    const { theme } = useTheme();
+    const accentPurple = theme === 'light' ? '#7c3aed' : '#c084fc';
+    const accentPurpleFill = theme === 'light' ? '#6d28d9' : '#a78bfa';
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', color: 'var(--primary-light)' }}>
@@ -402,9 +407,9 @@ export default function MercadoGanado() {
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                         <div style={{ background: 'rgba(124, 58, 237, 0.12)', border: '1px solid rgba(124, 58, 237, 0.3)', borderRadius: '12px', padding: '8px', display: 'flex' }}>
-                            <TrendingUp size={24} color="#a78bfa" />
+                            <TrendingUp size={24} color={accentPurpleFill} />
                         </div>
-                        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, color: 'white' }}>Monitor de Mercado Ganadero</h1>
+                        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-main)' }}>Monitor de Mercado Ganadero</h1>
                     </div>
                     <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                         Precios de referencia de las principales subastas del país y tendencias del 2026.
@@ -412,11 +417,11 @@ export default function MercadoGanado() {
                 </div>
 
                 {fechaUltimoBoletin && (
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <Calendar size={16} color="#a78bfa" />
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)', borderRadius: '12px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Calendar size={16} color={accentPurpleFill} />
                         <div>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Boletín Vigente</div>
-                            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'white' }}>{fechaUltimoBoletin}</div>
+                            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>{fechaUltimoBoletin}</div>
                         </div>
                     </div>
                 )}
@@ -425,21 +430,21 @@ export default function MercadoGanado() {
             {/* Banner Informativo de Modo Sin Conexión */}
             {isOfflineData && (
                 <div style={{
-                    backgroundColor: 'rgba(234, 179, 8, 0.12)',
-                    border: '1px solid rgba(234, 179, 8, 0.35)',
+                    backgroundColor: 'var(--warning-soft-bg)',
+                    border: '1px solid var(--warning-soft-border)',
                     borderRadius: '12px',
                     padding: '12px 18px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px',
-                    color: '#FEF08A',
+                    color: 'var(--warning)',
                     fontSize: '0.85rem',
                     marginBottom: '24px'
                 }}>
-                    <WifiOff size={20} color="#EAB308" style={{ flexShrink: 0 }} />
+                    <WifiOff size={20} color="var(--warning)" style={{ flexShrink: 0 }} />
                     <div>
                         <strong>Modo Sin Conexión activo:</strong> Estás consultando los precios del último boletín guardado en tu dispositivo {offlineSyncDate ? `(${offlineSyncDate})` : ''}.
-                        <div style={{ fontSize: '0.8rem', color: '#FDE047', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                             Las comparativas, relaciones de reposición y la estimación del valor de tu hato se calcularon con estos datos almacenados.
                         </div>
                     </div>
@@ -460,10 +465,13 @@ export default function MercadoGanado() {
                         minWidth: '220px',
                         padding: '8px 32px 8px 12px',
                         borderRadius: '8px',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        background: 'rgba(30, 30, 30, 0.8) url("data:image/svg+xml;utf8,<svg fill=\'%23c084fc\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>") no-repeat right 8px center',
+                        border: '1px solid var(--border-input)',
+                        backgroundColor: 'var(--bg-input)',
+                        backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='${theme === 'light' ? '%236d28d9' : '%23c084fc'}' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 8px center',
                         backgroundSize: '20px',
-                        color: 'white',
+                        color: 'var(--text-main)',
                         fontSize: '0.85rem',
                         fontWeight: 600,
                         cursor: 'pointer',
@@ -487,16 +495,16 @@ export default function MercadoGanado() {
 
             {/* Banner Informativo Demo */}
             {plan === 'demo' && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', background: 'rgba(255, 179, 0, 0.08)', border: '1px solid rgba(255, 179, 0, 0.25)', borderRadius: '12px', padding: '16px 20px', marginBottom: '28px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Lock size={20} color="#ffb74d" style={{ flexShrink: 0 }} />
-                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#ffb74d' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', background: 'var(--secondary-soft-bg)', border: '1px solid var(--secondary-soft-border)', borderRadius: '12px', padding: '16px 20px', marginBottom: '28px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 260px' }}>
+                        <Lock size={20} color="var(--secondary)" style={{ flexShrink: 0 }} />
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--secondary)' }}>
                             Estás en el <strong>Plan Demo</strong>. Solo tienes acceso al Promedio Nacional. Actualiza tu plan para ver los precios regionales de Puerto Berrío, Montería, Aguachica, Chigorodó y Medellín.
                         </p>
                     </div>
                     <button 
                         onClick={() => { setUpsellTargetPlan('finca'); setShowUpsell(true); }}
-                        style={{ background: '#ffb74d', border: 'none', color: '#1a1a2e', padding: '8px 16px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                        style={{ background: '#f59e0b', border: 'none', color: '#111812', padding: '8px 16px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', width: 'auto' }}
                     >
                         Actualizar Plan <ArrowUpRight size={14} />
                     </button>
@@ -514,8 +522,9 @@ export default function MercadoGanado() {
                         <div 
                             key={catKey}
                             style={{
-                                background: 'rgba(30, 30, 30, 0.65)',
-                                border: '1px solid rgba(255,255,255,0.06)',
+                                background: 'var(--bg-card)',
+                                border: '1px solid var(--border-subtle)',
+                                boxShadow: 'var(--shadow-card)',
                                 borderRadius: '14px',
                                 padding: '18px',
                                 display: 'flex',
@@ -536,7 +545,7 @@ export default function MercadoGanado() {
                             {/* Valor Precio */}
                             <div style={{ margin: '12px 0 6px' }}>
                                 {precio > 0 ? (
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'white', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                                         ${precio.toLocaleString('es-CO')}
                                         <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ kg</span>
                                     </div>
@@ -563,10 +572,10 @@ export default function MercadoGanado() {
                                                         ? 'var(--error)' 
                                                         : 'var(--text-muted)',
                                                 background: varPct > 0 
-                                                    ? 'rgba(76, 175, 80, 0.1)' 
+                                                    ? 'var(--success-soft-bg)' 
                                                     : varPct < 0 
-                                                        ? 'rgba(244, 67, 54, 0.1)' 
-                                                        : 'rgba(255,255,255,0.04)',
+                                                        ? 'var(--error-soft-bg)' 
+                                                        : 'var(--surface-subtle)',
                                                 padding: '3px 8px',
                                                 borderRadius: '6px'
                                             }}
@@ -602,10 +611,10 @@ export default function MercadoGanado() {
                 
                 {/* Panel de Ratios y Métricas */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div style={{ background: 'rgba(30,30,30,0.7)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', padding: '24px' }}>
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)', borderRadius: '16px', padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                            <Scale size={18} color="#a78bfa" />
-                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'white' }}>Relación de Reemplazo</h3>
+                            <Scale size={18} color={accentPurpleFill} />
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>Relación de Reemplazo</h3>
                         </div>
                         
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 0, marginBottom: '20px' }}>
@@ -614,10 +623,10 @@ export default function MercadoGanado() {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             {/* Ratio 1 */}
-                            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '10px', padding: '12px 16px' }}>
+                            <div style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '12px 16px' }}>
                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>Levante / Gordo (ML/MG)</div>
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#38bdf8' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--info)' }}>
                                         {ratiosReemplazo.flacoGordo > 0 ? ratiosReemplazo.flacoGordo.toFixed(2) : 'N/A'}
                                     </div>
                                     {ratiosReemplazo.flacoGordo > 0 && (
@@ -629,10 +638,10 @@ export default function MercadoGanado() {
                             </div>
 
                             {/* Ratio 2 */}
-                            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '10px', padding: '12px 16px' }}>
+                            <div style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '12px 16px' }}>
                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>Media Ceba / Gordo (MC/MG)</div>
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#c084fc' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: accentPurple }}>
                                         {ratiosReemplazo.cebaGordo > 0 ? ratiosReemplazo.cebaGordo.toFixed(2) : 'N/A'}
                                     </div>
                                     {ratiosReemplazo.cebaGordo > 0 && (
@@ -645,8 +654,8 @@ export default function MercadoGanado() {
                         </div>
 
                         {/* Consejo AgroBot */}
-                        <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(124, 58, 237, 0.06)', border: '1px solid rgba(124, 58, 237, 0.15)', borderRadius: '8px', display: 'flex', gap: '10px' }}>
-                            <Info size={16} color="#a78bfa" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.2)', borderRadius: '8px', display: 'flex', gap: '10px' }}>
+                            <Info size={16} color={accentPurpleFill} style={{ flexShrink: 0, marginTop: '2px' }} />
                             <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
                                 Un ratio de reemplazo inferior a <strong>1.00</strong> indica que estás comprando el kilo flaco a menor precio que el terminado, aumentando el margen zootécnico del ciclo.
                             </p>
@@ -656,8 +665,9 @@ export default function MercadoGanado() {
 
                 {/* Gráfica de Historial — en móvil va debajo (order: 2) */}
                 <div style={{
-                    background: 'rgba(30,30,30,0.7)',
-                    border: '1px solid rgba(255,255,255,0.06)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    boxShadow: 'var(--shadow-card)',
                     borderRadius: '16px',
                     padding: '24px',
                     minHeight: isMobile ? 'auto' : '380px',
@@ -667,21 +677,21 @@ export default function MercadoGanado() {
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                         <div>
-                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'white' }}>Historial y Tendencia</h3>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>Historial y Tendencia</h3>
                             <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Visualiza la fluctuación de los precios en el transcurso del año.</p>
                         </div>
 
                         {/* Tabs Chart */}
-                        <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.04)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ display: 'flex', gap: '2px', background: 'var(--surface-inset)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                             <button
                                 onClick={() => setActiveTabChart('semanal')}
-                                style={{ background: activeTabChart === 'semanal' ? 'rgba(255,255,255,0.08)' : 'transparent', border: 'none', color: activeTabChart === 'semanal' ? 'white' : 'var(--text-muted)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                                style={{ background: activeTabChart === 'semanal' ? 'var(--bg-card)' : 'transparent', border: 'none', color: activeTabChart === 'semanal' ? 'var(--text-main)' : 'var(--text-muted)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', boxShadow: activeTabChart === 'semanal' ? 'var(--shadow-card)' : 'none' }}
                             >
                                 Semanas
                             </button>
                             <button
                                 onClick={() => setActiveTabChart('mensual')}
-                                style={{ background: activeTabChart === 'mensual' ? 'rgba(255,255,255,0.08)' : 'transparent', border: 'none', color: activeTabChart === 'mensual' ? 'white' : 'var(--text-muted)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                                style={{ background: activeTabChart === 'mensual' ? 'var(--bg-card)' : 'transparent', border: 'none', color: activeTabChart === 'mensual' ? 'var(--text-main)' : 'var(--text-muted)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', boxShadow: activeTabChart === 'mensual' ? 'var(--shadow-card)' : 'none' }}
                             >
                                 Mensual
                             </button>
@@ -699,10 +709,13 @@ export default function MercadoGanado() {
                                 minWidth: '180px',
                                 padding: '6px 28px 6px 10px',
                                 borderRadius: '8px',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                background: 'rgba(30, 30, 30, 0.8) url("data:image/svg+xml;utf8,<svg fill=\'%23a78bfa\' height=\'20\' viewBox=\'0 0 24 24\' width=\'20\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>") no-repeat right 6px center',
+                                border: '1px solid var(--border-input)',
+                                backgroundColor: 'var(--bg-input)',
+                                backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='${theme === 'light' ? '%236d28d9' : '%23a78bfa'}' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: 'right 6px center',
                                 backgroundSize: '18px',
-                                color: 'white',
+                                color: 'var(--text-main)',
                                 fontSize: '0.8rem',
                                 fontWeight: 600,
                                 cursor: 'pointer',
@@ -725,19 +738,19 @@ export default function MercadoGanado() {
                         {/* Gráfico Real */}
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" style={{ fontSize: '0.7rem' }} />
-                                <YAxis domain={['auto', 'auto']} stroke="rgba(255,255,255,0.3)" style={{ fontSize: '0.7rem' }} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                                <XAxis dataKey="name" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 11 }} />
+                                <YAxis domain={['auto', 'auto']} stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 11 }} />
                                 <RechartsTooltip 
-                                    contentStyle={{ background: '#1c1c2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '0.8rem' }}
+                                    contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: '8px', fontSize: '0.8rem', color: 'var(--text-main)' }}
                                     labelStyle={{ color: 'var(--text-muted)' }}
                                 />
-                                <Legend wrapperStyle={{ fontSize: '0.72rem', paddingTop: '10px' }} />
+                                <Legend wrapperStyle={{ fontSize: '0.72rem', paddingTop: '10px', color: 'var(--text-secondary)' }} />
                                 <Line 
                                     type="monotone" 
                                     dataKey={selectedCategoryChart} 
                                     name={CATEGORY_NAMES[selectedCategoryChart]} 
-                                    stroke={CATEGORY_COLORS[selectedCategoryChart] || '#a78bfa'} 
+                                    stroke={CATEGORY_COLORS[selectedCategoryChart] || accentPurpleFill} 
                                     strokeWidth={2} 
                                     dot={{ r: 4 }} 
                                     activeDot={{ r: 6 }} 
@@ -749,21 +762,21 @@ export default function MercadoGanado() {
             </div>
 
             {/* SECCIÓN VALORACIÓN DE INVENTARIO VIVO (Premium) */}
-            <div style={{ background: 'rgba(30,30,30,0.7)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', overflow: 'hidden' }}>
-                <div style={{ padding: '24px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)', borderRadius: '16px', overflow: 'hidden' }}>
+                <div style={{ padding: '24px 28px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ background: 'rgba(168, 85, 247, 0.12)', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: '10px', padding: '8px', display: 'flex' }}>
-                            <Layers size={20} color="#c084fc" />
+                            <Layers size={20} color={accentPurple} />
                         </div>
                         <div>
-                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'white' }}>Valoración de Inventario Ganadero</h3>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>Valoración de Inventario Ganadero</h3>
                             <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Cálculo patrimonial estimado basado en los kilos registrados en tu finca.</p>
                         </div>
                     </div>
                     {licenciaInfo?.licencia === 'premium' && (
-                        <div style={{ background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.4)', borderRadius: '10px', padding: '10px 18px', textAlign: 'right' }}>
-                            <div style={{ fontSize: '0.65rem', color: '#c084fc', fontWeight: 800, textTransform: 'uppercase', marginBottom: '2px' }}>Valor Estimado del Inventario Vivo</div>
-                            <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'white' }}>
+                        <div style={{ background: 'rgba(168, 85, 247, 0.12)', border: '1px solid rgba(168, 85, 247, 0.35)', borderRadius: '10px', padding: '10px 18px', textAlign: 'right' }}>
+                            <div style={{ fontSize: '0.65rem', color: accentPurple, fontWeight: 800, textTransform: 'uppercase', marginBottom: '2px' }}>Valor Estimado del Inventario Vivo</div>
+                            <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-main)' }}>
                                 $ {valoracionPatrimonial.totalGeneral.toLocaleString('es-CO')} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>COP</span>
                             </div>
                         </div>
@@ -773,17 +786,17 @@ export default function MercadoGanado() {
                 <div style={{ position: 'relative' }}>
                     {licenciaInfo?.licencia !== 'premium' ? (
                         /* Overlay de Bloqueo Premium */
-                        <div style={{ padding: '48px 24px', textAlign: 'center', background: 'linear-gradient(180deg, rgba(30,30,30,0.5) 0%, rgba(20,20,20,0.9) 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ padding: '48px 24px', textAlign: 'center', background: 'var(--surface-subtle)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: '50%', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                                <Lock size={26} color="#c084fc" />
+                                <Lock size={26} color={accentPurple} />
                             </div>
-                            <h4 style={{ margin: '0 0 8px', fontSize: '1.1rem', fontWeight: 700, color: 'white' }}>Valoración de Inventario en Finca</h4>
+                            <h4 style={{ margin: '0 0 8px', fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>Valoración de Inventario en Finca</h4>
                             <p style={{ margin: '0 0 24px', fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '480px', lineHeight: '1.4' }}>
                                 Estima automáticamente el valor en pesos del inventario vivo de tu finca multiplicando los kilos totales actuales de tu ganado por los precios vigentes de la subasta seleccionada.
                             </p>
                             <button
                                 onClick={() => { setUpsellTargetPlan('premium'); setShowUpsell(true); }}
-                                style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none', color: 'white', padding: '12px 24px', borderRadius: '10px', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(124, 58, 237, 0.3)' }}
+                                style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none', color: '#ffffff', padding: '12px 24px', borderRadius: '10px', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(124, 58, 237, 0.3)' }}
                             >
                                 Desbloquear con Plan Premium <ChevronRight size={16} />
                             </button>
@@ -791,9 +804,9 @@ export default function MercadoGanado() {
                     ) : (
                         /* Tabla Real de Valoración */
                         <div style={{ padding: '24px', overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', color: 'white', fontSize: '0.85rem' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-main)', fontSize: '0.85rem' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>
+                                    <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
                                         <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Categoría</th>
                                         <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600 }}>Cabezas</th>
                                         <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Kilos Totales</th>
@@ -812,23 +825,23 @@ export default function MercadoGanado() {
                                         valoracionPatrimonial.items
                                             .filter(item => item.cant > 0)
                                             .map(item => (
-                                                <tr key={item.category} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', background: 'rgba(255,255,255,0.01)' }}>
+                                                <tr key={item.category} style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-inset)' }}>
                                                     <td style={{ padding: '12px', fontWeight: 600, color: 'var(--primary-light)' }}>{CATEGORY_NAMES[item.category]}</td>
                                                     <td style={{ padding: '12px', textAlign: 'center' }}>{item.cant} cabezas</td>
                                                     <td style={{ padding: '12px', textAlign: 'right' }}>{item.totalPeso.toLocaleString('es-CO')} kg</td>
                                                     <td style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)' }}>${item.precioKg.toLocaleString('es-CO')}</td>
-                                                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'white' }}>
+                                                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-main)' }}>
                                                         ${item.subtotal.toLocaleString('es-CO')}
                                                     </td>
                                                 </tr>
                                             ))
                                     )}
-                                    <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(168, 85, 247, 0.05)', fontWeight: 800 }}>
+                                    <tr style={{ borderTop: '2px solid var(--border-strong)', background: 'rgba(168, 85, 247, 0.08)', fontWeight: 800 }}>
                                         <td style={{ padding: '16px 12px' }}>Total Consolidado</td>
                                         <td style={{ padding: '16px 12px', textAlign: 'center' }}>{valoracionPatrimonial.totalCabezas} cabezas</td>
                                         <td style={{ padding: '16px 12px', textAlign: 'right' }}>{valoracionPatrimonial.totalKilos.toLocaleString('es-CO')} kg</td>
                                         <td style={{ padding: '16px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>—</td>
-                                        <td style={{ padding: '16px 12px', textAlign: 'right', color: '#c084fc', fontSize: '1.05rem' }}>
+                                        <td style={{ padding: '16px 12px', textAlign: 'right', color: accentPurple, fontSize: '1.05rem' }}>
                                             ${valoracionPatrimonial.totalGeneral.toLocaleString('es-CO')}
                                         </td>
                                     </tr>
@@ -841,12 +854,12 @@ export default function MercadoGanado() {
 
             {/* === MODAL UPSELL === */}
             {showUpsell && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                    <div style={{ background: '#1a1a2e', border: '1px solid rgba(168, 85, 247, 0.4)', borderRadius: '20px', padding: '36px', maxWidth: '480px', width: '100%', textAlign: 'center', boxShadow: '0 10px 30px rgba(124, 58, 237, 0.2)' }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'var(--backdrop-scrim)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(168, 85, 247, 0.45)', borderRadius: '20px', padding: '36px', maxWidth: '480px', width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-popover)' }}>
                         <div style={{ background: 'rgba(168, 85, 247, 0.15)', borderRadius: '50%', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                            <Award size={32} color="#c084fc" />
+                            <Award size={32} color={accentPurple} />
                         </div>
-                        <h3 style={{ margin: '0 0 10px', color: 'white', fontSize: '1.4rem' }}>
+                        <h3 style={{ margin: '0 0 10px', color: 'var(--text-main)', fontSize: '1.4rem' }}>
                             Desbloquea el {upsellTargetPlan === 'premium' ? 'Plan Premium' : 'Plan Finca'}
                         </h3>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.5', margin: '0 0 28px' }}>
@@ -859,13 +872,13 @@ export default function MercadoGanado() {
                                 href={whatsappLink}
                                 target="_blank"
                                 rel="noreferrer"
-                                style={{ textDecoration: 'none', background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none', color: 'white', padding: '12px 24px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                style={{ textDecoration: 'none', background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none', color: '#ffffff', padding: '12px 24px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                             >
                                 <MessageCircle size={18} /> Solicitar Activación vía WhatsApp
                             </a>
                             <button
                                 onClick={() => setShowUpsell(false)}
-                                style={{ padding: '10px 24px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '0.88rem' }}
+                                style={{ padding: '10px 24px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-subtle)', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 600, fontSize: '0.88rem' }}
                             >
                                 Regresar
                             </button>

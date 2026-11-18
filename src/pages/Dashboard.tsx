@@ -873,8 +873,8 @@ export default function Dashboard() {
 
             {isBloqueado && (
                 <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    background: 'var(--error-soft-bg)',
+                    border: '1px solid var(--error-soft-border)',
                     borderRadius: '12px',
                     padding: '16px 20px',
                     marginBottom: '24px',
@@ -885,15 +885,15 @@ export default function Dashboard() {
                     flexWrap: 'wrap'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
                                     <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción a AgroGestión ha vencido. Tus métricas, reportes históricos e inventario están protegidos y visibles, pero la exportación de informes a Excel y el registro de nuevas operaciones se encuentran bloqueados hasta renovar el plan.
                                 </>
                             ) : (
                                 <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). La exportación de datos y la gestión operativa se encuentran bloqueadas hasta actualizar tu plan.
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). La exportación de datos y la gestión operativa se encuentran bloqueadas hasta actualizar tu plan.
                                 </>
                             )}
                         </div>
@@ -905,8 +905,8 @@ export default function Dashboard() {
                             width: 'auto',
                             padding: '8px 16px',
                             fontSize: '0.85rem',
-                            backgroundColor: '#ef4444',
-                            color: 'white',
+                            backgroundColor: 'var(--error)',
+                            color: 'var(--on-primary)',
                             border: 'none',
                             borderRadius: '8px',
                             fontWeight: 700,
@@ -929,13 +929,13 @@ export default function Dashboard() {
                             <Home size={48} aria-hidden="true" />
                         </div>
                         <div className="dashboard-finca-meta">
-                            <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'white', marginBottom: '8px' }}>{fincaInfo.nombre}</h2>
+                            <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-main)', marginBottom: '8px' }}>{fincaInfo.nombre}</h2>
                             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
                                     <MapPin size={18} aria-hidden="true" /> {fincaInfo.municipio ? `${fincaInfo.municipio} (${fincaInfo.ubicacion})` : fincaInfo.ubicacion}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                                    <Activity size={18} aria-hidden="true" /> <span style={{ color: 'white', fontWeight: 'bold' }}>{fincaInfo.proposito}</span>
+                                    <Activity size={18} aria-hidden="true" /> <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{fincaInfo.proposito}</span>
                                 </div>
                             </div>
                         </div>
@@ -972,11 +972,11 @@ export default function Dashboard() {
                     {/* KPI Widgets */}
                     <div className="dashboard-kpi-grid">
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 152, 0, 0.15)', color: 'var(--warning)' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'var(--warning-soft-bg)', color: 'var(--warning)' }}>
                                 <Timer size={32} />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Levante</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>Levante</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tiempo Promedio</span>
                                     <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{stats.promedioLevanteMeses.toFixed(1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>meses</span></span>
@@ -987,12 +987,11 @@ export default function Dashboard() {
                                         fontWeight: 'bold', 
                                         fontSize: '1.25rem', 
                                         whiteSpace: 'nowrap',
-                                        color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? 'var(--warning)' : (stats.gmpLevante <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
-                                        textShadow: (stats.gmpLevante > umbralMedio && stats.gmpLevante <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                        color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? 'var(--warning)' : (stats.gmpLevante <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))
                                     }}>{toDisplayValue(stats.gmpLevante, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>{getUnidadLabel(modoGanancia)}</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.8 }}>
                                         <span style={{ fontSize: '0.75rem', fontStyle: 'italic' }}>Meta Mínima</span>
                                         <span style={{ fontSize: '0.75rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{toDisplayValue(stats.metaMinima, modoGanancia).toFixed(1)} <span style={{ fontSize: '0.68rem', fontWeight: 'normal' }}>{getUnidadLabel(modoGanancia)}</span></span>
                                     </div>
@@ -1001,11 +1000,11 @@ export default function Dashboard() {
                         </div>
 
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(76, 175, 80, 0.15)', color: 'var(--success)' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'var(--success-soft-bg)', color: 'var(--success)' }}>
                                 <TrendingUp size={32} />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Ceba</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>Ceba</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tiempo Promedio</span>
                                     <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{stats.promedioCebaMeses.toFixed(1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>meses</span></span>
@@ -1016,12 +1015,11 @@ export default function Dashboard() {
                                         fontWeight: 'bold', 
                                         fontSize: '1.25rem', 
                                         whiteSpace: 'nowrap',
-                                        color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? 'var(--warning)' : (stats.gmpCeba <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
-                                        textShadow: (stats.gmpCeba > umbralMedio && stats.gmpCeba <= umbralAlto) ? '0 0 1px rgba(255,255,255,0.3)' : 'none'
+                                        color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? 'var(--warning)' : (stats.gmpCeba <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))
                                     }}>{toDisplayValue(stats.gmpCeba, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>{getUnidadLabel(modoGanancia)}</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.8 }}>
                                         <span style={{ fontSize: '0.75rem', fontStyle: 'italic' }}>Meta Mínima</span>
                                         <span style={{ fontSize: '0.75rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{toDisplayValue(stats.metaMinima, modoGanancia).toFixed(1)} <span style={{ fontSize: '0.68rem', fontWeight: 'normal' }}>{getUnidadLabel(modoGanancia)}</span></span>
                                     </div>
@@ -1031,11 +1029,11 @@ export default function Dashboard() {
 
 
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(156, 39, 176, 0.15)', color: '#BA68C8' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(147, 51, 234, 0.14)', color: '#9333ea' }}>
                                 <MapPin size={32} />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Rendimiento Ha</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>Rendimiento Ha</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Kg / Ha / Año</span>
                                     <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.produccionCarneHaAno)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>kg</span></span>
@@ -1048,11 +1046,11 @@ export default function Dashboard() {
                         </div>
 
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', color: 'white' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)' }}>
                                 <Scale size={32} />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Pesos Promedio</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>Pesos Promedio</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Entrada</span>
                                     <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.pesoPromedioEntrada)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>kg</span></span>
@@ -1070,8 +1068,8 @@ export default function Dashboard() {
                         <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
                             <div style={{ 
                                 padding: '16px 24px', 
-                                borderBottom: '1px solid rgba(255,255,255,0.05)', 
-                                background: 'rgba(255,255,255,0.02)',
+                                borderBottom: '1px solid var(--border-subtle)', 
+                                background: 'var(--surface-subtle)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
@@ -1089,8 +1087,8 @@ export default function Dashboard() {
                                     title="Personalizar rangos de peso según el modelo de esta finca"
                                     style={{
                                         width: 'auto',
-                                        background: 'rgba(255,255,255,0.04)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        background: 'var(--surface-subtle)',
+                                        border: '1px solid var(--border-strong)',
                                         borderRadius: '6px',
                                         color: 'var(--text-muted)',
                                         fontSize: '0.75rem',
@@ -1098,7 +1096,8 @@ export default function Dashboard() {
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '6px',
-                                        cursor: 'pointer'
+                                        cursor: 'pointer',
+                                        boxShadow: 'none'
                                     }}
                                 >
                                     <SlidersHorizontal size={13} aria-hidden="true" />
@@ -1111,8 +1110,8 @@ export default function Dashboard() {
                                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                             <thead>
                                                 <tr>
-                                                    <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>Peso Promedio Estimado</th>
-                                                    <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)', textAlign: 'right' }}>Nro de Animales</th>
+                                                    <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.8rem', borderBottom: '1px solid var(--border-subtle)' }}>Peso Promedio Estimado</th>
+                                                    <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.8rem', borderBottom: '1px solid var(--border-subtle)', textAlign: 'right' }}>Nro de Animales</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1160,7 +1159,7 @@ export default function Dashboard() {
                                                     <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&gt; {cortesPeso.corte3} kg</td>
                                                     <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango4}</td>
                                                 </tr>
-                                                <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
+                                                <tr style={{ borderTop: '2px solid var(--border-strong)', background: 'var(--surface-subtle)' }}>
                                                     <td style={{ padding: '12px 12px', fontWeight: 'bold', fontSize: '1rem' }}>Total General</td>
                                                     <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.totalAnimales}</td>
                                                 </tr>
@@ -1177,7 +1176,7 @@ export default function Dashboard() {
                                         style={{ 
                                             cursor: proximosDespachos ? 'pointer' : 'default'
                                         }}
-                                        onMouseOver={(e) => { if(proximosDespachos) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)'; } }}
+                                        onMouseOver={(e) => { if(proximosDespachos) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = 'var(--shadow-card)'; } }}
                                         onMouseOut={(e) => { if(proximosDespachos) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; } }}
                                     >
                                         <div style={{ color: 'var(--primary-light)', fontSize: '0.85rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -1186,13 +1185,13 @@ export default function Dashboard() {
                                         
                                         {proximosDespachos ? (
                                             <>
-                                                <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'white', marginBottom: '12px', lineHeight: '1.2' }}>
+                                                <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '12px', lineHeight: '1.2' }}>
                                                     Lote: <span style={{ color: 'var(--primary-light)' }}>{proximosDespachos.nombre}</span>
                                                 </div>
-                                                <div style={{ fontSize: '1.05rem', lineHeight: '1.6', color: 'rgba(255,255,255,0.9)' }}>
-                                                    Tienes <b style={{ color: 'white', fontSize: '1.2rem' }}>{proximosDespachos.listos}</b> animales de más de {cortesPeso.corte3} kg. 
+                                                <div style={{ fontSize: '1.05rem', lineHeight: '1.6', color: 'var(--text-secondary)' }}>
+                                                    Tienes <b style={{ color: 'var(--text-main)', fontSize: '1.2rem' }}>{proximosDespachos.listos}</b> animales de más de {cortesPeso.corte3} kg. 
                                                     <br />
-                                                    <span style={{ display: 'block', marginTop: '12px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
+                                                    <span style={{ display: 'block', marginTop: '12px', padding: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
                                                         {proximosDespachos.diasFaltantes === 0 
                                                             ? `¡Lote de ${proximosDespachos.cantidad} animales LISTO para despacho!` 
                                                             : `Próximo lote (${proximosDespachos.cantidad} animales): Listos en ${proximosDespachos.diasFaltantes} días (Basado en la ${getModoLabel(modoGanancia)} actual de ${toDisplayValue(proximosDespachos.gmpLote, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)})`
@@ -1222,10 +1221,10 @@ export default function Dashboard() {
                     {/* Centro de Análisis de Rendimiento (Gráfica Unificada) */}
                     <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '32px' }}>
                         {/* Cabecera con Selectores */}
-                        <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+                        <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-subtle)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: isMobile ? '12px' : '20px' }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <h3 style={{ margin: 0, fontSize: isMobile ? '1rem' : '1.4rem', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <h3 style={{ margin: 0, fontSize: isMobile ? '1rem' : '1.4rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <TrendingUp size={isMobile ? 18 : 24} color="var(--primary)" />
                                         {isMobile ? 'Rendimiento Ganadero' : 'Análisis de Rendimiento Ganadero'}
                                     </h3>
@@ -1237,13 +1236,15 @@ export default function Dashboard() {
                                         </p>
                                     )}
                                 </div>
-                                <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '3px' }}>
+                                <div className="dashboard-filter-toggle">
                                     <button 
+                                        type="button"
                                         onClick={() => setFilterTipo('actual')}
                                         className={`btn-toggle ${filterTipo === 'actual' ? 'active' : ''}`}
                                         style={{ padding: isMobile ? '6px 12px' : '8px 16px', fontSize: isMobile ? '0.8rem' : '0.85rem' }}
                                     >Activos</button>
                                     <button 
+                                        type="button"
                                         onClick={() => setFilterTipo('historico')}
                                         className={`btn-toggle ${filterTipo === 'historico' ? 'active' : ''}`}
                                         style={{ padding: isMobile ? '6px 12px' : '8px 16px', fontSize: isMobile ? '0.8rem' : '0.85rem' }}
@@ -1256,31 +1257,31 @@ export default function Dashboard() {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '16px' }}>
                                     {/* Levante */}
                                     <div style={{
-                                        background: 'linear-gradient(135deg, rgba(255,152,0,0.15) 0%, rgba(255,152,0,0.05) 100%)',
-                                        border: '1px solid rgba(255,152,0,0.35)',
+                                        background: 'var(--warning-soft-bg)',
+                                        border: '1px solid var(--warning-soft-border)',
                                         borderRadius: '12px',
                                         padding: '12px 14px',
                                         display: 'flex', flexDirection: 'column', gap: '4px'
                                     }}>
-                                        <span style={{ fontSize: '0.7rem', color: 'rgba(255,152,0,0.8)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>🐄 Levante</span>
-                                        <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffb74d', lineHeight: 1 }}>
+                                        <span style={{ fontSize: '0.7rem', color: 'var(--warning)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>🐄 Levante</span>
+                                        <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--warning)', lineHeight: 1 }}>
                                             {toDisplayValue(stats.gmpLevante, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                         </span>
-                                        <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>{getUnidadLabel(modoGanancia)}</span>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{getUnidadLabel(modoGanancia)}</span>
                                     </div>
                                     {/* Ceba */}
                                     <div style={{
-                                        background: 'linear-gradient(135deg, rgba(76,175,80,0.15) 0%, rgba(76,175,80,0.05) 100%)',
-                                        border: '1px solid rgba(76,175,80,0.35)',
+                                        background: 'var(--success-soft-bg)',
+                                        border: '1px solid var(--success-soft-border)',
                                         borderRadius: '12px',
                                         padding: '12px 14px',
                                         display: 'flex', flexDirection: 'column', gap: '4px'
                                     }}>
-                                        <span style={{ fontSize: '0.7rem', color: 'rgba(76,175,80,0.9)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>🐂 Ceba</span>
-                                        <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#81c784', lineHeight: 1 }}>
+                                        <span style={{ fontSize: '0.7rem', color: 'var(--success)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>🐂 Ceba</span>
+                                        <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>
                                             {toDisplayValue(stats.gmpCeba, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
                                         </span>
-                                        <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>{getUnidadLabel(modoGanancia)}</span>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{getUnidadLabel(modoGanancia)}</span>
                                     </div>
                                 </div>
                             )}
@@ -1292,9 +1293,8 @@ export default function Dashboard() {
                                     display: 'flex',
                                     gap: '6px',
                                     marginTop: '14px',
-                                    borderTop: '1px solid rgba(255,255,255,0.05)',
-                                    paddingTop: '14px',
-                                    background: 'rgba(0,0,0,0.2)',
+                                    background: 'var(--surface-inset)',
+                                    border: '1px solid var(--border-subtle)',
                                     borderRadius: '10px',
                                     padding: '4px',
                                 }}>
@@ -1305,6 +1305,7 @@ export default function Dashboard() {
                                     ] as const).map(tab => (
                                         <button
                                             key={tab.id}
+                                            type="button"
                                             onClick={() => setVistaGrafica(tab.id)}
                                             style={{
                                                 flex: 1,
@@ -1312,15 +1313,18 @@ export default function Dashboard() {
                                                 borderRadius: '8px',
                                                 border: 'none',
                                                 background: vistaGrafica === tab.id
-                                                    ? 'rgba(76, 175, 80, 0.25)'
+                                                    ? 'var(--primary-soft-bg)'
                                                     : 'transparent',
                                                 color: vistaGrafica === tab.id ? 'var(--primary-light)' : 'var(--text-muted)',
                                                 cursor: 'pointer',
                                                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
                                                 fontWeight: vistaGrafica === tab.id ? 700 : 400,
                                                 fontSize: '0.72rem',
+                                                textTransform: 'none',
+                                                letterSpacing: 'normal',
+                                                boxShadow: 'none',
                                                 transition: 'all 0.18s',
-                                                outline: vistaGrafica === tab.id ? '1px solid rgba(76,175,80,0.5)' : 'none',
+                                                outline: vistaGrafica === tab.id ? '1px solid var(--primary-soft-border)' : 'none',
                                             }}
                                         >
                                             <span style={{ fontSize: '1.1rem' }}>{tab.icon}</span>
@@ -1330,14 +1334,15 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 /* === TABS DESKTOP — sin cambios === */
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '24px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px' }}>
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '24px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px' }}>
                                     <button 
+                                        type="button"
                                         onClick={() => setVistaGrafica('mensual')}
                                         style={{ 
-                                            flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s',
-                                            background: vistaGrafica === 'mensual' ? 'rgba(76, 175, 80, 0.15)' : 'transparent',
+                                            flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s', boxShadow: 'none',
+                                            background: vistaGrafica === 'mensual' ? 'var(--primary-soft-bg)' : 'transparent',
                                             border: '1px solid',
-                                            borderColor: vistaGrafica === 'mensual' ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                            borderColor: vistaGrafica === 'mensual' ? 'var(--primary)' : 'var(--border-subtle)',
                                             color: vistaGrafica === 'mensual' ? 'var(--primary-light)' : 'var(--text-muted)',
                                             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: vistaGrafica === 'mensual' ? 'bold' : 'normal'
                                         }}
@@ -1345,12 +1350,13 @@ export default function Dashboard() {
                                         📅 Evolución Mensual
                                     </button>
                                     <button 
+                                        type="button"
                                         onClick={() => setVistaGrafica('pesaje')}
                                         style={{ 
-                                            flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s',
-                                            background: vistaGrafica === 'pesaje' ? 'rgba(76, 175, 80, 0.15)' : 'transparent',
+                                            flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s', boxShadow: 'none',
+                                            background: vistaGrafica === 'pesaje' ? 'var(--primary-soft-bg)' : 'transparent',
                                             border: '1px solid',
-                                            borderColor: vistaGrafica === 'pesaje' ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                            borderColor: vistaGrafica === 'pesaje' ? 'var(--primary)' : 'var(--border-subtle)',
                                             color: vistaGrafica === 'pesaje' ? 'var(--primary-light)' : 'var(--text-muted)',
                                             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: vistaGrafica === 'pesaje' ? 'bold' : 'normal'
                                         }}
@@ -1358,12 +1364,13 @@ export default function Dashboard() {
                                         ⚖️ Por Nro Pesaje
                                     </button>
                                     <button 
+                                        type="button"
                                         onClick={() => setVistaGrafica('rango')}
                                         style={{ 
-                                            flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s',
-                                            background: vistaGrafica === 'rango' ? 'rgba(76, 175, 80, 0.15)' : 'transparent',
+                                            flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s', boxShadow: 'none',
+                                            background: vistaGrafica === 'rango' ? 'var(--primary-soft-bg)' : 'transparent',
                                             border: '1px solid',
-                                            borderColor: vistaGrafica === 'rango' ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                            borderColor: vistaGrafica === 'rango' ? 'var(--primary)' : 'var(--border-subtle)',
                                             color: vistaGrafica === 'rango' ? 'var(--primary-light)' : 'var(--text-muted)',
                                             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: vistaGrafica === 'rango' ? 'bold' : 'normal'
                                         }}
@@ -1382,11 +1389,11 @@ export default function Dashboard() {
                                     <div style={{ width: `${Math.max(evolucionGmp.length * 52, 320)}px`, height: '280px' }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <LineChart data={evolucionGmp} margin={{ top: 10, right: 16, left: -10, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
-                                                <XAxis dataKey="label" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} width={42} />
-                                                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '0.8rem' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
+                                                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                                                <ReferenceLine y={0} stroke="var(--chart-axis)" strokeDasharray="4 4" />
+                                                <XAxis dataKey="label" stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: 10 }} />
+                                                <YAxis stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: 10 }} width={42} />
+                                                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.8rem' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
                                                 {/* En móvil: dots pequeños solo en el último punto, línea suavizada */}
                                                 <Line 
                                                     type="monotone"
@@ -1397,7 +1404,7 @@ export default function Dashboard() {
                                                     dot={(props: any) => {
                                                         const isLast = props.index === evolucionGmp.length - 1;
                                                         if (!isLast) return <g key={props.key} />;
-                                                        return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill="#ff9800" stroke="white" strokeWidth={2} />;
+                                                        return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill="var(--warning)" stroke="var(--bg-card)" strokeWidth={2} />;
                                                     }}
                                                     activeDot={{ 
                                                         r: 7, 
@@ -1418,7 +1425,7 @@ export default function Dashboard() {
                                                     dot={(props: any) => {
                                                         const isLast = props.index === evolucionGmp.length - 1;
                                                         if (!isLast) return <g key={props.key} />;
-                                                        return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill="#4caf50" stroke="white" strokeWidth={2} />;
+                                                        return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill="var(--success)" stroke="var(--bg-card)" strokeWidth={2} />;
                                                     }}
                                                     activeDot={{ 
                                                         r: 7, 
@@ -1446,11 +1453,11 @@ export default function Dashboard() {
                                     <ResponsiveContainer width="100%" height="100%">
                                         {vistaGrafica === 'mensual' ? (
                                             <LineChart data={evolucionGmp} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
-                                                <XAxis dataKey="label" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
-                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
-                                                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
+                                                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                                                <ReferenceLine y={0} stroke="var(--chart-axis)" strokeDasharray="4 4" />
+                                                <XAxis dataKey="label" stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                                <YAxis stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
+                                                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
                                                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                                                 <Line 
                                                     type="monotone" 
@@ -1458,7 +1465,7 @@ export default function Dashboard() {
                                                     dataKey="gmpLevante" 
                                                     stroke="var(--warning)" 
                                                     strokeWidth={4} 
-                                                    dot={{ r: 6, fill: '#ff9800', stroke: 'white', strokeWidth: 2, cursor: 'pointer' }}
+                                                    dot={{ r: 6, fill: 'var(--warning)', stroke: 'var(--bg-card)', strokeWidth: 2, cursor: 'pointer' }}
                                                     activeDot={{ 
                                                         r: 8, 
                                                         onClick: (_e: any, payload: any) => {
@@ -1475,7 +1482,7 @@ export default function Dashboard() {
                                                     dataKey="gmpCeba" 
                                                     stroke="var(--success)" 
                                                     strokeWidth={4} 
-                                                    dot={{ r: 6, fill: '#4caf50', stroke: 'white', strokeWidth: 2, cursor: 'pointer' }} 
+                                                    dot={{ r: 6, fill: 'var(--success)', stroke: 'var(--bg-card)', strokeWidth: 2, cursor: 'pointer' }} 
                                                     activeDot={{ 
                                                         r: 8, 
                                                         onClick: (_e: any, payload: any) => {
@@ -1489,18 +1496,18 @@ export default function Dashboard() {
                                             </LineChart>
                                         ) : vistaGrafica === 'pesaje' ? (
                                             <BarChart data={evolucionPorPesaje} margin={{ top: 10, right: isMobile ? 8 : 30, left: isMobile ? -10 : 0, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
-                                                <XAxis dataKey="name" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }} />
-                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }} width={isMobile ? 42 : undefined} />
+                                                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                                                <ReferenceLine y={0} stroke="var(--chart-axis)" strokeDasharray="4 4" />
+                                                <XAxis dataKey="name" stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }} />
+                                                <YAxis stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }} width={isMobile ? 42 : undefined} />
                                                 <Tooltip
-                                                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-                                                    contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: isMobile ? '0.8rem' : '1rem' }}
+                                                    cursor={{ fill: 'var(--surface-subtle)' }}
+                                                    contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)', fontSize: isMobile ? '0.8rem' : '1rem' }}
                                                     formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]}
                                                     labelFormatter={(label) => {
                                                         const point = evolucionPorPesaje.find(d => d.name === label);
                                                         return (
-                                                            <div style={{ paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '8px' }}>
+                                                            <div style={{ paddingBottom: '8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '8px' }}>
                                                                 <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{label}</div>
                                                                 <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                                     {point && point.levante > 0 && <div style={{ fontSize: '0.8rem', color: 'var(--warning)' }}>Intervalo Levante: {point.mesesLevante} meses</div>}
@@ -1516,18 +1523,18 @@ export default function Dashboard() {
                                             </BarChart>
                                         ) : (
                                             <BarChart data={evolucionPorRango} margin={{ top: 10, right: isMobile ? 8 : 30, left: isMobile ? -10 : 0, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
-                                                <XAxis dataKey="name" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }} />
-                                                <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }} unit=" kg" width={isMobile ? 42 : undefined} />
+                                                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                                                <ReferenceLine y={0} stroke="var(--chart-axis)" strokeDasharray="4 4" />
+                                                <XAxis dataKey="name" stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }} />
+                                                <YAxis stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }} unit=" kg" width={isMobile ? 42 : undefined} />
                                                 <Tooltip
-                                                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-                                                    contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: isMobile ? '0.8rem' : '1rem' }}
+                                                    cursor={{ fill: 'var(--surface-subtle)' }}
+                                                    contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)', fontSize: isMobile ? '0.8rem' : '1rem' }}
                                                     formatter={(value: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, getModoLabel(modoGanancia)]}
                                                     labelFormatter={(label) => {
                                                         const point = evolucionPorRango.find(d => d.name === label);
                                                         return (
-                                                            <div style={{ paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '8px' }}>
+                                                            <div style={{ paddingBottom: '8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '8px' }}>
                                                                 <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>Rango: {label}</div>
                                                                 <div style={{ fontSize: '0.8rem', color: 'var(--primary-light)', marginTop: '4px' }}>
                                                                     Intervalo medio: {point?.meses} meses
@@ -1536,7 +1543,7 @@ export default function Dashboard() {
                                                         );
                                                     }}
                                                 />
-                                                <Bar name={getModoLabel(modoGanancia)} dataKey="gmp" fill="var(--primary)" radius={[4, 4, 0, 0]} barSize={isMobile ? 30 : 45} label={{ position: 'top', fill: 'white', fontSize: isMobile ? 10 : 12, formatter: (v: any) => toDisplayValue(v, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1) }} />
+                                                <Bar name={getModoLabel(modoGanancia)} dataKey="gmp" fill="var(--primary)" radius={[4, 4, 0, 0]} barSize={isMobile ? 30 : 45} label={{ position: 'top', fill: 'var(--text-main)', fontSize: isMobile ? 10 : 12, formatter: (v: any) => toDisplayValue(v, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1) }} />
                                             </BarChart>
                                         )}
                                     </ResponsiveContainer>
@@ -1550,37 +1557,37 @@ export default function Dashboard() {
 
                         <div className="card dashboard-rain-card">
                             <div style={{ marginBottom: isMobile ? '14px' : '24px' }}>
-                                <h3 style={{ margin: 0, fontSize: isMobile ? '1.05rem' : '1.2rem', color: 'white' }}>Histórico de Lluvias (Pluviosidad)</h3>
+                                <h3 style={{ margin: 0, fontSize: isMobile ? '1.05rem' : '1.2rem', color: 'var(--text-main)' }}>Histórico de Lluvias (Pluviosidad)</h3>
                                 <p style={{ color: 'var(--text-muted)', fontSize: isMobile ? '0.82rem' : '0.9rem', margin: '4px 0 0' }}>Milímetros de agua registrados mensualmente</p>
                             </div>
                             <div style={{ width: '100%', height: isMobile ? '240px' : '350px', minWidth: 0 }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={evolucionLluvia} margin={isMobile ? { top: 10, right: 12, left: -12, bottom: 0 } : { top: 10, right: 30, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
                                         <XAxis
                                             dataKey="fecha"
-                                            stroke="var(--text-muted)"
+                                            stroke="var(--chart-tick)"
                                             axisLine={false}
                                             tickLine={false}
-                                            tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }}
+                                            tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }}
                                         />
                                         <YAxis
-                                            stroke="var(--text-muted)"
+                                            stroke="var(--chart-tick)"
                                             axisLine={false}
                                             tickLine={false}
-                                            tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }}
+                                            tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }}
                                             width={isMobile ? 42 : undefined}
                                             unit=" mm"
                                         />
                                         <Tooltip
-                                            cursor={{ fill: 'rgba(33, 150, 243, 0.1)' }}
-                                            contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: isMobile ? '0.8rem' : '1rem' }}
-                                            itemStyle={{ color: '#64B5F6' }}
+                                            cursor={{ fill: 'var(--info-soft-bg)' }}
+                                            contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)', fontSize: isMobile ? '0.8rem' : '1rem' }}
+                                            itemStyle={{ color: 'var(--info)' }}
                                         />
                                         <Bar
                                             name="Lluvia (mm)"
                                             dataKey="mm"
-                                            fill="#2196F3"
+                                            fill="var(--info)"
                                             radius={[6, 6, 0, 0]}
                                             barSize={isMobile ? 22 : 40}
                                         />
@@ -1601,7 +1608,7 @@ export default function Dashboard() {
                                 onClick={e => e.stopPropagation()}
                             >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                                    <h2 id="dashboard-muertes-title" style={{ margin: 0, color: 'white' }}>Registro de Muertes y Descartes</h2>
+                                    <h2 id="dashboard-muertes-title" style={{ margin: 0, color: 'var(--text-main)' }}>Registro de Muertes y Descartes</h2>
                                     <button type="button" aria-label="Cerrar modal de muertes" onClick={() => setMuertesModalVisible(false)} className="btn-icon dashboard-modal-close" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 8px' }}>&times;</button>
                                 </div>
                                 <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
@@ -1610,28 +1617,28 @@ export default function Dashboard() {
                                     ) : (
                                         Object.keys(muertesByYear).sort((a,b) => b.localeCompare(a)).map(year => (
                                             <div key={year} style={{ marginBottom: '24px' }}>
-                                                <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px', color: 'var(--error)', marginTop: 0 }}>
+                                                <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px', color: 'var(--error)', marginTop: 0 }}>
                                                     {year} <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal'}}>({muertesByYear[year].length} animales)</span>
                                                 </h3>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                     {muertesByYear[year].map((m: any, idx: number) => (
                                                         <div key={idx} style={{ 
-                                                            background: 'rgba(255,255,255,0.03)', 
+                                                            background: 'var(--surface-subtle)', 
                                                             padding: '16px', 
                                                             borderRadius: '12px', 
-                                                            border: '1px solid rgba(255,255,255,0.05)',
+                                                            border: '1px solid var(--border-subtle)',
                                                             display: 'flex', 
                                                             justifyContent: 'space-between', 
                                                             alignItems: 'flex-start',
                                                             gap: '16px'
                                                         }}>
                                                             <div>
-                                                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                     Chapeta: {m.numero_chapeta || m.chapeta || 'N/A'}
                                                                     {m.tipo_baja === 'carnicero' ? (
-                                                                        <span style={{ fontSize: '0.7rem', background: 'rgba(255, 152, 0, 0.2)', color: 'var(--warning)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>Carnicero</span>
+                                                                        <span style={{ fontSize: '0.7rem', background: 'var(--warning-soft-bg)', color: 'var(--warning)', border: '1px solid var(--warning-soft-border)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>Carnicero</span>
                                                                     ) : (
-                                                                        <span style={{ fontSize: '0.7rem', background: 'rgba(244, 67, 54, 0.2)', color: 'var(--error)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>Muerto</span>
+                                                                        <span style={{ fontSize: '0.7rem', background: 'var(--error-soft-bg)', color: 'var(--error)', border: '1px solid var(--error-soft-border)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>Muerto</span>
                                                                     )}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -1654,10 +1661,10 @@ export default function Dashboard() {
                     {/* Modal de Detalle de Animales (GMP por punto) */}
                     {detailModalVisible && selectedDetail && (
                         <div className="modal-overlay" onClick={() => setDetailModalVisible(false)}>
-                            <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="dashboard-detail-title" style={{ maxWidth: '900px', height: 'auto', maxHeight: '85dvh' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                            <div className="modal-content card" role="dialog" aria-modal="true" aria-labelledby="dashboard-detail-title" style={{ maxWidth: '900px', height: 'auto', maxHeight: '85dvh' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                                     <div>
-                                        <h2 id="dashboard-detail-title" style={{ margin: 0, color: 'white', fontSize: isMobile ? '1.15rem' : undefined }}>Detalle de Pesajes: {selectedDetail.label}</h2>
+                                        <h2 id="dashboard-detail-title" style={{ margin: 0, color: 'var(--text-main)', fontSize: isMobile ? '1.15rem' : undefined }}>Detalle de Pesajes: {selectedDetail.label}</h2>
                                         <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: isMobile ? '0.82rem' : undefined }}>Etapa: <strong style={{color: selectedDetail.etapa === 'Levante' ? 'var(--warning)' : 'var(--success)'}}>{selectedDetail.etapa}</strong> | {selectedDetail.items.length} animales aportando.</p>
                                     </div>
                                     <button type="button" aria-label="Cerrar detalle de pesajes" onClick={() => setDetailModalVisible(false)} className="btn-icon dashboard-modal-close" style={{fontSize: '1.5rem'}}>&times;</button>
@@ -1736,7 +1743,7 @@ export default function Dashboard() {
                                                         <td>{item.fechaAnterior}</td>
                                                         <td>{item.pesoAnterior} kg</td>
                                                         <td>{item.fechaActual}</td>
-                                                        <td style={{ fontWeight: 'bold', color: 'white' }}>{item.pesoActual} kg</td>
+                                                        <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{item.pesoActual} kg</td>
                                                         <td style={{ 
                                                             textAlign: 'right', 
                                                             fontWeight: 'bold', 
@@ -1757,7 +1764,7 @@ export default function Dashboard() {
                                         </table>
                                     </div>
                                 </div>
-                                <div style={{ padding: '20px 24px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'right' }}>
+                                <div style={{ padding: '20px 24px', background: 'var(--surface-subtle)', borderTop: '1px solid var(--border-subtle)', textAlign: 'right' }}>
                                     <button onClick={() => setDetailModalVisible(false)} style={{ width: 'auto', padding: '10px 24px' }}>Cerrar</button>
                                 </div>
                             </div>
@@ -1772,17 +1779,17 @@ export default function Dashboard() {
                     {/* Modal Detalle de Pesos por Rango */}
                     {rangoModalVisible && selectedRangoData && (
                         <div className="modal-overlay" onClick={() => setRangoModalVisible(false)}>
-                            <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="dashboard-rango-title" style={{ maxWidth: '900px', width: '95%', maxHeight: '85dvh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                            <div className="modal-content card" role="dialog" aria-modal="true" aria-labelledby="dashboard-rango-title" style={{ maxWidth: '900px', width: '95%', maxHeight: '85dvh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                                     <div>
-                                        <h2 id="dashboard-rango-title" style={{ margin: 0, fontSize: isMobile ? '1.15rem' : '1.4rem' }}>Animales en Rango: {selectedRangoData.nombre}</h2>
+                                        <h2 id="dashboard-rango-title" style={{ margin: 0, fontSize: isMobile ? '1.15rem' : '1.4rem', color: 'var(--text-main)' }}>Animales en Rango: {selectedRangoData.nombre}</h2>
                                         <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: isMobile ? '0.82rem' : '0.9rem' }}>Lista detallada de animales con peso estimado a hoy.</p>
                                     </div>
                                     <button type="button" aria-label="Cerrar detalle de rango" className="btn-icon dashboard-modal-close" onClick={() => setRangoModalVisible(false)}><X size={24} aria-hidden="true" /></button>
                                 </div>
                                 <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
                                     <table className="dashboard-modal-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                        <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                                        <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.12)' }}>
                                             <tr>
                                                 <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Potrerada</th>
                                                 <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Chapeta</th>
@@ -1801,7 +1808,7 @@ export default function Dashboard() {
 
                                                 return Object.entries(grouped).map(([potrero, animals]) => (
                                                     <Fragment key={potrero}>
-                                                        <tr style={{ background: 'rgba(76, 175, 80, 0.08)', borderLeft: '4px solid var(--primary)' }}>
+                                                        <tr style={{ background: 'var(--primary-soft-bg)', borderLeft: '4px solid var(--primary)' }}>
                                                             <td colSpan={4} style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '0.95rem' }}>
                                                                 📍 Potrerada: {potrero} ({animals.length} animales)
                                                             </td>
@@ -1812,7 +1819,8 @@ export default function Dashboard() {
                                                                     <span style={{ 
                                                                         padding: '4px 10px', 
                                                                         borderRadius: '12px', 
-                                                                        background: 'rgba(255,255,255,0.05)',
+                                                                        background: 'var(--surface-subtle)',
+                                                                        border: '1px solid var(--border-subtle)',
                                                                         fontSize: '0.8rem',
                                                                         color: 'var(--text-muted)'
                                                                     }}>
@@ -1821,7 +1829,7 @@ export default function Dashboard() {
                                                                 </td>
                                                                 <td style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
                                                                 <td>{Math.round(a.ultimoPeso)} kg</td>
-                                                                <td style={{ fontWeight: 'bold', color: 'white' }}>{Math.round(a.pesoEstimado)} kg</td>
+                                                                <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{Math.round(a.pesoEstimado)} kg</td>
                                                             </tr>
                                                         ))}
                                                     </Fragment>
@@ -1830,7 +1838,7 @@ export default function Dashboard() {
                                         </tbody>
                                     </table>
                                 </div>
-                                <div style={{ padding: '20px 24px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'right' }}>
+                                <div style={{ padding: '20px 24px', background: 'var(--surface-subtle)', borderTop: '1px solid var(--border-subtle)', textAlign: 'right' }}>
                                     <button className="btn-secondary" onClick={() => setRangoModalVisible(false)} style={{ width: 'auto', padding: '10px 24px' }}>Cerrar</button>
                                 </div>
                             </div>

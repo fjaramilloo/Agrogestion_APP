@@ -335,8 +335,8 @@ export default function Movements() {
 
             {isBloqueado && (
                 <div style={{
-                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    background: 'var(--error-soft-bg)',
+                    border: '1px solid var(--error-soft-border)',
                     borderRadius: '12px',
                     padding: '16px 20px',
                     marginBottom: '24px',
@@ -347,15 +347,15 @@ export default function Movements() {
                     flexWrap: 'wrap'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="#f87171" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>
+                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                             {isVencida ? (
                                 <>
                                     <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Para registrar rotaciones y movimientos de potrero, renueva tu suscripción.
                                 </>
                             ) : (
                                 <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu hato cuenta con <strong style={{ color: '#f87171' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite del plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar rotaciones de potrero, actualiza tu suscripción.
+                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu hato cuenta con <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite del plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar rotaciones de potrero, actualiza tu suscripción.
                                 </>
                             )}
                         </div>
@@ -367,8 +367,8 @@ export default function Movements() {
                             width: 'auto',
                             padding: '8px 16px',
                             fontSize: '0.85rem',
-                            backgroundColor: '#ef4444',
-                            color: 'white',
+                            backgroundColor: 'var(--error)',
+                            color: 'var(--on-primary)',
                             border: 'none',
                             borderRadius: '8px',
                             fontWeight: 700,
