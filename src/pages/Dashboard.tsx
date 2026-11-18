@@ -6,12 +6,13 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend, BarChart, Bar, ReferenceLine
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, AlertOctagon, SlidersHorizontal } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, AlertOctagon, SlidersHorizontal, ArrowLeftRight, Leaf, CloudRain, Users, ListChecks, ChevronRight } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
 import { consolidarLluviasPorFecha } from '../utils/rainfallUtils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import './Dashboard.css';
 // El reporte trae xlsx + jsPDF (pesados): se descarga solo cuando el usuario lo abre
 const ReporteInventarioExcel = lazy(() => import('../components/ReporteInventarioExcel'));
 import ModalUpsell from '../components/ModalUpsell';
@@ -68,7 +69,8 @@ interface LluviaItem {
 }
 
 export default function Dashboard() {
-    const { fincaId, modoGanancia, licenciaInfo } = useAuth();
+    const { fincaId, modoGanancia, licenciaInfo, role, isSuperAdmin } = useAuth();
+    const isObserverOnly = role === 'observador' && !isSuperAdmin;
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -783,15 +785,40 @@ export default function Dashboard() {
         };
     }, [filterTipo, rawData, cortesPeso]);
 
+    const quickFieldActions = isObserverOnly
+        ? [
+            { to: '/inventario', title: 'Inventario', desc: 'Hato y ganancias', variant: 'green', Icon: ListChecks },
+            { to: '/mapa-finca', title: 'Plano GPS', desc: 'Mapa y potreros', variant: 'blue', Icon: MapPin },
+            { to: '/lluvias', title: 'Pluviometría', desc: 'Lluvias por finca', variant: 'teal', Icon: CloudRain },
+            { to: '/aforos', title: 'Aforos', desc: 'Estado de forraje', variant: 'amber', Icon: Leaf },
+        ]
+        : [
+            { to: '/pesaje', title: 'Pesar Animal', desc: 'Báscula rápida', variant: 'green', Icon: Scale },
+            { to: '/movimientos', title: 'Rotar Lote', desc: 'Mover de potrero', variant: 'amber', Icon: ArrowLeftRight },
+            { to: '/mapa-finca', title: 'Plano GPS', desc: 'Ver potreros', variant: 'blue', Icon: MapPin },
+            { to: '/aforos', title: 'Aforos', desc: 'Medir forraje', variant: 'teal', Icon: Leaf },
+        ];
+
+    const secondaryFieldLinks = isObserverOnly
+        ? [
+            { to: '/rotaciones', label: 'Rotaciones', Icon: ArrowLeftRight },
+            { to: '/mercado', label: 'Mercado', Icon: TrendingUp },
+        ]
+        : [
+            { to: '/lluvias', label: 'Pluviometría', Icon: CloudRain },
+            { to: '/potreradas', label: 'Lotes', Icon: Users },
+        ];
+
     return (
-        <div className="page-container" style={{ paddingBottom: '40px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+        <div className="page-container dashboard-page">
+            <div className="dashboard-header">
                 <div>
-                    <h1 className="title" style={{ margin: 0, textAlign: 'left' }}>Indicadores de Gestión</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Análisis integral del rendimiento productivo y financiero de su operación ganadera.</p>
+                    <h1 className="title dashboard-title">Indicadores de Gestión</h1>
+                    <p className="dashboard-subtitle">Análisis integral del rendimiento productivo y financiero de su operación ganadera.</p>
                 </div>
 
                 <button
+                    type="button"
                     onClick={() => {
                         if (licenciaInfo?.licencia === 'demo' || isBloqueado) {
                             setShowUpsellModal(true);
@@ -799,20 +826,50 @@ export default function Dashboard() {
                             setShowReporteExcel(true);
                         }
                     }}
-                    className="btn-secondary"
-                    style={{ 
-                        width: 'auto', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '8px',
-                        padding: '12px 24px',
-                        borderRadius: '12px',
-                        fontSize: '0.95rem'
-                    }}
+                    className="btn-secondary dashboard-export-btn"
                 >
-                    <FileSpreadsheet size={20} /> Generar Informe Inventario
+                    <FileSpreadsheet size={isMobile ? 17 : 20} aria-hidden="true" />
+                    <span>{isMobile ? 'Informe Excel' : 'Generar Informe Inventario'}</span>
                 </button>
             </div>
+
+            {/* Accesos rápidos de campo (solo visible en móvil/tablet <= 1024px) */}
+            <nav className="dashboard-quick-actions" aria-label="Acciones rápidas de campo">
+                <div className="dashboard-quick-header">
+                    <h2 className="dashboard-quick-heading">Trabajo de campo</h2>
+                    {fincaInfo.nombre && <span className="dashboard-quick-finca">{fincaInfo.nombre}</span>}
+                </div>
+                <ul className="dashboard-quick-grid dashboard-quick-grid--4" role="list">
+                    {quickFieldActions.map(({ to, title, desc, variant, Icon }) => (
+                        <li key={to}>
+                            <Link to={to} className="dashboard-quick-link">
+                                <article className={`dashboard-quick-card dashboard-quick-card--${variant}`}>
+                                    <div className={`dashboard-quick-icon dashboard-quick-icon--${variant}`}>
+                                        <Icon size={22} aria-hidden="true" />
+                                    </div>
+                                    <div className="dashboard-quick-text">
+                                        <span className="dashboard-quick-title">{title}</span>
+                                        <span className="dashboard-quick-desc">{desc}</span>
+                                    </div>
+                                </article>
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+                <ul className="dashboard-secondary-row" role="list">
+                    {secondaryFieldLinks.map(({ to, label, Icon }) => (
+                        <li key={to}>
+                            <Link to={to} className="dashboard-secondary-link">
+                                <span className="dashboard-secondary-link-left">
+                                    <Icon size={17} aria-hidden="true" />
+                                    <span>{label}</span>
+                                </span>
+                                <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+            </nav>
 
             {isBloqueado && (
                 <div style={{
@@ -867,89 +924,45 @@ export default function Dashboard() {
             ) : (
                 <>
                     {/* Widget Información de Finca */}
-                    <div className="card" style={{
-                        marginBottom: '32px',
-                        padding: '32px',
-                        background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(25, 25, 25, 0.5) 100%)',
-                        border: '1px solid rgba(76, 175, 80, 0.2)',
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '32px',
-                        alignItems: 'center'
-                    }}>
-                        <div style={{
-                            padding: '24px',
-                            borderRadius: '20px',
-                            background: 'rgba(76, 175, 80, 0.2)',
-                            color: 'var(--primary-light)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <Home size={48} />
+                    <div className="card dashboard-finca-card">
+                        <div className="dashboard-finca-icon">
+                            <Home size={48} aria-hidden="true" />
                         </div>
-                        <div style={{ flex: 1, minWidth: '250px' }}>
+                        <div className="dashboard-finca-meta">
                             <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'white', marginBottom: '8px' }}>{fincaInfo.nombre}</h2>
                             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                                    <MapPin size={18} /> {fincaInfo.municipio ? `${fincaInfo.municipio} (${fincaInfo.ubicacion})` : fincaInfo.ubicacion}
+                                    <MapPin size={18} aria-hidden="true" /> {fincaInfo.municipio ? `${fincaInfo.municipio} (${fincaInfo.ubicacion})` : fincaInfo.ubicacion}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                                    <Activity size={18} /> <span style={{ color: 'white', fontWeight: 'bold' }}>{fincaInfo.proposito}</span>
+                                    <Activity size={18} aria-hidden="true" /> <span style={{ color: 'white', fontWeight: 'bold' }}>{fincaInfo.proposito}</span>
                                 </div>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                            <div 
+                        <div className="dashboard-finca-stats">
+                            <button
+                                type="button"
                                 onClick={() => navigate('/inventario')}
-                                style={{
-                                    background: 'rgba(255,255,255,0.03)',
-                                    padding: '20px 32px',
-                                    borderRadius: '16px',
-                                    border: '1px solid rgba(255,255,255,0.05)',
-                                    textAlign: 'center',
-                                    minWidth: '150px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                }}
-                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-                                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                                className="dashboard-finca-stat"
                             >
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Inventario Actual</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                                <div className="stat-label" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Inventario Actual</div>
+                                <div className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
                                     {stats.totalAnimales} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Cabezas</span>
                                 </div>
-                            </div>
-                            <div 
+                            </button>
+                            <button
+                                type="button"
                                 onClick={handleOpenMuertes}
-                                style={{
-                                    background: 'rgba(255,100,100,0.05)',
-                                    padding: '20px 32px',
-                                    borderRadius: '16px',
-                                    border: '1px solid rgba(255,100,100,0.1)',
-                                    textAlign: 'center',
-                                    minWidth: '150px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                }}
-                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,100,100,0.15)'}
-                                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,100,100,0.05)'}
+                                className="dashboard-finca-stat dashboard-finca-stat--danger"
                             >
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Muertes Año</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--error)' }}>
+                                <div className="stat-label" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Muertes Año</div>
+                                <div className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--error)' }}>
                                     {stats.totalMuertosAno}
                                 </div>
-                            </div>
-                            <div style={{
-                                background: 'rgba(255,255,255,0.03)',
-                                padding: '20px 32px',
-                                borderRadius: '16px',
-                                border: '1px solid rgba(255,255,255,0.05)',
-                                textAlign: 'center',
-                                minWidth: '150px'
-                            }}>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Área de Ganado</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                            </button>
+                            <div className="dashboard-finca-stat">
+                                <div className="stat-label" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Área de Ganado</div>
+                                <div className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
                                     {fincaInfo.area_aprovechable} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Ha</span>
                                 </div>
                             </div>
@@ -957,12 +970,7 @@ export default function Dashboard() {
                     </div>
 
                     {/* KPI Widgets */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                        gap: '24px',
-                        marginBottom: '32px'
-                    }}>
+                    <div className="dashboard-kpi-grid">
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 152, 0, 0.15)', color: 'var(--warning)' }}>
                                 <Timer size={32} />
@@ -1076,6 +1084,7 @@ export default function Dashboard() {
                                 </div>
                                 <button 
                                     type="button"
+                                    className="dashboard-range-btn"
                                     onClick={() => navigate('/configuracion')}
                                     title="Personalizar rangos de peso según el modelo de esta finca"
                                     style={{
@@ -1092,12 +1101,12 @@ export default function Dashboard() {
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    <SlidersHorizontal size={13} />
+                                    <SlidersHorizontal size={13} aria-hidden="true" />
                                     <span>Ajustar Rangos</span>
                                 </button>
                             </div>
-                            <div style={{ padding: '24px' }}>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px' }}>
+                            <div className="dashboard-ranges-body">
+                                <div className="dashboard-ranges-layout">
                                     <div style={{ flex: '1 1 350px', minWidth: '0' }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                             <thead>
@@ -1159,24 +1168,14 @@ export default function Dashboard() {
                                         </table>
                                     </div>
                                     <div 
+                                        className="dashboard-dispatch-card"
                                         onClick={() => {
                                             if (proximosDespachos) {
                                                 navigate('/potreradas', { state: { idPotrerada: proximosDespachos.id } });
                                             }
                                         }}
                                         style={{ 
-                                            flex: '1 1 320px',
-                                            display: 'flex', 
-                                            flexDirection: 'column', 
-                                            justifyContent: 'center', 
-                                            padding: '28px', 
-                                            background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%)', 
-                                            borderRadius: '16px',
-                                            border: '1px solid rgba(76, 175, 80, 0.3)',
-                                            cursor: proximosDespachos ? 'pointer' : 'default',
-                                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                                            position: 'relative',
-                                            overflow: 'hidden'
+                                            cursor: proximosDespachos ? 'pointer' : 'default'
                                         }}
                                         onMouseOver={(e) => { if(proximosDespachos) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)'; } }}
                                         onMouseOut={(e) => { if(proximosDespachos) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; } }}
@@ -1549,32 +1548,33 @@ export default function Dashboard() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
                         {/* Se eliminaron las gráficas individuales para usar la tarjeta unificada arriba */}
 
-                        <div className="card" style={{ padding: '24px' }}>
-                            <div style={{ marginBottom: '24px' }}>
-                                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Histórico de Lluvias (Pluviosidad)</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Milímetros de agua registrados mensualmente</p>
+                        <div className="card dashboard-rain-card">
+                            <div style={{ marginBottom: isMobile ? '14px' : '24px' }}>
+                                <h3 style={{ margin: 0, fontSize: isMobile ? '1.05rem' : '1.2rem', color: 'white' }}>Histórico de Lluvias (Pluviosidad)</h3>
+                                <p style={{ color: 'var(--text-muted)', fontSize: isMobile ? '0.82rem' : '0.9rem', margin: '4px 0 0' }}>Milímetros de agua registrados mensualmente</p>
                             </div>
-                            <div style={{ width: '100%', height: '350px', minWidth: 0 }}>
+                            <div style={{ width: '100%', height: isMobile ? '240px' : '350px', minWidth: 0 }}>
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={evolucionLluvia} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                    <BarChart data={evolucionLluvia} margin={isMobile ? { top: 10, right: 12, left: -12, bottom: 0 } : { top: 10, right: 30, left: 0, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                         <XAxis
                                             dataKey="fecha"
                                             stroke="var(--text-muted)"
                                             axisLine={false}
                                             tickLine={false}
-                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                                            tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }}
                                         />
                                         <YAxis
                                             stroke="var(--text-muted)"
                                             axisLine={false}
                                             tickLine={false}
-                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                                            tick={{ fill: 'var(--text-muted)', fontSize: isMobile ? 10 : 12 }}
+                                            width={isMobile ? 42 : undefined}
                                             unit=" mm"
                                         />
                                         <Tooltip
                                             cursor={{ fill: 'rgba(33, 150, 243, 0.1)' }}
-                                            contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
+                                            contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: isMobile ? '0.8rem' : '1rem' }}
                                             itemStyle={{ color: '#64B5F6' }}
                                         />
                                         <Bar
@@ -1582,7 +1582,7 @@ export default function Dashboard() {
                                             dataKey="mm"
                                             fill="#2196F3"
                                             radius={[6, 6, 0, 0]}
-                                            barSize={40}
+                                            barSize={isMobile ? 22 : 40}
                                         />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -1592,25 +1592,17 @@ export default function Dashboard() {
 
                     {/* Modal de Muertes */}
                     {muertesModalVisible && (
-                        <div style={{
-                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                            backgroundColor: 'rgba(0,0,0,0.7)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            zIndex: 1000, padding: '20px'
-                        }} onClick={() => setMuertesModalVisible(false)}>
-                            <div style={{
-                                background: 'var(--bg-card)',
-                                padding: '32px',
-                                borderRadius: '16px',
-                                width: '100%',
-                                maxWidth: '600px',
-                                maxHeight: '80vh',
-                                display: 'flex', flexDirection: 'column',
-                                boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-                            }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-overlay" onClick={() => setMuertesModalVisible(false)}>
+                            <div
+                                className="dashboard-modal-card"
+                                role="dialog"
+                                aria-modal="true"
+                                aria-labelledby="dashboard-muertes-title"
+                                onClick={e => e.stopPropagation()}
+                            >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                                    <h2 style={{ margin: 0, color: 'white' }}>Registro de Muertes y Descartes</h2>
-                                    <button type="button" aria-label="Cerrar modal de muertes" onClick={() => setMuertesModalVisible(false)} className="btn-icon" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 8px' }}>&times;</button>
+                                    <h2 id="dashboard-muertes-title" style={{ margin: 0, color: 'white' }}>Registro de Muertes y Descartes</h2>
+                                    <button type="button" aria-label="Cerrar modal de muertes" onClick={() => setMuertesModalVisible(false)} className="btn-icon dashboard-modal-close" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 8px' }}>&times;</button>
                                 </div>
                                 <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
                                     {muertesData.length === 0 ? (
@@ -1662,15 +1654,15 @@ export default function Dashboard() {
                     {/* Modal de Detalle de Animales (GMP por punto) */}
                     {detailModalVisible && selectedDetail && (
                         <div className="modal-overlay" onClick={() => setDetailModalVisible(false)}>
-                            <div className="modal-content" style={{ maxWidth: '900px', height: 'auto', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="dashboard-detail-title" style={{ maxWidth: '900px', height: 'auto', maxHeight: '85dvh' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                                     <div>
-                                        <h2 style={{ margin: 0, color: 'white' }}>Detalle de Pesajes: {selectedDetail.label}</h2>
-                                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)' }}>Etapa: <strong style={{color: selectedDetail.etapa === 'Levante' ? 'var(--warning)' : 'var(--success)'}}>{selectedDetail.etapa}</strong> | {selectedDetail.items.length} animales aportando.</p>
+                                        <h2 id="dashboard-detail-title" style={{ margin: 0, color: 'white', fontSize: isMobile ? '1.15rem' : undefined }}>Detalle de Pesajes: {selectedDetail.label}</h2>
+                                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: isMobile ? '0.82rem' : undefined }}>Etapa: <strong style={{color: selectedDetail.etapa === 'Levante' ? 'var(--warning)' : 'var(--success)'}}>{selectedDetail.etapa}</strong> | {selectedDetail.items.length} animales aportando.</p>
                                     </div>
-                                    <button onClick={() => setDetailModalVisible(false)} className="btn-icon" style={{fontSize: '1.5rem'}}>&times;</button>
+                                    <button type="button" aria-label="Cerrar detalle de pesajes" onClick={() => setDetailModalVisible(false)} className="btn-icon dashboard-modal-close" style={{fontSize: '1.5rem'}}>&times;</button>
                                 </div>
-                                <div style={{ padding: '24px', overflowY: 'auto' }}>
+                                <div style={{ padding: isMobile ? '12px' : '24px', overflowY: 'auto' }}>
                                     <div className="table-container">
                                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                             <thead>
@@ -1756,7 +1748,7 @@ export default function Dashboard() {
                                                 ))}
                                                 {selectedDetail.items.length === 0 && (
                                                     <tr>
-                                                        <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                                        <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                                                             No hay datos detallados para este punto (Datos de ejemplo o históricos insuficientes).
                                                         </td>
                                                     </tr>
@@ -1779,23 +1771,23 @@ export default function Dashboard() {
 
                     {/* Modal Detalle de Pesos por Rango */}
                     {rangoModalVisible && selectedRangoData && (
-                        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setRangoModalVisible(false)}>
-                            <div className="modal-content" style={{ maxWidth: '900px', width: '95%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="modal-overlay" onClick={() => setRangoModalVisible(false)}>
+                            <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="dashboard-rango-title" style={{ maxWidth: '900px', width: '95%', maxHeight: '85dvh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                                     <div>
-                                        <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Animales en Rango: {selectedRangoData.nombre}</h2>
-                                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Lista detallada de animales con peso estimado a hoy.</p>
+                                        <h2 id="dashboard-rango-title" style={{ margin: 0, fontSize: isMobile ? '1.15rem' : '1.4rem' }}>Animales en Rango: {selectedRangoData.nombre}</h2>
+                                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: isMobile ? '0.82rem' : '0.9rem' }}>Lista detallada de animales con peso estimado a hoy.</p>
                                     </div>
-                                    <button className="btn-icon" onClick={() => setRangoModalVisible(false)}><X size={24} /></button>
+                                    <button type="button" aria-label="Cerrar detalle de rango" className="btn-icon dashboard-modal-close" onClick={() => setRangoModalVisible(false)}><X size={24} aria-hidden="true" /></button>
                                 </div>
                                 <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                    <table className="dashboard-modal-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                         <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                                             <tr>
-                                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Potrerada</th>
-                                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Chapeta</th>
-                                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Actual Real</th>
-                                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Estimado</th>
+                                                <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Potrerada</th>
+                                                <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Chapeta</th>
+                                                <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Actual Real</th>
+                                                <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Estimado</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1810,13 +1802,13 @@ export default function Dashboard() {
                                                 return Object.entries(grouped).map(([potrero, animals]) => (
                                                     <Fragment key={potrero}>
                                                         <tr style={{ background: 'rgba(76, 175, 80, 0.08)', borderLeft: '4px solid var(--primary)' }}>
-                                                            <td colSpan={4} style={{ padding: '10px 24px', fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '0.95rem' }}>
+                                                            <td colSpan={4} style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '0.95rem' }}>
                                                                 📍 Potrerada: {potrero} ({animals.length} animales)
                                                             </td>
                                                         </tr>
                                                         {animals.map((a, idx) => (
                                                             <tr key={`${potrero}-${idx}`} className="table-row-hover">
-                                                                <td style={{ padding: '14px 24px' }}>
+                                                                <td>
                                                                     <span style={{ 
                                                                         padding: '4px 10px', 
                                                                         borderRadius: '12px', 
@@ -1827,9 +1819,9 @@ export default function Dashboard() {
                                                                         {a.potrerada}
                                                                     </span>
                                                                 </td>
-                                                                <td style={{ padding: '14px 24px', fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
-                                                                <td style={{ padding: '14px 24px' }}>{Math.round(a.ultimoPeso)} kg</td>
-                                                                <td style={{ padding: '14px 24px', fontWeight: 'bold', color: 'white' }}>{Math.round(a.pesoEstimado)} kg</td>
+                                                                <td style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
+                                                                <td>{Math.round(a.ultimoPeso)} kg</td>
+                                                                <td style={{ fontWeight: 'bold', color: 'white' }}>{Math.round(a.pesoEstimado)} kg</td>
                                                             </tr>
                                                         ))}
                                                     </Fragment>

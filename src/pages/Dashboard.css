@@ -1,0 +1,526 @@
+/* Dashboard layout & mobile ergonomics (desktop > 1024px keeps exact original appearance) */
+
+.dashboard-page {
+  padding-bottom: 40px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dashboard-title {
+  margin: 0;
+  text-align: left;
+}
+
+.dashboard-subtitle {
+  color: var(--text-muted);
+  margin: 8px 0 0;
+}
+
+.dashboard-export-btn {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+/* Acciones rápidas de campo: ocultas por completo en PC */
+.dashboard-quick-actions {
+  display: none;
+}
+
+/* Widget de información de la finca */
+.dashboard-finca-card {
+  margin-bottom: 32px;
+  padding: 32px;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(25, 25, 25, 0.5) 100%);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  align-items: center;
+}
+
+.dashboard-finca-icon {
+  padding: 24px;
+  border-radius: 20px;
+  background: rgba(76, 175, 80, 0.2);
+  color: var(--primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboard-finca-meta {
+  flex: 1;
+  min-width: 250px;
+}
+
+.dashboard-finca-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboard-finca-stat {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 20px 32px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: center;
+  min-width: 150px;
+}
+
+.dashboard-finca-stat--danger {
+  background: rgba(255, 100, 100, 0.05);
+  border-color: rgba(255, 100, 100, 0.1);
+}
+
+button.dashboard-finca-stat {
+  width: auto;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: normal;
+  font-size: 1rem;
+  line-height: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  color: inherit;
+  transition: background-color 0.2s ease;
+}
+
+button.dashboard-finca-stat:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  transform: none;
+}
+
+button.dashboard-finca-stat--danger:hover:not(:disabled) {
+  background: rgba(255, 100, 100, 0.15);
+}
+
+.dashboard-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.dashboard-ranges-body {
+  padding: 24px;
+}
+
+.dashboard-ranges-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+}
+
+.dashboard-dispatch-card {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 28px;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-rain-card {
+  padding: 24px;
+}
+
+.dashboard-modal-card {
+  background: var(--bg-card);
+  padding: 32px;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 85dvh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.dashboard-modal-table th,
+.dashboard-modal-table td {
+  padding: 14px 24px;
+}
+
+/* ========================================================
+   MOBILE Y TABLET (<= 1024px): Acciones de campo al instante
+   ======================================================== */
+@media (max-width: 1024px) {
+  .dashboard-page {
+    padding-bottom: 12px;
+  }
+
+  .dashboard-quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .dashboard-quick-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-quick-heading {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+
+  .dashboard-quick-finca {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary-light);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dashboard-quick-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .dashboard-quick-grid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dashboard-quick-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 14px;
+  }
+
+  .dashboard-quick-link:focus-visible {
+    outline: 2px solid var(--primary-light);
+    outline-offset: 2px;
+  }
+
+  .dashboard-quick-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 76px;
+    height: 100%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--bg-dark-paper);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  }
+
+  .dashboard-quick-link:hover .dashboard-quick-card {
+    border-color: rgba(255, 255, 255, 0.24);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .dashboard-quick-link:active .dashboard-quick-card,
+    .dashboard-secondary-link:active {
+      transform: scale(0.985);
+    }
+  }
+
+  .dashboard-quick-card--green {
+    border-color: rgba(76, 175, 80, 0.32);
+    background: linear-gradient(135deg, rgba(46, 125, 50, 0.18) 0%, rgba(30, 30, 30, 0.96) 100%);
+  }
+
+  .dashboard-quick-card--amber {
+    border-color: rgba(255, 152, 0, 0.32);
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.16) 0%, rgba(30, 30, 30, 0.96) 100%);
+  }
+
+  .dashboard-quick-card--blue {
+    border-color: rgba(56, 189, 248, 0.32);
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.16) 0%, rgba(30, 30, 30, 0.96) 100%);
+  }
+
+  .dashboard-quick-card--teal {
+    border-color: rgba(16, 185, 129, 0.32);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(30, 30, 30, 0.96) 100%);
+  }
+
+  .dashboard-quick-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .dashboard-quick-icon--green {
+    background: rgba(46, 125, 50, 0.25);
+    color: #81c784;
+  }
+
+  .dashboard-quick-icon--amber {
+    background: rgba(255, 152, 0, 0.22);
+    color: #ffb74d;
+  }
+
+  .dashboard-quick-icon--blue {
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+  }
+
+  .dashboard-quick-icon--teal {
+    background: rgba(16, 185, 129, 0.22);
+    color: #34d399;
+  }
+
+  .dashboard-quick-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .dashboard-quick-title {
+    margin: 0;
+    font-size: 0.96rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+  }
+
+  .dashboard-quick-desc {
+    margin: 0;
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+  }
+
+  .dashboard-secondary-row {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .dashboard-secondary-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 48px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.86rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease, transform 0.12s ease;
+  }
+
+  .dashboard-secondary-link-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .dashboard-secondary-link-left span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* ========================================================
+   SOLO MÓVIL (<= 768px): Compactar tarjetas, grids y modales
+   ======================================================== */
+@media (max-width: 768px) {
+  .dashboard-header {
+    margin-bottom: 14px;
+    gap: 10px;
+  }
+
+  .dashboard-title {
+    font-size: 1.4rem !important;
+  }
+
+  .dashboard-subtitle {
+    display: none;
+  }
+
+  .dashboard-export-btn {
+    padding: 10px 14px;
+    min-height: 44px;
+    font-size: 0.82rem;
+    border-radius: 10px;
+  }
+
+  .dashboard-quick-grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-finca-card {
+    padding: 16px;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .dashboard-finca-icon {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .dashboard-finca-icon svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .dashboard-finca-meta {
+    min-width: 0;
+    flex: 1 1 180px;
+  }
+
+  .dashboard-finca-meta h2 {
+    font-size: 1.25rem !important;
+  }
+
+  .dashboard-finca-stats {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dashboard-finca-stat,
+  button.dashboard-finca-stat {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    padding: 12px 8px;
+    border-radius: 12px;
+  }
+
+  .dashboard-finca-stat .stat-label {
+    font-size: 0.68rem !important;
+    letter-spacing: 0.3px !important;
+  }
+
+  .dashboard-finca-stat .stat-value {
+    font-size: 1.35rem !important;
+  }
+
+  .dashboard-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .dashboard-kpi-grid .card {
+    padding: 16px !important;
+    gap: 14px !important;
+  }
+
+  .dashboard-ranges-body {
+    padding: 14px;
+  }
+
+  .dashboard-ranges-layout {
+    gap: 16px;
+  }
+
+  .dashboard-dispatch-card {
+    padding: 18px;
+    flex: 1 1 100%;
+  }
+
+  .dashboard-rain-card {
+    padding: 16px;
+  }
+
+  .dashboard-range-btn {
+    min-height: 44px !important;
+    padding: 8px 12px !important;
+  }
+
+  .dashboard-modal-card {
+    padding: 18px;
+    max-height: 88dvh;
+  }
+
+  .dashboard-modal-close {
+    min-width: 48px !important;
+    min-height: 48px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dashboard-modal-table th,
+  .dashboard-modal-table td {
+    padding: 10px 10px !important;
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 374px) {
+  .dashboard-quick-card {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .dashboard-quick-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .dashboard-quick-title {
+    font-size: 0.88rem;
+  }
+
+  .dashboard-finca-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (pointer: coarse) {
+  .dashboard-range-btn {
+    min-height: 44px !important;
+  }
+}
