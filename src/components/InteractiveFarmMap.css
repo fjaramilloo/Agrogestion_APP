@@ -1,4 +1,4 @@
-/* Mapa interactivo: escritorio (> 1024px) conserva exactamente su diseño original */
+/* Mapa interactivo: soporte Modo Sol, Plano Alto Contraste y ergonomía a caballo */
 
 .farm-map-wrapper {
   position: relative;
@@ -12,6 +12,192 @@
   isolation: isolate;
 }
 
+.farm-map-canvas {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background-color: var(--surface-inset);
+}
+
+/* Base "Plano Claro / Alto Contraste" sin tiles externos */
+.farm-map-wrapper--plain .leaflet-container {
+  background-color: #141c17;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+:root[data-theme="light"] .farm-map-wrapper--plain .leaflet-container,
+.farm-map-wrapper--plain.farm-map-wrapper--sun .leaflet-container {
+  background-color: #eef2eb;
+  background-image:
+    linear-gradient(to right, rgba(27, 94, 32, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(27, 94, 32, 0.08) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Badges flotantes de polígonos centrados sin recorte ni tamaños fijos rígidos */
+.farm-map-div-icon {
+  background: transparent;
+  border: none;
+  pointer-events: none;
+}
+
+.farm-map-badge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  width: max-content;
+  max-width: 190px;
+  font-family: system-ui, -apple-system, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  background-color: rgba(15, 23, 42, 0.94);
+  color: #f8fafc;
+  border: 2px solid #10b981;
+  border-radius: 10px;
+  padding: 4px 9px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.52);
+  line-height: 1.25;
+}
+
+.farm-map-badge--overview {
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.farm-map-badge--medium {
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.farm-map-badge--detail {
+  border-radius: 10px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.farm-map-badge--occupied {
+  border-color: #38bdf8;
+}
+
+.farm-map-badge--selected {
+  background-color: #b45309;
+  border-color: #fef3c7;
+  color: #ffffff;
+}
+
+.farm-map-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.farm-map-badge-title {
+  font-weight: 700;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.farm-map-badge-area {
+  font-size: 0.68rem;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.farm-map-badge--selected .farm-map-badge-area {
+  color: #fef3c7;
+}
+
+.farm-map-badge-lot {
+  margin-top: 3px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background-color: #1e293b;
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.farm-map-badge--selected .farm-map-badge-lot {
+  background-color: rgba(120, 53, 15, 0.55);
+  color: #fef3c7;
+  border-color: rgba(254, 243, 199, 0.45);
+}
+
+.farm-map-badge-count {
+  background-color: rgba(56, 189, 248, 0.22);
+  color: #bae6fd;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 999px;
+}
+
+/* Alto contraste en Modo Sol para etiquetas sobre satélite o plano claro */
+:root[data-theme="light"] .farm-map-badge:not(.farm-map-badge--selected),
+.farm-map-wrapper--sun .farm-map-badge:not(.farm-map-badge--selected) {
+  background-color: #ffffff;
+  color: #0f172a;
+  border-color: #047857;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.24);
+}
+
+:root[data-theme="light"] .farm-map-badge--occupied:not(.farm-map-badge--selected),
+.farm-map-wrapper--sun .farm-map-badge--occupied:not(.farm-map-badge--selected) {
+  border-color: #0369a1;
+}
+
+:root[data-theme="light"] .farm-map-badge:not(.farm-map-badge--selected) .farm-map-badge-area,
+.farm-map-wrapper--sun .farm-map-badge:not(.farm-map-badge--selected) .farm-map-badge-area {
+  color: #334155;
+}
+
+:root[data-theme="light"] .farm-map-badge:not(.farm-map-badge--selected) .farm-map-badge-lot,
+.farm-map-wrapper--sun .farm-map-badge:not(.farm-map-badge--selected) .farm-map-badge-lot {
+  background-color: #e0f2fe;
+  color: #0c4a6e;
+  border-color: #7dd3fc;
+}
+
+:root[data-theme="light"] .farm-map-badge:not(.farm-map-badge--selected) .farm-map-badge-count,
+.farm-map-wrapper--sun .farm-map-badge:not(.farm-map-badge--selected) .farm-map-badge-count {
+  background-color: #0369a1;
+  color: #ffffff;
+}
+
+/* Tooltips de hover en escritorio respetando tema */
+.leaflet-tooltip.farm-map-hover-tooltip {
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow-popover);
+  padding: 6px 9px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.78rem;
+}
+
+.leaflet-tooltip.farm-map-hover-tooltip::before {
+  border-top-color: var(--border-strong);
+}
+
+/* Barra superior/inferior de controles principales */
 .farm-map-topbar {
   position: absolute;
   top: 14px;
@@ -20,6 +206,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   z-index: 1000;
   pointer-events: none;
 }
@@ -29,7 +216,9 @@
   text-transform: none;
   letter-spacing: 0.01em;
   pointer-events: auto;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  min-block-size: 40px;
+  white-space: nowrap;
 }
 
 .farm-map-btn:hover:not(:disabled) {
@@ -37,8 +226,8 @@
 }
 
 .farm-map-gps-btn {
-  padding: 9px 18px;
-  border-radius: 30px;
+  padding: 8px 16px;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -46,43 +235,141 @@
   font-weight: 700;
 }
 
+.farm-map-gps-btn--premium {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border: 1px solid rgba(191, 219, 254, 0.65);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.42), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.farm-map-gps-btn--premium:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+}
+
+.farm-map-gps-btn--locked {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-card);
+}
+
+.farm-map-gps-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  display: inline-block;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+.farm-map-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
 .farm-map-layers-btn {
-  background-color: var(--bg-topbar);
+  background-color: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   color: var(--text-main);
   padding: 8px 14px;
-  border-radius: 20px;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-card);
 }
 
 .farm-map-layers-btn:hover:not(:disabled) {
-  background-color: var(--bg-elevated);
+  background-color: var(--surface-subtle-hover);
+  color: var(--text-main);
   box-shadow: var(--shadow-popover);
 }
 
 .farm-map-kmz-btn {
   background-color: var(--primary);
   color: var(--on-primary);
-  border: none;
+  border: 1px solid transparent;
   padding: 8px 14px;
-  border-radius: 20px;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   box-shadow: var(--shadow-card);
 }
 
 .farm-map-kmz-btn:hover:not(:disabled) {
   background-color: var(--primary-hover);
   box-shadow: var(--shadow-popover);
+}
+
+/* Dock de zoom y encuadre accesible con targets grandes */
+.farm-map-zoom-dock {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+  transition: right 0.2s ease;
+}
+
+.farm-map-wrapper--sheet-open .farm-map-zoom-dock {
+  right: 372px;
+}
+
+.farm-map-zoom-group {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.farm-map-zoom-btn {
+  width: auto;
+  min-inline-size: 40px;
+  min-block-size: 40px;
+  padding: 8px;
+  border: none;
+  border-radius: 0;
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+}
+
+.farm-map-zoom-btn + .farm-map-zoom-btn {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.farm-map-zoom-btn:hover:not(:disabled) {
+  background-color: var(--surface-subtle-hover);
+  color: var(--text-main);
+  transform: none;
+  box-shadow: none;
+}
+
+.farm-map-fit-btn {
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
 }
 
 .farm-map-gps-banner {
@@ -93,6 +380,100 @@
   z-index: 999;
   max-width: 92%;
   box-sizing: border-box;
+}
+
+/* Toast no bloqueante dentro del mapa */
+.farm-map-toast-region {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1015;
+  width: min(440px, calc(100% - 24px));
+  pointer-events: none;
+}
+
+.farm-map-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-popover);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.farm-map-toast--error {
+  border-color: var(--error);
+}
+
+.farm-map-toast--warning {
+  border-color: var(--warning);
+}
+
+.farm-map-toast--info {
+  border-color: var(--info);
+}
+
+.farm-map-toast-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+}
+
+.farm-map-toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.farm-map-toast-action-btn {
+  width: auto;
+  min-block-size: 36px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  background-color: var(--info);
+  color: var(--on-primary);
+}
+
+.farm-map-toast-action-btn:hover:not(:disabled) {
+  transform: none;
+  filter: brightness(0.95);
+}
+
+.farm-map-toast-close {
+  width: auto;
+  min-inline-size: 36px;
+  min-block-size: 36px;
+  padding: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 8px;
+  flex-shrink: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.farm-map-toast-close:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  color: var(--text-main);
+  transform: none;
+  box-shadow: none;
 }
 
 .farm-map-sheet {
@@ -106,19 +487,19 @@
   background-color: var(--bg-elevated);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-strong);
+  border: 1.5px solid var(--border-strong);
   border-radius: 16px;
   padding: 20px;
   color: var(--text-main);
-  z-index: 1000;
+  z-index: 1005;
   box-shadow: var(--shadow-popover);
   box-sizing: border-box;
 }
 
 .farm-map-sheet-close {
   width: auto;
-  min-width: 36px;
-  min-height: 36px;
+  min-inline-size: 40px;
+  min-block-size: 40px;
   padding: 4px 8px;
   background: transparent;
   border: none;
@@ -141,6 +522,7 @@
 
 .farm-map-cta-btn {
   width: 100%;
+  min-block-size: 46px;
   text-transform: none;
   letter-spacing: normal;
 }
@@ -164,7 +546,7 @@
 }
 
 /* ========================================================
-   MOBILE Y TABLET (<= 1024px): Pulgar y cero solapamientos
+   MOBILE Y TABLET (<= 1024px): Zona del pulgar y sol directo
    ======================================================== */
 @media (max-width: 1024px) {
   .farm-map-wrapper {
@@ -180,7 +562,7 @@
     min-height: 0;
   }
 
-  /* Hacer compactos y horizontales los botones + / - de Leaflet en la esquina superior derecha */
+  /* Controles Leaflet de MultiFarmMap (mantiene su layout intacto) */
   .farm-map-wrapper .leaflet-top.leaflet-right .leaflet-control-zoom {
     display: flex;
     flex-direction: row;
@@ -193,9 +575,9 @@
   }
 
   .farm-map-wrapper .leaflet-control-zoom a {
-    width: 42px !important;
-    height: 42px !important;
-    line-height: 42px !important;
+    width: 44px !important;
+    height: 44px !important;
+    line-height: 44px !important;
     font-size: 18px !important;
     background-color: var(--bg-elevated) !important;
     color: var(--text-main) !important;
@@ -207,48 +589,100 @@
     border-right: 1px solid var(--border-strong) !important;
   }
 
-  /* En tablet/móvil: Capas arriba-izquierda y Mi Ubicación GPS abajo-izquierda al alcance del pulgar */
+  /* Barra inferior en zona del pulgar (evita el FAB de AgroBot en esquina inf-der) */
   .farm-map-topbar {
-    inset: 12px;
-    display: block;
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    right: 76px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
-  .farm-map-right-controls {
-    position: absolute;
-    top: 0;
-    left: 0;
-    max-width: calc(100% - 104px);
+  .farm-map-btn {
+    min-block-size: 48px;
+  }
+
+  .farm-map-gps-btn {
+    padding: 10px 16px;
+    font-size: 0.9rem;
   }
 
   .farm-map-layers-btn,
   .farm-map-kmz-btn {
-    min-height: 44px;
-    padding: 8px 14px;
-    font-size: 0.84rem;
+    padding: 10px 14px;
+    font-size: 0.86rem;
   }
 
-  .farm-map-gps-btn {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    min-height: 48px;
-    padding: 10px 18px;
-    font-size: 0.9rem;
-    max-width: calc(100% - 76px);
+  /* Dock de zoom y ver finca justo encima del FAB de AgroBot (pulgar derecho) */
+  .farm-map-zoom-dock {
+    bottom: 72px;
+    right: 12px;
+    gap: 8px;
   }
 
-  .farm-map-wrapper--sheet-open .farm-map-gps-btn {
-    display: none;
+  .farm-map-zoom-btn {
+    min-inline-size: 48px;
+    min-block-size: 48px;
+    padding: 10px;
+  }
+
+  /* Cuando se abre una ficha de potrero, los controles suben arriba para no ocultarse ni tapar */
+  .farm-map-wrapper--sheet-open .farm-map-topbar {
+    top: 12px;
+    bottom: auto;
+    left: 12px;
+    right: 12px;
+  }
+
+  .farm-map-wrapper--sheet-open .farm-map-zoom-dock {
+    top: 68px;
+    bottom: auto;
+    right: 12px;
+    flex-direction: row;
+  }
+
+  .farm-map-wrapper--sheet-open .farm-map-zoom-group {
+    flex-direction: row;
+  }
+
+  .farm-map-wrapper--sheet-open .farm-map-zoom-btn + .farm-map-zoom-btn {
+    border-top: none;
+    border-left: 1px solid var(--border-subtle);
   }
 
   .farm-map-gps-banner {
-    top: 64px;
-    width: calc(100% - 24px);
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    transform: none;
+    width: auto;
     max-width: none;
   }
 
-  .farm-map-sheet {
-    z-index: 1005;
+  .farm-map-wrapper--sheet-open .farm-map-gps-banner {
+    top: 124px;
+    right: 12px;
+  }
+
+  .farm-map-toast-region {
+    top: 12px;
+    width: calc(100% - 24px);
+  }
+
+  .farm-map-wrapper--sheet-open .farm-map-toast-region {
+    top: 68px;
+  }
+
+  .farm-map-toast-close {
+    min-inline-size: 44px;
+    min-block-size: 44px;
+  }
+
+  .farm-map-toast-action-btn {
+    min-block-size: 44px;
+    padding: 8px 14px;
   }
 
   /* Evitar que el botón flotante de AgroBot tape la ficha abierta del potrero */
@@ -276,28 +710,37 @@
     right: 10px;
     bottom: 10px;
     width: auto;
-    max-height: 58dvh;
+    max-height: 55dvh;
     padding: 16px;
     border-radius: 16px;
   }
 
   .farm-map-sheet-close {
-    min-width: 48px;
-    min-height: 48px;
+    min-inline-size: 48px;
+    min-block-size: 48px;
     font-size: 1.25rem;
     margin: -6px -6px 0 0;
   }
 
   .farm-map-cta-btn {
-    min-height: 48px;
-    font-size: 0.92rem !important;
+    min-block-size: 48px;
+    font-size: 0.94rem !important;
   }
 }
 
 @media (pointer: coarse) {
   .farm-map-layers-btn,
   .farm-map-gps-btn,
-  .farm-map-sheet-close {
-    min-height: 44px;
+  .farm-map-sheet-close,
+  .farm-map-zoom-btn,
+  .farm-map-toast-close {
+    min-block-size: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .farm-map-btn,
+  .farm-map-zoom-dock {
+    transition: none;
   }
 }

@@ -6,7 +6,8 @@ import { InteractiveFarmMap } from '../components/InteractiveFarmMap';
 import { MultiFarmMap, type FarmSummaryData } from '../components/MultiFarmMap';
 import { KmzUploaderModal } from '../components/KmzUploaderModal';
 import { localDB } from '../lib/db';
-import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles, WifiOff, AlertOctagon, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useModalDialog } from '../hooks/useModalDialog';
+import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles, WifiOff, AlertOctagon, AlertCircle, CheckCircle2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import ModalUpsell from '../components/ModalUpsell';
 import './FarmMap.css';
 
@@ -68,6 +69,16 @@ export const FarmMapPage: React.FC = () => {
   const [mostrarOtrosLotes, setMostrarOtrosLotes] = useState(false);
   const [selectedPotreradaId, setSelectedPotreradaId] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [pageNotice, setPageNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const clearDialogProps = useModalDialog(clearDialogOpen, () => setClearDialogOpen(false), true);
+
+  useEffect(() => {
+    if (!pageNotice || pageNotice.type === 'error') return;
+    const timer = setTimeout(() => setPageNotice(null), 4500);
+    return () => clearTimeout(timer);
+  }, [pageNotice]);
 
   // Cerrar el modal rápido con la tecla Escape
   useEffect(() => {
@@ -514,6 +525,7 @@ export const FarmMapPage: React.FC = () => {
       rotacion_nombre: rotNombre,
     });
     setSelectedPotreradaId('');
+    setTransferError(null);
     setMostrarOtrosLotes(false);
     setTransferModalOpen(true);
   };
@@ -521,47 +533,54 @@ export const FarmMapPage: React.FC = () => {
   const handleExecuteTransfer = async () => {
     if (!targetPotrero || !selectedPotreradaId || !fincaId) return;
     setTransferring(true);
+    setTransferError(null);
 
     try {
       // 1. Cerrar movimiento anterior de la potrerada si existe
-      await supabase
+      const { error: errClose } = await supabase
         .from('movimientos_potreros')
         .update({ fecha_salida: new Date().toISOString() })
         .eq('id_finca', fincaId)
         .eq('id_potrerada', selectedPotreradaId)
         .is('fecha_salida', null);
+      if (errClose) throw errClose;
 
       // 2. Registrar el nuevo movimiento al potrero seleccionado
-      await supabase.from('movimientos_potreros').insert({
+      const { error: errInsert } = await supabase.from('movimientos_potreros').insert({
         id_finca: fincaId,
         id_potrero: targetPotrero.id,
         id_potrerada: selectedPotreradaId,
         fecha_entrada: new Date().toISOString(),
       });
+      if (errInsert) throw errInsert;
 
       // 3. Actualizar id_potrero_actual en los animales de esa potrerada
-      await supabase
+      const { error: errAnim } = await supabase
         .from('animales')
         .update({ id_potrero_actual: targetPotrero.id })
         .eq('id_finca', fincaId)
         .eq('id_potrerada', selectedPotreradaId);
+      if (errAnim) throw errAnim;
 
       setTransferModalOpen(false);
+      setPageNotice({ type: 'success', message: `Ganado trasladado a ${targetPotrero.nombre}.` });
       await loadFarmMapData();
-    } catch (err) {
-      alert('Error trasladando el ganado: ' + (err as any).message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Error inesperado';
+      setTransferError(`No se pudo trasladar el ganado: ${msg}`);
     } finally {
       setTransferring(false);
     }
   };
 
-  const handleClearFarmMap = async () => {
+  const handleClearFarmMap = () => {
     if (!fincaId) return;
-    const confirmed = window.confirm(
-      '¿Estás seguro de que deseas eliminar y revertir el plano de esta finca?\n\nEsto quitará los polígonos del mapa, pero tus potreros, animales, lotes y pesajes permanecerán 100% intactos.'
-    );
-    if (!confirmed) return;
+    setClearDialogOpen(true);
+  };
 
+  const executeClearFarmMap = async () => {
+    if (!fincaId) return;
+    setClearDialogOpen(false);
     setLoading(true);
     try {
       // 1. Eliminar registro del mapa
@@ -576,9 +595,11 @@ export const FarmMapPage: React.FC = () => {
       // 3. Limpiar caché local
       await localDB.mapasFincaCache.where('id_finca').equals(fincaId).delete();
 
+      setPageNotice({ type: 'success', message: 'Plano eliminado del mapa. Tus potreros y animales siguen intactos.' });
       await loadFarmMapData();
-    } catch (err: any) {
-      alert('Error al revertir el plano: ' + err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Error inesperado';
+      setPageNotice({ type: 'error', message: `Error al revertir el plano: ${msg}` });
     } finally {
       setLoading(false);
     }
@@ -654,10 +675,12 @@ export const FarmMapPage: React.FC = () => {
             <MapPin size={22} aria-hidden="true" />
           </div>
           <div style={{ minWidth: 0 }}>
-            <h2 className="farm-map-header-title">Plano de la Finca: {currentFincaName}</h2>
+            <h2 className="farm-map-header-title">
+              {isMobile ? currentFincaName : `Plano de la Finca: ${currentFincaName}`}
+            </h2>
             <p className="farm-map-header-subtitle">
               {isMobile
-                ? `${potreros.length} potreros • ${potreros.filter(p => p.geojson_geometry).length} en mapa${zonasAdicionales.length > 0 ? ` • ${zonasAdicionales.length} zonas` : ''}`
+                ? `${potreros.length} potreros · ${potreros.filter(p => p.geojson_geometry).length} en mapa`
                 : `${potreros.length} Potreros registrados • ${potreros.filter(p => p.geojson_geometry).length} potreros delimitados${zonasAdicionales.length > 0 ? ` • ${zonasAdicionales.length} zonas no ganaderas` : ''}`}
             </p>
           </div>
@@ -851,6 +874,32 @@ export const FarmMapPage: React.FC = () => {
         </div>
       ) : null}
 
+      {/* Aviso de Página No Bloqueante */}
+      {pageNotice && (
+        <div
+          className={`farm-map-page-toast farm-map-page-toast--${pageNotice.type}`}
+          role={pageNotice.type === 'error' ? 'alert' : 'status'}
+          aria-live={pageNotice.type === 'error' ? 'assertive' : 'polite'}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            {pageNotice.type === 'error' ? (
+              <AlertCircle size={18} aria-hidden="true" style={{ flexShrink: 0 }} />
+            ) : (
+              <CheckCircle2 size={18} aria-hidden="true" style={{ flexShrink: 0 }} />
+            )}
+            <span>{pageNotice.message}</span>
+          </div>
+          <button
+            type="button"
+            className="farm-map-modal-close"
+            onClick={() => setPageNotice(null)}
+            aria-label="Cerrar mensaje"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
       {/* Banner Informativo de Modo Sin Conexión */}
       {isOfflineData && (
         <div
@@ -867,18 +916,23 @@ export const FarmMapPage: React.FC = () => {
             fontSize: '0.85rem',
           }}
         >
-          <WifiOff size={20} color="var(--warning)" aria-hidden="true" style={{ flexShrink: 0 }} />
+          <WifiOff size={isMobile ? 16 : 20} color="var(--warning)" aria-hidden="true" style={{ flexShrink: 0 }} />
           <div style={{ minWidth: 0 }}>
-            <strong>Modo Sin Conexión activo:</strong>{' '}
-            <span>
-              {isMobile
-                ? `Plano local guardado${offlineUpdatedTime ? ` (${offlineUpdatedTime})` : ''} · GPS satelital activo.`
-                : `Estás navegando con el plano, potreros y distribución de ganado guardados en la memoria local ${offlineUpdatedTime ? `(${offlineUpdatedTime})` : ''}.`}
-            </span>
-            {!isMobile && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Tu posición GPS por satélite sigue activa en tiempo real para orientarte durante la vuelta a los potreros.
-              </div>
+            {isMobile ? (
+              <span>
+                <strong>Sin conexión</strong>
+                {offlineUpdatedTime ? ` · ${offlineUpdatedTime.replace('Guardado local: ', '')}` : ' · Copia local'} · GPS activo
+              </span>
+            ) : (
+              <>
+                <strong>Modo Sin Conexión activo:</strong>{' '}
+                <span>
+                  {`Estás navegando con el plano, potreros y distribución de ganado guardados en la memoria local ${offlineUpdatedTime ? `(${offlineUpdatedTime})` : ''}.`}
+                </span>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Tu posición GPS por satélite sigue activa en tiempo real para orientarte durante la vuelta a los potreros.
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -1204,6 +1258,11 @@ export const FarmMapPage: React.FC = () => {
 
               {/* Body con Scroll */}
               <div className="farm-map-modal-body">
+                {transferError && (
+                  <div className="farm-map-modal-error" role="alert">
+                    {transferError}
+                  </div>
+                )}
                 {disponibles.length === 0 ? (
                   <div style={{
                     backgroundColor: 'var(--surface-inset)',
@@ -1349,6 +1408,57 @@ export const FarmMapPage: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* Diálogo nativo de confirmación para quitar plano */}
+      <dialog
+        {...clearDialogProps}
+        aria-labelledby="farm-map-clear-title"
+        className="farm-map-dialog"
+      >
+        {clearDialogOpen && (
+          <div className="farm-map-dialog-body">
+            <Trash2 size={36} color="var(--error)" aria-hidden="true" style={{ marginBottom: '12px' }} />
+            <h3 id="farm-map-clear-title" style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 700 }}>
+              ¿Quitar el plano de esta finca?
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Esto quitará los polígonos del mapa, pero tus potreros, animales, lotes y pesajes permanecerán 100% intactos.
+            </p>
+            <div className="farm-map-dialog-actions">
+              <button
+                type="button"
+                className="farm-map-inline-btn"
+                onClick={() => setClearDialogOpen(false)}
+                style={{
+                  backgroundColor: 'var(--surface-subtle)',
+                  border: '1px solid var(--border-strong)',
+                  color: 'var(--text-main)',
+                  padding: '9px 16px',
+                  borderRadius: '10px',
+                  fontWeight: 600,
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="farm-map-inline-btn"
+                onClick={executeClearFarmMap}
+                style={{
+                  backgroundColor: 'var(--error)',
+                  border: 'none',
+                  color: 'var(--on-primary)',
+                  padding: '9px 16px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                }}
+              >
+                Sí, quitar plano
+              </button>
+            </div>
+          </div>
+        )}
+      </dialog>
 
       {licenciaInfo && (
         <ModalUpsell

@@ -231,58 +231,133 @@
   pointer-events: none;
 }
 
+/* Banner de aviso de página (no bloqueante) y diálogo nativo de confirmación */
+.farm-map-page-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--border-strong);
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+  box-shadow: var(--shadow-card);
+}
+
+.farm-map-page-toast--error {
+  background-color: var(--error-soft-bg);
+  border-color: var(--error-soft-border);
+  color: var(--error);
+}
+
+.farm-map-page-toast--success {
+  background-color: var(--success-soft-bg);
+  border-color: var(--success-soft-border);
+  color: var(--success);
+}
+
+.farm-map-modal-error {
+  background-color: var(--error-soft-bg);
+  border: 1px solid var(--error-soft-border);
+  color: var(--error);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.farm-map-dialog {
+  width: calc(100vw - 24px);
+  max-width: 440px;
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+  border-radius: 16px;
+  border: 1.5px solid var(--error-soft-border);
+  box-shadow: var(--shadow-popover);
+  overflow-y: auto;
+}
+
+.farm-map-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+.farm-map-dialog::backdrop {
+  background: var(--backdrop-scrim);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.farm-map-dialog-body {
+  padding: 22px;
+  text-align: center;
+}
+
+.farm-map-dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
 @media (max-width: 1024px) {
   .main-content-layout:has(.farm-map-page) {
-    padding: 8px max(10px, env(safe-area-inset-right, 0px)) calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 8px) max(10px, env(safe-area-inset-left, 0px));
+    padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 6px) max(8px, env(safe-area-inset-left, 0px));
     display: flex;
     flex-direction: column;
   }
 
   .farm-map-page:has(.farm-map-wrapper) {
-    height: calc(100dvh - var(--topbar-height, 64px) - var(--bottom-nav-height, 68px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 18px);
+    height: calc(100dvh - var(--topbar-height, 64px) - var(--bottom-nav-height, 68px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 12px);
     min-height: 360px;
-    gap: 8px;
+    gap: 6px;
   }
 }
 
 @media (max-width: 768px) {
   .farm-map-page:has(.farm-map-wrapper) {
-    height: calc(100dvh - var(--topbar-height, 58px) - var(--bottom-nav-height, 68px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 18px);
+    height: calc(100dvh - var(--topbar-height, 58px) - var(--bottom-nav-height, 68px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 12px);
     min-height: 340px;
   }
 
   .farm-map-page {
-    gap: 8px;
+    gap: 6px;
   }
 
   .farm-map-header {
-    padding: 10px 12px;
-    border-radius: 14px;
-    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    gap: 6px;
   }
 
   .farm-map-header-info {
     max-width: 100%;
+    gap: 8px;
   }
 
   .farm-map-header-icon {
-    width: 34px;
-    height: 34px;
+    display: none;
   }
 
   .farm-map-header-title {
-    font-size: 1rem;
+    font-size: 0.96rem;
     line-height: 1.2;
   }
 
   .farm-map-header-subtitle {
-    font-size: 0.74rem;
+    font-size: 0.72rem;
   }
 
   .farm-map-offline-banner {
-    padding: 8px 12px !important;
-    font-size: 0.78rem !important;
+    padding: 6px 10px !important;
+    font-size: 0.76rem !important;
     gap: 8px !important;
+    border-radius: 10px !important;
   }
 
   .farm-map-header-actions {
@@ -291,14 +366,14 @@
 
   .farm-map-tablist {
     width: 100%;
-    padding: 3px;
+    padding: 2px;
   }
 
   .farm-map-tab {
     flex: 1;
     min-height: 44px;
-    padding: 8px 12px;
-    font-size: 0.82rem;
+    padding: 6px 10px;
+    font-size: 0.8rem;
   }
 
   .farm-map-modal-overlay {
@@ -334,6 +409,15 @@
   .farm-map-lot-option {
     min-height: 60px;
     padding: 12px 14px;
+  }
+
+  .farm-map-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .farm-map-dialog-actions .farm-map-inline-btn {
+    width: 100%;
+    min-height: 48px;
   }
 }
 

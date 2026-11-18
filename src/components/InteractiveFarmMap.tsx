@@ -1,7 +1,22 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Layers, Navigation, RefreshCw, Upload, Users, ArrowRightLeft, Lock } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowRightLeft,
+  Info,
+  Layers,
+  Lock,
+  Maximize2,
+  Minus,
+  Navigation,
+  Plus,
+  RefreshCw,
+  Upload,
+  Users,
+  X,
+} from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 import { findCurrentPaddockByGps } from '../utils/geoUtils';
 import './InteractiveFarmMap.css';
 
@@ -33,6 +48,17 @@ export interface ZonaAdicionalMapData {
   color?: string;
 }
 
+type MapLayerMode = 'satellite' | 'plain' | 'street';
+type ZoomTier = 'overview' | 'medium' | 'detail';
+
+interface MapNoticeState {
+  id: number;
+  type: 'info' | 'warning' | 'error';
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
 interface InteractiveFarmMapProps {
   fincaNombre?: string;
   potreros: PotreroMapData[];
@@ -46,6 +72,235 @@ interface InteractiveFarmMapProps {
   onMoveCattleToPotrero?: (potreroId: string, potreroNombre: string) => void;
 }
 
+const MAP_LAYER_ORDER: MapLayerMode[] = ['satellite', 'plain', 'street'];
+const MAP_LAYER_LABELS: Record<MapLayerMode, string> = {
+  satellite: 'Satélite',
+  plain: 'Plano',
+  street: 'Terreno',
+};
+
+const ZONA_META_BY_TIPO: Record<
+  ZonaAdicionalMapData['tipo'],
+  { icon: string; shortLabel: string; longLabel: string; defaultColor: string; sunColor: string; themeVar: string }
+> = {
+  bosque: {
+    icon: '🌳',
+    shortLabel: 'Bosque',
+    longLabel: 'Bosque/Reforestación',
+    defaultColor: '#059669',
+    sunColor: '#047857',
+    themeVar: 'var(--success)',
+  },
+  reforestacion: {
+    icon: '🌳',
+    shortLabel: 'Bosque',
+    longLabel: 'Bosque/Reforestación',
+    defaultColor: '#059669',
+    sunColor: '#047857',
+    themeVar: 'var(--success)',
+  },
+  reserva: {
+    icon: '🌳',
+    shortLabel: 'Bosque',
+    longLabel: 'Bosque/Reforestación',
+    defaultColor: '#059669',
+    sunColor: '#047857',
+    themeVar: 'var(--success)',
+  },
+  agua: {
+    icon: '💧',
+    shortLabel: 'Agua',
+    longLabel: 'Agua',
+    defaultColor: '#0284C7',
+    sunColor: '#0369A1',
+    themeVar: 'var(--info)',
+  },
+  infraestructura: {
+    icon: '🏠',
+    shortLabel: 'Infraestructura',
+    longLabel: 'Infraestructura',
+    defaultColor: '#D97706',
+    sunColor: '#B45309',
+    themeVar: 'var(--warning)',
+  },
+  otro: {
+    icon: '📍',
+    shortLabel: 'Zona Especial',
+    longLabel: 'Zona Especial',
+    defaultColor: '#8B5CF6',
+    sunColor: '#6D28D9',
+    themeVar: 'var(--info)',
+  },
+};
+
+function escapeHtml(text: string): string {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getPotreroStyle(
+  isSelected: boolean,
+  hasCattle: boolean,
+  isDemo: boolean,
+  mapType: MapLayerMode,
+  isSunMode: boolean
+): L.PathOptions {
+  const highContrastLight = isSunMode && mapType !== 'satellite';
+  const baseStroke = isDemo
+    ? highContrastLight ? '#047857' : '#10B981'
+    : hasCattle
+    ? highContrastLight ? '#1D4ED8' : '#38BDF8'
+    : highContrastLight ? '#047857' : '#10B981';
+  const baseFill = isDemo
+    ? '#10B981'
+    : hasCattle
+    ? highContrastLight ? '#2563EB' : '#475569'
+    : '#10B981';
+
+  return {
+    color: isSelected ? (highContrastLight ? '#B45309' : '#F59E0B') : baseStroke,
+    weight: isSelected ? 4 : mapType === 'plain' ? 2.5 : 2,
+    opacity: isSelected ? 1 : 0.92,
+    fillColor: baseFill,
+    fillOpacity: isSelected ? 0.38 : mapType === 'plain' ? 0.24 : 0.22,
+  };
+}
+
+function getZonaMeta(z: ZonaAdicionalMapData, isSunMode: boolean, mapType: MapLayerMode) {
+  const meta = ZONA_META_BY_TIPO[z.tipo] || ZONA_META_BY_TIPO.otro;
+  const highContrastLight = isSunMode && mapType !== 'satellite';
+  const baseColor = z.color || (highContrastLight ? meta.sunColor : meta.defaultColor);
+  return { ...meta, baseColor };
+}
+
+function buildPotreroBadgeHtml(
+  p: PotreroMapData,
+  tier: ZoomTier,
+  isSelected: boolean,
+  hasCattle: boolean,
+  isMobile: boolean
+): string {
+  const stateClasses = [
+    'farm-map-badge',
+    `farm-map-badge--${tier}`,
+    hasCattle ? 'farm-map-badge--occupied' : '',
+    isSelected ? 'farm-map-badge--selected' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const nombre = escapeHtml(p.nombre);
+  const loteNombreRaw = p.potrerada_actual?.nombre || 'Lote';
+  const loteCorto = escapeHtml(
+    loteNombreRaw.length > 14 ? `${loteNombreRaw.substring(0, 12)}…` : loteNombreRaw
+  );
+  const cabezas = p.potrerada_actual?.total_animales || 0;
+
+  if (tier === 'overview') {
+    if (isSelected) {
+      return `<div class="${stateClasses}"><span class="farm-map-badge-title">${nombre}</span><span class="farm-map-badge-area">(${p.area_hectareas} Ha)</span></div>`;
+    }
+    return `
+      <div class="${stateClasses}">
+        <span aria-hidden="true">🐮</span>
+        <span class="farm-map-badge-title">${loteCorto}</span>
+        ${cabezas > 0 ? `<span class="farm-map-badge-count">${cabezas}</span>` : ''}
+      </div>
+    `;
+  }
+
+  if (tier === 'medium') {
+    const nombreDisplay = escapeHtml(
+      isMobile && p.nombre.length > 12 ? `${p.nombre.substring(0, 11)}…` : p.nombre
+    );
+    return `
+      <div class="${stateClasses}">
+        <div class="farm-map-badge-row">
+          <span class="farm-map-badge-title">${nombreDisplay}</span>
+          <span class="farm-map-badge-area">${p.area_hectareas} Ha</span>
+        </div>
+        ${
+          hasCattle
+            ? `<div class="farm-map-badge-lot">🐮 ${loteCorto} (${cabezas} cbs)</div>`
+            : ''
+        }
+      </div>
+    `;
+  }
+
+  return `
+    <div class="${stateClasses}">
+      <div class="farm-map-badge-title">${nombre}</div>
+      <div class="farm-map-badge-area">${p.area_hectareas} Ha</div>
+      ${
+        hasCattle
+          ? `<div class="farm-map-badge-lot">🐮 ${escapeHtml(loteNombreRaw)} (${cabezas} cbs &bull; ${p.potrerada_actual?.peso_promedio ?? 0} kg)</div>`
+          : ''
+      }
+    </div>
+  `;
+}
+
+function buildZonaBadgeHtml(
+  z: ZonaAdicionalMapData,
+  tier: ZoomTier,
+  isSelected: boolean,
+  isMobile: boolean,
+  icon: string,
+  shortLabel: string,
+  baseColor: string
+): string {
+  const stateClasses = [
+    'farm-map-badge',
+    `farm-map-badge--${tier}`,
+    isSelected ? 'farm-map-badge--selected' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const borderStyle = isSelected ? '' : `border-color: ${escapeHtml(baseColor)};`;
+
+  if (tier === 'overview') {
+    return `<div class="${stateClasses}" style="${borderStyle}">${icon} ${escapeHtml(z.nombre)}</div>`;
+  }
+
+  if (tier === 'medium') {
+    const nombreDisplay = escapeHtml(
+      isMobile && z.nombre.length > 12 ? `${z.nombre.substring(0, 11)}…` : z.nombre
+    );
+    return `
+      <div class="${stateClasses}" style="${borderStyle}">
+        <div class="farm-map-badge-row">
+          <span class="farm-map-badge-title">${icon} ${nombreDisplay}</span>
+          <span class="farm-map-badge-area">${z.area_hectareas} Ha</span>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="${stateClasses}" style="${borderStyle}">
+      <div class="farm-map-badge-title">${icon} ${escapeHtml(z.nombre)}</div>
+      <div class="farm-map-badge-area">${z.area_hectareas} Ha &bull; ${escapeHtml(shortLabel)}</div>
+    </div>
+  `;
+}
+
+function createBadgeMarker(center: L.LatLng, html: string, onClick: () => void): L.Marker {
+  const customIcon = L.divIcon({
+    html,
+    className: 'farm-map-div-icon',
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
+  const marker = L.marker(center, { icon: customIcon });
+  marker.on('click', onClick);
+  return marker;
+}
+
 export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   potreros,
   zonasAdicionales = [],
@@ -57,6 +312,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   onOpenUploader,
   onMoveCattleToPotrero,
 }) => {
+  const { isSunMode } = useTheme();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
@@ -64,35 +320,44 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   const polygonsGroupRef = useRef<L.FeatureGroup | null>(null);
   const badgesGroupRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
-  const zoomControlRef = useRef<L.Control.Zoom | null>(null);
+  const farmBoundsRef = useRef<L.LatLngBounds | null>(null);
 
-  const [mapType, setMapType] = useState<'satellite' | 'street'>('satellite');
+  const [mapType, setMapType] = useState<MapLayerMode>('satellite');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [currentPaddock, setCurrentPaddock] = useState<PotreroMapData | null>(null);
   const [currentSpecialZone, setCurrentSpecialZone] = useState<ZonaAdicionalMapData | null>(null);
   const [selectedPotrero, setSelectedPotrero] = useState<PotreroMapData | null>(null);
   const [selectedZona, setSelectedZona] = useState<ZonaAdicionalMapData | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [mapNotice, setMapNotice] = useState<MapNoticeState | null>(null);
+  const [toastPaused, setToastPaused] = useState(false);
 
   const [currentZoom, setCurrentZoom] = useState<number>(zoom);
   const fittedBoundsKeyRef = useRef<string>('');
 
-  // Detectar si estamos en pantalla móvil (< 640px) y vista compacta móvil/tablet (<= 1024px)
+  const showNotice = useCallback(
+    (notice: Omit<MapNoticeState, 'id'>) => {
+      setMapNotice({ id: Date.now(), ...notice });
+    },
+    []
+  );
+
+  // Auto-ocultar avisos informativos cuando no tienen foco/hover ni acción crítica
+  useEffect(() => {
+    if (!mapNotice || toastPaused || mapNotice.type === 'error' || mapNotice.actionLabel) return;
+    const timer = setTimeout(() => setMapNotice(null), 5000);
+    return () => clearTimeout(timer);
+  }, [mapNotice, toastPaused]);
+
+  // Detectar si estamos en pantalla móvil (< 640px)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
-  const [isCompactViewport, setIsCompactViewport] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 640);
-    const mq = window.matchMedia('(max-width: 1024px)');
-    const mqHandler = (e: MediaQueryListEvent) => setIsCompactViewport(e.matches);
     window.addEventListener('resize', handler);
-    mq.addEventListener('change', mqHandler);
-    return () => {
-      window.removeEventListener('resize', handler);
-      mq.removeEventListener('change', mqHandler);
-    };
+    return () => window.removeEventListener('resize', handler);
   }, []);
 
-  // Inicialización del Mapa de Leaflet y Capas Base
+  // Inicialización del Mapa de Leaflet (controles zoom custom en React para alcance táctil)
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -103,14 +368,10 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         zoomControl: false,
       });
 
-      const zoomCtrl = L.control.zoom({ position: isCompactViewport ? 'topright' : 'bottomright' }).addTo(map);
-      zoomControlRef.current = zoomCtrl;
-
       map.on('zoomend', () => {
         setCurrentZoom(map.getZoom());
       });
 
-      // Crear grupos dedicados para evitar redraws masivos del mapa
       const polyGroup = L.featureGroup().addTo(map);
       const badgeGroup = L.layerGroup().addTo(map);
       polygonsGroupRef.current = polyGroup;
@@ -118,35 +379,21 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
       mapInstanceRef.current = map;
 
-      // Invalidate size para asegurar que el mapa ocupe el 100% del contenedor sin franjas negras
       setTimeout(() => map.invalidateSize(), 100);
       setTimeout(() => map.invalidateSize(), 300);
     }
 
     return () => {
-      // Cleanup al desmontar para evitar fugas de memoria
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         polygonsGroupRef.current = null;
         badgesGroupRef.current = null;
         tileLayerRef.current = null;
-        zoomControlRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Reubicar controles de zoom según viewport (abajo-derecha en PC, arriba-derecha en móvil/tablet)
-  useEffect(() => {
-    if (zoomControlRef.current) {
-      zoomControlRef.current.setPosition(isCompactViewport ? 'topright' : 'bottomright');
-    }
-    const timer = setTimeout(() => {
-      mapInstanceRef.current?.invalidateSize();
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [isCompactViewport]);
 
   // Permitir cerrar la ficha de potrero o zona con Escape
   useEffect(() => {
@@ -176,33 +423,39 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     return () => ro.disconnect();
   }, []);
 
-  // Capa Base (Satélite vs Calles) gestionada sin reiniciar el mapa
+  // Capa Base (Satélite / Plano sin tiles / Terreno OSM)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
     }
 
-    const tileLayer = mapType === 'satellite'
-      ? L.tileLayer(
-          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-          {
-            attribution: 'Tiles &copy; Esri',
+    if (mapType === 'plain') {
+      return;
+    }
+
+    const tileLayer =
+      mapType === 'satellite'
+        ? L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            {
+              attribution: 'Tiles &copy; Esri',
+              maxZoom: 19,
+            }
+          )
+        : L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
             maxZoom: 19,
-          }
-        )
-      : L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors',
-          maxZoom: 19,
-        });
+          });
 
     tileLayer.addTo(map);
     tileLayerRef.current = tileLayer;
   }, [mapType]);
 
-  // Precalcular centroides de polígonos para evitar recalcularlos en cada evento de zoom/render
+  // Precalcular centroides de polígonos
   const centroids = useMemo(() => {
     const potreroCentroids = new Map<string, L.LatLng>();
     const zonaCentroids = new Map<string, L.LatLng>();
@@ -236,36 +489,26 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     return { potreroCentroids, zonaCentroids };
   }, [potreros, zonasAdicionales]);
 
-  // 1. Renderizar Polígonos GeoJSON en polygonsGroupRef (Solo cuando cambia data o selección)
-  // Este efecto NUNCA se ejecuta al cambiar el zoom, lo que hace el mapa ultra fluido
+  // 1. Renderizar Polígonos GeoJSON en polygonsGroupRef
   useEffect(() => {
     const map = mapInstanceRef.current;
     const polyGroup = polygonsGroupRef.current;
     if (!map || !polyGroup) return;
 
-    // Limpiar únicamente la capa de polígonos
     polyGroup.clearLayers();
 
     const bounds = L.latLngBounds([]);
     const isDemo = tipoLicencia === 'demo';
 
-    // 1. Renderizar Polígonos de Potreros
     potreros.forEach((p) => {
       if (!p.geojson_geometry) return;
 
       const isSelected = selectedPotrero?.id === p.id;
       const hasCattle = !isDemo && !!p.potrerada_actual;
-      const baseColor = isDemo ? '#10B981' : hasCattle ? '#64748B' : '#10B981';
-      const polyColor = isSelected ? '#F59E0B' : baseColor;
+      const style = getPotreroStyle(isSelected, hasCattle, isDemo, mapType, isSunMode);
 
       const geoJsonLayer = L.geoJSON(p.geojson_geometry, {
-        style: {
-          color: polyColor,
-          weight: isSelected ? 3.5 : 2,
-          opacity: isSelected ? 1 : 0.85,
-          fillColor: baseColor,
-          fillOpacity: isSelected ? 0.38 : 0.22,
-        },
+        style,
         onEachFeature: (_feature: any, layer: L.Layer) => {
           layer.on('click', () => {
             setSelectedZona(null);
@@ -274,17 +517,21 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         },
       });
 
-      // Tooltip informativo rápido al pasar el cursor (Hover en PC)
       const hoverTooltipContent = `
-        <div style="font-family: system-ui, sans-serif; font-size: 11px; padding: 2px;">
-          <strong style="color: #0F172A;">${p.nombre}</strong> (${p.area_hectareas} Ha)
-          ${hasCattle ? `<div style="color: #475569; font-weight: 600; margin-top: 2px;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs)</div>` : '<div style="color: #16A34A; font-size: 10px;">🟢 Disponible / Descanso</div>'}
+        <div>
+          <strong>${escapeHtml(p.nombre)}</strong> (${p.area_hectareas} Ha)
+          ${
+            hasCattle
+              ? `<div style="font-weight: 600; margin-top: 2px;">🐮 ${escapeHtml(p.potrerada_actual?.nombre || '')} (${p.potrerada_actual?.total_animales ?? 0} cbs)</div>`
+              : '<div style="font-size: 0.72rem; opacity: 0.85;">🟢 Disponible / Descanso</div>'
+          }
         </div>
       `;
       geoJsonLayer.bindTooltip(hoverTooltipContent, {
+        className: 'farm-map-hover-tooltip',
         direction: 'top',
         sticky: true,
-        opacity: 0.95,
+        opacity: 0.98,
       });
 
       polyGroup.addLayer(geoJsonLayer);
@@ -294,32 +541,27 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         if (polyBounds.isValid()) {
           bounds.extend(polyBounds);
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     });
 
-    // 2. Renderizar Zonas Especiales No Ganaderas (Bosques, Agua, Infraestructura)
     zonasAdicionales.forEach((z) => {
       if (!z.geojson_geometry) return;
 
       const isSelected = selectedZona?.id === z.id;
       const isBosque = z.tipo === 'bosque' || z.tipo === 'reforestacion' || z.tipo === 'reserva';
       const isAgua = z.tipo === 'agua';
-      const isInfra = z.tipo === 'infraestructura';
-
-      const baseZoneColor = z.color || (isBosque ? '#059669' : isAgua ? '#0284C7' : isInfra ? '#D97706' : '#8B5CF6');
-      const zoneColor = isSelected ? '#F59E0B' : baseZoneColor;
-      const zoneIcon = isBosque ? '🌳' : isAgua ? '💧' : isInfra ? '🏠' : '📍';
-      const zoneLabel = isBosque ? 'Bosque/Reforestación' : isAgua ? 'Agua' : isInfra ? 'Infraestructura' : 'Zona Especial';
+      const { icon, longLabel, baseColor } = getZonaMeta(z, isSunMode, mapType);
+      const zoneColor = isSelected ? (isSunMode ? '#B45309' : '#F59E0B') : baseColor;
 
       const geoJsonLayer = L.geoJSON(z.geojson_geometry, {
         style: {
           color: zoneColor,
-          weight: isSelected ? 3.5 : 2,
-          dashArray: isBosque ? '4, 4' : undefined,
-          opacity: isSelected ? 1 : 0.85,
-          fillColor: baseZoneColor,
+          weight: isSelected ? 4 : mapType === 'plain' ? 2.5 : 2,
+          dashArray: isBosque ? '5, 4' : undefined,
+          opacity: isSelected ? 1 : 0.9,
+          fillColor: baseColor,
           fillOpacity: isSelected ? 0.45 : isAgua ? 0.35 : 0.22,
         },
         onEachFeature: (_feature: any, layer: L.Layer) => {
@@ -330,16 +572,15 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         },
       });
 
-      geoJsonLayer.bindTooltip(`
-        <div style="font-family: system-ui, sans-serif; font-size: 11px; padding: 2px;">
-          <strong style="color: #0F172A;">${zoneIcon} ${z.nombre}</strong> (${z.area_hectareas} Ha)
-          <div style="color: ${baseZoneColor}; font-weight: 600; font-size: 10px;">${zoneLabel}</div>
-        </div>
-      `, {
-        direction: 'top',
-        sticky: true,
-        opacity: 0.95,
-      });
+      geoJsonLayer.bindTooltip(
+        `<div><strong>${icon} ${escapeHtml(z.nombre)}</strong> (${z.area_hectareas} Ha)<div style="font-weight: 600; font-size: 0.72rem;">${escapeHtml(longLabel)}</div></div>`,
+        {
+          className: 'farm-map-hover-tooltip',
+          direction: 'top',
+          sticky: true,
+          opacity: 0.98,
+        }
+      );
 
       polyGroup.addLayer(geoJsonLayer);
 
@@ -348,22 +589,28 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         if (polyBounds.isValid()) {
           bounds.extend(polyBounds);
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     });
 
-    // Ajustar vista del mapa al cargar la finca por primera vez
-    const currentDataKey = `${potreros.length}-${zonasAdicionales.length}-${potreros.map(p => p.id).join(',')}`;
-    if (bounds.isValid() && fittedBoundsKeyRef.current !== currentDataKey && (potreros.some((p) => p.geojson_geometry) || zonasAdicionales.some((z) => z.geojson_geometry))) {
+    if (bounds.isValid()) {
+      farmBoundsRef.current = bounds;
+    }
+
+    const currentDataKey = `${potreros.length}-${zonasAdicionales.length}-${potreros.map((p) => p.id).join(',')}`;
+    if (
+      bounds.isValid() &&
+      fittedBoundsKeyRef.current !== currentDataKey &&
+      (potreros.some((p) => p.geojson_geometry) || zonasAdicionales.some((z) => z.geojson_geometry))
+    ) {
       map.invalidateSize();
       map.fitBounds(bounds, { padding: isMobile ? [20, 20] : [40, 40], maxZoom: 17 });
       fittedBoundsKeyRef.current = currentDataKey;
     }
-  }, [potreros, zonasAdicionales, tipoLicencia, selectedPotrero?.id, selectedZona?.id, isMobile]);
+  }, [potreros, zonasAdicionales, tipoLicencia, selectedPotrero?.id, selectedZona?.id, isMobile, mapType, isSunMode]);
 
   // 2. Renderizar Etiquetas Flotantes Inteligentes (Badges en badgesGroupRef)
-  // Controla la densidad visual para que en zoom panorámico NO se amontonen las 50 etiquetas
   useEffect(() => {
     const badgeGroup = badgesGroupRef.current;
     if (!badgeGroup) return;
@@ -371,327 +618,99 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
     badgeGroup.clearLayers();
 
     const isDemo = tipoLicencia === 'demo';
-    // Determinar umbral según dispositivo:
-    // En celular una finca completa suele quedar en zoom 13-15.5
-    // En PC suele quedar en zoom 13-14
     const isOverviewZoom = isMobile ? currentZoom < 15.5 : currentZoom < 14.5;
-    const isMediumZoom = isMobile ? (currentZoom >= 15.5 && currentZoom < 17.5) : (currentZoom >= 14.5 && currentZoom < 16.5);
+    const isMediumZoom = isMobile
+      ? currentZoom >= 15.5 && currentZoom < 17.5
+      : currentZoom >= 14.5 && currentZoom < 16.5;
+    const tier: ZoomTier = isOverviewZoom ? 'overview' : isMediumZoom ? 'medium' : 'detail';
 
-    // 1. Badges de Potreros
     potreros.forEach((p) => {
       const center = centroids.potreroCentroids.get(p.id);
       if (!center) return;
 
       const isSelected = selectedPotrero?.id === p.id;
       const hasCattle = !isDemo && !!p.potrerada_actual;
-      const baseColor = isDemo ? '#10B981' : hasCattle ? '#64748B' : '#10B981';
-      const polyColor = isSelected ? '#F59E0B' : baseColor;
 
-      // EN VISTA PANORÁMICA (Zoom alejado):
-      // Para evitar que 50 etiquetas se encimen formando una pirámide ilegible:
-      // - Si tiene ganado: Mostrar badge compacto con ícono de vaca y nombre del lote
-      // - Si está seleccionado: Mostrar badge destacado en ámbar
-      // - Si está vacío y no seleccionado: NO mostrar texto (mapa limpio y despejado)
-      if (isOverviewZoom) {
-        if (!hasCattle && !isSelected) {
-          // Potrero vacío en vista panorámica: no genera marcador DOM, máxima fluidez
-          return;
-        }
-
-        let badgeHtml = '';
-        let iconWidth = 90;
-        let iconHeight = 22;
-
-        if (isSelected) {
-          badgeHtml = `
-            <div style="
-              background-color: #D97706;
-              border: 1.5px solid #FEF3C7;
-              border-radius: 6px;
-              padding: 2px 7px;
-              color: white;
-              font-family: system-ui, sans-serif;
-              font-size: 10px;
-              font-weight: 700;
-              text-align: center;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-              white-space: nowrap;
-              cursor: pointer;
-            ">
-              ${p.nombre} (${p.area_hectareas} Ha)
-            </div>
-          `;
-          iconWidth = 100;
-          iconHeight = 22;
-        } else if (hasCattle) {
-          const potreradaNombre = p.potrerada_actual?.nombre || 'Lote';
-          const nombreCorto = potreradaNombre.length > 12 ? potreradaNombre.substring(0, 10) + '…' : potreradaNombre;
-          badgeHtml = `
-            <div style="
-              background-color: #1E293B;
-              border: 1.5px solid #38BDF8;
-              border-radius: 12px;
-              padding: 2px 7px;
-              color: #F8FAFC;
-              font-family: system-ui, sans-serif;
-              font-size: 9.5px;
-              font-weight: 700;
-              text-align: center;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-              white-space: nowrap;
-              cursor: pointer;
-              display: inline-flex;
-              align-items: center;
-              gap: 4px;
-            ">
-              <span>🐮</span>
-              <span style="color: #BAE6FD;">${nombreCorto}</span>
-              <span style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; font-size: 8.5px; padding: 0 3px; border-radius: 4px;">${p.potrerada_actual?.total_animales || ''}</span>
-            </div>
-          `;
-          iconWidth = 90;
-          iconHeight = 22;
-        }
-
-        const customIcon = L.divIcon({
-          html: badgeHtml,
-          className: '',
-          iconSize: [iconWidth, iconHeight],
-          iconAnchor: [iconWidth / 2, iconHeight / 2],
-        });
-
-        const marker = L.marker(center, { icon: customIcon });
-        marker.on('click', () => {
-          setSelectedZona(null);
-          setSelectedPotrero(p);
-        });
-        badgeGroup.addLayer(marker);
+      if (tier === 'overview' && !hasCattle && !isSelected) {
         return;
       }
 
-      // EN VISTA DE SECTOR (Zoom medio):
-      if (isMediumZoom) {
-        const nombreDisplay = isMobile && p.nombre.length > 10 ? p.nombre.substring(0, 10) + '…' : p.nombre;
-        const badgeHtml = `
-          <div style="
-            background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.94)'};
-            border: 1.5px solid ${isSelected ? '#FFFFFF' : polyColor};
-            border-radius: 6px;
-            padding: 2px 7px;
-            color: white;
-            font-family: system-ui, sans-serif;
-            font-size: 10px;
-            font-weight: 600;
-            text-align: center;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-            white-space: nowrap;
-            cursor: pointer;
-          ">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-              <span style="font-weight: 700; color: #F8FAFC;">${nombreDisplay}</span>
-              <span style="font-size: 9px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'};">${p.area_hectareas} Ha</span>
-            </div>
-            ${hasCattle ? `<div style="margin-top: 2px; font-size: 8.5px; background: #334155; color: #38BDF8; padding: 1px 4px; border-radius: 3px; font-weight: 600;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs)</div>` : ''}
-          </div>
-        `;
-        const iconWidth = hasCattle ? 110 : 85;
-        const iconHeight = hasCattle ? 34 : 22;
-
-        const customIcon = L.divIcon({
-          html: badgeHtml,
-          className: '',
-          iconSize: [iconWidth, iconHeight],
-          iconAnchor: [iconWidth / 2, iconHeight / 2],
-        });
-
-        const marker = L.marker(center, { icon: customIcon });
-        marker.on('click', () => {
-          setSelectedZona(null);
-          setSelectedPotrero(p);
-        });
-        badgeGroup.addLayer(marker);
-        return;
-      }
-
-      // EN VISTA DETALLADA (Zoom cercano):
-      const badgeHtml = `
-        <div style="
-          background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.95)'};
-          border: 1.5px solid ${isSelected ? '#FFFFFF' : polyColor};
-          border-radius: 8px;
-          padding: 4px 8px;
-          color: white;
-          font-family: system-ui, sans-serif;
-          font-size: 11px;
-          font-weight: 600;
-          text-align: center;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.5);
-          white-space: nowrap;
-          cursor: pointer;
-        ">
-          <div style="color: #F8FAFC; font-weight: 700;">${p.nombre}</div>
-          <div style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'};">${p.area_hectareas} Ha</div>
-          ${
-            hasCattle
-              ? `<div style="margin-top: 3px; font-size: 9px; background: #334155; color: #38BDF8; padding: 2px 6px; border-radius: 4px; font-weight: 600;">🐮 ${p.potrerada_actual?.nombre} (${p.potrerada_actual?.total_animales} cbs &bull; ${p.potrerada_actual?.peso_promedio}kg)</div>`
-              : ''
-          }
-        </div>
-      `;
-      const iconWidth = 125;
-      const iconHeight = hasCattle ? 46 : 30;
-
-      const customIcon = L.divIcon({
-        html: badgeHtml,
-        className: '',
-        iconSize: [iconWidth, iconHeight],
-        iconAnchor: [iconWidth / 2, iconHeight / 2],
-      });
-
-      const marker = L.marker(center, { icon: customIcon });
-      marker.on('click', () => {
+      const html = buildPotreroBadgeHtml(p, tier, isSelected, hasCattle, isMobile);
+      const marker = createBadgeMarker(center, html, () => {
         setSelectedZona(null);
         setSelectedPotrero(p);
       });
       badgeGroup.addLayer(marker);
     });
 
-    // 2. Badges de Zonas Especiales
     zonasAdicionales.forEach((z) => {
       const center = centroids.zonaCentroids.get(z.id);
       if (!center) return;
 
       const isSelected = selectedZona?.id === z.id;
-      const isBosque = z.tipo === 'bosque' || z.tipo === 'reforestacion' || z.tipo === 'reserva';
-      const isAgua = z.tipo === 'agua';
-      const isInfra = z.tipo === 'infraestructura';
+      if (tier === 'overview' && !isSelected) return;
 
-      const baseZoneColor = z.color || (isBosque ? '#059669' : isAgua ? '#0284C7' : isInfra ? '#D97706' : '#8B5CF6');
-      const zoneColor = isSelected ? '#F59E0B' : baseZoneColor;
-      const zoneIcon = isBosque ? '🌳' : isAgua ? '💧' : isInfra ? '🏠' : '📍';
-      const zoneLabel = isBosque ? 'Bosque' : isAgua ? 'Agua' : isInfra ? 'Infraestructura' : 'Zona Especial';
-
-      // En vista panorámica: Solo mostrar si está seleccionada
-      if (isOverviewZoom) {
-        if (!isSelected) return;
-
-        const badgeHtml = `
-          <div style="
-            background-color: #D97706;
-            border: 1.5px solid #FEF3C7;
-            border-radius: 6px;
-            padding: 2px 7px;
-            color: white;
-            font-family: system-ui, sans-serif;
-            font-size: 10px;
-            font-weight: 700;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            white-space: nowrap;
-            cursor: pointer;
-          ">
-            ${zoneIcon} ${z.nombre}
-          </div>
-        `;
-        const customIcon = L.divIcon({
-          html: badgeHtml,
-          className: '',
-          iconSize: [90, 22],
-          iconAnchor: [45, 11],
-        });
-        const marker = L.marker(center, { icon: customIcon });
-        marker.on('click', () => {
-          setSelectedPotrero(null);
-          setSelectedZona(z);
-        });
-        badgeGroup.addLayer(marker);
-        return;
-      }
-
-      // En vista de sector:
-      if (isMediumZoom) {
-        const nombreDisplay = isMobile && z.nombre.length > 10 ? z.nombre.substring(0, 10) + '…' : z.nombre;
-        const badgeHtml = `
-          <div style="
-            background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.94)'};
-            border: 1px solid ${isSelected ? '#FFFFFF' : zoneColor};
-            border-radius: 6px;
-            padding: 2px 7px;
-            color: white;
-            font-family: system-ui, sans-serif;
-            font-size: 10px;
-            font-weight: 600;
-            text-align: center;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-            white-space: nowrap;
-            cursor: pointer;
-          ">
-            <span style="font-weight: 700; color: #F8FAFC;">${zoneIcon} ${nombreDisplay}</span>
-            <span style="font-size: 9px; color: ${isSelected ? '#FEF3C7' : '#94A3B8'}; margin-left: 4px;">${z.area_hectareas} Ha</span>
-          </div>
-        `;
-        const customIcon = L.divIcon({
-          html: badgeHtml,
-          className: '',
-          iconSize: [100, 22],
-          iconAnchor: [50, 11],
-        });
-        const marker = L.marker(center, { icon: customIcon });
-        marker.on('click', () => {
-          setSelectedPotrero(null);
-          setSelectedZona(z);
-        });
-        badgeGroup.addLayer(marker);
-        return;
-      }
-
-      // En vista detallada:
-      const badgeHtml = `
-        <div style="
-          background-color: ${isSelected ? '#D97706' : 'rgba(15, 23, 42, 0.95)'};
-          border: 1.5px solid ${isSelected ? '#FFFFFF' : zoneColor};
-          border-radius: 8px;
-          padding: 4px 8px;
-          color: white;
-          font-family: system-ui, sans-serif;
-          font-size: 11px;
-          font-weight: 600;
-          text-align: center;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.5);
-          white-space: nowrap;
-          cursor: pointer;
-        ">
-          <div style="color: #F8FAFC; font-weight: 700;">${zoneIcon} ${z.nombre}</div>
-          <div style="font-size: 9.5px; color: ${isSelected ? '#FEF3C7' : baseZoneColor}; font-weight: 600;">${z.area_hectareas} Ha &bull; ${zoneLabel}</div>
-        </div>
-      `;
-      const customIcon = L.divIcon({
-        html: badgeHtml,
-        className: '',
-        iconSize: [125, 42],
-        iconAnchor: [62, 21],
-      });
-      const marker = L.marker(center, { icon: customIcon });
-      marker.on('click', () => {
+      const { icon, shortLabel, baseColor } = getZonaMeta(z, isSunMode, mapType);
+      const html = buildZonaBadgeHtml(z, tier, isSelected, isMobile, icon, shortLabel, baseColor);
+      const marker = createBadgeMarker(center, html, () => {
         setSelectedPotrero(null);
         setSelectedZona(z);
       });
       badgeGroup.addLayer(marker);
     });
-  }, [potreros, zonasAdicionales, currentZoom, isMobile, selectedPotrero?.id, selectedZona?.id, tipoLicencia, centroids]);
+  }, [
+    potreros,
+    zonasAdicionales,
+    currentZoom,
+    isMobile,
+    selectedPotrero?.id,
+    selectedZona?.id,
+    tipoLicencia,
+    centroids,
+    isSunMode,
+    mapType,
+  ]);
 
-  // Manejar Geolocalización GPS del Usuario en Tiempo Real (Exclusivo Plan Premium)
+  const handleCycleMapType = () => {
+    const idx = MAP_LAYER_ORDER.indexOf(mapType);
+    const next = MAP_LAYER_ORDER[(idx + 1) % MAP_LAYER_ORDER.length];
+    setMapType(next);
+  };
+
+  const handleFitFarmBounds = () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (farmBoundsRef.current && farmBoundsRef.current.isValid()) {
+      map.fitBounds(farmBoundsRef.current, { padding: isMobile ? [20, 20] : [40, 40], maxZoom: 17 });
+    } else {
+      map.setView([centerLat, centerLng], zoom);
+    }
+  };
+
+  // Manejar Geolocalización GPS del Usuario (Exclusivo Plan Premium)
   const handleTrackGps = () => {
     if (tipoLicencia !== 'premium') {
-      alert('🔒 La geolocalización GPS en tiempo real sobre el plano está disponible exclusivamente en el Plan Premium.\n\nActualiza tu suscripción para ubicarte dentro de tus potreros en campo.');
+      showNotice({
+        type: 'warning',
+        message: 'La ubicación GPS en campo está disponible en el Plan Premium.',
+        actionLabel: 'Ver Planes',
+        onAction: () => {
+          window.location.href = '/suscripcion';
+        },
+      });
       return;
     }
 
     if (!navigator.geolocation) {
-      alert('Tu navegador o dispositivo no soporta geolocalización GPS.');
+      showNotice({
+        type: 'error',
+        message: 'Este navegador o dispositivo no soporta geolocalización GPS.',
+      });
       return;
     }
 
     setGpsLoading(true);
+    setMapNotice(null);
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -704,10 +723,8 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         const map = mapInstanceRef.current;
         if (!map) return;
 
-        // Centrar suavemente en la posición
         map.flyTo(coords, 17, { animate: true, duration: 1.5 });
 
-        // Crear o actualizar Marcador de Punto Azul Pulsante
         if (!userMarkerRef.current) {
           const userIcon = L.divIcon({
             html: `
@@ -744,7 +761,6 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           userMarkerRef.current.setLatLng(coords);
         }
 
-        // Círculo de Precisión
         if (userAccuracyCircleRef.current) {
           map.removeLayer(userAccuracyCircleRef.current);
         }
@@ -757,7 +773,6 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
           weight: 1,
         }).addTo(map);
 
-        // Detectar potrero actual o zona especial por GPS
         const foundPotrero = findCurrentPaddockByGps(latitude, longitude, potreros);
         if (foundPotrero) {
           const fullPotrero = potreros.find((p) => p.id === foundPotrero.id) || null;
@@ -776,95 +791,88 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
       },
       (err) => {
         setGpsLoading(false);
-        alert('No se pudo obtener tu ubicación GPS: ' + err.message);
+        showNotice({
+          type: 'error',
+          message: `No se pudo obtener tu GPS: ${err.message}`,
+          actionLabel: 'Reintentar',
+          onAction: handleTrackGps,
+        });
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
   const hasOpenSheet = Boolean(selectedPotrero || selectedZona);
+  const wrapperClassName = [
+    'farm-map-wrapper',
+    hasOpenSheet ? 'farm-map-wrapper--sheet-open' : '',
+    mapType === 'plain' ? 'farm-map-wrapper--plain' : '',
+    isSunMode ? 'farm-map-wrapper--sun' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <div className={`farm-map-wrapper${hasOpenSheet ? ' farm-map-wrapper--sheet-open' : ''}`}>
+    <div className={wrapperClassName}>
       {/* Contenedor del Mapa Leaflet */}
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1, backgroundColor: 'var(--surface-inset)' }} />
+      <div ref={mapContainerRef} className="farm-map-canvas" />
 
-      {/* Barra Flotante: en PC arriba-izq GPS y arriba-der Capas; en móvil/tablet GPS abajo-izq y Capas arriba-izq */}
+      {/* Controles principales: arriba en PC, zona del pulgar abajo en móvil/tablet */}
       <div className="farm-map-topbar">
-        {/* Botón Principal y Prioritario: Mi Ubicación GPS */}
         <button
           type="button"
-          className="farm-map-btn farm-map-gps-btn"
+          className={`farm-map-btn farm-map-gps-btn ${
+            tipoLicencia === 'premium' ? 'farm-map-gps-btn--premium' : 'farm-map-gps-btn--locked'
+          }`}
           onClick={handleTrackGps}
           disabled={gpsLoading}
-          style={{
-            background: tipoLicencia === 'premium'
-              ? 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)'
-              : 'var(--bg-elevated)',
-            border: tipoLicencia === 'premium' ? '1px solid rgba(147, 197, 253, 0.45)' : '1px solid var(--border-strong)',
-            color: tipoLicencia === 'premium' ? '#FFFFFF' : 'var(--text-secondary)',
-            cursor: gpsLoading ? 'wait' : 'pointer',
-            boxShadow: tipoLicencia === 'premium'
-              ? '0 4px 18px rgba(37, 99, 235, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25)'
-              : 'var(--shadow-card)',
-          }}
+          aria-label="Ubicar mi posición GPS en el mapa"
         >
           {tipoLicencia !== 'premium' ? (
             <>
               <Lock size={15} color="var(--warning)" aria-hidden="true" />
-              <span>GPS (Plan Premium)</span>
+              <span>{isMobile ? 'GPS' : 'GPS (Plan Premium)'}</span>
             </>
           ) : gpsLoading ? (
             <>
               <RefreshCw className="animate-spin" size={16} aria-hidden="true" />
-              <span>Localizando GPS...</span>
+              <span>{isMobile ? 'Buscando...' : 'Localizando GPS...'}</span>
             </>
           ) : (
             <>
-              <Navigation 
+              <Navigation
                 size={16}
                 aria-hidden="true"
-                style={{ 
+                style={{
                   color: userLocation ? '#67E8F9' : '#FFFFFF',
                   transform: userLocation ? 'rotate(45deg)' : 'none',
-                  transition: 'transform 0.3s ease'
-                }} 
+                  transition: 'transform 0.3s ease',
+                }}
               />
-              <span>Mi Ubicación GPS</span>
+              <span>{isMobile ? 'Mi GPS' : 'Mi Ubicación GPS'}</span>
               {userLocation && (
-                <span 
-                  title="GPS Activo en vivo"
-                  aria-label="GPS activo"
-                  style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: '#4ADE80',
-                    boxShadow: '0 0 8px #4ADE80',
-                    display: 'inline-block',
-                    marginLeft: '2px',
-                    flexShrink: 0,
-                  }} 
+                <span
+                  title="GPS Activo"
+                  aria-hidden="true"
+                  className="farm-map-gps-dot"
                 />
               )}
             </>
           )}
         </button>
 
-        {/* Grupo Superior Derecho (arriba-izq en móvil): Capas y KMZ */}
-        <div className="farm-map-right-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
-          {/* Cambiar Capa Satélite/Calle */}
+        <div className="farm-map-right-controls">
           <button
             type="button"
             className="farm-map-btn farm-map-layers-btn"
-            onClick={() => setMapType(mapType === 'satellite' ? 'street' : 'satellite')}
-            title="Cambiar tipo de mapa"
+            onClick={handleCycleMapType}
+            title="Cambiar vista del mapa (Satélite, Plano, Terreno)"
+            aria-label={`Cambiar vista del mapa, actual: ${MAP_LAYER_LABELS[mapType]}`}
           >
-            <Layers size={15} color="var(--info)" aria-hidden="true" />
-            <span>{mapType === 'satellite' ? 'Satélite' : 'Terreno'}</span>
+            <Layers size={16} color="var(--info)" aria-hidden="true" />
+            <span>{MAP_LAYER_LABELS[mapType]}</span>
           </button>
 
-          {/* Botón Cargar Plano KMZ (Solo Administradores en Escritorio/Tablet) */}
           {userRole === 'administrador' && onOpenUploader && !isMobile && (
             <button
               type="button"
@@ -875,6 +883,102 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Controles accesibles de Zoom y Encuadre en zona del pulgar */}
+      <div className="farm-map-zoom-dock" role="group" aria-label="Controles de zoom y vista de finca">
+        <div className="farm-map-zoom-group">
+          <button
+            type="button"
+            className="farm-map-zoom-btn"
+            onClick={() => mapInstanceRef.current?.zoomIn()}
+            aria-label="Acercar mapa"
+            title="Acercar mapa"
+          >
+            <Plus size={20} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="farm-map-zoom-btn"
+            onClick={() => mapInstanceRef.current?.zoomOut()}
+            aria-label="Alejar mapa"
+            title="Alejar mapa"
+          >
+            <Minus size={20} aria-hidden="true" />
+          </button>
+        </div>
+        <button
+          type="button"
+          className="farm-map-zoom-btn farm-map-fit-btn"
+          onClick={handleFitFarmBounds}
+          aria-label="Ver toda la finca"
+          title="Ver toda la finca"
+        >
+          <Maximize2 size={18} aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Avisos no bloqueantes dentro del mapa */}
+      <div
+        className="farm-map-toast-region"
+        role="region"
+        aria-label="Avisos del mapa"
+        onMouseEnter={() => setToastPaused(true)}
+        onMouseLeave={() => setToastPaused(false)}
+        onFocus={() => setToastPaused(true)}
+        onBlur={() => setToastPaused(false)}
+      >
+        {mapNotice && (
+          <div
+            className={`farm-map-toast farm-map-toast--${mapNotice.type}`}
+            role={mapNotice.type === 'error' ? 'alert' : 'status'}
+            aria-live={mapNotice.type === 'error' ? 'assertive' : 'polite'}
+          >
+            <div className="farm-map-toast-main">
+              {mapNotice.type === 'error' || mapNotice.type === 'warning' ? (
+                <AlertCircle
+                  size={18}
+                  aria-hidden="true"
+                  color={mapNotice.type === 'error' ? 'var(--error)' : 'var(--warning)'}
+                  style={{ flexShrink: 0, marginTop: '2px' }}
+                />
+              ) : (
+                <Info
+                  size={18}
+                  aria-hidden="true"
+                  color="var(--info)"
+                  style={{ flexShrink: 0, marginTop: '2px' }}
+                />
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div>{mapNotice.message}</div>
+                {mapNotice.actionLabel && mapNotice.onAction && (
+                  <div className="farm-map-toast-actions">
+                    <button
+                      type="button"
+                      className="farm-map-toast-action-btn"
+                      onClick={() => {
+                        const action = mapNotice.onAction;
+                        setMapNotice(null);
+                        action?.();
+                      }}
+                    >
+                      {mapNotice.actionLabel}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="farm-map-toast-close"
+              onClick={() => setMapNotice(null)}
+              aria-label="Cerrar aviso"
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Banner de Estado GPS / Ubicación Actual (Solo Premium, posicionado bajo la barra superior) */}
@@ -933,32 +1037,35 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
         </div>
       )}
 
-      {/* Banner de Zona Especial Actual (Solo Premium, posicionado bajo la barra superior) */}
-      {tipoLicencia === 'premium' && !currentPaddock && currentSpecialZone && (
-        <div
-          className="farm-map-gps-banner"
-          style={{
-            backgroundColor: 'var(--bg-elevated)',
-            backdropFilter: 'blur(10px)',
-            border: currentSpecialZone.tipo === 'bosque' ? '1px solid var(--success)' : currentSpecialZone.tipo === 'agua' ? '1px solid var(--info)' : '1px solid var(--warning)',
-            borderRadius: '20px',
-            padding: '10px 22px',
-            color: 'var(--text-main)',
-            fontSize: '0.85rem',
-            boxShadow: 'var(--shadow-popover)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontWeight: 700,
-          }}
-        >
-          <span>
-            📍 Estás en: <span style={{ color: currentSpecialZone.tipo === 'bosque' ? 'var(--success)' : currentSpecialZone.tipo === 'agua' ? 'var(--info)' : 'var(--warning)' }}>
-              {currentSpecialZone.tipo === 'bosque' ? '🌳' : currentSpecialZone.tipo === 'agua' ? '💧' : '🏠'} {currentSpecialZone.nombre}
-            </span> ({currentSpecialZone.area_hectareas} Ha &bull; {currentSpecialZone.tipo === 'bosque' ? 'Zona Ambiental / Forestal' : currentSpecialZone.tipo === 'agua' ? 'Cuerpo de Agua' : 'Infraestructura'})
-          </span>
-        </div>
-      )}
+      {/* Banner de Zona Especial Actual (Solo Premium, posicionado en la parte superior) */}
+      {tipoLicencia === 'premium' && !currentPaddock && currentSpecialZone && (() => {
+        const meta = ZONA_META_BY_TIPO[currentSpecialZone.tipo] || ZONA_META_BY_TIPO.otro;
+        return (
+          <div
+            className="farm-map-gps-banner"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              backdropFilter: 'blur(10px)',
+              border: `1.5px solid ${meta.themeVar}`,
+              borderRadius: '20px',
+              padding: '10px 18px',
+              color: 'var(--text-main)',
+              fontSize: '0.85rem',
+              boxShadow: 'var(--shadow-popover)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontWeight: 700,
+            }}
+          >
+            <span>
+              📍 Estás en: <span style={{ color: meta.themeVar }}>
+                {meta.icon} {currentSpecialZone.nombre}
+              </span> ({currentSpecialZone.area_hectareas} Ha &bull; {meta.longLabel})
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Drawer / Modal de Detalle de Potrero Seleccionado */}
       {selectedPotrero && (
@@ -974,7 +1081,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
               className="farm-map-sheet-close"
               onClick={() => setSelectedPotrero(null)}
             >
-              ✕
+              <X size={20} aria-hidden="true" />
             </button>
           </div>
 
@@ -1159,70 +1266,65 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
       )}
 
       {/* Drawer / Modal de Detalle de Zona Especial Seleccionada (Bosques, Agua, Infraestructura) */}
-      {selectedZona && (
-        <div className="farm-map-sheet" role="region" aria-label={`Detalle de ${selectedZona.nombre}`}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '8px' }}>
-            <div style={{ minWidth: 0 }}>
-              <span style={{
-                fontSize: '0.75rem',
-                textTransform: 'uppercase',
-                color: selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva'
-                  ? 'var(--success)'
-                  : selectedZona.tipo === 'agua'
-                  ? 'var(--info)'
-                  : 'var(--warning)',
-                fontWeight: 700,
-              }}>
-                {selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva'
-                  ? '🌳 Zona Ambiental / Forestal'
-                  : selectedZona.tipo === 'agua'
-                  ? '💧 Cuerpo de Agua'
-                  : '🏠 Infraestructura'}
-              </span>
-              <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>{selectedZona.nombre}</h3>
+      {selectedZona && (() => {
+        const meta = ZONA_META_BY_TIPO[selectedZona.tipo] || ZONA_META_BY_TIPO.otro;
+        const zoneDescription =
+          selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva'
+            ? '🌿 Área de conservación, bosque nativo o reforestación. Se muestra en el plano para control espacial y ambiental sin crear potreros de pastoreo.'
+            : selectedZona.tipo === 'agua'
+            ? '💧 Cuerpo de agua natural, lago, reservorio o humedal.'
+            : selectedZona.tipo === 'infraestructura'
+            ? '🏠 Infraestructura e instalaciones de la finca (casa principal, corrales, bodega o campamento).'
+            : '📍 Zona espacial no ganadera delimitada en el plano de la finca.';
+        return (
+          <div className="farm-map-sheet" role="region" aria-label={`Detalle de ${selectedZona.nombre}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '8px' }}>
+              <div style={{ minWidth: 0 }}>
+                <span style={{
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  color: meta.themeVar,
+                  fontWeight: 700,
+                }}>
+                  {meta.icon} {meta.longLabel}
+                </span>
+                <h3 style={{ margin: '2px 0 0 0', fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>{selectedZona.nombre}</h3>
+              </div>
+              <button
+                type="button"
+                aria-label="Cerrar detalle de zona"
+                className="farm-map-sheet-close"
+                onClick={() => setSelectedZona(null)}
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
             </div>
-            <button
-              type="button"
-              aria-label="Cerrar detalle de zona"
-              className="farm-map-sheet-close"
-              onClick={() => setSelectedZona(null)}
-            >
-              ✕
-            </button>
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-            <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Superficie</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--success)' }}>{selectedZona.area_hectareas} Ha</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '10px' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Superficie</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--success)' }}>{selectedZona.area_hectareas} Ha</div>
+              </div>
+              <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '10px' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Uso</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>No ganadero</div>
+              </div>
             </div>
-            <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Uso</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>No ganadero</div>
-            </div>
-          </div>
 
-          <div style={{
-            backgroundColor: 'var(--surface-subtle)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '12px',
-            padding: '14px',
-            fontSize: '0.85rem',
-            color: 'var(--text-muted)',
-            lineHeight: 1.5,
-          }}>
-            {(selectedZona.tipo === 'bosque' || selectedZona.tipo === 'reforestacion' || selectedZona.tipo === 'reserva') && (
-              <span>🌿 Área de conservación, bosque nativo o reforestación. Se muestra en el plano para control espacial y ambiental sin crear potreros de pastoreo.</span>
-            )}
-            {selectedZona.tipo === 'agua' && (
-              <span>💧 Cuerpo de agua natural, lago, reservorio o humedal.</span>
-            )}
-            {selectedZona.tipo === 'infraestructura' && (
-              <span>🏠 Infraestructura e instalaciones de la finca (casa principal, corrales, bodega o campamento).</span>
-            )}
+            <div style={{
+              backgroundColor: 'var(--surface-subtle)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '12px',
+              padding: '14px',
+              fontSize: '0.85rem',
+              color: 'var(--text-muted)',
+              lineHeight: 1.5,
+            }}>
+              <span>{zoneDescription}</span>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
