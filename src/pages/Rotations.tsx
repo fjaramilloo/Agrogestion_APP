@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useModalDialog } from '../hooks/useModalDialog';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info, Search, CheckSquare, Square, Calculator, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import './Rotations.css';
 
@@ -56,6 +57,7 @@ export default function Rotations() {
     const [calcModo, setCalcModo] = useState<'potreros' | 'ocupacion' | 'descanso'>('potreros');
     const [calcDescanso, setCalcDescanso] = useState<number>(28);
     const [calcOcupacion, setCalcOcupacion] = useState<number>(2);
+    const [calcOcupacionStr, setCalcOcupacionStr] = useState<string>('2');
     const [calcPotreros, setCalcPotreros] = useState<number>(15);
 
     const isAdmin = role === 'administrador' || role === 'vaquero';
@@ -141,7 +143,7 @@ export default function Rotations() {
                 .from('potreros')
                 .update({
                     nombre: editPotForm.nombre.trim(),
-                    area_hectareas: parseFloat(editPotForm.area) || 0,
+                    area_hectareas: parseDecimalInput(editPotForm.area) || 0,
                     id_rotacion: editPotForm.id_rotacion || null
                 })
                 .eq('id', id);
@@ -175,7 +177,7 @@ export default function Rotations() {
             const { error } = await supabase.from('potreros').insert({
                 id_finca: fincaId,
                 nombre: nuevoPotForm.nombre.trim(),
-                area_hectareas: parseFloat(nuevoPotForm.area) || 0,
+                area_hectareas: parseDecimalInput(nuevoPotForm.area) || 0,
                 id_rotacion: rotId
             });
             if (error) throw error;
@@ -590,12 +592,23 @@ export default function Rotations() {
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <input
-                                                    type="number"
-                                                    step="0.5"
-                                                    min="0.5"
-                                                    max="30"
-                                                    value={calcOcupacion || ''}
-                                                    onChange={e => setCalcOcupacion(Math.max(0.5, parseFloat(e.target.value) || 0))}
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={calcOcupacionStr}
+                                                    onChange={e => {
+                                                        const cleaned = sanitizeDecimalInput(e.target.value);
+                                                        setCalcOcupacionStr(cleaned);
+                                                        const parsed = parseDecimalInput(cleaned);
+                                                        if (!isNaN(parsed) && parsed > 0) {
+                                                            setCalcOcupacion(Math.min(30, Math.max(0.5, parsed)));
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        const parsed = parseDecimalInput(calcOcupacionStr);
+                                                        const clamped = !isNaN(parsed) && parsed > 0 ? Math.min(30, Math.max(0.5, parsed)) : 0.5;
+                                                        setCalcOcupacion(clamped);
+                                                        setCalcOcupacionStr(String(clamped));
+                                                    }}
                                                     style={{ margin: 0, fontSize: '1.05rem', fontWeight: 'bold' }}
                                                 />
                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', minWidth: '40px' }}>días</span>
@@ -711,12 +724,23 @@ export default function Rotations() {
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <input
-                                                    type="number"
-                                                    step="0.5"
-                                                    min="0.5"
-                                                    max="30"
-                                                    value={calcOcupacion || ''}
-                                                    onChange={e => setCalcOcupacion(Math.max(0.5, parseFloat(e.target.value) || 0))}
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={calcOcupacionStr}
+                                                    onChange={e => {
+                                                        const cleaned = sanitizeDecimalInput(e.target.value);
+                                                        setCalcOcupacionStr(cleaned);
+                                                        const parsed = parseDecimalInput(cleaned);
+                                                        if (!isNaN(parsed) && parsed > 0) {
+                                                            setCalcOcupacion(Math.min(30, Math.max(0.5, parsed)));
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        const parsed = parseDecimalInput(calcOcupacionStr);
+                                                        const clamped = !isNaN(parsed) && parsed > 0 ? Math.min(30, Math.max(0.5, parsed)) : 0.5;
+                                                        setCalcOcupacion(clamped);
+                                                        setCalcOcupacionStr(String(clamped));
+                                                    }}
                                                     style={{ margin: 0, fontSize: '1.05rem', fontWeight: 'bold' }}
                                                 />
                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', minWidth: '40px' }}>días</span>
@@ -928,7 +952,7 @@ export default function Rotations() {
                                                 </td>
                                                 <td data-label="Área (Ha)" className="rotations-area-cell">
                                                     {editingPot === p.id ? (
-                                                        <input aria-label="Área en hectáreas" style={{ margin: 0, padding: '8px 10px', textAlign: 'right', width: '100%' }} type="number" inputMode="decimal" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({ ...editPotForm, area: e.target.value })} />
+                                                        <input aria-label="Área en hectáreas" style={{ margin: 0, padding: '8px 10px', textAlign: 'right', width: '100%' }} type="text" inputMode="decimal" value={editPotForm.area} onChange={e => setEditPotForm({ ...editPotForm, area: sanitizeDecimalInput(e.target.value) })} />
                                                     ) : (
                                                         <span style={{ color: 'var(--primary-light)', fontFamily: 'monospace', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{p.area_hectareas?.toFixed(2)}</span>
                                                     )}
@@ -1035,7 +1059,7 @@ export default function Rotations() {
                                             </td>
                                             <td data-label="Área (Ha)" className="rotations-area-cell">
                                                 {editingPot === p.id ? (
-                                                    <input aria-label="Área en hectáreas" style={{ margin: 0, padding: '8px 10px', textAlign: 'right', width: '100%' }} type="number" inputMode="decimal" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({ ...editPotForm, area: e.target.value })} />
+                                                    <input aria-label="Área en hectáreas" style={{ margin: 0, padding: '8px 10px', textAlign: 'right', width: '100%' }} type="text" inputMode="decimal" value={editPotForm.area} onChange={e => setEditPotForm({ ...editPotForm, area: sanitizeDecimalInput(e.target.value) })} />
                                                 ) : (
                                                     <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{p.area_hectareas?.toFixed(2)}</span>
                                                 )}
@@ -1309,12 +1333,11 @@ export default function Rotations() {
                                 <label htmlFor="rotations-new-potrero-area">Área (Hectáreas)</label>
                                 <input
                                     id="rotations-new-potrero-area"
-                                    type="number"
+                                    type="text"
                                     inputMode="decimal"
-                                    step="0.01"
                                     value={nuevoPotForm.area}
-                                    onChange={e => setNuevoPotForm({ ...nuevoPotForm, area: e.target.value })}
-                                    placeholder="0.00"
+                                    onChange={e => setNuevoPotForm({ ...nuevoPotForm, area: sanitizeDecimalInput(e.target.value) })}
+                                    placeholder="0,00"
                                     required
                                 />
                                 <div className="rotations-dialog-actions">

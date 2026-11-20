@@ -14,6 +14,7 @@ import { Download, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Potreradas.css';
 
 interface Potrerada {
@@ -1365,11 +1366,11 @@ export default function Potreradas() {
         // Filtrar solo los que tienen peso ingresado
         const registros = detailData.animales
             .filter(a => {
-                const val = weighingData[a.id];
-                return val && val.trim() !== '' && !isNaN(Number(val)) && Number(val) > 0;
+                const val = parseDecimalInput(weighingData[a.id]);
+                return !isNaN(val) && val > 0;
             })
             .map(a => {
-                const newPeso = Number(weighingData[a.id]);
+                const newPeso = parseDecimalInput(weighingData[a.id]);
                 let gdp: number | null = null;
                 let gmp: number | null = null;
 
@@ -2804,7 +2805,8 @@ export default function Potreradas() {
                                             .sort((a, b) => a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true, sensitivity: 'base' }))
                                             .map((a, idx) => {
                                                 const newVal = weighingData[a.id] ?? '';
-                                                const hasWeight = newVal !== '' && Number(newVal) > 0;
+                                                const parsedNewVal = parseDecimalInput(newVal);
+                                                const hasWeight = newVal !== '' && !isNaN(parsedNewVal) && parsedNewVal > 0;
                                                 return (
                                                     <tr key={a.id} style={{
                                                         borderBottom: idx < detailData.animales.length - 1 ? '1px solid var(--border-subtle)' : 'none',
@@ -2817,14 +2819,12 @@ export default function Potreradas() {
                                                         </td>
                                                         <td className="potreradas-w-input-cell" style={{ padding: '8px 12px' }}>
                                                             <input
-                                                                type="number"
+                                                                type="text"
                                                                 inputMode="decimal"
-                                                                min="0"
-                                                                step="0.5"
                                                                 aria-label={`Nuevo peso en kg para #${a.numero_chapeta}`}
                                                                 placeholder={isMobile ? 'Peso (kg)' : 'ej: 320'}
                                                                 value={newVal}
-                                                                onChange={e => setWeighingData(prev => ({ ...prev, [a.id]: e.target.value }))}
+                                                                onChange={e => setWeighingData(prev => ({ ...prev, [a.id]: sanitizeDecimalInput(e.target.value) }))}
                                                                 className="potreradas-w-input"
                                                                 style={{
                                                                     width: '100%', padding: '7px 10px', fontSize: '0.9rem',
@@ -2845,7 +2845,10 @@ export default function Potreradas() {
 
                             {/* Summary bar */}
                             {(() => {
-                                const filled = Object.values(weighingData).filter(v => v !== '' && Number(v) > 0).length;
+                                const filled = Object.values(weighingData).filter(v => {
+                                    const n = parseDecimalInput(v);
+                                    return !isNaN(n) && n > 0;
+                                }).length;
                                 return filled > 0 ? (
                                     <div style={{ marginTop: '12px', padding: '10px 16px', background: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--success)' }}>
                                         ✅ {filled} de {detailData.animales.length} animales con peso ingresado.

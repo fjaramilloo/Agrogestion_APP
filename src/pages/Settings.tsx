@@ -12,6 +12,7 @@ import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator'
 // @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 
 interface CargaMasivaItem {
     id: string;
@@ -644,20 +645,20 @@ export default function Settings() {
         try {
             // 1. Guardar configuracion_kpi (umbrales y precios)
             // Convert display values back to kg/mes for storage
-            const valorBajoGMP = toStorageValue(parseFloat(umbral) || 0.434, modoLocal);
-            const valorMedioGMP = toStorageValue(parseFloat(umbralMedioDisplay) || 10, modoLocal);
-            const valorAltoGMP = toStorageValue(parseFloat(umbralAltoDisplay) || 20, modoLocal);
-            const precioVenta = parseFloat(farmInfo.precio_venta_promedio) || 0;
-            const precioCompra = parseFloat(farmInfo.precio_compra_promedio) || 0;
-            const costoMensual = parseFloat(farmInfo.costo_mensual_animal) || 0;
-            const pesoCeba = parseFloat(farmInfo.peso_entrada_ceba) || 380;
-            const consumoDia = parseFloat(farmInfo.consumo_dia_potrero) || 50;
+            const valorBajoGMP = toStorageValue(parseDecimalInput(umbral) || 0.434, modoLocal);
+            const valorMedioGMP = toStorageValue(parseDecimalInput(umbralMedioDisplay) || 10, modoLocal);
+            const valorAltoGMP = toStorageValue(parseDecimalInput(umbralAltoDisplay) || 20, modoLocal);
+            const precioVenta = parseDecimalInput(farmInfo.precio_venta_promedio) || 0;
+            const precioCompra = parseDecimalInput(farmInfo.precio_compra_promedio) || 0;
+            const costoMensual = parseDecimalInput(farmInfo.costo_mensual_animal) || 0;
+            const pesoCeba = parseDecimalInput(farmInfo.peso_entrada_ceba) || 380;
+            const consumoDia = parseDecimalInput(farmInfo.consumo_dia_potrero) || 50;
             // Convertir el porcentaje ingresado (ej. 60) a decimal (ej. 0.60)
             const partPct = Math.min(99, Math.max(1, parseInt(participacionUtilidad) || 60));
             const participacionDecimal = partPct / 100;
-            const c1 = parseFloat(farmInfo.corte_peso_1) || 430;
-            const c2 = parseFloat(farmInfo.corte_peso_2) || 480;
-            const c3 = parseFloat(farmInfo.corte_peso_3) || 530;
+            const c1 = parseDecimalInput(farmInfo.corte_peso_1) || 430;
+            const c2 = parseDecimalInput(farmInfo.corte_peso_2) || 480;
+            const c3 = parseDecimalInput(farmInfo.corte_peso_3) || 530;
 
             const { error: kpiError } = await supabase
                 .from('configuracion_kpi')
@@ -686,9 +687,11 @@ export default function Settings() {
 
             // 2. Guardar información de la finca
             // Build payload dynamically to avoid sending empty string to enum column
+            const areaTotalParsed = parseDecimalInput(farmInfo.area_total);
+            const areaAprovechableParsed = parseDecimalInput(farmInfo.area_aprovechable);
             const fincaPayload: Record<string, any> = {
-                area_total: farmInfo.area_total ? parseFloat(farmInfo.area_total) : null,
-                area_aprovechable: farmInfo.area_aprovechable ? parseFloat(farmInfo.area_aprovechable) : null,
+                area_total: farmInfo.area_total && !isNaN(areaTotalParsed) ? areaTotalParsed : null,
+                area_aprovechable: farmInfo.area_aprovechable && !isNaN(areaAprovechableParsed) ? areaAprovechableParsed : null,
                 ubicacion: farmInfo.ubicacion || null,
                 municipio: farmInfo.municipio || null,
             };
@@ -1681,7 +1684,7 @@ export default function Settings() {
                     for (const row of results.data as any[]) {
                         const potName = row.nombre_potrero?.toString().trim();
                         const rotName = row.nombre_rotacion?.toString().trim();
-                        const area = parseFloat(row.area_hectareas) || 0;
+                        const area = parseDecimalInput(row.area_hectareas) || 0;
                         const diasBase = parseInt(row.dias_ocupacion_base) || 1;
                         const rotId = rotName ? mapRotaciones.get(rotName.toLowerCase()) : null;
 
@@ -2108,11 +2111,11 @@ export default function Settings() {
                                             <div className="settings-form-grid">
                                                 <div className="settings-field">
                                                     <label htmlFor="settings-area-total"><Maximize size={16} aria-hidden="true" /> Área Total (Ha)</label>
-                                                    <input id="settings-area-total" name="area_total" type="number" step="0.01" inputMode="decimal" enterKeyHint="next" value={farmInfo.area_total} onChange={e => setFarmInfo({ ...farmInfo, area_total: e.target.value })} />
+                                                    <input id="settings-area-total" name="area_total" type="text" inputMode="decimal" enterKeyHint="next" value={farmInfo.area_total} onChange={e => setFarmInfo({ ...farmInfo, area_total: sanitizeDecimalInput(e.target.value) })} />
                                                 </div>
                                                 <div className="settings-field">
                                                     <label htmlFor="settings-area-aprovechable"><CheckCircle2 size={16} aria-hidden="true" /> Área Aprovechable (Ha)</label>
-                                                    <input id="settings-area-aprovechable" name="area_aprovechable" type="number" step="0.01" inputMode="decimal" enterKeyHint="next" value={farmInfo.area_aprovechable} onChange={e => setFarmInfo({ ...farmInfo, area_aprovechable: e.target.value })} />
+                                                    <input id="settings-area-aprovechable" name="area_aprovechable" type="text" inputMode="decimal" enterKeyHint="next" value={farmInfo.area_aprovechable} onChange={e => setFarmInfo({ ...farmInfo, area_aprovechable: sanitizeDecimalInput(e.target.value) })} />
                                                 </div>
                                                 <div className="settings-field">
                                                     <label htmlFor="settings-ubicacion"><MapPin size={16} aria-hidden="true" /> Región Climática</label>
@@ -2141,11 +2144,11 @@ export default function Settings() {
                                                 </div>
                                                 <div className="settings-field">
                                                     <label htmlFor="settings-peso-entrada-ceba"><Scale size={16} aria-hidden="true" /> Entrada Ceba (kg)</label>
-                                                    <input id="settings-peso-entrada-ceba" name="peso_entrada_ceba" type="number" step="0.5" inputMode="decimal" enterKeyHint="next" value={farmInfo.peso_entrada_ceba} onChange={e => setFarmInfo({ ...farmInfo, peso_entrada_ceba: e.target.value })} />
+                                                    <input id="settings-peso-entrada-ceba" name="peso_entrada_ceba" type="text" inputMode="decimal" enterKeyHint="next" value={farmInfo.peso_entrada_ceba} onChange={e => setFarmInfo({ ...farmInfo, peso_entrada_ceba: sanitizeDecimalInput(e.target.value) })} />
                                                 </div>
                                                 <div className="settings-field">
                                                     <label htmlFor="settings-consumo-dia"><Leaf size={16} aria-hidden="true" /> Consumo Pasto (Kg/Día)</label>
-                                                    <input id="settings-consumo-dia" name="consumo_dia_potrero" type="number" step="0.1" inputMode="decimal" enterKeyHint="next" value={farmInfo.consumo_dia_potrero} onChange={(e) => setFarmInfo({ ...farmInfo, consumo_dia_potrero: e.target.value })} required />
+                                                    <input id="settings-consumo-dia" name="consumo_dia_potrero" type="text" inputMode="decimal" enterKeyHint="next" value={farmInfo.consumo_dia_potrero} onChange={(e) => setFarmInfo({ ...farmInfo, consumo_dia_potrero: sanitizeDecimalInput(e.target.value) })} required />
                                                 </div>
                                                 <div className="settings-field">
                                                     <label htmlFor="settings-precio-compra"><Coins size={16} aria-hidden="true" /> Precio Compra (COP/kg)</label>
@@ -2450,8 +2453,8 @@ export default function Settings() {
                                                             aria-pressed={modoLocal === m}
                                                             className="settings-unidad-btn"
                                                             onClick={() => {
-                                                                const medioKgMes = toStorageValue(parseFloat(umbralMedioDisplay) || 10, modoLocal);
-                                                                const altoKgMes = toStorageValue(parseFloat(umbralAltoDisplay) || 20, modoLocal);
+                                                                const medioKgMes = toStorageValue(parseDecimalInput(umbralMedioDisplay) || 10, modoLocal);
+                                                                const altoKgMes = toStorageValue(parseDecimalInput(umbralAltoDisplay) || 20, modoLocal);
                                                                 setUmbralMedioDisplay(toDisplayValue(medioKgMes, m).toFixed(m === 'GDP' ? 0 : 1));
                                                                 setUmbralAltoDisplay(toDisplayValue(altoKgMes, m).toFixed(m === 'GDP' ? 0 : 1));
                                                                 setModoLocal(m);
@@ -2470,11 +2473,11 @@ export default function Settings() {
                                             <div className="settings-form-grid">
                                                 <div className="settings-field">
                                                     <label htmlFor="settings-umbral-rojo">Límite Superior Rojo ({getUnidadLabel(modoLocal)})</label>
-                                                    <input id="settings-umbral-rojo" name="umbral_medio" type="number" step={modoLocal === 'GDP' ? '1' : '0.1'} inputMode="decimal" enterKeyHint="next" value={umbralMedioDisplay} onChange={(e) => setUmbralMedioDisplay(e.target.value)} />
+                                                    <input id="settings-umbral-rojo" name="umbral_medio" type="text" inputMode="decimal" enterKeyHint="next" value={umbralMedioDisplay} onChange={(e) => setUmbralMedioDisplay(sanitizeDecimalInput(e.target.value))} />
                                                 </div>
                                                 <div className="settings-field">
                                                     <label htmlFor="settings-umbral-amarillo">Límite Superior Amarillo ({getUnidadLabel(modoLocal)})</label>
-                                                    <input id="settings-umbral-amarillo" name="umbral_alto" type="number" step={modoLocal === 'GDP' ? '1' : '0.1'} inputMode="decimal" enterKeyHint="done" value={umbralAltoDisplay} onChange={(e) => setUmbralAltoDisplay(e.target.value)} />
+                                                    <input id="settings-umbral-amarillo" name="umbral_alto" type="text" inputMode="decimal" enterKeyHint="done" value={umbralAltoDisplay} onChange={(e) => setUmbralAltoDisplay(sanitizeDecimalInput(e.target.value))} />
                                                 </div>
                                             </div>
                                         </fieldset>

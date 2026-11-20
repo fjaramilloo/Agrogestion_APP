@@ -14,6 +14,7 @@ import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo,
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Inventory.css';
 
 interface Pesaje {
@@ -354,7 +355,7 @@ export default function Inventory() {
 
     const handleGuardarEdicionPesaje = async () => {
         if (!editingPesaje || !selectedAnimal) return;
-        const pesoNum = parseFloat(editingPesaje.peso);
+        const pesoNum = parseDecimalInput(editingPesaje.peso);
         if (isNaN(pesoNum) || pesoNum <= 0) {
             await showAlert('Por favor ingrese un peso numérico válido mayor a cero.', { title: 'Dato inválido', variant: 'warning' });
             return;
@@ -693,6 +694,11 @@ export default function Inventory() {
         setMsjErrorCrear('');
 
         try {
+            const pesoIngresoNum = parseDecimalInput(nuevoAnimal.peso_ingreso);
+            if (isNaN(pesoIngresoNum) || pesoIngresoNum <= 0) {
+                throw new Error('Por favor ingrese un peso de ingreso numérico válido mayor a cero.');
+            }
+
             const { data: exist } = await supabase
                 .from('animales')
                 .select('id')
@@ -712,7 +718,7 @@ export default function Inventory() {
                     especie: nuevoAnimal.especie,
                     sexo: nuevoAnimal.sexo,
                     etapa: nuevoAnimal.etapa,
-                    peso_ingreso: parseFloat(nuevoAnimal.peso_ingreso),
+                    peso_ingreso: pesoIngresoNum,
                     fecha_ingreso: nuevoAnimal.fecha_ingreso,
                     id_potrerada: nuevoAnimal.id_potrerada || null,
                     tipo_macho: nuevoAnimal.sexo === 'M' ? nuevoAnimal.tipo_macho : null,
@@ -725,11 +731,11 @@ export default function Inventory() {
 
             if (animalInsertado && nuevosPesajes.length > 0) {
                 const pesajesData = nuevosPesajes
-                    .filter(p => p.fecha && p.peso && !isNaN(parseFloat(p.peso)))
+                    .filter(p => p.fecha && p.peso && !isNaN(parseDecimalInput(p.peso)))
                     .map(p => ({
                         id_animal: animalInsertado.id,
                         fecha: p.fecha,
-                        peso: parseFloat(p.peso),
+                        peso: parseDecimalInput(p.peso),
                         etapa: p.etapa,
                         gdp_calculada: 0
                     }));
@@ -1674,11 +1680,10 @@ export default function Inventory() {
                                                                     <label htmlFor={`hist-edit-peso-${index}`} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Peso (kg)</label>
                                                                     <input
                                                                         id={`hist-edit-peso-${index}`}
-                                                                        type="number"
+                                                                        type="text"
                                                                         inputMode="decimal"
-                                                                        step="0.1"
                                                                         value={editingPesaje.peso}
-                                                                        onChange={e => setEditingPesaje(prev => prev ? { ...prev, peso: e.target.value } : null)}
+                                                                        onChange={e => setEditingPesaje(prev => prev ? { ...prev, peso: sanitizeDecimalInput(e.target.value) } : null)}
                                                                         style={{ width: isMobile ? '100%' : '100px', marginBottom: 0, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '0.85rem' }}
                                                                     />
                                                                 </div>
@@ -1844,7 +1849,7 @@ export default function Inventory() {
                         <div className="inventory-create-grid-2">
                             <div>
                                 <label htmlFor="inv-new-peso">Peso Ingreso (kg)*</label>
-                                <input id="inv-new-peso" type="number" inputMode="decimal" value={nuevoAnimal.peso_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, peso_ingreso: e.target.value})} placeholder="0" />
+                                <input id="inv-new-peso" type="text" inputMode="decimal" value={nuevoAnimal.peso_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, peso_ingreso: sanitizeDecimalInput(e.target.value)})} placeholder="0" />
                             </div>
                             <div>
                                 <label htmlFor="inv-new-fecha">Fecha Ingreso*</label>
@@ -1895,9 +1900,9 @@ export default function Inventory() {
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <label htmlFor={`inv-extra-peso-${idx}`} style={{ fontSize: '0.72rem' }}>Peso (kg)</label>
-                                        <input id={`inv-extra-peso-${idx}`} type="number" inputMode="decimal" value={p.peso} onChange={e => {
+                                        <input id={`inv-extra-peso-${idx}`} type="text" inputMode="decimal" value={p.peso} onChange={e => {
                                             const up = [...nuevosPesajes];
-                                            up[idx].peso = e.target.value;
+                                            up[idx].peso = sanitizeDecimalInput(e.target.value);
                                             setNuevosPesajes(up);
                                         }} style={{ marginBottom: 0 }} placeholder="0" />
                                     </div>

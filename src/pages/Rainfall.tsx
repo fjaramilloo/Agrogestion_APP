@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { detectarRegionClimatica, generarRecomendacion } from '../utils/climateRegions';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import {
     type DiagnosticoClimatico,
     obtenerUltimoAnalisisClimatico,
@@ -560,10 +561,10 @@ export default function Rainfall() {
             const notasFinal = notas.trim() || null;
 
             if (pluviometrosActivos.length === 0) {
-                if (!valorEntrada) {
-                    throw new Error('Ingresa la lectura de lluvia.');
+                const valorNum = parseDecimalInput(valorEntrada);
+                if (!valorEntrada.trim() || isNaN(valorNum)) {
+                    throw new Error('Ingresa una lectura numérica válida de lluvia.');
                 }
-                const valorNum = parseFloat(valorEntrada);
                 const calc = calcularMilimetrosRegistro({
                     modo: modoEntrada,
                     valorNum,
@@ -598,7 +599,10 @@ export default function Rainfall() {
                     const valStr = (valoresPorPluv[pluv.id] || '').trim();
                     if (!valStr) continue;
 
-                    const valorNum = parseFloat(valStr);
+                    const valorNum = parseDecimalInput(valStr);
+                    if (isNaN(valorNum)) {
+                        throw new Error(`Ingresa una lectura numérica válida para ${pluv.nombre}.`);
+                    }
                     const calc = calcularMilimetrosRegistro({
                         modo: pluv.tipo_medicion,
                         valorNum,
@@ -1539,14 +1543,12 @@ export default function Rainfall() {
                                         </label>
                                         <input
                                             id="rainfall-valor-input"
-                                            type="number"
+                                            type="text"
                                             inputMode="decimal"
-                                            step="0.1"
-                                            min="0"
                                             className="input-field"
-                                            placeholder={modoEntrada === 'diaria' ? "Ej: 18.5" : "Ej: 1520.5"}
+                                            placeholder={modoEntrada === 'diaria' ? "Ej: 18,5" : "Ej: 1520,5"}
                                             value={valorEntrada}
-                                            onChange={e => setValorEntrada(e.target.value)}
+                                            onChange={e => setValorEntrada(sanitizeDecimalInput(e.target.value))}
                                             required
                                             autoFocus={!isMobile}
                                         />
@@ -1644,15 +1646,13 @@ export default function Rainfall() {
                                                 ) : (
                                                     <>
                                                         <input
-                                                            type="number"
+                                                            type="text"
                                                             inputMode="decimal"
-                                                            step="0.1"
-                                                            min="0"
                                                             className="input-field"
                                                             aria-label={`Lectura para ${pluv.nombre}`}
-                                                            placeholder={esAcum ? 'Lectura acumulada (ej: 1520.5)' : 'Milímetros caídos (ej: 18.5)'}
+                                                            placeholder={esAcum ? 'Lectura acumulada (ej: 1520,5)' : 'Milímetros caídos (ej: 18,5)'}
                                                             value={valoresPorPluv[pluv.id] || ''}
-                                                            onChange={e => setValoresPorPluv(prev => ({ ...prev, [pluv.id]: e.target.value }))}
+                                                            onChange={e => setValoresPorPluv(prev => ({ ...prev, [pluv.id]: sanitizeDecimalInput(e.target.value) }))}
                                                             style={{ marginBottom: '6px' }}
                                                             autoFocus={!isMobile && idx === 0}
                                                         />

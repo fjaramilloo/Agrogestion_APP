@@ -7,6 +7,7 @@ import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, UploadCloud, Trendi
 import { guardarAforoOffline } from '../lib/offlineService';
 import { localDB } from '../lib/db';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Aforos.css';
 
 interface Potrero {
@@ -277,15 +278,7 @@ export default function Aforos() {
     };
 
     const updateMuestra = (index: number, val: string) => {
-        // Reemplazar comas por puntos de una vez para que sea inteligente
-        let cleanVal = val.replace(',', '.');
-        
-        // No permitir guiones (negativos)
-        cleanVal = cleanVal.replace(/-/g, '');
-
-        // Validar que solo sean números y máximo un punto decimal
-        if (!/^\d*\.?\d*$/.test(cleanVal) && cleanVal !== '') return;
-
+        const cleanVal = sanitizeDecimalInput(val);
         const n = [...muestras];
         n[index] = cleanVal;
         setMuestras(n);
@@ -302,9 +295,9 @@ export default function Aforos() {
     };
 
     // Cálculos
-    const nums = muestras.map(m => parseFloat(m)).filter(n => !isNaN(n) && n > 0);
+    const nums = muestras.map(m => parseDecimalInput(m)).filter(n => !isNaN(n) && n > 0);
     const avgMuestra = nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
-    const viaValue = parseFloat(viabilidad) || 0;
+    const viaValue = parseDecimalInput(viabilidad) || 0;
     
     // Formula: Promedio (kg/m2) * Area (ha -> m2) * (viabilidad%)
     // Area m2 = Area Ha * 10000
@@ -1048,11 +1041,10 @@ export default function Aforos() {
                                     inputMode="decimal"
                                     value={calcConsumo}
                                     onChange={e => {
-                                        let val = e.target.value.replace(',', '.').replace(/-/g, '');
-                                        if (!/^\d*\.?\d*$/.test(val) && val !== '') return;
+                                        const val = sanitizeDecimalInput(e.target.value);
                                         setCalcConsumo(val);
-                                        const C = parseFloat(val) || 0;
-                                        const A = parseFloat(calcAnimales) || 1;
+                                        const C = parseDecimalInput(val) || 0;
+                                        const A = parseDecimalInput(calcAnimales) || 1;
                                         if (C > 0 && A > 0) {
                                             setCalcDias((modalCalcOpen.aforo!.aforo_real_kg / (A * C)).toFixed(1));
                                         }
@@ -1071,8 +1063,8 @@ export default function Aforos() {
                                     onChange={e => {
                                         let val = e.target.value.replace(/\D/g, '');
                                         setCalcAnimales(val);
-                                        const A = parseFloat(val) || 0;
-                                        const C = parseFloat(calcConsumo) || 1;
+                                        const A = parseDecimalInput(val) || 0;
+                                        const C = parseDecimalInput(calcConsumo) || 1;
                                         if (A > 0 && C > 0) {
                                             setCalcDias((modalCalcOpen.aforo!.aforo_real_kg / (A * C)).toFixed(1));
                                         }
@@ -1089,11 +1081,10 @@ export default function Aforos() {
                                     inputMode="decimal"
                                     value={calcDias}
                                     onChange={e => {
-                                        let val = e.target.value.replace(',', '.').replace(/-/g, '');
-                                        if (!/^\d*\.?\d*$/.test(val) && val !== '') return;
+                                        const val = sanitizeDecimalInput(e.target.value);
                                         setCalcDias(val);
-                                        const D = parseFloat(val) || 0;
-                                        const A = parseFloat(calcAnimales) || 1;
+                                        const D = parseDecimalInput(val) || 0;
+                                        const A = parseDecimalInput(calcAnimales) || 1;
                                         if (D > 0 && A > 0) {
                                             setCalcConsumo((modalCalcOpen.aforo!.aforo_real_kg / (A * D)).toFixed(1));
                                         }

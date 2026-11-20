@@ -13,6 +13,7 @@ import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { toDisplayValue, getUnidadLabel, getModoLabel, esPesajePosteriorAIngreso } from '../utils/ganancia';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 
 interface AnimalCompraParaReporte {
     numero_chapeta: string;
@@ -309,7 +310,7 @@ export default function HistorialCompras() {
 
     const handleSavePesoCompra = async () => {
         if (!detalleCompra) return;
-        const pesoTotalNuevo = parseFloat(pesoTotalCompraInput);
+        const pesoTotalNuevo = parseDecimalInput(pesoTotalCompraInput);
         if (isNaN(pesoTotalNuevo) || pesoTotalNuevo <= 0) return;
 
         setSavingPesoCompra(true);
@@ -618,7 +619,7 @@ export default function HistorialCompras() {
             >
                 {detalleCompra && (() => {
                     const fechasColumnas = getFechasColumnas(detalleCompra.animalesDetalle).filter(f => f !== detalleCompra.fechaCompra);
-                    const inputPeso = parseFloat(pesoTotalCompraInput);
+                    const inputPeso = parseDecimalInput(pesoTotalCompraInput);
                     const showCalculos = !isNaN(inputPeso) && inputPeso > 0;
                     const mermaKg = showCalculos ? inputPeso - detalleCompra.pesoTotalIngreso : 0;
                     const mermaPorcentaje = showCalculos ? (mermaKg / inputPeso) * 100 : 0;
@@ -715,10 +716,11 @@ export default function HistorialCompras() {
                                                 <div style={{ flex: '1 1 300px' }}>
                                                     <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '8px' }}>Kilos totales comprados:</label>
                                                     <input
-                                                        type="number"
+                                                        type="text"
+                                                        inputMode="decimal"
                                                         placeholder="Ej. 2500"
                                                         value={pesoTotalCompraInput}
-                                                        onChange={e => setPesoTotalCompraInput(e.target.value)}
+                                                        onChange={e => setPesoTotalCompraInput(sanitizeDecimalInput(e.target.value))}
                                                         style={{ marginBottom: '12px', width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-input)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '1.1rem' }}
                                                         disabled={savingPesoCompra}
                                                     />

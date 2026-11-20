@@ -10,6 +10,7 @@ import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia'
 import { localDB } from '../lib/db';
 import { guardarPesajeOffline } from '../lib/offlineService';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Weighing.css';
 
 interface AnimalPreview {
@@ -454,7 +455,7 @@ export default function Weighing() {
         setMsjError('');
 
         try {
-            const pesoFloat = Math.round(parseFloat(pesoIngresoNuevo));
+            const pesoFloat = Math.round(parseDecimalInput(pesoIngresoNuevo));
             if (isNaN(pesoFloat) || pesoFloat <= 0) {
                 throw new Error('El peso inicial debe ser mayor a 0');
             }
@@ -520,7 +521,7 @@ export default function Weighing() {
         setMsjError('');
         setMarcadoCeba(false);
 
-        const pesoFloat = Math.round(parseFloat(nuevoPeso));
+        const pesoFloat = Math.round(parseDecimalInput(nuevoPeso));
         if (isNaN(pesoFloat) || pesoFloat <= 0) {
             setMsjError('El peso debe ser un número mayor a 0');
             return;
@@ -706,7 +707,7 @@ export default function Weighing() {
     };
 
     const handleGuardarEdicion = async (pesaje: typeof pesajesHoy[0]) => {
-        const nuevoPesoFloat = parseFloat(editPeso);
+        const nuevoPesoFloat = parseDecimalInput(editPeso);
         if (isNaN(nuevoPesoFloat) || nuevoPesoFloat <= 0) {
             toast('Ingresa un peso válido mayor a 0.', 'error');
             return;
@@ -893,12 +894,11 @@ export default function Weighing() {
                                 <label htmlFor="weighing-peso-ingreso">Peso de Ingreso (kg)</label>
                                 <input
                                     id="weighing-peso-ingreso"
-                                    type="number"
+                                    type="text"
                                     inputMode="decimal"
-                                    step="0.1"
                                     placeholder="Ej 180"
                                     value={pesoIngresoNuevo}
-                                    onChange={e => setPesoIngresoNuevo(e.target.value)}
+                                    onChange={e => setPesoIngresoNuevo(sanitizeDecimalInput(e.target.value))}
                                 />
                             </div>
                         </div>
@@ -1041,12 +1041,11 @@ export default function Weighing() {
                                 <input
                                     id="weighing-nuevo-peso"
                                     ref={pesoInputRef}
-                                    type="number"
+                                    type="text"
                                     inputMode="decimal"
-                                    step="0.1"
-                                    placeholder="Ej. 350.5"
+                                    placeholder="Ej. 350,5"
                                     value={nuevoPeso}
-                                    onChange={(e) => setNuevoPeso(e.target.value)}
+                                    onChange={(e) => setNuevoPeso(sanitizeDecimalInput(e.target.value))}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && nuevoPeso && animal.fecha_ultimo_peso?.split('T')[0] !== fechaPesaje) {
                                             e.preventDefault();
@@ -1141,12 +1140,11 @@ export default function Weighing() {
                                                 <td className="weighing-cell-peso">
                                                     {editingPesajeId === p.id ? (
                                                         <input
-                                                            type="number"
+                                                            type="text"
                                                             inputMode="decimal"
-                                                            step="0.1"
                                                             value={editPeso}
                                                             aria-label={`Editar peso de #${p.numero_chapeta}`}
-                                                            onChange={e => setEditPeso(e.target.value)}
+                                                            onChange={e => setEditPeso(sanitizeDecimalInput(e.target.value))}
                                                             className="weighing-edit-input"
                                                             autoFocus={!isMobile}
                                                         />

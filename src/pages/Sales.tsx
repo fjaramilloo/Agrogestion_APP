@@ -9,6 +9,7 @@ import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, W
 import SalesReport from '../components/SalesReport';
 import ModalUpsell from '../components/ModalUpsell';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './TradeOperations.css';
 
@@ -128,7 +129,7 @@ export default function Sales() {
     };
 
     const calculateGMP = (pesoSalida: string, pesoInicial: number, fechaInicial: string, fechaVenta: string) => {
-        const pSalida = parseFloat(pesoSalida);
+        const pSalida = parseDecimalInput(pesoSalida);
         if (isNaN(pSalida) || pSalida <= 0 || !pesoInicial || !fechaInicial) return 0;
         
         const f1 = new Date(fechaInicial.split('T')[0] + 'T12:00:00');
@@ -360,7 +361,10 @@ export default function Sales() {
             }
 
             if (animales.some(a => !a.validado)) throw new Error("Debe validar todas las chapetas antes de continuar.");
-            if (animales.some(a => !a.peso_salida || parseFloat(a.peso_salida) <= 0)) throw new Error("Todos los animales deben tener un peso de salida válido.");
+            if (animales.some(a => {
+                const p = parseDecimalInput(a.peso_salida);
+                return !a.peso_salida || isNaN(p) || p <= 0;
+            })) throw new Error("Todos los animales deben tener un peso de salida válido.");
             if (isCarnicero && animales.some(a => !a.precio_venta || parseFloat(a.precio_venta) <= 0)) throw new Error("Para ventas al Carnicero es obligatorio ingresar el valor de venta.");
 
             setShowConfirm(true);
@@ -382,7 +386,7 @@ export default function Sales() {
         try {
             const registrosInsert = animales.filter(a => a.id_animal).map(a => ({
                 id_animal: a.id_animal,
-                peso: Math.round(parseFloat(a.peso_salida)),
+                peso: Math.round(parseDecimalInput(a.peso_salida)),
                 fecha: fechaVenta,
                 etapa: 'ceba'
             }));
@@ -396,7 +400,7 @@ export default function Sales() {
 
             for (const a of animales) {
                 if (!a.id_animal) continue;
-                const pesoNum = Math.round(parseFloat(a.peso_salida));
+                const pesoNum = Math.round(parseDecimalInput(a.peso_salida));
                 
                 // 2. Marcar animal como vendido y guardar datos de venta
                 const { error: errorAnimal } = await supabase
@@ -487,7 +491,7 @@ export default function Sales() {
                     }
 
                     const dbId = data.id;
-                    const ceba = parseFloat(a.peso_salida);
+                    const ceba = parseDecimalInput(a.peso_salida);
                     
                     registrosInsert.push({
                         id_animal: dbId,
@@ -865,13 +869,12 @@ export default function Sales() {
                                                 <div className="sales-peso-wrap">
                                                     <input
                                                         id={`sales-peso-${index}`}
-                                                        type="number"
-                                                        step="0.1"
+                                                        type="text"
                                                         inputMode="decimal"
                                                         enterKeyHint="next"
                                                         placeholder="Peso final"
                                                         value={a.peso_salida}
-                                                        onChange={e => updateAnimalField(index, 'peso_salida', e.target.value)}
+                                                        onChange={e => updateAnimalField(index, 'peso_salida', sanitizeDecimalInput(e.target.value))}
                                                         className={`sales-peso-input ${a.es_estimado ? 'has-estimado' : ''}`}
                                                     />
                                                     {a.es_estimado && (

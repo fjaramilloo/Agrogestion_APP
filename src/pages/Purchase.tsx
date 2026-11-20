@@ -9,6 +9,7 @@ import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, Uplo
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './TradeOperations.css';
 
@@ -225,7 +226,7 @@ export default function Purchase() {
             }
 
             animales.forEach(a => {
-                const peso = parseFloat(a.peso_ingreso);
+                const peso = parseDecimalInput(a.peso_ingreso);
                 if (isNaN(peso) || peso <= 0) throw new Error(`Peso inválido para ${a.numero_chapeta}`);
                 if (!a.propietario) throw new Error(`Falta propietario para ${a.numero_chapeta}`);
             });
@@ -320,21 +321,23 @@ export default function Purchase() {
                 });
             }
 
-            const pesoCompTotalNum = incluirPesoCompra ? parseFloat(pesoCompraTotal) : 0;
-            const totalPesoIngresoLote = animales.reduce((acc, a) => acc + (parseFloat(a.peso_ingreso) || 0), 0);
+            const parsedPesoCompraTotal = parseDecimalInput(pesoCompraTotal);
+            const pesoCompTotalNum = incluirPesoCompra && !isNaN(parsedPesoCompraTotal) ? parsedPesoCompraTotal : 0;
+            const totalPesoIngresoLote = animales.reduce((acc, a) => acc + (parseDecimalInput(a.peso_ingreso) || 0), 0);
             const ratioPesoCompra = (incluirPesoCompra && pesoCompTotalNum > 0 && totalPesoIngresoLote > 0) 
                 ? (pesoCompTotalNum / totalPesoIngresoLote) 
                 : 1;
 
             const records = animales.map(a => {
                 const propTrim = a.propietario.trim();
+                const pesoIngresoNum = parseDecimalInput(a.peso_ingreso);
                 return {
                     id_finca: fincaId,
                     numero_chapeta: a.numero_chapeta.trim().toUpperCase(),
                     nombre_propietario: propTrim,
                     id_potrerada: selectedPotrerada ? selectedPotrerada : (potreradaIdPorPropietario.get(propTrim) || null),
-                    peso_ingreso: Math.round(parseFloat(a.peso_ingreso)),
-                    peso_compra: incluirPesoCompra ? Math.round(parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
+                    peso_ingreso: Math.round(pesoIngresoNum),
+                    peso_compra: incluirPesoCompra ? Math.round(pesoIngresoNum * ratioPesoCompra) : null,
                     fecha_ingreso: fechaIngreso,
                     proveedor_compra: selectedProveedor,
                     observaciones_compra: observaciones,
@@ -358,7 +361,7 @@ export default function Purchase() {
             setReportData({
                 fechaIngreso: fechaIngreso,
                 animales: [...animales],
-                pesoCompraTotal: incluirPesoCompra ? parseFloat(pesoCompraTotal) : undefined
+                pesoCompraTotal: incluirPesoCompra && pesoCompTotalNum > 0 ? pesoCompTotalNum : undefined
             });
             setShowReport(true);
             if (refreshLicencia) await refreshLicencia();
@@ -444,27 +447,31 @@ export default function Purchase() {
                     });
                 }
 
-                const pesoCompTotalNum = payload.incluirPesoCompra ? parseFloat(payload.pesoCompraTotal) : 0;
-                const totalPesoIngresoLote = payload.animales.reduce((acc, a) => acc + (parseFloat(a.peso_ingreso) || 0), 0);
+                const parsedPesoCompraTotal = parseDecimalInput(payload.pesoCompraTotal);
+                const pesoCompTotalNum = payload.incluirPesoCompra && !isNaN(parsedPesoCompraTotal) ? parsedPesoCompraTotal : 0;
+                const totalPesoIngresoLote = payload.animales.reduce((acc, a) => acc + (parseDecimalInput(a.peso_ingreso) || 0), 0);
                 const ratioPesoCompra = (payload.incluirPesoCompra && pesoCompTotalNum > 0 && totalPesoIngresoLote > 0) 
                     ? (pesoCompTotalNum / totalPesoIngresoLote) 
                     : 1;
 
-                const records = payload.animales.map(a => ({
-                    id_finca: fincaId,
-                    numero_chapeta: a.numero_chapeta.trim().toUpperCase(),
-                    nombre_propietario: a.propietario,
-                    id_potrerada: payload.selectedPotrerada ? payload.selectedPotrerada : (potreradaIdPorPropietario.get(a.propietario) || null),
-                    peso_ingreso: Math.round(parseFloat(a.peso_ingreso)),
-                    peso_compra: payload.incluirPesoCompra ? Math.round(parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
-                    fecha_ingreso: payload.fechaIngreso,
-                    proveedor_compra: payload.selectedProveedor,
-                    observaciones_compra: payload.observaciones,
-                    etapa: 'levante',
-                    especie: 'bovino',
-                    sexo: 'M',
-                    estado: 'activo'
-                }));
+                const records = payload.animales.map(a => {
+                    const pesoIngresoNum = parseDecimalInput(a.peso_ingreso);
+                    return {
+                        id_finca: fincaId,
+                        numero_chapeta: a.numero_chapeta.trim().toUpperCase(),
+                        nombre_propietario: a.propietario,
+                        id_potrerada: payload.selectedPotrerada ? payload.selectedPotrerada : (potreradaIdPorPropietario.get(a.propietario) || null),
+                        peso_ingreso: Math.round(pesoIngresoNum),
+                        peso_compra: payload.incluirPesoCompra ? Math.round(pesoIngresoNum * ratioPesoCompra) : null,
+                        fecha_ingreso: payload.fechaIngreso,
+                        proveedor_compra: payload.selectedProveedor,
+                        observaciones_compra: payload.observaciones,
+                        etapa: 'levante',
+                        especie: 'bovino',
+                        sexo: 'M',
+                        estado: 'activo'
+                    };
+                });
 
                 const { error } = await supabase.from('animales').insert(records);
                 if (error) throw error;
@@ -631,8 +638,8 @@ export default function Purchase() {
                 className="trade-dialog trade-dialog--wide trade-dialog--info"
             >
                 {showQuickModal && (() => {
-                    const totalRecibido = quickWeights.reduce((acc, w) => acc + (parseFloat(w) || 0), 0);
-                    const kgCompradosNum = parseFloat(quickKgComprados) || 0;
+                    const totalRecibido = quickWeights.reduce((acc, w) => acc + (parseDecimalInput(w) || 0), 0);
+                    const kgCompradosNum = parseDecimalInput(quickKgComprados) || 0;
                     const mermaPorc = (kgCompradosNum > 0 && totalRecibido > 0) ? ((kgCompradosNum - totalRecibido) / kgCompradosNum * 100) : 0;
                     const countNum = parseInt(quickAnimalCount) || 1;
 
@@ -678,12 +685,11 @@ export default function Purchase() {
                                     <label htmlFor="quick-kg-comprados">Kg Comprados (Origen / Báscula Proveedor)</label>
                                     <input
                                         id="quick-kg-comprados"
-                                        type="number"
-                                        step="0.1"
+                                        type="text"
                                         inputMode="decimal"
                                         value={quickKgComprados}
                                         onChange={e => {
-                                            setQuickKgComprados(e.target.value);
+                                            setQuickKgComprados(sanitizeDecimalInput(e.target.value));
                                             if (quickError) setQuickError('');
                                         }}
                                         placeholder="Ej. 6216"
@@ -744,18 +750,17 @@ export default function Purchase() {
                                         <div key={i} style={{ position: 'relative' }}>
                                             <span aria-hidden="true" style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>{i + 1}</span>
                                             <input
-                                                type="number"
-                                                step="0.1"
+                                                type="text"
                                                 inputMode="decimal"
                                                 aria-label={`Peso animal ${i + 1} en kilogramos`}
                                                 value={w}
                                                 onChange={e => {
                                                     const newW = [...quickWeights];
-                                                    newW[i] = e.target.value;
+                                                    newW[i] = sanitizeDecimalInput(e.target.value);
                                                     setQuickWeights(newW);
                                                 }}
                                                 style={{ paddingLeft: '24px', textAlign: 'right', marginBottom: 0, fontSize: '1rem' }}
-                                                placeholder="0.0"
+                                                placeholder="0,0"
                                             />
                                         </div>
                                     ))}
@@ -773,16 +778,17 @@ export default function Purchase() {
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        if (!quickProveedor || !quickKgComprados) {
+                                        const kgCompradosParsed = parseDecimalInput(quickKgComprados);
+                                        if (!quickProveedor || !quickKgComprados || isNaN(kgCompradosParsed) || kgCompradosParsed <= 0) {
                                             setQuickError('Selecciona el proveedor y los Kg comprados.');
                                             return;
                                         }
-                                        const animalsForReport = quickWeights.map((w, idx) => ({ numero_chapeta: `A${idx + 1}`, peso_ingreso: parseFloat(w) || 0 }));
+                                        const animalsForReport = quickWeights.map((w, idx) => ({ numero_chapeta: `A${idx + 1}`, peso_ingreso: parseDecimalInput(w) || 0 }));
                                         setQuickReportData({
                                             proveedor: quickProveedor,
                                             fecha: getLocalIsoDate(),
                                             animales: animalsForReport,
-                                            pesoCompraTotal: parseFloat(quickKgComprados)
+                                            pesoCompraTotal: kgCompradosParsed
                                         });
                                         setShowQuickModal(false);
                                         setShowQuickReport(true);
@@ -938,12 +944,11 @@ export default function Purchase() {
                                 <label htmlFor="purchase-peso-total">Peso Total de Compra (kg)</label>
                                 <input
                                     id="purchase-peso-total"
-                                    type="number"
-                                    step="0.1"
+                                    type="text"
                                     inputMode="decimal"
                                     placeholder="Peso total pagado..."
                                     value={pesoCompraTotal}
-                                    onChange={e => setPesoCompraTotal(e.target.value)}
+                                    onChange={e => setPesoCompraTotal(sanitizeDecimalInput(e.target.value))}
                                     disabled={loading || animales.length > 0}
                                     style={{ marginBottom: 0 }}
                                 />
@@ -1031,13 +1036,12 @@ export default function Purchase() {
                                             <label htmlFor={`purchase-peso-${index}`} className="trade-cell-label">Peso Entrada (kg)</label>
                                             <input
                                                 id={`purchase-peso-${index}`}
-                                                type="number"
-                                                step="0.1"
+                                                type="text"
                                                 inputMode="decimal"
                                                 enterKeyHint="next"
                                                 placeholder="Ej. 250"
                                                 value={a.peso_ingreso}
-                                                onChange={e => updateAnimal(index, 'peso_ingreso', e.target.value)}
+                                                onChange={e => updateAnimal(index, 'peso_ingreso', sanitizeDecimalInput(e.target.value))}
                                                 style={{ marginBottom: 0, padding: '10px' }}
                                             />
                                         </td>
