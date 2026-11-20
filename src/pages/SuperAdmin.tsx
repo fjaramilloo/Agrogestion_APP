@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
 import { getLocalIsoDate } from '../utils/dateUtils';
 import './SuperAdmin.css';
 import {
@@ -101,6 +102,7 @@ interface CuentaAdmin {
 export default function SuperAdmin() {
     const { isSuperAdmin, loading: authLoading } = useAuth();
     const { theme } = useTheme();
+    const { confirmAction, showAlert, toast } = useFeedback();
     const isLight = theme === 'light';
     const accentPurple = isLight ? '#6d28d9' : '#a78bfa';
     const accentPurpleSoft = isLight ? '#7c3aed' : '#c084fc';
@@ -349,10 +351,15 @@ export default function SuperAdmin() {
     };
 
     const handleDeletePrecioRow = async (id: string) => {
-        const confirm = window.confirm('¿Eliminar este registro de precio de mercado?');
-        if (!confirm) return;
+        const confirmed = await confirmAction('¿Eliminar este registro de precio de mercado?', {
+            title: 'Eliminar precio',
+            confirmLabel: 'Sí, eliminar',
+            destructive: true,
+        });
+        if (!confirmed) return;
         await supabase.from('precios_mercado_ganado').delete().eq('id', id);
         await fetchPreciosMercado();
+        toast('Registro eliminado.', 'success');
     };
 
     const fetchDashboardData = async () => {
@@ -487,8 +494,9 @@ export default function SuperAdmin() {
 
             setEditingLicenciaOrg(null);
             await fetchDashboardData();
+            toast('Licencia actualizada correctamente.', 'success');
         } catch (err: any) {
-            alert('Error al guardar la licencia: ' + err.message);
+            await showAlert('Error al guardar la licencia: ' + err.message, { title: 'Error', variant: 'error' });
         } finally {
             setSavingLicencia(false);
         }
@@ -509,8 +517,9 @@ export default function SuperAdmin() {
             if (error) throw error;
             setConfirmDelete(null);
             await fetchDashboardData();
+            toast('Finca eliminada.', 'success');
         } catch (err: any) {
-            alert('Error eliminando finca: ' + err.message);
+            await showAlert('Error eliminando finca: ' + err.message, { title: 'Error', variant: 'error' });
         } finally {
             setDeletingId(null);
         }
@@ -528,8 +537,9 @@ export default function SuperAdmin() {
             setConfirmDelete(null);
             setExpandedOrg(null);
             await fetchDashboardData();
+            toast('Cuenta eliminada.', 'success');
         } catch (err: any) {
-            alert('Error eliminando cuenta: ' + err.message);
+            await showAlert('Error eliminando cuenta: ' + err.message, { title: 'Error', variant: 'error' });
         } finally {
             setDeletingId(null);
         }

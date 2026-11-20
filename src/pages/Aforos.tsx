@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
 import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, UploadCloud, TrendingUp, Calendar, Activity } from 'lucide-react';
 import { guardarAforoOffline } from '../lib/offlineService';
 import { localDB } from '../lib/db';
@@ -43,6 +44,7 @@ interface OfflineAforoPayload {
 export default function Aforos() {
     const { fincaId, role } = useAuth();
     const { modoCampo, toggleModoCampo, isOnline } = useConnection();
+    const { confirmAction } = useFeedback();
     const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
 
     const [potreros, setPotreros] = useState<Potrero[]>([]);
@@ -543,8 +545,13 @@ export default function Aforos() {
                             <button
                                 type="button"
                                 className="aforos-clear-queue-btn"
-                                onClick={() => {
-                                    if (window.confirm('¿Estás seguro de limpiar la cola de aforos pendientes?')) {
+                                onClick={async () => {
+                                    const confirmed = await confirmAction('¿Estás seguro de limpiar la cola de aforos pendientes?', {
+                                        title: 'Limpiar cola offline',
+                                        confirmLabel: 'Sí, limpiar',
+                                        destructive: true,
+                                    });
+                                    if (confirmed) {
                                         setOfflineQueue([]);
                                         localStorage.removeItem('agrogestion_aforos_offline');
                                         setMsjExito('Cola de aforos pendientes limpiada.');

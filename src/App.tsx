@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { UiFeedbackProvider } from './contexts/UiFeedbackContext';
 import Topbar from './components/Topbar';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
@@ -326,16 +327,18 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <ConnectionProvider>
-          <Router>
-            <Suspense fallback={<PantallaCargando fullScreen />}>
-              <AppRoutes />
-            </Suspense>
-            <VersionNotifier />
-            <SyncSummaryModal />
-            <Suspense fallback={null}>
-              <AgroBotConSesion />
-            </Suspense>
-          </Router>
+          <UiFeedbackProvider>
+            <Router>
+              <Suspense fallback={<PantallaCargando fullScreen />}>
+                <AppRoutes />
+              </Suspense>
+              <VersionNotifier />
+              <SyncSummaryModal />
+              <Suspense fallback={null}>
+                <AgroBotConSesion />
+              </Suspense>
+            </Router>
+          </UiFeedbackProvider>
         </ConnectionProvider>
       </AuthProvider>
     </ThemeProvider>

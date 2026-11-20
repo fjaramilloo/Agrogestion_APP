@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { useModalDialog } from '../hooks/useModalDialog';
 import { MapPin, Plus, Trash2, Edit2, Check, X, Layers, Info, Search, CheckSquare, Square, Calculator, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import './Rotations.css';
 
 interface Potrero {
     id: string;
@@ -18,6 +22,8 @@ interface Rotacion {
 
 export default function Rotations() {
     const { fincaId, role } = useAuth();
+    const { confirmAction, toast } = useFeedback();
+    const isMobile = useIsMobile();
     const [msjError, setMsjError] = useState('');
 
     const [rotaciones, setRotaciones] = useState<Rotacion[]>([]);
@@ -41,6 +47,9 @@ export default function Rotations() {
     const [nuevoPotForm, setNuevoPotForm] = useState({ nombre: '', area: '' });
     const [isSaving, setIsSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const nuevaRotDialogProps = useModalDialog(showNuevaRotacion, () => setShowNuevaRotacion(false), true);
+    const nuevoPotDialogProps = useModalDialog(showNuevoPotrero !== null, () => setShowNuevoPotrero(null), true);
 
     // Calculadora Voisin
     const [showCalculadora, setShowCalculadora] = useState(false);
@@ -222,18 +231,32 @@ export default function Rotations() {
     };
 
     const deletePotrero = async (id: string) => {
-        if (!isAdmin || !confirm('¿Eliminar potrero?')) return;
+        if (!isAdmin) return;
+        const confirmed = await confirmAction('¿Eliminar potrero?', {
+            title: 'Eliminar potrero',
+            confirmLabel: 'Sí, eliminar',
+            destructive: true,
+        });
+        if (!confirmed) return;
         try {
             await supabase.from('potreros').delete().eq('id', id);
             fetchData();
+            toast('Potrero eliminado.', 'success');
         } catch (err: any) { console.error(err); }
     };
 
     const deleteRotacion = async (id: string) => {
-        if (!isAdmin || !confirm('¿Eliminar rotación? Los potreros quedarán sin rotación.')) return;
+        if (!isAdmin) return;
+        const confirmed = await confirmAction('¿Eliminar rotación? Los potreros quedarán sin rotación.', {
+            title: 'Eliminar rotación',
+            confirmLabel: 'Sí, eliminar',
+            destructive: true,
+        });
+        if (!confirmed) return;
         try {
             await supabase.from('rotaciones').delete().eq('id', id);
             fetchData();
+            toast('Rotación eliminada.', 'success');
         } catch (err: any) { console.error(err); }
     };
 
@@ -285,83 +308,90 @@ export default function Rotations() {
     const rotacionMap = new Map(rotaciones.map(r => [r.id, r.nombre]));
 
     return (
-        <div className="page-container" style={{ maxWidth: '1000px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div className="page-container rotations-page">
+            <div className="rotations-header">
                 <div>
                     <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                        <MapPin size={32} /> Rotaciones
+                        <MapPin size={32} aria-hidden="true" /> Rotaciones
                     </h1>
-                    <div style={{ display: 'flex', gap: '20px', marginTop: '12px' }}>
+                    <div className="rotations-stats">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                            <Layers size={16} /> <strong style={{ color: 'var(--text-main)' }}>{rotaciones.length}</strong> Rotaciones
+                            <Layers size={16} aria-hidden="true" /> <strong style={{ color: 'var(--text-main)' }}>{rotaciones.length}</strong> Rotaciones
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                            <MapPin size={16} /> <strong style={{ color: 'var(--text-main)' }}>{potreros.length}</strong> Potreros
+                            <MapPin size={16} aria-hidden="true" /> <strong style={{ color: 'var(--text-main)' }}>{potreros.length}</strong> Potreros
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                             <strong style={{ color: 'var(--primary-light)' }}>{areaFinca.toFixed(2)}</strong> Ha Totales
                         </div>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button 
+                <div className="rotations-header-actions">
+                    <button
                         onClick={() => setShowCalculadora(prev => !prev)}
                         type="button"
-                        style={{ 
-                            width: 'auto', 
-                            padding: '10px 20px', 
-                            borderRadius: '100px', 
-                            fontSize: '0.9rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
+                        aria-expanded={showCalculadora}
+                        className="rotations-calc-toggle"
+                        style={{
                             backgroundColor: showCalculadora ? 'var(--primary-soft-bg)' : 'var(--surface-subtle)',
                             border: `1px solid ${showCalculadora ? 'var(--primary-light)' : 'var(--border-strong)'}`,
                             color: showCalculadora ? 'var(--primary-light)' : 'var(--text-main)',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
                         }}
                     >
-                        <Calculator size={18} /> Calculadora Voisin {showCalculadora ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        <Calculator size={18} aria-hidden="true" /> Calculadora Voisin {showCalculadora ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
                     </button>
 
                     {isAdmin && (
-                        <button 
-                            onClick={() => setShowNuevaRotacion(true)} 
-                            style={{ 
-                                width: 'auto', 
-                                padding: '10px 24px', 
-                                borderRadius: '100px', 
-                                fontSize: '0.9rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                boxShadow: 'var(--shadow-card)'
-                            }}
+                        <button
+                            type="button"
+                            onClick={() => setShowNuevaRotacion(true)}
+                            className="rotations-new-btn"
                         >
-                            <Plus size={20} /> Nueva Rotación
+                            <Plus size={20} aria-hidden="true" /> Nueva Rotación
                         </button>
                     )}
                 </div>
             </div>
 
-            {msjError && <div style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>{msjError}</div>}
+            {msjError && <div role="alert" style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>{msjError}</div>}
 
-            {showNuevaRotacion && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--backdrop-scrim)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-                    <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
-                        <h2>Nueva Rotación</h2>
+            <dialog
+                {...nuevaRotDialogProps}
+                className="rotations-dialog"
+                aria-labelledby="rotations-new-title"
+            >
+                {showNuevaRotacion && (
+                    <div className="card rotations-dialog-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                            <h2 id="rotations-new-title" style={{ margin: 0 }}>Nueva Rotación</h2>
+                            <button
+                                type="button"
+                                className="rotations-inline-icon-btn"
+                                aria-label="Cerrar"
+                                onClick={() => setShowNuevaRotacion(false)}
+                            >
+                                <X size={20} aria-hidden="true" />
+                            </button>
+                        </div>
                         <form onSubmit={handleAddRotacion} style={{ marginTop: '20px' }}>
-                            <label>Nombre de la Rotación</label>
-                            <input autoFocus type="text" value={nuevaRotNombre} onChange={e => setNuevaRotNombre(e.target.value)} placeholder="Ej: Rotación Norte" required />
-                            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                                <button type="button" className="btn-secondary" onClick={() => setShowNuevaRotacion(false)}>Cancelar</button>
-                                <button type="submit">Crear</button>
+                            <label htmlFor="rotations-new-name-input">Nombre de la Rotación</label>
+                            <input
+                                id="rotations-new-name-input"
+                                autoFocus={!isMobile}
+                                type="text"
+                                value={nuevaRotNombre}
+                                onChange={e => setNuevaRotNombre(e.target.value)}
+                                placeholder="Ej: Rotación Norte"
+                                required
+                            />
+                            <div className="rotations-dialog-actions">
+                                <button type="button" className="btn-secondary" style={{ width: 'auto' }} onClick={() => setShowNuevaRotacion(false)}>Cancelar</button>
+                                <button type="submit" style={{ width: 'auto' }}>Crear</button>
                             </div>
                         </form>
                     </div>
-                </div>
-            )}
+                )}
+            </dialog>
 
             {/* CALCULADORA DE ROTACIÓN VOISIN */}
             {showCalculadora && (() => {
@@ -457,17 +487,11 @@ export default function Rotations() {
                             <button
                                 type="button"
                                 onClick={() => setShowCalculadora(false)}
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    padding: '4px',
-                                    width: 'auto'
-                                }}
+                                className="rotations-inline-icon-btn"
                                 title="Cerrar calculadora"
+                                aria-label="Cerrar calculadora"
                             >
-                                <X size={18} />
+                                <X size={18} aria-hidden="true" />
                             </button>
                         </div>
 
@@ -485,14 +509,10 @@ export default function Rotations() {
                             </span>
                             <button
                                 type="button"
+                                aria-pressed={calcModo === 'potreros'}
                                 onClick={() => setCalcModo('potreros')}
+                                className="rotations-voisin-tab"
                                 style={{
-                                    width: 'auto',
-                                    padding: '6px 14px',
-                                    borderRadius: '20px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
                                     border: '1px solid',
                                     backgroundColor: calcModo === 'potreros' ? 'var(--primary-soft-bg)' : 'transparent',
                                     borderColor: calcModo === 'potreros' ? 'var(--primary-light)' : 'var(--border-strong)',
@@ -503,14 +523,10 @@ export default function Rotations() {
                             </button>
                             <button
                                 type="button"
+                                aria-pressed={calcModo === 'ocupacion'}
                                 onClick={() => setCalcModo('ocupacion')}
+                                className="rotations-voisin-tab"
                                 style={{
-                                    width: 'auto',
-                                    padding: '6px 14px',
-                                    borderRadius: '20px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
                                     border: '1px solid',
                                     backgroundColor: calcModo === 'ocupacion' ? 'var(--primary-soft-bg)' : 'transparent',
                                     borderColor: calcModo === 'ocupacion' ? 'var(--primary-light)' : 'var(--border-strong)',
@@ -521,14 +537,10 @@ export default function Rotations() {
                             </button>
                             <button
                                 type="button"
+                                aria-pressed={calcModo === 'descanso'}
                                 onClick={() => setCalcModo('descanso')}
+                                className="rotations-voisin-tab"
                                 style={{
-                                    width: 'auto',
-                                    padding: '6px 14px',
-                                    borderRadius: '20px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
                                     border: '1px solid',
                                     backgroundColor: calcModo === 'descanso' ? 'var(--primary-soft-bg)' : 'transparent',
                                     borderColor: calcModo === 'descanso' ? 'var(--primary-light)' : 'var(--border-strong)',
@@ -540,7 +552,7 @@ export default function Rotations() {
                         </div>
 
                         {/* Grid de Inputs y Resultado */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', alignItems: 'stretch' }}>
+                        <div className="rotations-voisin-grid">
                             {/* Columna Izquierda: Inputs según el modo */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', justifyContent: 'center' }}>
                                 {calcModo === 'potreros' && (
@@ -612,23 +624,14 @@ export default function Rotations() {
                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', minWidth: '40px' }}>potreros</span>
                                             </div>
                                             {groupedData.length > 0 && (
-                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '6px' }}>
                                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Cargar de:</span>
                                                     {groupedData.map(r => (
                                                         <button
                                                             key={r.id}
                                                             type="button"
+                                                            className="rotations-preset-btn"
                                                             onClick={() => setCalcPotreros(r.pots.length || 2)}
-                                                            style={{
-                                                                padding: '1px 8px',
-                                                                fontSize: '0.75rem',
-                                                                background: 'var(--surface-subtle)',
-                                                                border: '1px solid var(--border-subtle)',
-                                                                borderRadius: '4px',
-                                                                color: 'var(--text-secondary)',
-                                                                cursor: 'pointer',
-                                                                width: 'auto'
-                                                            }}
                                                         >
                                                             {r.nombre} ({r.pots.length})
                                                         </button>
@@ -681,23 +684,14 @@ export default function Rotations() {
                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', minWidth: '40px' }}>potreros</span>
                                             </div>
                                             {groupedData.length > 0 && (
-                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '6px' }}>
                                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Cargar de:</span>
                                                     {groupedData.map(r => (
                                                         <button
                                                             key={r.id}
                                                             type="button"
+                                                            className="rotations-preset-btn"
                                                             onClick={() => setCalcPotreros(r.pots.length || 2)}
-                                                            style={{
-                                                                padding: '1px 8px',
-                                                                fontSize: '0.75rem',
-                                                                background: 'var(--surface-subtle)',
-                                                                border: '1px solid var(--border-subtle)',
-                                                                borderRadius: '4px',
-                                                                color: 'var(--text-secondary)',
-                                                                cursor: 'pointer',
-                                                                width: 'auto'
-                                                            }}
                                                         >
                                                             {r.nombre} ({r.pots.length})
                                                         </button>
@@ -795,31 +789,38 @@ export default function Rotations() {
                 {filteredGroupedData.map(rot => (
                     <div key={rot.id} className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
                         {/* Header de la Rotación */}
-                        <div style={{ 
-                            padding: '16px 24px', 
-                            backgroundColor: 'var(--surface-subtle)', 
-                            borderBottom: '1px solid var(--border-subtle)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                <Layers size={20} color="var(--primary-light)" />
+                        <div className="rotations-group-header">
+                            <div className="rotations-group-title-wrap">
+                                <Layers size={20} color="var(--primary-light)" aria-hidden="true" />
                                 {editingRot === rot.id ? (
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        <input 
-                                            autoFocus
-                                            style={{ margin: 0, padding: '4px 8px', fontSize: '1rem' }} 
-                                            value={editRotNombre} 
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <input
+                                            autoFocus={!isMobile}
+                                            aria-label="Nuevo nombre de rotación"
+                                            style={{ margin: 0, padding: '6px 10px', fontSize: '1rem', width: 'auto', minWidth: '160px' }}
+                                            value={editRotNombre}
                                             onChange={e => setEditRotNombre(e.target.value)}
                                         />
-                                        <button onClick={() => handleUpdateRotacion(rot.id)} style={{ width: 'auto', padding: '4px', background: 'none' }}><Check size={18} color="var(--success)" /></button>
-                                        <button onClick={() => setEditingRot(null)} style={{ width: 'auto', padding: '4px', background: 'none' }}><X size={18} color="var(--text-muted)" /></button>
+                                        <button type="button" onClick={() => handleUpdateRotacion(rot.id)} className="rotations-inline-icon-btn rotations-inline-icon-btn--success" aria-label="Guardar nombre">
+                                            <Check size={18} aria-hidden="true" />
+                                        </button>
+                                        <button type="button" onClick={() => setEditingRot(null)} className="rotations-inline-icon-btn" aria-label="Cancelar edición">
+                                            <X size={18} aria-hidden="true" />
+                                        </button>
                                     </div>
                                 ) : (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <h3 style={{ margin: 0, color: 'var(--text-main)', fontWeight: 600 }}>{rot.nombre}</h3>
-                                        {isAdmin && <Edit2 size={14} style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => { setEditingRot(rot.id); setEditRotNombre(rot.nombre); }} />}
+                                        {isAdmin && (
+                                            <button
+                                                type="button"
+                                                className="rotations-inline-icon-btn"
+                                                aria-label={`Renombrar rotación ${rot.nombre}`}
+                                                onClick={() => { setEditingRot(rot.id); setEditRotNombre(rot.nombre); }}
+                                            >
+                                                <Edit2 size={15} aria-hidden="true" />
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                                 <span style={{ fontSize: '0.8rem', backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
@@ -836,33 +837,36 @@ export default function Rotations() {
                                     title="Calcular rotación Voisin para este grupo de potreros"
                                     style={{
                                         width: 'auto',
-                                        padding: '2px 10px',
-                                        fontSize: '0.75rem',
+                                        minHeight: '36px',
+                                        padding: '4px 12px',
+                                        fontSize: '0.78rem',
                                         borderRadius: '100px',
                                         backgroundColor: 'var(--primary-soft-bg)',
                                         border: '1px solid var(--primary-soft-border)',
                                         color: 'var(--primary-light)',
                                         cursor: 'pointer',
-                                        display: 'flex',
+                                        display: 'inline-flex',
                                         alignItems: 'center',
                                         gap: '4px'
                                     }}
                                 >
-                                    <Calculator size={12} /> Evaluar Voisin
+                                    <Calculator size={13} aria-hidden="true" /> Evaluar Voisin
                                 </button>
                             </div>
                             {isAdmin && (
-                                <div style={{ display: 'flex', gap: '12px' }}>
-                                    <button 
-                                        onClick={() => openModalForRotation(rot.id)} 
-                                        style={{ 
-                                            width: 'auto', 
-                                            padding: '6px 16px', 
-                                            fontSize: '0.8rem', 
+                                <div className="rotations-group-actions">
+                                    <button
+                                        type="button"
+                                        onClick={() => openModalForRotation(rot.id)}
+                                        style={{
+                                            width: 'auto',
+                                            minHeight: '40px',
+                                            padding: '8px 16px',
+                                            fontSize: '0.82rem',
                                             borderRadius: '100px',
                                             backgroundColor: 'var(--primary)',
                                             color: 'var(--on-primary)',
-                                            display: 'flex',
+                                            display: 'inline-flex',
                                             alignItems: 'center',
                                             gap: '6px',
                                             textTransform: 'none',
@@ -871,11 +875,17 @@ export default function Rotations() {
                                             boxShadow: 'var(--shadow-card)'
                                         }}
                                     >
-                                        <Plus size={14} /> Potrero
+                                        <Plus size={15} aria-hidden="true" /> Potrero
                                     </button>
                                     {role === 'administrador' && (
-                                        <button onClick={() => deleteRotacion(rot.id)} style={{ width: 'auto', padding: '6px', background: 'none', color: 'var(--error)' }} title="Eliminar Rotación">
-                                            <Trash2 size={16} />
+                                        <button
+                                            type="button"
+                                            onClick={() => deleteRotacion(rot.id)}
+                                            className="rotations-inline-icon-btn rotations-inline-icon-btn--danger"
+                                            title="Eliminar Rotación"
+                                            aria-label={`Eliminar rotación ${rot.nombre}`}
+                                        >
+                                            <Trash2 size={17} aria-hidden="true" />
                                         </button>
                                     )}
                                 </div>
@@ -883,29 +893,30 @@ export default function Rotations() {
                         </div>
 
                         {/* Tabla de Potreros dentro de la Rotación */}
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <div tabIndex={0} role="region" aria-label={`Potreros en ${rot.nombre}`} className="rotations-table-wrapper">
+                            <table className="rotations-table">
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                        <th style={{ padding: '12px 24px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>Potrero</th>
-                                        <th style={{ padding: '12px 24px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', width: '120px' }}>Área (Ha)</th>
-                                        {isAdmin && <th style={{ padding: '12px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', width: '100px' }}></th>}
+                                        <th scope="col" style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase' }}>Potrero</th>
+                                        <th scope="col" className="rotations-area-cell" style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase' }}>Área (Ha)</th>
+                                        {isAdmin && <th scope="col" style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', width: '110px' }}>Acciones</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {rot.pots.length === 0 ? (
-                                        <tr><td colSpan={isAdmin ? 3 : 2} style={{ padding: '20px 24px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>No hay potreros asignados.</td></tr>
+                                        <tr><td colSpan={isAdmin ? 3 : 2} style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No hay potreros asignados.</td></tr>
                                     ) : (
                                         rot.pots.map(p => (
-                                             <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                                <td style={{ padding: '12px 24px' }}>
+                                            <tr key={p.id}>
+                                                <td data-label="Potrero">
                                                     {editingPot === p.id ? (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                            <input style={{ margin: 0, padding: '4px 8px' }} value={editPotForm.nombre} onChange={e => setEditPotForm({...editPotForm, nombre: e.target.value})} placeholder="Nombre" />
-                                                            <select 
-                                                                style={{ margin: 0, padding: '4px 8px', fontSize: '0.8rem' }}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                                                            <input style={{ margin: 0, padding: '8px 10px' }} value={editPotForm.nombre} onChange={e => setEditPotForm({ ...editPotForm, nombre: e.target.value })} placeholder="Nombre" aria-label="Nombre del potrero" />
+                                                            <select
+                                                                aria-label="Rotación asignada"
+                                                                style={{ margin: 0, padding: '8px 10px', fontSize: '0.85rem' }}
                                                                 value={editPotForm.id_rotacion}
-                                                                onChange={e => setEditPotForm({...editPotForm, id_rotacion: e.target.value})}
+                                                                onChange={e => setEditPotForm({ ...editPotForm, id_rotacion: e.target.value })}
                                                             >
                                                                 <option value="">Sin Rotación</option>
                                                                 {rotaciones.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
@@ -915,25 +926,39 @@ export default function Rotations() {
                                                         <span style={{ fontWeight: 500, color: 'var(--text-main)' }}>{p.nombre}</span>
                                                     )}
                                                 </td>
-                                                <td style={{ padding: '12px 24px', textAlign: 'right', width: '120px' }}>
+                                                <td data-label="Área (Ha)" className="rotations-area-cell">
                                                     {editingPot === p.id ? (
-                                                        <input style={{ margin: 0, padding: '4px 8px', textAlign: 'right', width: '100%' }} type="number" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({...editPotForm, area: e.target.value})} />
+                                                        <input aria-label="Área en hectáreas" style={{ margin: 0, padding: '8px 10px', textAlign: 'right', width: '100%' }} type="number" inputMode="decimal" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({ ...editPotForm, area: e.target.value })} />
                                                     ) : (
                                                         <span style={{ color: 'var(--primary-light)', fontFamily: 'monospace', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{p.area_hectareas?.toFixed(2)}</span>
                                                     )}
                                                 </td>
                                                 {isAdmin && (
-                                                    <td style={{ padding: '12px 24px', textAlign: 'right' }}>
-                                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                    <td className="rotations-actions-cell">
+                                                        <div className="rotations-row-actions">
                                                             {editingPot === p.id ? (
                                                                 <>
-                                                                    <button onClick={() => handleUpdatePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none' }}><Check size={18} color="var(--success)" /></button>
-                                                                    <button onClick={() => setEditingPot(null)} style={{ width: 'auto', padding: '4px', background: 'none' }}><X size={18} color="var(--text-muted)" /></button>
+                                                                    <button type="button" onClick={() => handleUpdatePotrero(p.id)} className="rotations-inline-icon-btn rotations-inline-icon-btn--row rotations-inline-icon-btn--success" aria-label={`Guardar cambios de ${p.nombre}`}>
+                                                                        <Check size={18} aria-hidden="true" />
+                                                                        <span className="rotations-btn-mobile-label">Guardar</span>
+                                                                    </button>
+                                                                    <button type="button" onClick={() => setEditingPot(null)} className="rotations-inline-icon-btn rotations-inline-icon-btn--row" aria-label="Cancelar edición">
+                                                                        <X size={18} aria-hidden="true" />
+                                                                        <span className="rotations-btn-mobile-label">Cancelar</span>
+                                                                    </button>
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: p.id_rotacion || '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--text-muted)' }}><Edit2 size={16} /></button>
-                                                                    {role === 'administrador' && <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--error)' }}><Trash2 size={16} /></button>}
+                                                                    <button type="button" onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: p.id_rotacion || '' }); }} className="rotations-inline-icon-btn rotations-inline-icon-btn--row" aria-label={`Editar potrero ${p.nombre}`}>
+                                                                        <Edit2 size={16} aria-hidden="true" />
+                                                                        <span className="rotations-btn-mobile-label">Editar</span>
+                                                                    </button>
+                                                                    {role === 'administrador' && (
+                                                                        <button type="button" onClick={() => deletePotrero(p.id)} className="rotations-inline-icon-btn rotations-inline-icon-btn--row rotations-inline-icon-btn--danger" aria-label={`Eliminar potrero ${p.nombre}`}>
+                                                                            <Trash2 size={16} aria-hidden="true" />
+                                                                            <span className="rotations-btn-mobile-label">Eliminar</span>
+                                                                        </button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </div>
@@ -951,49 +976,54 @@ export default function Rotations() {
                 {/* Potreros Sin Rotación */}
                 {filteredSinRotacion.length > 0 && (
                     <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px dashed var(--border-strong)' }}>
-                        <div style={{ padding: '16px 24px', backgroundColor: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Info size={20} color="var(--text-muted)" />
+                        <div className="rotations-group-header">
+                            <div className="rotations-group-title-wrap">
+                                <Info size={20} color="var(--text-muted)" aria-hidden="true" />
                                 <h3 style={{ margin: 0, color: 'var(--text-secondary)' }}>Sin Rotación Asignada</h3>
                                 <span style={{ fontSize: '0.8rem', backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '2px 10px', borderRadius: '100px', color: 'var(--text-muted)' }}>
                                     {filteredSinRotacion.length} potreros • {areaTotalSin.toFixed(2)} Ha
                                 </span>
                             </div>
                             {isAdmin && (
-                                <button 
-                                    onClick={() => openModalForRotation('none')} 
-                                    style={{ 
-                                        width: 'auto', 
-                                        padding: '6px 16px', 
-                                        fontSize: '0.8rem', 
-                                        borderRadius: '100px',
-                                        backgroundColor: 'var(--surface-inset)',
-                                        border: '1px solid var(--border-strong)',
-                                        color: 'var(--text-main)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        textTransform: 'none',
-                                        fontWeight: 600
-                                    }}
-                                >
-                                    <Plus size={14} /> Potrero
-                                </button>
+                                <div className="rotations-group-actions">
+                                    <button
+                                        type="button"
+                                        onClick={() => openModalForRotation('none')}
+                                        style={{
+                                            width: 'auto',
+                                            minHeight: '40px',
+                                            padding: '8px 16px',
+                                            fontSize: '0.82rem',
+                                            borderRadius: '100px',
+                                            backgroundColor: 'var(--surface-inset)',
+                                            border: '1px solid var(--border-strong)',
+                                            color: 'var(--text-main)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            textTransform: 'none',
+                                            fontWeight: 600
+                                        }}
+                                    >
+                                        <Plus size={15} aria-hidden="true" /> Potrero
+                                    </button>
+                                </div>
                             )}
                         </div>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <div tabIndex={0} role="region" aria-label="Potreros sin rotación asignada" className="rotations-table-wrapper">
+                            <table className="rotations-table">
                                 <tbody>
                                     {filteredSinRotacion.map(p => (
-                                        <tr key={p.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                            <td style={{ padding: '12px 24px' }}>
+                                        <tr key={p.id}>
+                                            <td data-label="Potrero">
                                                 {editingPot === p.id ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                        <input style={{ margin: 0, padding: '4px 8px' }} value={editPotForm.nombre} onChange={e => setEditPotForm({...editPotForm, nombre: e.target.value})} placeholder="Nombre" />
-                                                        <select 
-                                                            style={{ margin: 0, padding: '4px 8px', fontSize: '0.8rem' }}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                                                        <input style={{ margin: 0, padding: '8px 10px' }} value={editPotForm.nombre} onChange={e => setEditPotForm({ ...editPotForm, nombre: e.target.value })} placeholder="Nombre" aria-label="Nombre del potrero" />
+                                                        <select
+                                                            aria-label="Rotación asignada"
+                                                            style={{ margin: 0, padding: '8px 10px', fontSize: '0.85rem' }}
                                                             value={editPotForm.id_rotacion}
-                                                            onChange={e => setEditPotForm({...editPotForm, id_rotacion: e.target.value})}
+                                                            onChange={e => setEditPotForm({ ...editPotForm, id_rotacion: e.target.value })}
                                                         >
                                                             <option value="">Sin Rotación</option>
                                                             {rotaciones.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
@@ -1003,25 +1033,39 @@ export default function Rotations() {
                                                     <span style={{ color: 'var(--text-muted)' }}>{p.nombre}</span>
                                                 )}
                                             </td>
-                                            <td style={{ padding: '12px 24px', textAlign: 'right', width: '120px' }}>
+                                            <td data-label="Área (Ha)" className="rotations-area-cell">
                                                 {editingPot === p.id ? (
-                                                    <input style={{ margin: 0, padding: '4px 8px', textAlign: 'right', width: '100%' }} type="number" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({...editPotForm, area: e.target.value})} />
+                                                    <input aria-label="Área en hectáreas" style={{ margin: 0, padding: '8px 10px', textAlign: 'right', width: '100%' }} type="number" inputMode="decimal" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({ ...editPotForm, area: e.target.value })} />
                                                 ) : (
                                                     <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{p.area_hectareas?.toFixed(2)}</span>
                                                 )}
                                             </td>
                                             {isAdmin && (
-                                                <td style={{ padding: '12px 24px', textAlign: 'right' }}>
-                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                <td className="rotations-actions-cell">
+                                                    <div className="rotations-row-actions">
                                                         {editingPot === p.id ? (
                                                             <>
-                                                                <button onClick={() => handleUpdatePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none' }}><Check size={18} color="var(--success)" /></button>
-                                                                <button onClick={() => setEditingPot(null)} style={{ width: 'auto', padding: '4px', background: 'none' }}><X size={18} color="var(--text-muted)" /></button>
+                                                                <button type="button" onClick={() => handleUpdatePotrero(p.id)} className="rotations-inline-icon-btn rotations-inline-icon-btn--row rotations-inline-icon-btn--success" aria-label={`Guardar cambios de ${p.nombre}`}>
+                                                                    <Check size={18} aria-hidden="true" />
+                                                                    <span className="rotations-btn-mobile-label">Guardar</span>
+                                                                </button>
+                                                                <button type="button" onClick={() => setEditingPot(null)} className="rotations-inline-icon-btn rotations-inline-icon-btn--row" aria-label="Cancelar edición">
+                                                                    <X size={18} aria-hidden="true" />
+                                                                    <span className="rotations-btn-mobile-label">Cancelar</span>
+                                                                </button>
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--text-muted)' }}><Edit2 size={16} /></button>
-                                                                {role === 'administrador' && <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--error)' }}><Trash2 size={16} /></button>}
+                                                                <button type="button" onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: '' }); }} className="rotations-inline-icon-btn rotations-inline-icon-btn--row" aria-label={`Editar potrero ${p.nombre}`}>
+                                                                    <Edit2 size={16} aria-hidden="true" />
+                                                                    <span className="rotations-btn-mobile-label">Editar</span>
+                                                                </button>
+                                                                {role === 'administrador' && (
+                                                                    <button type="button" onClick={() => deletePotrero(p.id)} className="rotations-inline-icon-btn rotations-inline-icon-btn--row rotations-inline-icon-btn--danger" aria-label={`Eliminar potrero ${p.nombre}`}>
+                                                                        <Trash2 size={16} aria-hidden="true" />
+                                                                        <span className="rotations-btn-mobile-label">Eliminar</span>
+                                                                    </button>
+                                                                )}
                                                             </>
                                                         )}
                                                     </div>
@@ -1037,57 +1081,53 @@ export default function Rotations() {
             </div>
 
             {/* Modal Añadir / Asignar Potrero */}
-            {showNuevoPotrero && (
-                <div style={{ 
-                    position: 'fixed', 
-                    top: 0, 
-                    left: 0, 
-                    right: 0, 
-                    bottom: 0, 
-                    backgroundColor: 'var(--backdrop-scrim)', 
-                    backdropFilter: 'blur(6px)', 
-                    zIndex: 1000, 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    alignItems: 'center', 
-                    padding: '20px' 
-                }}>
-                    <div className="card" style={{ maxWidth: '480px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+            <dialog
+                {...nuevoPotDialogProps}
+                className="rotations-dialog rotations-dialog--wide"
+                aria-labelledby="rotations-potrero-title"
+            >
+                {showNuevoPotrero && (
+                    <div className="card rotations-dialog-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', gap: '12px' }}>
                             <div>
-                                <h2 style={{ margin: 0, fontSize: '1.3rem' }}>
+                                <h2 id="rotations-potrero-title" style={{ margin: 0, fontSize: '1.3rem' }}>
                                     {currentTargetRot ? `Añadir a ${currentTargetRot.nombre}` : 'Añadir Potrero'}
                                 </h2>
                                 <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                    {showNuevoPotrero === 'none' 
-                                        ? 'Crea un potrero sin rotación asignada' 
+                                    {showNuevoPotrero === 'none'
+                                        ? 'Crea un potrero sin rotación asignada'
                                         : 'Selecciona potreros existentes o crea uno nuevo'}
                                 </p>
                             </div>
-                            <button 
-                                onClick={() => setShowNuevoPotrero(null)} 
-                                style={{ width: 'auto', padding: '4px', background: 'none', color: 'var(--text-muted)' }}
+                            <button
+                                type="button"
+                                aria-label="Cerrar"
+                                onClick={() => setShowNuevoPotrero(null)}
+                                className="rotations-inline-icon-btn"
                             >
-                                <X size={20} />
+                                <X size={20} aria-hidden="true" />
                             </button>
                         </div>
 
                         {/* Segmented Tabs */}
                         {showNuevoPotrero !== 'none' && (
-                            <div style={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: '1fr 1fr', 
-                                backgroundColor: 'var(--surface-inset)', 
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 1fr',
+                                backgroundColor: 'var(--surface-inset)',
                                 border: '1px solid var(--border-subtle)',
-                                padding: '4px', 
-                                borderRadius: '10px', 
-                                marginBottom: '20px' 
+                                padding: '4px',
+                                borderRadius: '10px',
+                                marginBottom: '20px',
+                                gap: '4px'
                             }}>
                                 <button
                                     type="button"
+                                    aria-pressed={potreroModalTab === 'existente'}
                                     onClick={() => setPotreroModalTab('existente')}
                                     style={{
-                                        padding: '8px 12px',
+                                        padding: '10px 12px',
+                                        minHeight: '44px',
                                         fontSize: '0.85rem',
                                         borderRadius: '8px',
                                         backgroundColor: potreroModalTab === 'existente' ? 'var(--primary)' : 'transparent',
@@ -1101,13 +1141,15 @@ export default function Rotations() {
                                         gap: '6px'
                                     }}
                                 >
-                                    <CheckSquare size={16} /> Seleccionar Existente
+                                    <CheckSquare size={16} aria-hidden="true" /> Seleccionar Existente
                                 </button>
                                 <button
                                     type="button"
+                                    aria-pressed={potreroModalTab === 'nuevo'}
                                     onClick={() => setPotreroModalTab('nuevo')}
                                     style={{
-                                        padding: '8px 12px',
+                                        padding: '10px 12px',
+                                        minHeight: '44px',
                                         fontSize: '0.85rem',
                                         borderRadius: '8px',
                                         backgroundColor: potreroModalTab === 'nuevo' ? 'var(--primary)' : 'transparent',
@@ -1121,35 +1163,36 @@ export default function Rotations() {
                                         gap: '6px'
                                     }}
                                 >
-                                    <Plus size={16} /> Crear Nuevo
+                                    <Plus size={16} aria-hidden="true" /> Crear Nuevo
                                 </button>
                             </div>
                         )}
 
                         {/* TAB: SELECCIONAR EXISTENTE */}
                         {potreroModalTab === 'existente' && showNuevoPotrero !== 'none' ? (
-                            <form 
-                                onSubmit={(e) => handleAssignExistingPotreros(e, showNuevoPotrero)} 
+                            <form
+                                onSubmit={(e) => handleAssignExistingPotreros(e, showNuevoPotrero)}
                                 style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
                             >
                                 {availableExistingPotreros.length > 5 && (
                                     <div style={{ position: 'relative', marginBottom: '12px' }}>
-                                        <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={16} />
-                                        <input 
+                                        <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={16} aria-hidden="true" />
+                                        <input
                                             type="text"
+                                            aria-label="Buscar potrero disponible"
                                             placeholder="Buscar potrero disponible..."
                                             value={existingSearchTerm}
                                             onChange={(e) => setExistingSearchTerm(e.target.value)}
-                                            style={{ paddingLeft: '36px', marginBottom: 0, height: '38px', fontSize: '0.85rem' }}
+                                            style={{ paddingLeft: '36px', marginBottom: 0, minHeight: '44px', fontSize: '0.9rem' }}
                                         />
                                     </div>
                                 )}
 
-                                <div style={{ 
-                                    overflowY: 'auto', 
-                                    maxHeight: '320px', 
-                                    border: '1px solid var(--border-subtle)', 
-                                    borderRadius: '8px', 
+                                <div style={{
+                                    overflowY: 'auto',
+                                    maxHeight: '300px',
+                                    border: '1px solid var(--border-subtle)',
+                                    borderRadius: '8px',
                                     padding: '6px',
                                     marginBottom: '16px',
                                     backgroundColor: 'var(--surface-inset)'
@@ -1158,12 +1201,12 @@ export default function Rotations() {
                                         <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                                             No hay otros potreros registrados en esta finca.
                                             <div style={{ marginTop: '12px' }}>
-                                                <button 
-                                                    type="button" 
+                                                <button
+                                                    type="button"
                                                     onClick={() => setPotreroModalTab('nuevo')}
-                                                    style={{ width: 'auto', padding: '6px 16px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                                    style={{ width: 'auto', padding: '8px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                                                 >
-                                                    <Plus size={14} /> Crear Nuevo Potrero
+                                                    <Plus size={14} aria-hidden="true" /> Crear Nuevo Potrero
                                                 </button>
                                             </div>
                                         </div>
@@ -1172,35 +1215,31 @@ export default function Rotations() {
                                             No se encontraron potreros que coincidan con la búsqueda.
                                         </div>
                                     ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                             {filteredAvailablePotreros.map(p => {
                                                 const isSelected = selectedExistingIds.includes(p.id);
                                                 const isUnassigned = !p.id_rotacion;
                                                 const currentRotName = p.id_rotacion ? rotacionMap.get(p.id_rotacion) : null;
 
                                                 return (
-                                                    <div 
+                                                    <button
+                                                        type="button"
                                                         key={p.id}
+                                                        aria-pressed={isSelected}
                                                         onClick={() => toggleSelectExisting(p.id)}
+                                                        className="rotations-existing-item"
                                                         style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            padding: '10px 12px',
-                                                            borderRadius: '6px',
-                                                            cursor: 'pointer',
                                                             backgroundColor: isSelected ? 'var(--primary-soft-bg)' : 'var(--surface-subtle)',
                                                             border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
-                                                            transition: 'all 0.15s ease'
                                                         }}
                                                     >
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                                                             {isSelected ? (
-                                                                <CheckSquare size={18} color="var(--primary-light)" />
+                                                                <CheckSquare size={18} color="var(--primary-light)" aria-hidden="true" />
                                                             ) : (
-                                                                <Square size={18} color="var(--text-muted)" />
+                                                                <Square size={18} color="var(--text-muted)" aria-hidden="true" />
                                                             )}
-                                                            <div>
+                                                            <div style={{ minWidth: 0 }}>
                                                                 <div style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '0.9rem' }}>
                                                                     {p.nombre}
                                                                 </div>
@@ -1209,85 +1248,88 @@ export default function Rotations() {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div style={{ textAlign: 'right' }}>
-                                                            <span style={{ 
-                                                                fontSize: '0.85rem', 
-                                                                fontWeight: 600, 
+                                                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                                            <span style={{
+                                                                fontSize: '0.85rem',
+                                                                fontWeight: 600,
                                                                 color: 'var(--primary-light)',
-                                                                fontFamily: 'monospace' 
+                                                                fontFamily: 'monospace'
                                                             }}>
                                                                 {p.area_hectareas ? p.area_hectareas.toFixed(2) : '0.00'} Ha
                                                             </span>
                                                         </div>
-                                                    </div>
+                                                    </button>
                                                 );
                                             })}
                                         </div>
                                     )}
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', gap: '12px' }}>
-                                    <button 
-                                        type="button" 
-                                        className="btn-secondary" 
+                                <div className="rotations-dialog-actions" style={{ justifyContent: 'space-between', marginTop: 'auto' }}>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary"
                                         onClick={() => setShowNuevoPotrero(null)}
                                         style={{ width: 'auto', padding: '10px 18px' }}
                                     >
                                         Cancelar
                                     </button>
-                                    <button 
+                                    <button
                                         type="submit"
                                         disabled={selectedExistingIds.length === 0 || isSaving}
-                                        style={{ 
-                                            width: 'auto', 
+                                        style={{
+                                            width: 'auto',
                                             padding: '10px 20px',
                                             opacity: selectedExistingIds.length === 0 || isSaving ? 0.5 : 1,
                                             cursor: selectedExistingIds.length === 0 || isSaving ? 'not-allowed' : 'pointer'
                                         }}
                                     >
-                                        {isSaving 
-                                            ? 'Guardando...' 
+                                        {isSaving
+                                            ? 'Guardando...'
                                             : `Asignar ${selectedExistingIds.length > 0 ? `(${selectedExistingIds.length})` : ''}`}
                                     </button>
                                 </div>
                             </form>
                         ) : (
                             /* TAB: CREAR NUEVO */
-                            <form 
-                                onSubmit={(e) => handleAddPotrero(e, showNuevoPotrero === 'none' ? null : showNuevoPotrero)} 
+                            <form
+                                onSubmit={(e) => handleAddPotrero(e, showNuevoPotrero === 'none' ? null : showNuevoPotrero)}
                                 style={{ marginTop: '8px' }}
                             >
-                                <label>Nombre del Potrero</label>
-                                <input 
-                                    autoFocus 
-                                    type="text" 
-                                    value={nuevoPotForm.nombre} 
-                                    onChange={e => setNuevoPotForm({...nuevoPotForm, nombre: e.target.value})} 
-                                    placeholder="Ej: Lote 1, Potrero Norte..." 
-                                    required 
+                                <label htmlFor="rotations-new-potrero-name">Nombre del Potrero</label>
+                                <input
+                                    id="rotations-new-potrero-name"
+                                    autoFocus={!isMobile}
+                                    type="text"
+                                    value={nuevoPotForm.nombre}
+                                    onChange={e => setNuevoPotForm({ ...nuevoPotForm, nombre: e.target.value })}
+                                    placeholder="Ej: Lote 1, Potrero Norte..."
+                                    required
                                 />
-                                <label>Área (Hectáreas)</label>
-                                <input 
-                                    type="number" 
-                                    step="0.01" 
-                                    value={nuevoPotForm.area} 
-                                    onChange={e => setNuevoPotForm({...nuevoPotForm, area: e.target.value})} 
-                                    placeholder="0.00" 
-                                    required 
+                                <label htmlFor="rotations-new-potrero-area">Área (Hectáreas)</label>
+                                <input
+                                    id="rotations-new-potrero-area"
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.01"
+                                    value={nuevoPotForm.area}
+                                    onChange={e => setNuevoPotForm({ ...nuevoPotForm, area: e.target.value })}
+                                    placeholder="0.00"
+                                    required
                                 />
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                                    <button type="button" className="btn-secondary" onClick={() => setShowNuevoPotrero(null)}>
+                                <div className="rotations-dialog-actions">
+                                    <button type="button" className="btn-secondary" style={{ width: 'auto' }} onClick={() => setShowNuevoPotrero(null)}>
                                         Cancelar
                                     </button>
-                                    <button type="submit" disabled={isSaving}>
+                                    <button type="submit" style={{ width: 'auto' }} disabled={isSaving}>
                                         {isSaving ? 'Guardando...' : 'Crear Potrero'}
                                     </button>
                                 </div>
                             </form>
                         )}
                     </div>
-                </div>
-            )}
+                )}
+            </dialog>
         </div>
     );
 }

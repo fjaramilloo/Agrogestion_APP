@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { useModalDialog } from '../hooks/useModalDialog';
 import { CheckCircle2, ArrowRight, AlertTriangle, RotateCcw, X, MapPin, ArrowUpDown } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import './MercadoPages.css';
 
 interface AnimalMercado {
     id: string;
@@ -29,12 +33,15 @@ interface Potrero {
 
 export default function Mercado() {
     const { fincaId, role } = useAuth();
+    const { confirmAction, toast } = useFeedback();
+    const isMobile = useIsMobile();
     const [animales, setAnimales] = useState<AnimalMercado[]>([]);
     const [loading, setLoading] = useState(true);
     const [potreros, setPotreros] = useState<Potrero[]>([]);
 
     // Modal Pasar a Ceba
     const [showModal, setShowModal] = useState(false);
+    const modalDialogProps = useModalDialog(showModal, () => setShowModal(false), true);
     const [nombrePotrerada, setNombrePotrerada] = useState('');
     const [potreroSeleccionado, setPotreroSeleccionado] = useState('');
     const [animalesSeleccionados, setAnimalesSeleccionados] = useState<Set<string>>(new Set());
@@ -269,8 +276,11 @@ export default function Mercado() {
 
     const handleDevolverALevante = async () => {
         if (!fincaId) return;
-        const confirm = window.confirm(`¿Seguro que deseas eliminar la marca de ${animales.length} animales y devolverlos a la lista de levante?`);
-        if (!confirm) return;
+        const confirmed = await confirmAction(
+            `¿Seguro que deseas eliminar la marca de ${animales.length} animales y devolverlos a la lista de levante?`,
+            { title: 'Devolver a Levante', confirmLabel: 'Sí, devolver', destructive: true }
+        );
+        if (!confirmed) return;
 
         setLoading(true);
         const ids = animales.map(a => a.id);
@@ -280,6 +290,7 @@ export default function Mercado() {
             .in('id', ids);
         await fetchData();
         setMsjExito('Animales devueltos a levante correctamente.');
+        toast('Animales devueltos a levante correctamente.', 'success');
     };
 
     if (loading) {
@@ -291,8 +302,8 @@ export default function Mercado() {
     }
 
     return (
-        <div className="page-container">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+        <div className="page-container mercado-page">
+            <div className="mercado-header">
                 <div>
                     <h1 className="title" style={{ margin: 0 }}>Mercado de Ceba</h1>
                     <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -301,16 +312,17 @@ export default function Mercado() {
                 </div>
                 {(role === 'administrador' || role === 'vaquero') && animales.length > 0 && (
                     <button
+                        type="button"
                         onClick={handleOpenModal}
-                        style={{ backgroundColor: 'var(--primary)', border: '1px solid var(--primary)', color: 'var(--on-primary)', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 28px', fontSize: '1rem', width: 'auto' }}
+                        className="mercado-primary-btn"
                     >
-                        <ArrowRight size={20} /> Pasar a Ceba
+                        <ArrowRight size={20} aria-hidden="true" /> Pasar a Ceba
                     </button>
                 )}
             </div>
 
             {msjExito && (
-                <div style={{ backgroundColor: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', fontWeight: 'bold' }}>
+                <div role="status" style={{ backgroundColor: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', color: 'var(--success)', padding: '16px', borderRadius: '8px', marginBottom: '24px', fontWeight: 'bold' }}>
                     {msjExito}
                 </div>
             )}
@@ -325,78 +337,83 @@ export default function Mercado() {
                 <>
                     {/* Tabla de animales */}
                     <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '24px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
-                                    <th onClick={() => handleSort('chapeta')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            Chapeta <ArrowUpDown size={12} opacity={sortBy === 'chapeta' ? 1 : 0.4} />
-                                        </div>
-                                    </th>
-                                    <th onClick={() => handleSort('propietario')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            Propietario <ArrowUpDown size={12} opacity={sortBy === 'propietario' ? 1 : 0.4} />
-                                        </div>
-                                    </th>
-                                    <th onClick={() => handleSort('potrero')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            Potrero <ArrowUpDown size={12} opacity={sortBy === 'potrero' ? 1 : 0.4} />
-                                        </div>
-                                    </th>
-                                    <th onClick={() => handleSort('ultimo_peso')} style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                                            Peso Actual <ArrowUpDown size={12} opacity={sortBy === 'ultimo_peso' ? 1 : 0.4} />
-                                        </div>
-                                    </th>
-                                    <th onClick={() => handleSort('fecha_pesaje')} style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                                            Fecha Pesaje <ArrowUpDown size={12} opacity={sortBy === 'fecha_pesaje' ? 1 : 0.4} />
-                                        </div>
-                                    </th>
-                                    <th onClick={() => handleSort('diasUltimoPesaje')} style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                                            Días sin pesar <ArrowUpDown size={12} opacity={sortBy === 'diasUltimoPesaje' ? 1 : 0.4} />
-                                        </div>
-                                    </th>
-                                    <th style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sortedAnimals.map((a, i) => (
-                                    <tr key={a.id} style={{ borderBottom: i < animales.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                                        <td style={{ padding: '16px', fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
-                                        <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{a.nombre_propietario}</td>
-                                        <td style={{ padding: '16px', color: 'var(--text-muted)' }}>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <MapPin size={14} style={{ opacity: 0.6 }} /> {a.nombre_potrero}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '16px', textAlign: 'right', fontWeight: 'bold' }}>{a.ultimo_peso} kg</td>
-                                        <td style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                            {format(new Date(a.fecha_ultimo_peso), 'dd/MM/yyyy')}
-                                        </td>
-                                        <td style={{ padding: '16px', textAlign: 'right', color: a.diasUltimoPesaje > 30 ? 'var(--warning)' : 'var(--text-muted)' }}>
-                                            {a.diasUltimoPesaje}d
-                                        </td>
-                                        <td style={{ padding: '16px', textAlign: 'center' }}>
-                                            <span style={{ background: 'var(--success-soft-bg)', color: 'var(--success)', border: '1px solid var(--success-soft-border)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                                                ✓ Listo Ceba
-                                            </span>
-                                        </td>
+                        <div tabIndex={0} role="region" aria-label="Animales listos para ceba" className="mercado-table-wrapper">
+                            <table className="mercado-table">
+                                <thead>
+                                    <tr style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+                                        <th scope="col" onClick={() => handleSort('chapeta')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                Chapeta <ArrowUpDown size={12} opacity={sortBy === 'chapeta' ? 1 : 0.4} />
+                                            </div>
+                                        </th>
+                                        <th scope="col" onClick={() => handleSort('propietario')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                Propietario <ArrowUpDown size={12} opacity={sortBy === 'propietario' ? 1 : 0.4} />
+                                            </div>
+                                        </th>
+                                        <th scope="col" onClick={() => handleSort('potrero')} style={{ padding: '16px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                Potrero <ArrowUpDown size={12} opacity={sortBy === 'potrero' ? 1 : 0.4} />
+                                            </div>
+                                        </th>
+                                        <th scope="col" onClick={() => handleSort('ultimo_peso')} style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                Peso Actual <ArrowUpDown size={12} opacity={sortBy === 'ultimo_peso' ? 1 : 0.4} />
+                                            </div>
+                                        </th>
+                                        <th scope="col" onClick={() => handleSort('fecha_pesaje')} style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                Fecha Pesaje <ArrowUpDown size={12} opacity={sortBy === 'fecha_pesaje' ? 1 : 0.4} />
+                                            </div>
+                                        </th>
+                                        <th scope="col" onClick={() => handleSort('diasUltimoPesaje')} style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                Días sin pesar <ArrowUpDown size={12} opacity={sortBy === 'diasUltimoPesaje' ? 1 : 0.4} />
+                                            </div>
+                                        </th>
+                                        <th scope="col" style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Estado</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {sortedAnimals.map((a) => (
+                                        <tr key={a.id}>
+                                            <th scope="row" style={{ padding: '16px', fontWeight: 'bold', color: 'var(--primary-light)', textAlign: 'left' }}>
+                                                #{a.numero_chapeta}
+                                            </th>
+                                            <td data-label="Propietario" style={{ padding: '16px', color: 'var(--text-muted)' }}>{a.nombre_propietario}</td>
+                                            <td data-label="Potrero" style={{ padding: '16px', color: 'var(--text-muted)' }}>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                    <MapPin size={14} style={{ opacity: 0.6 }} aria-hidden="true" /> {a.nombre_potrero}
+                                                </span>
+                                            </td>
+                                            <td data-label="Peso actual" style={{ padding: '16px', textAlign: 'right', fontWeight: 'bold' }}>{a.ultimo_peso} kg</td>
+                                            <td data-label="Fecha pesaje" style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                                {format(new Date(a.fecha_ultimo_peso), 'dd/MM/yyyy')}
+                                            </td>
+                                            <td data-label="Días sin pesar" style={{ padding: '16px', textAlign: 'right', color: a.diasUltimoPesaje > 30 ? 'var(--warning)' : 'var(--text-muted)' }}>
+                                                {a.diasUltimoPesaje}d
+                                            </td>
+                                            <td data-label="Estado" style={{ padding: '16px', textAlign: 'center' }}>
+                                                <span style={{ background: 'var(--success-soft-bg)', color: 'var(--success)', border: '1px solid var(--success-soft-border)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                                    ✓ Listo Ceba
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     {/* Botón devolver a levante */}
                     {(role === 'administrador' || role === 'vaquero') && (
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                             <button
+                                type="button"
                                 onClick={handleDevolverALevante}
-                                style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', width: 'auto' }}
+                                className="mercado-danger-btn"
                             >
-                                <RotateCcw size={18} /> Devolver a Levante
+                                <RotateCcw size={18} aria-hidden="true" /> Devolver a Levante
                             </button>
                         </div>
                     )}
@@ -404,34 +421,40 @@ export default function Mercado() {
             )}
 
             {/* Modal Pasar a Ceba */}
-            {showModal && (
-                <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }} onClick={() => setShowModal(false)}>
-                    <div className="card" style={{ width: '100%', maxWidth: '560px', padding: '32px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ margin: 0, color: 'var(--primary-light)' }}>Crear Potrerada de Ceba</h2>
-                            <button type="button" aria-label="Cerrar" onClick={() => setShowModal(false)} className="btn-icon" style={{ width: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-                                <X size={24} />
+            <dialog
+                {...modalDialogProps}
+                className="mercado-dialog"
+                aria-labelledby="mercado-ceba-title"
+            >
+                {showModal && (
+                    <div className="card mercado-dialog-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px' }}>
+                            <h2 id="mercado-ceba-title" style={{ margin: 0, color: 'var(--primary-light)' }}>Crear Potrerada de Ceba</h2>
+                            <button type="button" aria-label="Cerrar" onClick={() => setShowModal(false)} className="mercado-close-btn">
+                                <X size={20} aria-hidden="true" />
                             </button>
                         </div>
 
                         {msjError && (
-                            <div style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
-                                <AlertTriangle size={16} /> {msjError}
+                            <div role="alert" style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+                                <AlertTriangle size={16} aria-hidden="true" /> {msjError}
                             </div>
                         )}
 
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
                             <button
                                 type="button"
+                                aria-pressed={modoDestino === 'nuevo'}
                                 onClick={() => setModoDestino('nuevo')}
-                                style={{ flex: 1, padding: '10px', background: modoDestino === 'nuevo' ? 'var(--success-soft-bg)' : 'transparent', border: modoDestino === 'nuevo' ? '1px solid var(--success)' : '1px solid var(--border-strong)', color: modoDestino === 'nuevo' ? 'var(--success)' : 'var(--text-muted)' }}
+                                style={{ flex: '1 1 160px', padding: '10px', minHeight: '46px', background: modoDestino === 'nuevo' ? 'var(--success-soft-bg)' : 'transparent', border: modoDestino === 'nuevo' ? '1px solid var(--success)' : '1px solid var(--border-strong)', color: modoDestino === 'nuevo' ? 'var(--success)' : 'var(--text-muted)' }}
                             >
                                 Crear Nueva Potrerada
                             </button>
                             <button
                                 type="button"
+                                aria-pressed={modoDestino === 'existente'}
                                 onClick={() => setModoDestino('existente')}
-                                style={{ flex: 1, padding: '10px', background: modoDestino === 'existente' ? 'var(--success-soft-bg)' : 'transparent', border: modoDestino === 'existente' ? '1px solid var(--success)' : '1px solid var(--border-strong)', color: modoDestino === 'existente' ? 'var(--success)' : 'var(--text-muted)' }}
+                                style={{ flex: '1 1 160px', padding: '10px', minHeight: '46px', background: modoDestino === 'existente' ? 'var(--success-soft-bg)' : 'transparent', border: modoDestino === 'existente' ? '1px solid var(--success)' : '1px solid var(--border-strong)', color: modoDestino === 'existente' ? 'var(--success)' : 'var(--text-muted)' }}
                             >
                                 Añadir a Existente
                             </button>
@@ -440,19 +463,21 @@ export default function Mercado() {
                         {modoDestino === 'nuevo' ? (
                             <>
                                 <div style={{ marginBottom: '20px' }}>
-                                    <label>Nombre de la nueva Potrerada</label>
+                                    <label htmlFor="mercado-nueva-potrerada">Nombre de la nueva Potrerada</label>
                                     <input
+                                        id="mercado-nueva-potrerada"
                                         type="text"
                                         value={nombrePotrerada}
                                         onChange={e => setNombrePotrerada(e.target.value)}
                                         placeholder="Ej: Lote Ceba - Marzo 2025"
-                                        autoFocus
+                                        autoFocus={!isMobile}
                                     />
                                 </div>
 
                                 <div style={{ marginBottom: '20px' }}>
-                                    <label>Potrero de destino</label>
+                                    <label htmlFor="mercado-potrero-destino">Potrero de destino</label>
                                     <select
+                                        id="mercado-potrero-destino"
                                         value={potreroSeleccionado}
                                         onChange={e => setPotreroSeleccionado(e.target.value)}
                                     >
@@ -465,13 +490,14 @@ export default function Mercado() {
                             </>
                         ) : (
                             <div style={{ marginBottom: '20px' }}>
-                                <label>Seleccionar Potrerada de Ceba</label>
+                                <label htmlFor="mercado-potrerada-existente">Seleccionar Potrerada de Ceba</label>
                                 {potreradasCeba.length === 0 ? (
                                     <div style={{ color: 'var(--warning)', fontSize: '0.9rem', padding: '12px', background: 'var(--warning-soft-bg)', border: '1px solid var(--warning-soft-border)', borderRadius: '6px' }}>
                                         No hay potreradas de Ceba creadas actualmente. Crea una nueva potrerada.
                                     </div>
                                 ) : (
                                     <select
+                                        id="mercado-potrerada-existente"
                                         value={potreradaExistenteId}
                                         onChange={e => setPotreradaExistenteId(e.target.value)}
                                     >
@@ -480,7 +506,7 @@ export default function Mercado() {
                                             const potreroActual = potreros.find(pot => pot.id === p.id_potrero)?.nombre || 'Sin potrero asignado';
                                             return (
                                                 <option key={p.id} value={p.id}>{p.nombre} (En: {potreroActual})</option>
-                                            )
+                                            );
                                         })}
                                     </select>
                                 )}
@@ -493,7 +519,7 @@ export default function Mercado() {
                                 <button
                                     type="button"
                                     onClick={seleccionarTodos}
-                                    style={{ background: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', color: 'var(--success)', padding: '6px 14px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', width: 'auto' }}
+                                    style={{ background: 'var(--success-soft-bg)', border: '1px solid var(--success-soft-border)', color: 'var(--success)', padding: '8px 14px', minHeight: '40px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', width: 'auto' }}
                                 >
                                     Todos
                                 </button>
@@ -506,7 +532,8 @@ export default function Mercado() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: '12px',
-                                            padding: '12px 16px',
+                                            minHeight: '48px',
+                                            padding: '12px 14px',
                                             background: animalesSeleccionados.has(a.id) ? 'var(--success-soft-bg)' : 'var(--surface-subtle)',
                                             border: animalesSeleccionados.has(a.id) ? '1px solid var(--success-soft-border)' : '1px solid var(--border-subtle)',
                                             borderRadius: '8px',
@@ -518,7 +545,7 @@ export default function Mercado() {
                                             type="checkbox"
                                             checked={animalesSeleccionados.has(a.id)}
                                             onChange={() => toggleAnimal(a.id)}
-                                            style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer', margin: 0, flex: 'none' }}
+                                            style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', cursor: 'pointer', margin: 0, flex: 'none' }}
                                         />
                                         <span style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</span>
                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', flex: 1 }}>{a.nombre_propietario}</span>
@@ -528,24 +555,26 @@ export default function Mercado() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '12px' }}>
+                        <div className="mercado-dialog-actions">
                             <button
+                                type="button"
                                 onClick={() => setShowModal(false)}
-                                style={{ flex: 1, background: 'var(--surface-subtle)', border: '1px solid var(--border-strong)', color: 'var(--text-main)' }}
+                                style={{ flex: 1, minHeight: '48px', background: 'var(--surface-subtle)', border: '1px solid var(--border-strong)', color: 'var(--text-main)' }}
                             >
                                 Cancelar
                             </button>
                             <button
+                                type="button"
                                 onClick={handlePasarACeba}
                                 disabled={creando || animalesSeleccionados.size === 0 || (modoDestino === 'nuevo' ? (!nombrePotrerada.trim() || !potreroSeleccionado) : !potreradaExistenteId)}
-                                style={{ flex: 1, backgroundColor: 'var(--primary)', border: '1px solid var(--primary)', color: 'var(--on-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                style={{ flex: 1, minHeight: '48px', backgroundColor: 'var(--primary)', border: '1px solid var(--primary)', color: 'var(--on-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                             >
-                                {creando ? 'Creando...' : <><ArrowRight size={18} /> Confirmar Pase a Ceba</>}
+                                {creando ? 'Creando...' : <><ArrowRight size={18} aria-hidden="true" /> Confirmar Pase a Ceba</>}
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </dialog>
         </div>
     );
 }

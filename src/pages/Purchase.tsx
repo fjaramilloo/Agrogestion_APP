@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import ModalUpsell from '../components/ModalUpsell';
 import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X, AlertOctagon } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
@@ -35,6 +37,8 @@ interface AnimalCompra {
 export default function Purchase() {
     const { fincaId, role, userFincas, licenciaInfo, refreshLicencia } = useAuth();
     const { modoCampo, toggleModoCampo, isOnline } = useConnection();
+    const { confirmAction } = useFeedback();
+    const isMobile = useIsMobile();
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -571,8 +575,13 @@ export default function Purchase() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    if (window.confirm('¿Estás seguro de limpiar la cola de pendientes? Esto borrará los lotes que no se han subido.')) {
+                                onClick={async () => {
+                                    const confirmed = await confirmAction('¿Estás seguro de limpiar la cola de pendientes? Esto borrará los lotes que no se han subido.', {
+                                        title: 'Limpiar cola offline',
+                                        confirmLabel: 'Sí, limpiar',
+                                        destructive: true,
+                                    });
+                                    if (confirmed) {
                                         setOfflineQueue([]);
                                         localStorage.removeItem('agrogestion_compras_offline');
                                         setMsjExito('Cola de pendientes limpiada correctamente.');
@@ -654,7 +663,7 @@ export default function Purchase() {
                                     <label htmlFor="quick-proveedor">Vendedor / Proveedor</label>
                                     <select
                                         id="quick-proveedor"
-                                        autoFocus
+                                        autoFocus={!isMobile}
                                         value={quickProveedor}
                                         onChange={e => {
                                             setQuickProveedor(e.target.value);

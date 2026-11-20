@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
 import { supabase } from '../lib/supabase';
 import {
     LayoutDashboard,
@@ -36,6 +37,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const { role, isSuperAdmin, userFincas, fincaId, setFincaId, refreshFincas, user, signOut } = useAuth();
+    const { promptInput, toast, showAlert } = useFeedback();
     const [showFincas, setShowFincas] = useState(false);
     const [showTrabajoCampo, setShowTrabajoCampo] = useState(true);
     const [showInformacion, setShowInformacion] = useState(false);
@@ -90,7 +92,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     };
 
     const handleCreateFinca = async () => {
-        const nombre = prompt('Cual es el nombre de la nueva finca?');
+        const nombre = await promptInput('', {
+            title: 'Nueva Finca',
+            label: 'Nombre de la nueva finca',
+            placeholder: 'Ej: Hacienda La Pradera',
+            confirmLabel: 'Crear finca',
+            requiredMessage: 'Ingresa el nombre de la finca.',
+        });
         if (!nombre || !user) return;
 
         setCreatingFinca(true);
@@ -122,12 +130,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
             await supabase.from('configuracion_kpi').insert({ id_finca: newFinca.id });
 
-            alert('Finca creada exitosamente');
             await refreshFincas();
             setFincaId(newFinca.id);
             setShowFincas(false);
+            toast('Finca creada exitosamente.', 'success');
         } catch (err: any) {
-            alert('Error creando finca: ' + err.message);
+            await showAlert('Error creando finca: ' + err.message, { title: 'Error', variant: 'error' });
         } finally {
             setCreatingFinca(false);
         }

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useFeedback } from '../contexts/UiFeedbackContext';
 import { X, Download, TrendingUp, MapPin, Target, PieChart as PieChartIcon, DollarSign } from 'lucide-react';
 import { 
     PieChart, Pie, Cell, 
@@ -59,6 +60,7 @@ export default function PropietarioDashboardModal({
 }: PropietarioDashboardProps) {
     const printRef = useRef<HTMLDivElement>(null);
     const [isExporting, setIsExporting] = useState(false);
+    const { showAlert } = useFeedback();
 
     const getGmpColor = (gmpValue: number) => {
         if (gmpValue < 0) return 'var(--error)';
@@ -274,7 +276,10 @@ export default function PropietarioDashboardModal({
             
         } catch (error) {
             console.error("Error generando PDF", error);
-            alert("Hubo un error al generar el documento PDF.");
+            await showAlert('Hubo un error al generar el documento PDF.', {
+                title: 'Error al exportar',
+                variant: 'error',
+            });
         } finally {
             setIsExporting(false);
         }

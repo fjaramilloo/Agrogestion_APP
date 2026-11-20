@@ -3,6 +3,9 @@ import { getDateRange, DATE_RANGE_LABELS, DATE_RANGE_OPTIONS, type DateRangeOpti
 import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
+import { useModalDialog } from '../hooks/useModalDialog';
+import './HistoryPages.css';
 import { Search, ShoppingCart, Calendar, Users, FileText, X, Info, TrendingUp, Filter } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -50,6 +53,7 @@ interface CompraGrupo {
 
 export default function HistorialCompras() {
     const { fincaId, userFincas, modoGanancia } = useAuth();
+    const { showAlert } = useFeedback();
     const [compras, setCompras] = useState<CompraGrupo[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -84,6 +88,17 @@ export default function HistorialCompras() {
 
     // Estado para tarjeta individual de un animal comprado
     const [selectedAnimalDetalle, setSelectedAnimalDetalle] = useState<AnimalCompraDetalle | null>(null);
+
+    const detalleDialogProps = useModalDialog(
+        Boolean(detalleCompra),
+        () => { setDetalleCompra(null); setIsEditingPesoCompra(false); },
+        true
+    );
+    const animalDialogProps = useModalDialog(
+        Boolean(selectedAnimalDetalle),
+        () => setSelectedAnimalDetalle(null),
+        true
+    );
 
     const fetchCompras = async () => {
         if (!fincaId) return;
@@ -319,7 +334,7 @@ export default function HistorialCompras() {
             await fetchCompras();
         } catch (error) {
             console.error("Error asignando peso de compra:", error);
-            alert("Error al asignar el peso de compra.");
+            showAlert('Error al asignar el peso de compra.', { title: 'Error', variant: 'error' });
         } finally {
             setSavingPesoCompra(false);
         }
@@ -378,7 +393,7 @@ export default function HistorialCompras() {
     }, [compras]);
 
     return (
-        <div className="page-container">
+        <div className="page-container history-page">
             <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
                 <ShoppingCart size={32} /> Historial de Compras
             </h1>
@@ -392,8 +407,8 @@ export default function HistorialCompras() {
                     <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <TrendingUp size={18} /> Rendimiento por Proveedor (% Promedio de Pérdida)
                     </h3>
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div tabIndex={0} role="region" aria-label="Rendimiento por proveedor" className="history-table-wrapper">
+                        <table className="history-table">
                             <thead>
                                 <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                     <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-muted)' }}>PROVEEDOR</th>
@@ -405,10 +420,10 @@ export default function HistorialCompras() {
                             <tbody>
                                 {resumenProveedores.map((p, i) => (
                                     <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                        <td style={{ padding: '12px', fontWeight: 'bold' }}>{p.nombre}</td>
-                                        <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{p.compras}</td>
-                                        <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{p.animales}</td>
-                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                        <th scope="row" style={{ padding: '12px', fontWeight: 'bold', textAlign: 'left' }}>{p.nombre}</th>
+                                        <td data-label="Compras" style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{p.compras}</td>
+                                        <td data-label="Animales" style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{p.animales}</td>
+                                        <td data-label="% Pérdida Prom." style={{ padding: '12px', textAlign: 'right' }}>
                                             <span style={{ 
                                                 background: 'var(--error-soft-bg)', 
                                                 color: 'var(--error)', 
@@ -429,11 +444,12 @@ export default function HistorialCompras() {
             )}
 
             {/* Filtros: rango de fechas + búsqueda */}
-            <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="glass-panel history-filters">
                 {/* Selector de rango de fechas (Dropdown) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '180px' }}>
+                <div className="history-filter-date">
                     <Filter size={16} style={{ color: 'var(--primary-light)', flexShrink: 0 }} />
                     <select
+                        aria-label="Rango de fechas"
                         value={dateRangeOption}
                         onChange={e => setDateRangeOption(e.target.value as DateRangeOption)}
                         style={{
@@ -461,10 +477,11 @@ export default function HistorialCompras() {
                 </div>
 
                 {/* Búsqueda por texto */}
-                <div style={{ flex: 1, position: 'relative', minWidth: '200px' }}>
+                <div className="history-filter-search">
                     <Search size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
                     <input
                         type="text"
+                        aria-label="Buscar por proveedor"
                         placeholder="Buscar por proveedor..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -483,8 +500,8 @@ export default function HistorialCompras() {
                 </div>
             ) : (
                 <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <div tabIndex={0} role="region" aria-label="Historial de compras" className="history-table-wrapper">
+                        <table className="history-table">
                             <thead>
                                 <tr style={{ backgroundColor: 'var(--surface-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
                                     <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Compra / Fecha</th>
@@ -498,30 +515,30 @@ export default function HistorialCompras() {
                             </thead>
                             <tbody>
                                 {filteredCompras.map((compra, idx) => (
-                                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--surface-subtle)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                        <td style={{ padding: '16px 24px' }}>
+                                    <tr key={idx}>
+                                        <th scope="row" style={{ padding: '16px 24px', textAlign: 'left', fontWeight: 'normal' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                 <div style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1rem' }}>{compra.fechaCompra}</div>
                                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <Calendar size={12} /> {formatFecha(compra.fechaCompra)}
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td style={{ padding: '16px 24px' }}>
+                                        </th>
+                                        <td data-label="Proveedor" style={{ padding: '16px 24px' }}>
                                             <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{compra.proveedor}</div>
                                         </td>
-                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                        <td data-label="Animales" style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{compra.animalesCount}</span>
                                         </td>
-                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                        <td data-label="Peso Prom. Compra" style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             <span style={{ fontWeight: 'bold', color: 'var(--text-muted)' }}>{Math.round(compra.pesoPromedioIngreso)}</span>
                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
                                         </td>
-                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                        <td data-label="Peso Prom. Actual" style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{Math.round(compra.pesoPromedioActual)}</span>
                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
                                         </td>
-                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                        <td data-label={`${getModoLabel(modoGanancia)} Lote`} style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             {compra.gmpPromedio !== null ? (
                                                 <span style={{
                                                     color: compra.gmpPromedio < 0 ? 'var(--error)' : (compra.gmpPromedio <= umbralMedio ? 'var(--warning)' : (compra.gmpPromedio <= umbralAlto ? 'var(--text-main)' : 'var(--success)')),
@@ -534,61 +551,28 @@ export default function HistorialCompras() {
                                                 <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>-</span>
                                             )}
                                         </td>
-                                        <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                        <td className="history-actions-cell" style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                            <div className="history-action-group">
                                                 <button
+                                                    type="button"
+                                                    className="history-action-btn history-action-btn--detail"
                                                     onClick={() => setDetalleCompra(compra)}
-                                                    style={{ 
-                                                        background: 'var(--success-soft-bg)', 
-                                                        border: '1px solid var(--success-soft-border)', 
-                                                        color: 'var(--success)', 
-                                                        padding: '6px 12px', 
-                                                        borderRadius: '6px', 
-                                                        cursor: 'pointer', 
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: '600',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px'
-                                                    }}
                                                     title="Ver detalle de animales"
                                                 >
                                                     <Info size={14} /> Detalle
                                                 </button>
                                                 <button
+                                                    type="button"
+                                                    className="history-action-btn history-action-btn--simple"
                                                     onClick={() => setSelectedCompraSimple(compra)}
-                                                    style={{ 
-                                                        background: 'var(--info-soft-bg)', 
-                                                        border: '1px solid var(--info-soft-border)', 
-                                                        color: 'var(--info)', 
-                                                        padding: '6px 12px', 
-                                                        borderRadius: '6px', 
-                                                        cursor: 'pointer', 
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: '600',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px'
-                                                    }}
                                                     title="Informe simple"
                                                 >
                                                     <FileText size={14} /> Simple
                                                 </button>
                                                 <button
+                                                    type="button"
+                                                    className="history-action-btn history-action-btn--pdf"
                                                     onClick={() => setSelectedCompra(compra)}
-                                                    style={{ 
-                                                        background: 'var(--error-soft-bg)', 
-                                                        border: '1px solid var(--error-soft-border)', 
-                                                        color: 'var(--error)', 
-                                                        padding: '6px 12px', 
-                                                        borderRadius: '6px', 
-                                                        cursor: 'pointer', 
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: '600',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px'
-                                                    }}
                                                     title="Informe PDF"
                                                 >
                                                     <FileText size={14} /> PDF
@@ -627,20 +611,24 @@ export default function HistorialCompras() {
             )}
 
             {/* MODAL DETALLE DE COMPRA */}
-            {detalleCompra && (() => {
-                const fechasColumnas = getFechasColumnas(detalleCompra.animalesDetalle).filter(f => f !== detalleCompra.fechaCompra);
-                const inputPeso = parseFloat(pesoTotalCompraInput);
-                const showCalculos = !isNaN(inputPeso) && inputPeso > 0;
-                const mermaKg = showCalculos ? inputPeso - detalleCompra.pesoTotalIngreso : 0;
-                const mermaPorcentaje = showCalculos ? (mermaKg / inputPeso) * 100 : 0;
+            <dialog
+                {...detalleDialogProps}
+                className="history-dialog"
+                aria-labelledby="compra-detalle-title"
+            >
+                {detalleCompra && (() => {
+                    const fechasColumnas = getFechasColumnas(detalleCompra.animalesDetalle).filter(f => f !== detalleCompra.fechaCompra);
+                    const inputPeso = parseFloat(pesoTotalCompraInput);
+                    const showCalculos = !isNaN(inputPeso) && inputPeso > 0;
+                    const mermaKg = showCalculos ? inputPeso - detalleCompra.pesoTotalIngreso : 0;
+                    const mermaPorcentaje = showCalculos ? (mermaKg / inputPeso) * 100 : 0;
 
-                return (
-                    <div className="modal-overlay">
-                        <div className="card modal-content" style={{ maxWidth: '960px' }}>
+                    return (
+                        <div className="card history-dialog-card">
                             <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                                     <div>
-                                        <h2 style={{ margin: '0 0 8px 0', color: 'var(--primary-light)', fontSize: 'clamp(1.1rem, 4vw, 1.5rem)' }}>
+                                        <h2 id="compra-detalle-title" style={{ margin: '0 0 8px 0', color: 'var(--primary-light)', fontSize: 'clamp(1.1rem, 4vw, 1.5rem)' }}>
                                             {detalleCompra.titulo.toUpperCase()}
                                         </h2>
                                         <div style={{ display: 'flex', gap: '8px 16px', flexWrap: 'wrap' }}>
@@ -663,7 +651,12 @@ export default function HistorialCompras() {
                                             </div>
                                         </div>
                                     </div>
-                                    <button onClick={() => { setDetalleCompra(null); setIsEditingPesoCompra(false); }} className="btn-icon">
+                                    <button
+                                        type="button"
+                                        aria-label="Cerrar detalle de compra"
+                                        onClick={() => { setDetalleCompra(null); setIsEditingPesoCompra(false); }}
+                                        className="history-modal-icon-btn"
+                                    >
                                         <X size={20} />
                                     </button>
                                 </div>
@@ -982,17 +975,22 @@ export default function HistorialCompras() {
                                         </span>
                                     </div>
                                 </div>
-                                <button onClick={() => setDetalleCompra(null)} style={{ width: 'auto', padding: '8px 32px', fontSize: '0.9rem', fontWeight: '600' }}>
+                                <button type="button" onClick={() => setDetalleCompra(null)} style={{ width: 'auto', padding: '8px 32px', fontSize: '0.9rem', fontWeight: '600', minHeight: '48px' }}>
                                     Cerrar
                                 </button>
                             </div>
                         </div>
-                    </div>
-                );
-            })()}
+                    );
+                })()}
+            </dialog>
 
             {/* TARJETA DE ANIMAL INDIVIDUAL */}
-            {selectedAnimalDetalle && (() => {
+            <dialog
+                {...animalDialogProps}
+                className="history-dialog history-dialog--animal"
+                aria-labelledby="compra-animal-title"
+            >
+                {selectedAnimalDetalle && (() => {
                 const a = selectedAnimalDetalle;
                 const registrosOrdenados = [...a.registros_pesaje]
                     .filter(r => esPesajePosteriorAIngreso(r.fecha, a.fecha_ingreso))
@@ -1020,26 +1018,28 @@ export default function HistorialCompras() {
                 }));
 
                 return (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--backdrop-scrim)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }} onClick={() => setSelectedAnimalDetalle(null)}>
-                        <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-popover)' }} onClick={e => e.stopPropagation()}>
-                            <button
-                                onClick={() => setSelectedAnimalDetalle(null)}
-                                style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px' }}
-                            >
-                                <X size={24} />
-                            </button>
+                    <div className="card history-dialog-card--animal">
+                        <button
+                            type="button"
+                            aria-label="Cerrar tarjeta del animal"
+                            className="history-modal-icon-btn"
+                            onClick={() => setSelectedAnimalDetalle(null)}
+                            style={{ position: 'absolute', top: '16px', right: '16px' }}
+                        >
+                            <X size={20} />
+                        </button>
 
-                            <div style={{ paddingRight: '40px', marginBottom: '24px' }}>
-                                <h2 style={{ color: 'var(--text-main)', margin: 0, fontSize: '1.8rem', whiteSpace: 'nowrap' }}>
-                                    <span style={{ color: 'var(--primary)', marginRight: '8px' }}>#</span>
-                                    {a.numero_chapeta}
-                                </h2>
-                                <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.5px' }}>
-                                    {a.etapa} • {a.nombre_propietario}
-                                </p>
-                            </div>
+                        <div style={{ paddingRight: '52px', marginBottom: '24px' }}>
+                            <h2 id="compra-animal-title" style={{ color: 'var(--text-main)', margin: 0, fontSize: '1.8rem', whiteSpace: 'nowrap' }}>
+                                <span style={{ color: 'var(--primary)', marginRight: '8px' }}>#</span>
+                                {a.numero_chapeta}
+                            </h2>
+                            <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.5px' }}>
+                                {a.etapa} • {a.nombre_propietario}
+                            </p>
+                        </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+                        <div className="history-animal-stats">
                                 <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso de Llegada</div>
                                     <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{a.peso_ingreso} kg</div>
@@ -1128,16 +1128,17 @@ export default function HistorialCompras() {
 
                             <div style={{ marginTop: '20px', textAlign: 'right' }}>
                                 <button
+                                    type="button"
                                     onClick={() => setSelectedAnimalDetalle(null)}
-                                    style={{ width: 'auto', padding: '8px 24px', fontSize: '0.9rem' }}
+                                    style={{ width: 'auto', padding: '8px 24px', fontSize: '0.9rem', minHeight: '48px' }}
                                 >
                                     Cerrar
                                 </button>
                             </div>
                         </div>
-                    </div>
-                );
-            })()}
+                    );
+                })()}
+            </dialog>
         </div>
     );
 }

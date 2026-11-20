@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
 import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2, AlertOctagon, Pencil, Check, MapPin } from 'lucide-react';
 import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
 import ModalUpsell from '../components/ModalUpsell';
@@ -48,6 +49,7 @@ interface Animal {
 
 export default function Inventory() {
     const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
+    const { confirmAction, showAlert, toast } = useFeedback();
     const isAdmin = role === 'administrador' || isSuperAdmin;
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
@@ -260,9 +262,11 @@ export default function Inventory() {
 
     const handleEliminarAnimalPorError = async () => {
         if (!selectedAnimal || !fincaId) return;
-        if (!confirm(`¿Está seguro de eliminar permanentemente el animal #${selectedAnimal.numero_chapeta} del inventario?\n\n⚠️ Esta acción es para corregir errores de digitación. Si el animal murió o se vendió, use las opciones correspondientes.`)) {
-            return;
-        }
+        const confirmed = await confirmAction(
+            `¿Está seguro de eliminar permanentemente el animal #${selectedAnimal.numero_chapeta} del inventario?\n\n⚠️ Esta acción es para corregir errores de digitación. Si el animal murió o se vendió, use las opciones correspondientes.`,
+            { title: 'Eliminar animal', confirmLabel: 'Sí, eliminar', destructive: true }
+        );
+        if (!confirmed) return;
 
         setLoading(true);
         try {
@@ -307,8 +311,9 @@ export default function Inventory() {
             setAnimales(prev => prev.filter(a => a.id !== selectedAnimal.id));
             setSelectedAnimal(null);
             await refreshLicencia();
+            toast('Animal eliminado del inventario.', 'success');
         } catch (err: any) {
-            alert('Error al eliminar animal: ' + (err.message || err));
+            await showAlert('Error al eliminar animal: ' + (err.message || err), { title: 'Error', variant: 'error' });
         } finally {
             setLoading(false);
         }
@@ -351,11 +356,11 @@ export default function Inventory() {
         if (!editingPesaje || !selectedAnimal) return;
         const pesoNum = parseFloat(editingPesaje.peso);
         if (isNaN(pesoNum) || pesoNum <= 0) {
-            alert('Por favor ingrese un peso numérico válido mayor a cero.');
+            await showAlert('Por favor ingrese un peso numérico válido mayor a cero.', { title: 'Dato inválido', variant: 'warning' });
             return;
         }
         if (!editingPesaje.fecha) {
-            alert('Por favor ingrese una fecha válida.');
+            await showAlert('Por favor ingrese una fecha válida.', { title: 'Dato inválido', variant: 'warning' });
             return;
         }
 
@@ -391,7 +396,7 @@ export default function Inventory() {
             await recargarHistorialAnimal(selectedAnimal.id);
             setEditingPesaje(null);
         } catch (err: any) {
-            alert('Error al guardar pesaje: ' + (err.message || err));
+            await showAlert('Error al guardar pesaje: ' + (err.message || err), { title: 'Error', variant: 'error' });
         } finally {
             setLoading(false);
         }
@@ -399,9 +404,11 @@ export default function Inventory() {
 
     const handleEliminarPesaje = async (pesajeId: string, fechaPesaje: string) => {
         if (!selectedAnimal) return;
-        if (!confirm(`¿Está seguro de eliminar el pesaje del ${fechaPesaje}? Las ganancias del siguiente pesaje y todos los posteriores se recalcularán automáticamente.`)) {
-            return;
-        }
+        const confirmed = await confirmAction(
+            `¿Está seguro de eliminar el pesaje del ${fechaPesaje}? Las ganancias del siguiente pesaje y todos los posteriores se recalcularán automáticamente.`,
+            { title: 'Eliminar pesaje', confirmLabel: 'Sí, eliminar', destructive: true }
+        );
+        if (!confirmed) return;
 
         setLoading(true);
         try {
@@ -432,7 +439,7 @@ export default function Inventory() {
             // Recargar historial
             await recargarHistorialAnimal(selectedAnimal.id);
         } catch (err: any) {
-            alert('Error al eliminar pesaje: ' + (err.message || err));
+            await showAlert('Error al eliminar pesaje: ' + (err.message || err), { title: 'Error', variant: 'error' });
         } finally {
             setLoading(false);
         }
@@ -661,7 +668,7 @@ export default function Inventory() {
             setShowMuerteModal(false);
             setChapetaMuerte('');
             fetchAnimales();
-            alert(`Se ha registrado el fallecimiento del animal #${chapetaMuerte}`);
+            toast(`Se ha registrado el fallecimiento del animal #${chapetaMuerte}`, 'success');
         } catch (err: any) {
             setMsjErrorMuerte(err.message);
         } finally {
@@ -750,7 +757,7 @@ export default function Inventory() {
             });
             setNuevosPesajes([]);
             fetchAnimales();
-            alert("Animal creado exitosamente con su historial.");
+            toast('Animal creado exitosamente con su historial.', 'success');
 
         } catch (err: any) {
             setMsjErrorCrear(err.message);

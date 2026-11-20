@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
 import ModalUpsell from '../components/ModalUpsell';
 import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale, Activity, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
@@ -63,6 +64,7 @@ interface ChartData {
 
 export default function Potreradas() {
     const { fincaId, role, modoGanancia, licenciaInfo } = useAuth();
+    const { confirmAction, showAlert, toast } = useFeedback();
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -414,7 +416,10 @@ export default function Potreradas() {
             setShowAddModal(false);
             fetchPotreradasData();
         } catch (err: any) {
-            alert('Error al agregar potrerada: ' + (err.code === '23505' ? 'Ya existe una potrerada con ese nombre.' : err.message));
+            await showAlert(
+                'Error al agregar potrerada: ' + (err.code === '23505' ? 'Ya existe una potrerada con ese nombre.' : err.message),
+                { title: 'Error', variant: 'error' }
+            );
         } finally {
             setLoading(false);
         }
@@ -465,14 +470,18 @@ export default function Potreradas() {
             setEditingPotrerada(null);
             fetchPotreradasData();
         } catch (error: any) {
-            alert('Error al actualizar: ' + error.message);
+            await showAlert('Error al actualizar: ' + error.message, { title: 'Error', variant: 'error' });
         } finally {
             setLoading(false);
         }
     };
 
     const removePotrerada = async (id: string) => {
-        if (!confirm('¿Está seguro de eliminar esta potrerada? Tenga en cuenta que los animales perderán su referencia a la misma.')) return;
+        const confirmed = await confirmAction(
+            '¿Está seguro de eliminar esta potrerada? Tenga en cuenta que los animales perderán su referencia a la misma.',
+            { title: 'Eliminar potrerada', confirmLabel: 'Sí, eliminar', destructive: true }
+        );
+        if (!confirmed) return;
         setLoading(true);
         try {
             // Liberar a los animales de la potrerada actual y del historial de última potrerada
@@ -482,8 +491,9 @@ export default function Potreradas() {
             const { error } = await supabase.from('potreradas').delete().eq('id', id);
             if (error) throw error;
             fetchPotreradasData();
+            toast('Potrerada eliminada.', 'success');
         } catch (err: any) {
-            alert('Error al eliminar potrerada: ' + err.message);
+            await showAlert('Error al eliminar potrerada: ' + err.message, { title: 'Error', variant: 'error' });
         } finally {
             setLoading(false);
         }
@@ -510,7 +520,7 @@ export default function Potreradas() {
             if (error) throw error;
             await fetchPotreradasData();
         } catch (error: any) {
-            alert('Error al agregar animal: ' + error.message);
+            await showAlert('Error al agregar animal: ' + error.message, { title: 'Error', variant: 'error' });
         } finally {
             setUpdatingAnimal(null);
         }
@@ -531,7 +541,7 @@ export default function Potreradas() {
             if (error) throw error;
             await fetchPotreradasData();
         } catch (error: any) {
-            alert('Error al eliminar animal: ' + error.message);
+            await showAlert('Error al eliminar animal: ' + error.message, { title: 'Error', variant: 'error' });
         } finally {
             setUpdatingAnimal(null);
         }
@@ -542,7 +552,10 @@ export default function Potreradas() {
             setShowUpsellModal(true);
             return;
         }
-        const confirmed = window.confirm('¿Estás seguro de que deseas limpiar esta potrerada? Los animales vendidos quedarán sin asignación de lote pero el historial se conserva.');
+        const confirmed = await confirmAction(
+            '¿Estás seguro de que deseas limpiar esta potrerada? Los animales vendidos quedarán sin asignación de lote pero el historial se conserva.',
+            { title: 'Limpiar potrerada', confirmLabel: 'Sí, limpiar', destructive: true }
+        );
         if (!confirmed) return;
         try {
             // 1. Guardar sello histórico en ultima_potrerada_id
@@ -562,8 +575,9 @@ export default function Potreradas() {
             if (clearError) throw clearError;
 
             await fetchPotreradasData();
+            toast('Potrerada limpiada correctamente.', 'success');
         } catch (error: any) {
-            alert('Error al limpiar potrerada: ' + error.message);
+            await showAlert('Error al limpiar potrerada: ' + error.message, { title: 'Error', variant: 'error' });
         }
     };
 
@@ -651,7 +665,7 @@ export default function Potreradas() {
             });
 
         } catch (error: any) {
-            alert('Error al cargar detalle: ' + error.message);
+            await showAlert('Error al cargar detalle: ' + error.message, { title: 'Error', variant: 'error' });
         } finally {
             setDetailLoading(false);
         }
@@ -1243,7 +1257,7 @@ export default function Potreradas() {
             doc.save(`Informe_Lote_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
         } catch (error) {
             console.error("Error al generar PDF:", error);
-            alert("Hubo un error al exportar el informe.");
+            await showAlert('Hubo un error al exportar el informe.', { title: 'Error al exportar', variant: 'error' });
         } finally {
             setExportingPdf(false);
         }
@@ -1337,7 +1351,7 @@ export default function Potreradas() {
             await handleOpenDetail(detailData.potrerada);
         } catch (err) {
             console.error('Error moviendo animales:', err);
-            alert('Ocurrió un error al mover los animales. Intenta de nuevo.');
+            await showAlert('Ocurrió un error al mover los animales. Intenta de nuevo.', { title: 'Error', variant: 'error' });
         } finally {
             setMovingAnimals(false);
         }
@@ -1387,7 +1401,7 @@ export default function Potreradas() {
             });
 
         if (registros.length === 0) {
-            alert('Ingresa al menos un peso para guardar.');
+            await showAlert('Ingresa al menos un peso para guardar.', { title: 'Sin datos', variant: 'warning' });
             return;
         }
 
@@ -1412,13 +1426,16 @@ export default function Potreradas() {
                     .in('id', idsOkCeba);
             }
 
-            alert(`✅ ${registros.length} pesaje(s) guardado(s) correctamente.${idsOkCeba.length > 0 ? ` \n\n${idsOkCeba.length} animal(es) superaron el umbral y pasaron al Mercado de Ceba.` : ''}`);
             setShowWeighingForm(false);
             setWeighingData({});
             // Refrescar la tarjeta de detalle
             await handleOpenDetail(detailData.potrerada);
+            toast(
+                `✅ ${registros.length} pesaje(s) guardado(s) correctamente.${idsOkCeba.length > 0 ? ` ${idsOkCeba.length} animal(es) pasaron al Mercado de Ceba.` : ''}`,
+                'success'
+            );
         } catch (err: any) {
-            alert('Error al guardar pesajes: ' + err.message);
+            await showAlert('Error al guardar pesajes: ' + err.message, { title: 'Error', variant: 'error' });
         } finally {
             setSavingWeighings(false);
         }

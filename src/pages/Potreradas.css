@@ -655,8 +655,10 @@
   }
 
   .potreradas-detail-action-btn {
-    width: 44px !important;
-    height: 44px !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px;
+    min-height: 48px;
   }
 
   .potreradas-detail-body {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
 import ModalUpsell from '../components/ModalUpsell';
 import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check, AlertOctagon } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -86,6 +87,7 @@ const collatorHoy = new Intl.Collator(undefined, { numeric: true, sensitivity: '
 export default function Weighing() {
     const { fincaId, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
     const { modoCampo, isOnline } = useConnection();
+    const { confirmAction, toast } = useFeedback();
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -685,14 +687,19 @@ export default function Weighing() {
     };
 
     const handleEliminarPesaje = async (pesaje: typeof pesajesHoy[0]) => {
-        if (!confirm(`¿Eliminar el pesaje de ${pesaje.peso}kg del animal #${pesaje.numero_chapeta}?`)) return;
+        const confirmed = await confirmAction(
+            `¿Eliminar el pesaje de ${pesaje.peso}kg del animal #${pesaje.numero_chapeta}?`,
+            { title: 'Eliminar pesaje', confirmLabel: 'Sí, eliminar', destructive: true }
+        );
+        if (!confirmed) return;
         setLoading(true);
         try {
             const { error } = await supabase.from('registros_pesaje').delete().eq('id', pesaje.id);
             if (error) throw error;
             fetchPesajesHoy();
+            toast('Pesaje eliminado.', 'success');
         } catch (err: any) {
-            alert('Error al eliminar: ' + err.message);
+            toast('Error al eliminar: ' + err.message, 'error');
         } finally {
             setLoading(false);
         }
@@ -700,7 +707,10 @@ export default function Weighing() {
 
     const handleGuardarEdicion = async (pesaje: typeof pesajesHoy[0]) => {
         const nuevoPesoFloat = parseFloat(editPeso);
-        if (isNaN(nuevoPesoFloat) || nuevoPesoFloat <= 0) { alert('Ingresa un peso válido.'); return; }
+        if (isNaN(nuevoPesoFloat) || nuevoPesoFloat <= 0) {
+            toast('Ingresa un peso válido mayor a 0.', 'error');
+            return;
+        }
         if (nuevoPesoFloat === pesaje.peso) { setEditingPesajeId(null); return; }
         setLoading(true);
         try {
@@ -712,8 +722,9 @@ export default function Weighing() {
             setEditingPesajeId(null);
             setEditPeso('');
             fetchPesajesHoy();
+            toast('Pesaje actualizado.', 'success');
         } catch (err: any) {
-            alert('Error al editar: ' + err.message);
+            toast('Error al editar: ' + err.message, 'error');
         } finally {
             setLoading(false);
         }
@@ -1137,7 +1148,7 @@ export default function Weighing() {
                                                             aria-label={`Editar peso de #${p.numero_chapeta}`}
                                                             onChange={e => setEditPeso(e.target.value)}
                                                             className="weighing-edit-input"
-                                                            autoFocus
+                                                            autoFocus={!isMobile}
                                                         />
                                                     ) : (
                                                         <>{p.peso} kg</>

@@ -134,19 +134,13 @@
     color: var(--secondary);
 }
 
-.topbar-btn-modo-campo.modo-online {
-    background: var(--success-soft-bg);
-    border: 1px solid var(--success-soft-border);
-    color: var(--success);
-}
-
 .topbar-btn-modo-campo.modo-offline {
     background: var(--error-soft-bg);
     border: 1px solid var(--error-soft-border);
     color: var(--error);
 }
 
-/* Botones de acción (Guardar para campo, Sincronizar) */
+/* Botones de acción (Sincronizar) */
 .topbar-btn-action {
     display: flex;
     align-items: center;
@@ -160,18 +154,6 @@
     transition: all 0.2s ease;
     white-space: nowrap;
     user-select: none;
-}
-
-.topbar-btn-preparar {
-    background: var(--info-soft-bg);
-    color: var(--info);
-    border: 1px solid var(--info-soft-border);
-}
-
-.topbar-btn-preparar:hover:not(:disabled) {
-    filter: brightness(0.95);
-    transform: none;
-    box-shadow: none;
 }
 
 .topbar-btn-sync.can-sync {
@@ -228,22 +210,6 @@
     white-space: nowrap;
 }
 
-/* Toast flotante de preparación para campo */
-.topbar-toast {
-    position: absolute;
-    top: 68px;
-    right: 24px;
-    background: var(--bg-elevated);
-    color: var(--text-main);
-    border: 1px solid var(--info);
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    box-shadow: var(--shadow-popover);
-    z-index: 9999;
-    max-width: 380px;
-}
-
 /* ========================================================
    RESPONSIVE DESIGN PARA DISPOSITIVOS MÓVILES (SMARTPHONES)
    ======================================================== */
@@ -295,14 +261,6 @@
         padding: 6px 12px;
         font-size: 0.76rem;
         gap: 4px;
-    }
-
-    .topbar-toast {
-        left: 10px;
-        right: 10px;
-        top: calc(var(--topbar-height, 58px) + env(safe-area-inset-top, 0px) + 6px);
-        max-width: none;
-        text-align: center;
     }
 }
 

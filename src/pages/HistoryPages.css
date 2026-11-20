@@ -1,0 +1,326 @@
+/* Historial Compras y Ventas: escritorio fiel + tarjetas @container y bottom sheet móvil */
+
+.history-page {
+  padding-bottom: 20px;
+}
+
+.history-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.history-filters {
+  margin-bottom: 24px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.history-filter-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 220px;
+  min-width: 0;
+}
+
+.history-filter-search {
+  flex: 1 1 220px;
+  position: relative;
+  min-width: 0;
+}
+
+.history-table-wrapper {
+  overflow-x: auto;
+  max-inline-size: 100%;
+  container-type: inline-size;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.history-table tbody tr {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background-color 0.18s ease;
+}
+
+.history-table tbody tr:hover {
+  background-color: var(--surface-subtle);
+}
+
+.history-action-group {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.history-action-btn {
+  width: auto;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+}
+
+.history-action-btn:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  filter: brightness(0.95);
+}
+
+.history-action-btn--detail {
+  background: var(--success-soft-bg);
+  border: 1px solid var(--success-soft-border);
+  color: var(--success);
+}
+
+.history-action-btn--simple {
+  background: var(--info-soft-bg);
+  border: 1px solid var(--info-soft-border);
+  color: var(--info);
+}
+
+.history-action-btn--pdf {
+  background: var(--error-soft-bg);
+  border: 1px solid var(--error-soft-border);
+  color: var(--error);
+}
+
+/* Native <dialog> Modals para Detalle & Tarjeta Individual */
+dialog.history-dialog {
+  padding: 0;
+  border: none;
+  background: transparent;
+  width: 100%;
+  max-width: min(960px, calc(100vw - 24px));
+  margin: auto;
+  color: var(--text-main);
+}
+
+dialog.history-dialog--animal {
+  max-width: min(600px, calc(100vw - 24px));
+}
+
+dialog.history-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.history-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.history-dialog::backdrop {
+  background: var(--backdrop-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.history-dialog-card {
+  margin: 0;
+  width: 100%;
+  height: min(90dvh, 840px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.history-dialog-card--animal {
+  height: auto;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: 24px;
+  position: relative;
+  background-color: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-popover);
+}
+
+.history-modal-icon-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-subtle);
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.history-modal-icon-btn:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+.history-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.history-animal-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+@container (width < 700px) {
+  .history-table-wrapper {
+    overflow: visible;
+  }
+
+  .history-table,
+  .history-table tbody,
+  .history-table tr,
+  .history-table th,
+  .history-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .history-table thead {
+    display: none;
+  }
+
+  .history-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .history-table tbody tr {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .history-table tbody th {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 8px 0 !important;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 1rem;
+    text-align: left !important;
+  }
+
+  .history-table tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0 !important;
+    text-align: right !important;
+  }
+
+  .history-table tbody td[colspan] {
+    justify-content: center;
+    text-align: center !important;
+  }
+
+  .history-table tbody td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .history-table tbody td.history-actions-cell {
+    display: block;
+    padding: 10px 0 0 0 !important;
+    margin-top: 6px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .history-table tbody td.history-actions-cell::before {
+    display: none;
+  }
+
+  .history-action-group {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .history-action-btn {
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 6px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .history-filter-date,
+  .history-filter-search {
+    flex: 1 1 100%;
+  }
+
+  .history-modal-icon-btn {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  dialog.history-dialog,
+  dialog.history-dialog--animal {
+    max-width: 100%;
+    margin: auto 0 0 0;
+  }
+
+  .history-dialog-card {
+    height: 92dvh;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .history-dialog-card--animal {
+    border-radius: 20px 20px 0 0;
+    max-height: 92dvh;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 640px) {
+  .history-action-btn {
+    min-height: 48px;
+  }
+}

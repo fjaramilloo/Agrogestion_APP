@@ -1,0 +1,285 @@
+/* Mercado de Ceba y Monitor Ganadero: escritorio fiel + tarjetas @container y bottom sheet móvil */
+
+.mercado-page {
+  padding-bottom: 28px;
+}
+
+.mercado-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.mercado-primary-btn {
+  background-color: var(--primary);
+  border: 1px solid var(--primary);
+  color: var(--on-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 28px;
+  font-size: 1rem;
+  width: auto;
+  min-height: 48px;
+}
+
+.mercado-danger-btn {
+  background-color: var(--error-soft-bg);
+  border: 1px solid var(--error-soft-border);
+  color: var(--error);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  width: auto;
+  min-height: 48px;
+}
+
+.mercado-table-wrapper {
+  overflow-x: auto;
+  max-inline-size: 100%;
+  container-type: inline-size;
+}
+
+.mercado-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mercado-table tbody tr {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.mercado-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* MercadoGanado controles y grid */
+.mercado-select-row {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mercado-select {
+  width: auto;
+  min-width: 190px;
+  margin: 0;
+}
+
+.mercado-categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 215px), 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.mercado-chart-tab {
+  width: auto;
+  min-height: 38px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Native <dialog> Modals */
+dialog.mercado-dialog {
+  padding: 0;
+  border: none;
+  background: transparent;
+  width: 100%;
+  max-width: min(560px, calc(100vw - 24px));
+  margin: auto;
+  color: var(--text-main);
+}
+
+dialog.mercado-dialog--upsell {
+  max-width: min(480px, calc(100vw - 24px));
+}
+
+dialog.mercado-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.mercado-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.mercado-dialog::backdrop {
+  background: var(--backdrop-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.mercado-dialog-card {
+  margin: 0;
+  width: 100%;
+  padding: 28px;
+  max-height: min(90dvh, 760px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.mercado-close-btn {
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+
+.mercado-close-btn:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  color: var(--text-main);
+  transform: none;
+  box-shadow: none;
+}
+
+.mercado-dialog-actions {
+  display: flex;
+  gap: 12px;
+}
+
+@container (width < 680px) {
+  .mercado-table-wrapper {
+    overflow: visible;
+  }
+
+  .mercado-table,
+  .mercado-table tbody,
+  .mercado-table tr,
+  .mercado-table th,
+  .mercado-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .mercado-table thead {
+    display: none;
+  }
+
+  .mercado-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .mercado-table tbody tr {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .mercado-table tbody tr.mercado-total-row {
+    background: rgba(168, 85, 247, 0.08);
+    border-color: rgba(168, 85, 247, 0.35);
+  }
+
+  .mercado-table tbody th {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 8px 0 !important;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 1rem;
+    text-align: left !important;
+  }
+
+  .mercado-table tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0 !important;
+    text-align: right !important;
+  }
+
+  .mercado-table tbody td[colspan] {
+    justify-content: center;
+    text-align: center !important;
+  }
+
+  .mercado-table tbody td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: left;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .mercado-chart-tab,
+  .mercado-close-btn,
+  .mercado-upsell-trigger {
+    min-height: 48px;
+  }
+
+  .mercado-close-btn {
+    min-width: 48px;
+  }
+
+  dialog.mercado-dialog,
+  dialog.mercado-dialog--upsell {
+    max-width: 100%;
+    margin: auto 0 0 0;
+  }
+
+  .mercado-dialog-card {
+    border-radius: 20px 20px 0 0;
+    max-height: 92dvh;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 640px) {
+  .mercado-primary-btn,
+  .mercado-danger-btn {
+    width: 100%;
+  }
+
+  .mercado-select {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 48px;
+  }
+
+  .mercado-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .mercado-dialog-actions button {
+    width: 100%;
+    min-height: 48px;
+  }
+}

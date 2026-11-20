@@ -1,0 +1,425 @@
+/* Rotaciones: escritorio fiel + tarjetas @container, touch >= 48px y bottom sheet móvil */
+
+.rotations-page {
+  max-width: 1000px;
+  padding-bottom: 20px;
+}
+
+.rotations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.rotations-stats {
+  display: flex;
+  gap: 12px 20px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.rotations-header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.rotations-calc-toggle {
+  width: auto;
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: 100px;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+}
+
+.rotations-new-btn {
+  width: auto;
+  min-height: 44px;
+  padding: 10px 24px;
+  border-radius: 100px;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: var(--shadow-card);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.rotations-voisin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+
+.rotations-voisin-tab {
+  width: auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+}
+
+.rotations-preset-btn {
+  width: auto;
+  min-height: 34px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+}
+
+.rotations-group-header {
+  padding: 16px 24px;
+  background-color: var(--surface-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rotations-group-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.rotations-group-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rotations-inline-icon-btn {
+  width: auto;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 6px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.rotations-inline-icon-btn:hover:not(:disabled) {
+  background: var(--surface-subtle-hover);
+  color: var(--text-main);
+  transform: none;
+  box-shadow: none;
+}
+
+.rotations-inline-icon-btn--danger {
+  color: var(--error);
+}
+
+.rotations-inline-icon-btn--success {
+  color: var(--success);
+}
+
+.rotations-btn-mobile-label {
+  display: none;
+}
+
+.rotations-table-wrapper {
+  overflow-x: auto;
+  max-inline-size: 100%;
+  container-type: inline-size;
+}
+
+.rotations-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rotations-table tbody tr {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background-color 0.16s ease;
+}
+
+.rotations-table tbody tr:hover {
+  background-color: var(--surface-subtle);
+}
+
+.rotations-table th,
+.rotations-table td {
+  padding: 12px 24px;
+}
+
+.rotations-area-cell {
+  text-align: right;
+  width: 130px;
+}
+
+.rotations-actions-cell {
+  text-align: right;
+}
+
+.rotations-row-actions {
+  display: inline-flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.rotations-existing-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+  transition: all 0.15s ease;
+}
+
+.rotations-existing-item:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Native <dialog> Modals */
+dialog.rotations-dialog {
+  padding: 0;
+  border: none;
+  background: transparent;
+  width: 100%;
+  max-width: min(460px, calc(100vw - 24px));
+  margin: auto;
+  color: var(--text-main);
+}
+
+dialog.rotations-dialog--wide {
+  max-width: min(500px, calc(100vw - 24px));
+}
+
+dialog.rotations-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.rotations-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.rotations-dialog::backdrop {
+  background: var(--backdrop-scrim);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.rotations-dialog-card {
+  margin: 0;
+  width: 100%;
+  padding: 24px;
+  max-height: min(90dvh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.rotations-dialog-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+
+@container (width < 560px) {
+  .rotations-table-wrapper {
+    overflow: visible;
+  }
+
+  .rotations-table,
+  .rotations-table tbody,
+  .rotations-table tr,
+  .rotations-table th,
+  .rotations-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .rotations-table thead {
+    display: none;
+  }
+
+  .rotations-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .rotations-table tbody tr {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .rotations-table tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    text-align: right;
+  }
+
+  .rotations-table tbody td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .rotations-area-cell {
+    width: auto;
+  }
+
+  .rotations-table tbody td.rotations-actions-cell {
+    display: block;
+    padding: 10px 0 0 0;
+    margin-top: 6px;
+    border-top: 1px solid var(--border-subtle);
+    text-align: left;
+  }
+
+  .rotations-row-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .rotations-inline-icon-btn--row {
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
+    gap: 6px;
+    font-weight: 600;
+  }
+
+  .rotations-btn-mobile-label {
+    display: inline;
+    font-size: 0.84rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .rotations-header {
+    margin-bottom: 20px;
+  }
+
+  .rotations-group-header {
+    padding: 14px 16px;
+  }
+
+  .rotations-calc-toggle,
+  .rotations-new-btn,
+  .rotations-voisin-tab,
+  .rotations-inline-icon-btn,
+  .rotations-existing-item {
+    min-height: 48px;
+  }
+
+  .rotations-inline-icon-btn {
+    min-width: 48px;
+  }
+
+  .rotations-preset-btn {
+    min-height: 48px;
+    padding: 8px 14px;
+  }
+
+  dialog.rotations-dialog,
+  dialog.rotations-dialog--wide {
+    max-width: 100%;
+    margin: auto 0 0 0;
+  }
+
+  .rotations-dialog-card {
+    border-radius: 20px 20px 0 0;
+    max-height: 92dvh;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 640px) {
+  .rotations-header-actions {
+    width: 100%;
+  }
+
+  .rotations-calc-toggle,
+  .rotations-new-btn {
+    flex: 1 1 160px;
+    justify-content: center;
+  }
+
+  .rotations-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .rotations-dialog-actions button {
+    width: 100%;
+    min-height: 48px;
+  }
+}
+
+@media (pointer: coarse) {
+  .rotations-inline-icon-btn,
+  .rotations-voisin-tab,
+  .rotations-preset-btn {
+    min-height: 48px;
+  }
+}

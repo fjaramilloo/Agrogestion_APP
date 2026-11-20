@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
 import { differenceInDays } from 'date-fns';
 import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud, AlertOctagon, AlertTriangle } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
@@ -43,6 +44,7 @@ interface AnimalVenta {
 export default function Sales() {
     const { fincaId, role, userFincas, modoGanancia, licenciaInfo } = useAuth();
     const { modoCampo, toggleModoCampo, isOnline } = useConnection();
+    const { confirmAction } = useFeedback();
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -624,8 +626,13 @@ export default function Sales() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    if (window.confirm('¿Estás seguro de limpiar la cola de ventas pendientes? Esto borrará los lotes que no se han subido.')) {
+                                onClick={async () => {
+                                    const confirmed = await confirmAction('¿Estás seguro de limpiar la cola de ventas pendientes? Esto borrará los lotes que no se han subido.', {
+                                        title: 'Limpiar cola offline',
+                                        confirmLabel: 'Sí, limpiar',
+                                        destructive: true,
+                                    });
+                                    if (confirmed) {
                                         setOfflineQueue([]);
                                         localStorage.removeItem('agrogestion_ventas_offline');
                                         setMsjExito('Cola de ventas pendientes limpiada correctamente.');

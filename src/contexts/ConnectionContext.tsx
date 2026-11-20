@@ -26,7 +26,6 @@ interface ConnectionContextType {
   checkRealOnline: () => Promise<boolean>;
   actualizarConteo: () => Promise<number>;
   sincronizarTodo: (fincaId: string) => Promise<{ procesados: number; errores: number }>;
-  prepararFincaOffline: (fincaId: string) => Promise<{ success: boolean; animales: number; potreros: number; error?: string }>;
 }
 
 const ConnectionContext = createContext<ConnectionContextType>({
@@ -40,7 +39,6 @@ const ConnectionContext = createContext<ConnectionContextType>({
   checkRealOnline: async () => true,
   actualizarConteo: async () => 0,
   sincronizarTodo: async () => ({ procesados: 0, errores: 0 }),
-  prepararFincaOffline: async () => ({ success: false, animales: 0, potreros: 0 }),
 });
 
 export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -342,39 +340,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   }, [isOnline, fincaIdAuth]);
 
-  // 8. Preparar Finca para el Campo (Descarga completa garantizada para trabajar sin red)
-  const prepararFincaOffline = async (fincaId: string): Promise<{ success: boolean; animales: number; potreros: number; error?: string }> => {
-    if (!fincaId) return { success: false, animales: 0, potreros: 0, error: 'Finca no seleccionada' };
-    
-    // Primero verificar si tenemos conexión real
-    const tieneRed = await checkRealOnline();
-    if (!tieneRed) {
-      return { success: false, animales: 0, potreros: 0, error: 'Se requiere conexión a internet para descargar los datos de la finca' };
-    }
-
-    try {
-      await sincronizarCacheFinca(fincaId);
-      // Actualiza también todas las consultas de los módulos ya visitados (rotaciones, lotes, ventas, etc.)
-      await refrescarCacheLecturas();
-      const animalesCount = await localDB.animalesCache.where('id_finca').equals(fincaId).count();
-      const potrerosCount = await localDB.potrerosCache.where('id_finca').equals(fincaId).count();
-
-      return {
-        success: true,
-        animales: animalesCount,
-        potreros: potrerosCount
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        animales: 0,
-        potreros: 0,
-        error: err.message || 'Error al descargar datos'
-      };
-    }
-  };
-
-  // 9. Auto-precarga silenciosa en segundo plano:
+  // 8. Auto-precarga silenciosa en segundo plano:
   // Se ejecuta con pausa de 8s para dejar libre la red a la pantalla actual y guarda marca de tiempo
   // en localStorage (máximo cada 30 min) para no saturar la antena del celular en el corral.
   const precargandoRef = useRef<boolean>(false);
@@ -414,8 +380,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         conteoPendienteTotal,
         checkRealOnline,
         actualizarConteo,
-        sincronizarTodo,
-        prepararFincaOffline
+        sincronizarTodo
       }}
     >
       {children}

@@ -2,6 +2,9 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { useModalDialog } from '../hooks/useModalDialog';
+import './MercadoPages.css';
 import {
     TrendingUp,
     TrendingDown,
@@ -29,18 +32,6 @@ import {
     ResponsiveContainer,
     Legend
 } from 'recharts';
-
-// Hook para detectar pantalla móvil (≤ 768px)
-function useIsMobile() {
-    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)');
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener('change', handler);
-        return () => mq.removeEventListener('change', handler);
-    }, []);
-    return isMobile;
-}
 
 interface PrecioBoletin {
     id: string;
@@ -107,6 +98,7 @@ export default function MercadoGanado() {
     // Modal de bloqueo
     const [showUpsell, setShowUpsell] = useState(false);
     const [upsellTargetPlan, setUpsellTargetPlan] = useState<'finca' | 'premium'>('finca');
+    const upsellDialogProps = useModalDialog(showUpsell, () => setShowUpsell(false), true);
 
     const loadOfflineMercadoData = async () => {
         try {
@@ -401,7 +393,7 @@ export default function MercadoGanado() {
     }
 
     return (
-        <div className="page-container" style={{ paddingBottom: '40px' }}>
+        <div className="page-container mercado-page" style={{ paddingBottom: '40px' }}>
             {/* Cabecera */}
             <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
@@ -452,17 +444,17 @@ export default function MercadoGanado() {
             )}
 
             {/* Selector de Plazas / Regiones */}
-            <div style={{ marginBottom: '28px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="mercado-select-row">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <MapPin size={16} color="var(--text-muted)" />
                     <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Plaza de Referencia:</span>
                 </div>
                 <select
+                    className="mercado-select"
+                    aria-label="Plaza de referencia"
                     value={activeRegion}
                     onChange={(e) => handleSelectRegion(e.target.value)}
                     style={{
-                        width: 'auto',
-                        minWidth: '220px',
                         padding: '8px 32px 8px 12px',
                         borderRadius: '8px',
                         border: '1px solid var(--border-input)',
@@ -502,7 +494,9 @@ export default function MercadoGanado() {
                             Estás en el <strong>Plan Demo</strong>. Solo tienes acceso al Promedio Nacional. Actualiza tu plan para ver los precios regionales de Puerto Berrío, Montería, Aguachica, Chigorodó y Medellín.
                         </p>
                     </div>
-                    <button 
+                    <button
+                        type="button"
+                        className="mercado-upsell-trigger"
                         onClick={() => { setUpsellTargetPlan('finca'); setShowUpsell(true); }}
                         style={{ background: '#f59e0b', border: 'none', color: '#111812', padding: '8px 16px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', width: 'auto' }}
                     >
@@ -512,7 +506,7 @@ export default function MercadoGanado() {
             )}
 
             {/* Grid de Precios por Categoría */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+            <div className="mercado-categories-grid">
                 {Object.keys(CATEGORY_NAMES).map(catKey => {
                     const pInfo = preciosUltimoBoletin.find(p => p.categoria_animal === catKey);
                     const precio = pInfo ? Number(pInfo.precio_promedio_kg) : 0;
@@ -682,16 +676,22 @@ export default function MercadoGanado() {
                         </div>
 
                         {/* Tabs Chart */}
-                        <div style={{ display: 'flex', gap: '2px', background: 'var(--surface-inset)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-inset)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                             <button
+                                type="button"
+                                className="mercado-chart-tab"
+                                aria-pressed={activeTabChart === 'semanal'}
                                 onClick={() => setActiveTabChart('semanal')}
-                                style={{ background: activeTabChart === 'semanal' ? 'var(--bg-card)' : 'transparent', border: 'none', color: activeTabChart === 'semanal' ? 'var(--text-main)' : 'var(--text-muted)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', boxShadow: activeTabChart === 'semanal' ? 'var(--shadow-card)' : 'none' }}
+                                style={{ background: activeTabChart === 'semanal' ? 'var(--bg-card)' : 'transparent', color: activeTabChart === 'semanal' ? 'var(--text-main)' : 'var(--text-muted)', boxShadow: activeTabChart === 'semanal' ? 'var(--shadow-card)' : 'none' }}
                             >
                                 Semanas
                             </button>
                             <button
+                                type="button"
+                                className="mercado-chart-tab"
+                                aria-pressed={activeTabChart === 'mensual'}
                                 onClick={() => setActiveTabChart('mensual')}
-                                style={{ background: activeTabChart === 'mensual' ? 'var(--bg-card)' : 'transparent', border: 'none', color: activeTabChart === 'mensual' ? 'var(--text-main)' : 'var(--text-muted)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', boxShadow: activeTabChart === 'mensual' ? 'var(--shadow-card)' : 'none' }}
+                                style={{ background: activeTabChart === 'mensual' ? 'var(--bg-card)' : 'transparent', color: activeTabChart === 'mensual' ? 'var(--text-main)' : 'var(--text-muted)', boxShadow: activeTabChart === 'mensual' ? 'var(--shadow-card)' : 'none' }}
                             >
                                 Mensual
                             </button>
@@ -699,14 +699,14 @@ export default function MercadoGanado() {
                     </div>
 
                     {/* Selector de categoría para graficar */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                    <div className="mercado-select-row" style={{ marginBottom: '20px' }}>
                         <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filtrar Categoría:</span>
                         <select
+                            className="mercado-select"
+                            aria-label="Filtrar categoría"
                             value={selectedCategoryChart}
                             onChange={(e) => setSelectedCategoryChart(e.target.value)}
                             style={{
-                                width: 'auto',
-                                minWidth: '180px',
                                 padding: '6px 28px 6px 10px',
                                 borderRadius: '8px',
                                 border: '1px solid var(--border-input)',
@@ -795,16 +795,18 @@ export default function MercadoGanado() {
                                 Estima automáticamente el valor en pesos del inventario vivo de tu finca multiplicando los kilos totales actuales de tu ganado por los precios vigentes de la subasta seleccionada.
                             </p>
                             <button
+                                type="button"
+                                className="mercado-upsell-trigger"
                                 onClick={() => { setUpsellTargetPlan('premium'); setShowUpsell(true); }}
-                                style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none', color: '#ffffff', padding: '12px 24px', borderRadius: '10px', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(124, 58, 237, 0.3)' }}
+                                style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none', color: '#ffffff', padding: '12px 24px', borderRadius: '10px', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(124, 58, 237, 0.3)', width: 'auto' }}
                             >
                                 Desbloquear con Plan Premium <ChevronRight size={16} />
                             </button>
                         </div>
                     ) : (
                         /* Tabla Real de Valoración */
-                        <div style={{ padding: '24px', overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-main)', fontSize: '0.85rem' }}>
+                        <div tabIndex={0} role="region" aria-label="Valoración de inventario ganadero" className="mercado-table-wrapper" style={{ padding: '24px' }}>
+                            <table className="mercado-table" style={{ color: 'var(--text-main)', fontSize: '0.85rem' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
                                         <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Categoría</th>
@@ -826,22 +828,22 @@ export default function MercadoGanado() {
                                             .filter(item => item.cant > 0)
                                             .map(item => (
                                                 <tr key={item.category} style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-inset)' }}>
-                                                    <td style={{ padding: '12px', fontWeight: 600, color: 'var(--primary-light)' }}>{CATEGORY_NAMES[item.category]}</td>
-                                                    <td style={{ padding: '12px', textAlign: 'center' }}>{item.cant} cabezas</td>
-                                                    <td style={{ padding: '12px', textAlign: 'right' }}>{item.totalPeso.toLocaleString('es-CO')} kg</td>
-                                                    <td style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)' }}>${item.precioKg.toLocaleString('es-CO')}</td>
-                                                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-main)' }}>
+                                                    <th scope="row" style={{ padding: '12px', fontWeight: 600, color: 'var(--primary-light)', textAlign: 'left' }}>{CATEGORY_NAMES[item.category]}</th>
+                                                    <td data-label="Cabezas" style={{ padding: '12px', textAlign: 'center' }}>{item.cant} cabezas</td>
+                                                    <td data-label="Kilos Totales" style={{ padding: '12px', textAlign: 'right' }}>{item.totalPeso.toLocaleString('es-CO')} kg</td>
+                                                    <td data-label="Precio Referencia" style={{ padding: '12px', textAlign: 'right', color: 'var(--text-muted)' }}>${item.precioKg.toLocaleString('es-CO')}</td>
+                                                    <td data-label="Subtotal (COP)" style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-main)' }}>
                                                         ${item.subtotal.toLocaleString('es-CO')}
                                                     </td>
                                                 </tr>
                                             ))
                                     )}
-                                    <tr style={{ borderTop: '2px solid var(--border-strong)', background: 'rgba(168, 85, 247, 0.08)', fontWeight: 800 }}>
-                                        <td style={{ padding: '16px 12px' }}>Total Consolidado</td>
-                                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>{valoracionPatrimonial.totalCabezas} cabezas</td>
-                                        <td style={{ padding: '16px 12px', textAlign: 'right' }}>{valoracionPatrimonial.totalKilos.toLocaleString('es-CO')} kg</td>
-                                        <td style={{ padding: '16px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>—</td>
-                                        <td style={{ padding: '16px 12px', textAlign: 'right', color: accentPurple, fontSize: '1.05rem' }}>
+                                    <tr className="mercado-total-row" style={{ borderTop: '2px solid var(--border-strong)', background: 'rgba(168, 85, 247, 0.08)', fontWeight: 800 }}>
+                                        <th scope="row" style={{ padding: '16px 12px', textAlign: 'left' }}>Total Consolidado</th>
+                                        <td data-label="Cabezas" style={{ padding: '16px 12px', textAlign: 'center' }}>{valoracionPatrimonial.totalCabezas} cabezas</td>
+                                        <td data-label="Kilos Totales" style={{ padding: '16px 12px', textAlign: 'right' }}>{valoracionPatrimonial.totalKilos.toLocaleString('es-CO')} kg</td>
+                                        <td data-label="Precio Referencia" style={{ padding: '16px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>—</td>
+                                        <td data-label="Subtotal (COP)" style={{ padding: '16px 12px', textAlign: 'right', color: accentPurple, fontSize: '1.05rem' }}>
                                             ${valoracionPatrimonial.totalGeneral.toLocaleString('es-CO')}
                                         </td>
                                     </tr>
@@ -853,13 +855,27 @@ export default function MercadoGanado() {
             </div>
 
             {/* === MODAL UPSELL === */}
-            {showUpsell && (
-                <div style={{ position: 'fixed', inset: 0, background: 'var(--backdrop-scrim)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                    <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(168, 85, 247, 0.45)', borderRadius: '20px', padding: '36px', maxWidth: '480px', width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-popover)' }}>
+            <dialog
+                {...upsellDialogProps}
+                className="mercado-dialog mercado-dialog--upsell"
+                aria-labelledby="mercado-upsell-title"
+            >
+                {showUpsell && (
+                    <div
+                        className="mercado-dialog-card"
+                        style={{
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid rgba(168, 85, 247, 0.45)',
+                            borderRadius: '20px',
+                            padding: '36px',
+                            textAlign: 'center',
+                            boxShadow: 'var(--shadow-popover)'
+                        }}
+                    >
                         <div style={{ background: 'rgba(168, 85, 247, 0.15)', borderRadius: '50%', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                             <Award size={32} color={accentPurple} />
                         </div>
-                        <h3 style={{ margin: '0 0 10px', color: 'var(--text-main)', fontSize: '1.4rem' }}>
+                        <h3 id="mercado-upsell-title" style={{ margin: '0 0 10px', color: 'var(--text-main)', fontSize: '1.4rem' }}>
                             Desbloquea el {upsellTargetPlan === 'premium' ? 'Plan Premium' : 'Plan Finca'}
                         </h3>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.5', margin: '0 0 28px' }}>
@@ -872,20 +888,21 @@ export default function MercadoGanado() {
                                 href={whatsappLink}
                                 target="_blank"
                                 rel="noreferrer"
-                                style={{ textDecoration: 'none', background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none', color: '#ffffff', padding: '12px 24px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                style={{ textDecoration: 'none', background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none', color: '#ffffff', padding: '12px 24px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', minHeight: '48px', boxSizing: 'border-box' }}
                             >
                                 <MessageCircle size={18} /> Solicitar Activación vía WhatsApp
                             </a>
                             <button
+                                type="button"
                                 onClick={() => setShowUpsell(false)}
-                                style={{ padding: '10px 24px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-subtle)', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 600, fontSize: '0.88rem' }}
+                                style={{ padding: '10px 24px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-subtle)', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 600, fontSize: '0.88rem', minHeight: '48px' }}
                             >
                                 Regresar
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </dialog>
         </div>
     );
 }
