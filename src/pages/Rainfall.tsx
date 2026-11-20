@@ -1311,24 +1311,33 @@ export default function Rainfall() {
                                 No hay registros para el año {anoSeleccionado}.
                             </div>
                         ) : (
-                            mesGroups.map(grupo => (
-                                <div key={grupo.key} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                    {/* Cabecera del mes */}
-                                    <button
-                                        type="button"
-                                        aria-expanded={grupo.open}
-                                        onClick={() => toggleMes(grupo.key)}
-                                        className="rainfall-month-btn"
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                                            <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{grupo.label}</span>
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{grupo.registros.length} registros</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <span style={{ fontWeight: 700, color: 'var(--info)' }}>{grupo.totalMm} mm</span>
-                                            {grupo.open ? <ChevronUp size={16} color="var(--text-muted)" aria-hidden="true" /> : <ChevronDown size={16} color="var(--text-muted)" aria-hidden="true" />}
-                                        </div>
-                                    </button>
+                            mesGroups.map(grupo => {
+                                const mesSinAno = grupo.label.replace(/\s+\d{4}$/, '');
+                                const etiquetaRegistros = grupo.registros.length === 1 ? 'registro' : 'registros';
+                                return (
+                                    <div key={grupo.key} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                        {/* Cabecera del mes */}
+                                        <button
+                                            type="button"
+                                            aria-expanded={grupo.open}
+                                            aria-label={`${grupo.label}, ${grupo.registros.length} ${etiquetaRegistros}, total ${grupo.totalMm} milímetros`}
+                                            onClick={() => toggleMes(grupo.key)}
+                                            className="rainfall-month-btn"
+                                        >
+                                            <span className="rainfall-month-name">
+                                                {mesSinAno}
+                                                <span className="rainfall-month-year"> {anoSeleccionado}</span>
+                                            </span>
+                                            <span className="rainfall-month-count">
+                                                {grupo.registros.length}
+                                                <span className="rainfall-month-count-full"> {etiquetaRegistros}</span>
+                                                <span className="rainfall-month-count-short" aria-hidden="true"> reg.</span>
+                                            </span>
+                                            <span className="rainfall-month-total">{grupo.totalMm} mm</span>
+                                            {grupo.open
+                                                ? <ChevronUp size={16} className="rainfall-month-chevron" aria-hidden="true" />
+                                                : <ChevronDown size={16} className="rainfall-month-chevron" aria-hidden="true" />}
+                                        </button>
 
                                     {/* Registros del mes */}
                                     {grupo.open && (
@@ -1458,8 +1467,9 @@ export default function Rainfall() {
                                             </table>
                                         </div>
                                     )}
-                                </div>
-                            ))
+                                    </div>
+                                );
+                            })
                         )}
                     </div>
                 </>

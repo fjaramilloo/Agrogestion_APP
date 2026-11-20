@@ -300,10 +300,10 @@
 .rainfall-month-btn {
   width: 100%;
   min-height: 52px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(160px, auto) 1fr auto 16px;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   padding: 14px 24px;
   background: var(--surface-subtle);
   border: none;
@@ -316,6 +316,39 @@
   cursor: pointer;
   transition: background-color 0.2s;
   box-shadow: none;
+}
+
+.rainfall-month-name {
+  min-width: 0;
+  text-align: left;
+  text-transform: capitalize;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rainfall-month-count {
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rainfall-month-count-short {
+  display: none;
+}
+
+.rainfall-month-total {
+  font-weight: 700;
+  color: var(--info);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rainfall-month-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
 .rainfall-month-btn:hover:not(:disabled) {
@@ -929,7 +962,8 @@ dialog.rainfall-dialog::backdrop {
   }
 
   .rainfall-month-btn {
-    padding: 14px 16px;
+    gap: 12px;
+    padding: 14px 20px;
   }
 
   .rainfall-ia-actions {
@@ -967,6 +1001,31 @@ dialog.rainfall-dialog::backdrop {
 }
 
 @media (max-width: 640px) {
+  .rainfall-page {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .rainfall-month-btn {
+    grid-template-columns: minmax(0, 1fr) auto minmax(72px, auto) 16px;
+    gap: 8px;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
+
+  .rainfall-month-year,
+  .rainfall-month-count-full {
+    display: none;
+  }
+
+  .rainfall-month-count-short {
+    display: inline;
+  }
+
+  .rainfall-month-count {
+    font-size: 0.78rem;
+    text-align: right;
+  }
+
   .rainfall-kpi-grid {
     grid-template-columns: 1fr;
     gap: 12px;
