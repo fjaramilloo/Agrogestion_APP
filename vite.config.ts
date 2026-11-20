@@ -10,6 +10,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
+        id: '/',
         name: 'AgroGestión',
         short_name: 'AgroGestión',
         description: 'Software de Gestión y Control Ganadero de Precisión',
@@ -38,6 +39,7 @@ export default defineConfig({
         ]
       },
       workbox: {
+        importScripts: ['sw-push.js'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         cleanupOutdatedCaches: true,

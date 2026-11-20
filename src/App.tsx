@@ -9,6 +9,7 @@ import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import VersionNotifier from './components/VersionNotifier';
 import SyncSummaryModal from './components/SyncSummaryModal';
+import { syncExistingPushSubscription } from './lib/pushNotifications';
 import { lazyWithRetry, prefetchWhenIdle } from './utils/lazyWithRetry';
 
 // PANTALLAS OPERATIVAS DE CAMPO (Cargadas de fábrica en memoria):
@@ -168,6 +169,7 @@ const AppRoutes = () => {
       loadFarmMap,
       loadSuscripcion
     ]);
+    void syncExistingPushSubscription(userId);
   }, [userId]);
 
   return (

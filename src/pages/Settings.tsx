@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award, CloudRain, AlertTriangle, X, Eye, EyeOff } from 'lucide-react';
+import PushNotificationsCard from '../components/PushNotificationsCard';
 import './Settings.css';
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
 import { type PluviometroFinca, type TipoMedicionPluviometro } from '../utils/rainfallUtils';
@@ -1731,7 +1732,7 @@ export default function Settings() {
     };
 
     const sectionCards = [
-        { id: 'seguridad', label: 'Seguridad', icon: <Lock size={28} />, desc: 'Cuenta y acceso' },
+        { id: 'seguridad', label: 'Seguridad', icon: <Lock size={28} />, desc: 'Cuenta y notificaciones' },
         { id: 'datosTecnicos', label: 'Parámetros', icon: <Home size={28} />, desc: 'KPIs y Finca' },
         { id: 'usuarios', label: 'Personal', icon: <Users size={28} />, desc: 'Gestión de equipo' },
         { id: 'contactosNegocio', label: 'Negocios', icon: <Briefcase size={28} />, desc: 'Contactos y socios' },
@@ -2086,6 +2087,7 @@ export default function Settings() {
                                     {loading ? 'Actualizando...' : 'Actualizar Contraseña'}
                                 </button>
                             </form>
+                            <PushNotificationsCard />
                         </section>
                     )}
 
