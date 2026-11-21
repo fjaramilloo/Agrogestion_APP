@@ -11,8 +11,7 @@ import { es } from 'date-fns/locale';
 import SalesReport from '../components/SalesReport';
 import SalesReportSimple from '../components/SalesReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { exportElementToPdf } from '../utils/exportPdf';
 import { toDisplayValue, getUnidadLabel, getModoLabel, esPesajePosteriorAIngreso } from '../utils/ganancia';
 
 interface AnimalVentaParaReporte {
@@ -417,24 +416,18 @@ export default function HistorialVentas() {
         if (!printRef.current || !detalleVenta) return;
         setExportingDetallePdf(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 100)); // reflow
             const surfaceColor = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#121212';
-            const canvas = await html2canvas(printRef.current, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: surfaceColor,
-                logging: false,
-                windowWidth: 1200
-            });
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
             const nombreComprador = (detalleVenta.comprador || 'Comprador').trim();
             const fecha = (detalleVenta.fechaVenta || '').trim().replace(/\//g, '-');
             const filename = `Venta-${nombreComprador}-${fecha}.pdf`.replace(/[\\/:*?"<>|]/g, '-');
-            pdf.save(filename);
+            await exportElementToPdf(printRef.current, {
+                filename,
+                backgroundColor: surfaceColor,
+                windowWidth: 1200,
+                delayMs: 100,
+                format: 'JPEG',
+                quality: 0.95,
+            });
         } catch (error) {
             console.error('Error al exportar PDF:', error);
         } finally {

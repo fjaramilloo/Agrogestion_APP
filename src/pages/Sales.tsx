@@ -3,11 +3,13 @@ import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
-import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, AlertOctagon, AlertTriangle } from 'lucide-react';
+import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
 import ModalUpsell from '../components/ModalUpsell';
+import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
+import { getLicenseBlockState } from '../utils/licenseUtils';
 import { getLocalIsoDate } from '../utils/dateUtils';
-import { calcularPesoEstimadoHoy } from '../utils/ganancia';
+import { calcularDiasEntreFechas, calcularPesoEstimadoHoy } from '../utils/ganancia';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './TradeOperations.css';
@@ -36,9 +38,7 @@ interface AnimalVenta {
 export default function Sales() {
     const { fincaId, role, userFincas, modoGanancia, licenciaInfo } = useAuth();
     const { modoCampo, toggleModoCampo, isOnline } = useConnection();
-    const isVencida = Boolean(licenciaInfo?.isVencida);
-    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
-    const isBloqueado = isVencida || isSobrecupo;
+    const { isBloqueado } = getLicenseBlockState(licenciaInfo);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [cantidad, setCantidad] = useState('1');
     const [fechaVenta, setFechaVenta] = useState(getLocalIsoDate());
@@ -103,13 +103,9 @@ export default function Sales() {
     const calculateGMP = (pesoSalida: string, pesoInicial: number, fechaInicial: string, fechaVenta: string) => {
         const pSalida = parseDecimalInput(pesoSalida);
         if (isNaN(pSalida) || pSalida <= 0 || !pesoInicial || !fechaInicial) return 0;
-        
-        const f1 = new Date(fechaInicial.split('T')[0] + 'T12:00:00');
-        const f2 = new Date(fechaVenta.split('T')[0] + 'T12:00:00');
-        const dias = Math.max(1, Math.floor((f2.getTime() - f1.getTime()) / (1000 * 60 * 60 * 24)));
-        
-        const gdp = (pSalida - pesoInicial) / dias;
-        return gdp * 30;
+
+        const dias = Math.max(1, calcularDiasEntreFechas(fechaInicial, fechaVenta));
+        return ((pSalida - pesoInicial) / dias) * 30;
     };
 
     const handleFechaVentaChange = (nuevaFecha: string) => {
@@ -498,31 +494,12 @@ export default function Sales() {
                 </div>
             </div>
 
-            {isBloqueado && (
-                <div className="trade-upsell-banner">
-                    <div className="trade-upsell-text">
-                        <AlertOctagon size={24} color="var(--error)" aria-hidden="true" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                            {isVencida ? (
-                                <>
-                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción ha vencido. Puedes consultar tu historial y reportes de ventas, pero el registro de nuevas ventas de ganado se encuentra pausado hasta la renovación.
-                                </>
-                            ) : (
-                                <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar operaciones, actualiza tu suscripción.
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setShowUpsellModal(true)}
-                        className="trade-upsell-btn"
-                    >
-                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
-                    </button>
-                </div>
-            )}
+            <LicenseBlockedBanner
+                licenciaInfo={licenciaInfo}
+                onUpgradeClick={() => setShowUpsellModal(true)}
+                expiredDetail="Puedes consultar tu historial y reportes de ventas, pero el registro de nuevas ventas de ganado se encuentra pausado hasta la renovación."
+                overLimitDetail="Para registrar operaciones, actualiza tu suscripción."
+            />
 
             {msjExito && <div role="status" aria-live="polite" className="trade-feedback trade-feedback--success">{msjExito}</div>}
             {msjError && <div role="alert" aria-live="assertive" className="trade-feedback trade-feedback--error">{msjError}</div>}

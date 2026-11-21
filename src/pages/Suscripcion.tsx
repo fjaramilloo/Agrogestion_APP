@@ -6,17 +6,8 @@ import {
     Building2, Calendar, MessageCircle,
     Clock, Sparkles, AlertTriangle
 } from 'lucide-react';
+import { CowIcon } from '../components/CowIcon';
 import './Suscripcion.css';
-
-const CowIcon = ({ size = 16, color = 'currentColor', style = {} }: { size?: number; color?: string; style?: React.CSSProperties }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-        <path d="M19 5c-.8-1.2-2.2-2-4-2H9C7.2 3 5.8 3.8 5 5" />
-        <path d="M5 5C3.5 5 2 6.5 2 8c0 1.5 1 2.5 2.5 2.5L5 10.5V17c0 1.1.9 2 2 2h1v2a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-2h2v2a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-2h1c1.1 0 2-.9 2-2v-6.5l.5.0c1.5 0 2.5-1 2.5-2.5 0-1.5-1.5-3-3-3" />
-        <path d="M9 10h.01" />
-        <path d="M15 10h.01" />
-        <path d="M10 14c.7.7 3.3.7 4 0" />
-    </svg>
-);
 
 type Periodicidad = 'mensual' | 'semestral' | 'anual';
 

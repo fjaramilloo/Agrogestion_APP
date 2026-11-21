@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { findCurrentPaddockByGps } from '../utils/geoUtils';
 import type { ConfianzaPeso } from '../utils/ganancia';
 import './InteractiveFarmMap.css';
@@ -369,12 +370,7 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
   }, [mapNotice, toastPaused]);
 
   // Detectar si estamos en pantalla móvil (< 640px)
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
-  useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const isMobile = useIsMobile(639);
 
   // Inicialización del Mapa de Leaflet (controles zoom custom en React para alcance táctil)
   useEffect(() => {

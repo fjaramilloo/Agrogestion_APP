@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import './InteractiveFarmMap.css';
 
 export interface FarmSummaryData {
@@ -23,14 +24,7 @@ export const MultiFarmMap: React.FC<MultiFarmMapProps> = ({ fincas, onSelectFinc
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const zoomControlRef = useRef<L.Control.Zoom | null>(null);
-  const [isCompactViewport, setIsCompactViewport] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1024px)');
-    const mqHandler = (e: MediaQueryListEvent) => setIsCompactViewport(e.matches);
-    mq.addEventListener('change', mqHandler);
-    return () => mq.removeEventListener('change', mqHandler);
-  }, []);
+  const isCompactViewport = useIsMobile(1024);
 
   useEffect(() => {
     if (zoomControlRef.current) {

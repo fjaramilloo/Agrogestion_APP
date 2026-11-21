@@ -11,6 +11,7 @@ import {
   toDisplayValue,
   getUnidadLabel,
   getModoLabel,
+  getGmpColor as resolveGmpColor,
   calcularFallbackGmpPorEtapa,
   calcularPesoEstimadoHoy,
   normalizarPesajesDesc,
@@ -335,13 +336,8 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
   };
 
   const isTotal = (row: any) => row['Rotación'] === 'TOTAL';
-  const getGmpColor = (val: number | null | undefined) => {
-    if (val === null || val === undefined) return 'var(--text-muted, rgba(255,255,255,0.4))';
-    if (val < 0) return 'var(--error, #EF5350)';
-    if (val <= umbralMedioGmp) return 'var(--warning, #FFA726)';
-    if (val <= umbralAltoGmp) return 'var(--text-light, #FFFFFF)';
-    return 'var(--success, #4CAF50)';
-  };
+  const getGmpColor = (val: number | null | undefined) =>
+    resolveGmpColor(val, umbralMedioGmp, umbralAltoGmp);
 
   return (
     <div className="modal-overlay">

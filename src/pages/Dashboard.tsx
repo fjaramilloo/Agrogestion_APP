@@ -6,13 +6,16 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend, BarChart, Bar, ReferenceLine
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, AlertOctagon, SlidersHorizontal, ArrowLeftRight, Leaf, CloudRain, Users, ListChecks, ChevronRight } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, SlidersHorizontal, ArrowLeftRight, Leaf, CloudRain, Users, ListChecks, ChevronRight } from 'lucide-react';
+import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
+import { getLicenseBlockState } from '../utils/licenseUtils';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
     toDisplayValue,
     getUnidadLabel,
     getModoLabel,
+    getGmpColor,
     calcularGmpAcumulado,
     calcularFallbackGmpPorEtapa,
     calcularPesoEstimadoHoy,
@@ -21,22 +24,11 @@ import {
 } from '../utils/ganancia';
 import { consolidarLluviasPorFecha } from '../utils/rainfallUtils';
 import { useNavigate, Link } from 'react-router-dom';
+import { useIsMobile } from '../hooks/useIsMobile';
 import './Dashboard.css';
 // El reporte trae xlsx + jsPDF (pesados): se descarga solo cuando el usuario lo abre
 const ReporteInventarioExcel = lazy(() => import('../components/ReporteInventarioExcel'));
 import ModalUpsell from '../components/ModalUpsell';
-
-// Hook para detectar pantalla móvil (<= 768px)
-function useIsMobile() {
-    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)');
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener('change', handler);
-        return () => mq.removeEventListener('change', handler);
-    }, []);
-    return isMobile;
-}
 
 interface DashboardStats {
     totalAnimales: number;
@@ -80,9 +72,7 @@ interface LluviaItem {
 export default function Dashboard() {
     const { fincaId, modoGanancia, licenciaInfo, role, isSuperAdmin } = useAuth();
     const isObserverOnly = role === 'observador' && !isSuperAdmin;
-    const isVencida = Boolean(licenciaInfo?.isVencida);
-    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
-    const isBloqueado = isVencida || isSobrecupo;
+    const { isBloqueado } = getLicenseBlockState(licenciaInfo);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const navigate = useNavigate();
     const isMobile = useIsMobile();
@@ -819,53 +809,12 @@ export default function Dashboard() {
                 </ul>
             </nav>
 
-            {isBloqueado && (
-                <div style={{
-                    background: 'var(--error-soft-bg)',
-                    border: '1px solid var(--error-soft-border)',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    marginBottom: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '16px',
-                    flexWrap: 'wrap'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                            {isVencida ? (
-                                <>
-                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción a AgroGestión ha vencido. Tus métricas, reportes históricos e inventario están protegidos y visibles, pero la exportación de informes a Excel y el registro de nuevas operaciones se encuentran bloqueados hasta renovar el plan.
-                                </>
-                            ) : (
-                                <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). La exportación de datos y la gestión operativa se encuentran bloqueadas hasta actualizar tu plan.
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setShowUpsellModal(true)}
-                        style={{
-                            width: 'auto',
-                            padding: '8px 16px',
-                            fontSize: '0.85rem',
-                            backgroundColor: 'var(--error)',
-                            color: 'var(--on-primary)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap'
-                        }}
-                    >
-                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
-                    </button>
-                </div>
-            )}
+            <LicenseBlockedBanner
+                licenciaInfo={licenciaInfo}
+                onUpgradeClick={() => setShowUpsellModal(true)}
+                expiredDetail="Tus métricas, reportes históricos e inventario están protegidos y visibles, pero la exportación de informes a Excel y el registro de nuevas operaciones se encuentran bloqueados hasta renovar el plan."
+                overLimitDetail="La exportación de datos y la gestión operativa se encuentran bloqueadas hasta actualizar tu plan."
+            />
 
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--primary)' }}>Cargando métricas...</div>
@@ -935,7 +884,7 @@ export default function Dashboard() {
                                         fontWeight: 'bold', 
                                         fontSize: '1.25rem', 
                                         whiteSpace: 'nowrap',
-                                        color: stats.gmpLevante < 0 ? 'var(--error)' : (stats.gmpLevante <= umbralMedio ? 'var(--warning)' : (stats.gmpLevante <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))
+                                        color: getGmpColor(stats.gmpLevante, umbralMedio, umbralAlto)
                                     }}>{toDisplayValue(stats.gmpLevante, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>{getUnidadLabel(modoGanancia)}</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (
@@ -963,7 +912,7 @@ export default function Dashboard() {
                                         fontWeight: 'bold', 
                                         fontSize: '1.25rem', 
                                         whiteSpace: 'nowrap',
-                                        color: stats.gmpCeba < 0 ? 'var(--error)' : (stats.gmpCeba <= umbralMedio ? 'var(--warning)' : (stats.gmpCeba <= umbralAlto ? 'var(--text-light)' : 'var(--success)'))
+                                        color: getGmpColor(stats.gmpCeba, umbralMedio, umbralAlto)
                                     }}>{toDisplayValue(stats.gmpCeba, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>{getUnidadLabel(modoGanancia)}</span></span>
                                 </div>
                                 {stats.metaMinima && stats.metaMinima > 0 && (

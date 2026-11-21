@@ -4,9 +4,12 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
-import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2, AlertOctagon, Pencil, Check, MapPin } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2, Pencil, Check, MapPin } from 'lucide-react';
 import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
 import ModalUpsell from '../components/ModalUpsell';
+import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
+import { getLicenseBlockState } from '../utils/licenseUtils';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
@@ -14,6 +17,7 @@ import {
     toDisplayValue,
     getUnidadLabel,
     getModoLabel,
+    getGmpColor,
     calcularGmpUltimoPeriodo,
     calcularGmpAcumulado,
     esPesajePosteriorAIngreso,
@@ -60,9 +64,7 @@ export default function Inventory() {
     const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
     const { confirmAction, showAlert, toast } = useFeedback();
     const isAdmin = role === 'administrador' || isSuperAdmin;
-    const isVencida = Boolean(licenciaInfo?.isVencida);
-    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
-    const isBloqueado = isVencida || isSobrecupo;
+    const { isBloqueado } = getLicenseBlockState(licenciaInfo);
     const location = useLocation();
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [animales, setAnimales] = useState<Animal[]>([]);
@@ -81,14 +83,7 @@ export default function Inventory() {
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [umbralAltoGmp, setUmbralAltoGmp] = useState(20);
     const [umbralMedioGmp, setUmbralMedioGmp] = useState(10);
-    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
-
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)');
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener('change', handler);
-        return () => mq.removeEventListener('change', handler);
-    }, []);
+    const isMobile = useIsMobile();
 
     // Efecto para capturar filtros desde notificaciones
     useEffect(() => {
@@ -898,53 +893,12 @@ export default function Inventory() {
                 )}
             </div>
 
-            {isBloqueado && (
-                <div style={{
-                    background: 'var(--error-soft-bg)',
-                    border: '1px solid var(--error-soft-border)',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    marginBottom: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '16px',
-                    flexWrap: 'wrap'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', lineHeight: 1.4 }}>
-                            {isVencida ? (
-                                <>
-                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Toda tu información histórica está visible e intacta. Para habilitar nuevos pesajes y operaciones, renueva tu suscripción.
-                                </>
-                            ) : (
-                                <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> en su hato (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Toda tu información histórica está visible e intacta. Para habilitar nuevos pesajes y compras, actualiza al Plan Finca.
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setShowUpsellModal(true)}
-                        style={{
-                            width: 'auto',
-                            padding: '8px 16px',
-                            fontSize: '0.85rem',
-                            backgroundColor: 'var(--error)',
-                            color: 'var(--on-primary)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap'
-                        }}
-                    >
-                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
-                    </button>
-                </div>
-            )}
+            <LicenseBlockedBanner
+                licenciaInfo={licenciaInfo}
+                onUpgradeClick={() => setShowUpsellModal(true)}
+                expiredDetail="Toda tu información histórica está visible e intacta. Para habilitar nuevos pesajes y operaciones, renueva tu suscripción."
+                overLimitDetail="Toda tu información histórica está visible e intacta. Para habilitar nuevos pesajes y compras, actualiza tu plan."
+            />
             
             <div className="inventory-kpi-grid">
                 <div className="card inventory-kpi-card" style={{ background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)' }}>
@@ -1607,11 +1561,11 @@ export default function Inventory() {
                                 </div>
                                 <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Última {getModoLabel(modoGanancia)}</div>
-                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: gmpUltimoModal === null ? 'var(--text-muted)' : (gmpUltimoModal < 0 ? 'var(--error)' : (gmpUltimoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpUltimoModal <= umbralAltoGmp ? 'var(--text-main)' : 'var(--success)'))) }}>
+                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: getGmpColor(gmpUltimoModal, umbralMedioGmp, umbralAltoGmp) }}>
                                         {gmpUltimoModal !== null ? `${toDisplayValue(gmpUltimoModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'Sin pesajes'}
                                     </div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                        Histórica: <strong style={{ color: gmpHistoricoModal === null ? 'var(--text-muted)' : (gmpHistoricoModal < 0 ? 'var(--error)' : (gmpHistoricoModal <= umbralMedioGmp ? 'var(--warning)' : (gmpHistoricoModal <= umbralAltoGmp ? 'var(--text-main)' : 'var(--success)'))) }}>
+                                        Histórica: <strong style={{ color: getGmpColor(gmpHistoricoModal, umbralMedioGmp, umbralAltoGmp) }}>
                                             {gmpHistoricoModal !== null ? `${toDisplayValue(gmpHistoricoModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'N/A'}
                                         </strong>
                                     </div>
@@ -1736,7 +1690,7 @@ export default function Inventory() {
                                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
                                                         ) : (
                                                             <div style={{
-                                                                color: item.gmp < 0 ? 'var(--error)' : (item.gmp <= umbralMedioGmp ? 'var(--warning)' : (item.gmp <= umbralAltoGmp ? 'var(--text-main)' : 'var(--success)')),
+                                                                color: getGmpColor(item.gmp, umbralMedioGmp, umbralAltoGmp),
                                                                 fontWeight: 'bold'
                                                             }}>
                                                                 {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}

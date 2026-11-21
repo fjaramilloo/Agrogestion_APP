@@ -145,47 +145,6 @@
   box-shadow: none;
 }
 
-.trade-upsell-banner {
-  background: var(--error-soft-bg);
-  border: 1px solid var(--error-soft-border);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.trade-upsell-text {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1 1 280px;
-  min-width: 0;
-}
-
-.trade-upsell-btn {
-  width: auto;
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  background-color: var(--error);
-  color: var(--on-primary);
-  border: none;
-  border-radius: 8px;
-  font-weight: 700;
-  text-transform: none;
-  letter-spacing: normal;
-  white-space: nowrap;
-}
-
-.trade-upsell-btn:hover:not(:disabled) {
-  filter: brightness(0.92);
-  transform: none;
-  box-shadow: none;
-}
-
 .trade-feedback {
   padding: 16px;
   border-radius: 8px;
@@ -694,21 +653,6 @@
 
   .trade-quick-btn {
     padding: 8px 14px;
-  }
-
-  .trade-upsell-banner {
-    padding: 14px;
-    margin-bottom: 16px;
-    gap: 12px;
-  }
-
-  .trade-upsell-text {
-    flex: 1 1 100%;
-  }
-
-  .trade-upsell-btn {
-    width: 100%;
-    min-height: 44px;
   }
 
   .trade-feedback {

@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
-import { Printer, X } from 'lucide-react';
+import { ReportPrintShell } from './ReportPrintShell';
+import { splitIntoColumns } from '../utils/exportPdf';
 
 interface AnimalReport {
     numero_chapeta: string;
@@ -52,69 +53,14 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
     const perdidaKilos = pesoCompraTotal ? (pesoCompraTotal - totalKilos) : 0;
     const porcentajePerdida = (pesoCompraTotal && pesoCompraTotal > 0) ? (perdidaKilos / pesoCompraTotal * 100) : 0;
 
-    const handlePrint = () => {
-        window.print();
-    };
+    const sortedAnimales = [...animales].sort((a, b) =>
+        a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true, sensitivity: 'base' })
+    );
+    const { itemsPerCol, columnData } = splitIntoColumns(sortedAnimales, 3);
 
     return (
-        <div className="report-modal-overlay">
-            <style>
-                {`
-                @media print {
-                    @page { 
-                        size: letter; 
-                        margin: 0.5cm; 
-                    }
-                    html, body {
-                        overflow: visible !important;
-                        height: auto !important;
-                    }
-                    body * { visibility: hidden; }
-                    .report-modal-overlay, .report-modal-overlay * { 
-                        visibility: visible; 
-                    }
-                    .report-modal-overlay { 
-                        position: absolute !important;
-                        top: 0 !important;
-                        left: 0 !important;
-                        background: none !important; 
-                        padding: 0 !important; 
-                        display: block !important;
-                        overflow: visible !important;
-                    }
-                    .report-container { 
-                        position: static !important;
-                        width: 100% !important; 
-                        padding: 0 !important;
-                        margin: 0 !important;
-                        background: white !important;
-                        color: black !important;
-                        box-shadow: none !important;
-                        max-width: 100% !important;
-                    }
-                    .no-print { display: none !important; }
-                }
-                .report-modal-overlay {
-                    position: fixed;
-                    top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0,0,0,0.85);
-                    z-index: 2000;
-                    display: flex;
-                    justify-content: center;
-                    padding: 40px 20px;
-                    overflow-y: auto;
-                }
-                .report-container {
-                    background: white;
-                    color: #333;
-                    width: 100%;
-                    max-width: 900px;
-                    padding: 25px;
-                    border-radius: 8px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
-                    height: fit-content;
-                    font-family: 'Inter', sans-serif;
-                }
+        <ReportPrintShell variant="compact" pageMargin="0.5cm" printLabel="Imprimir (Carta)" onClose={onClose}>
+            <style>{`
                 .report-header {
                     text-align: center;
                     margin-bottom: 15px;
@@ -133,6 +79,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     display: flex;
                     justify-content: center;
                     gap: 15px;
+                    flex-wrap: wrap;
                 }
                 .summary-grid {
                     display: grid;
@@ -159,46 +106,6 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                 }
                 .summary-value { font-size: 14px; font-weight: 800; color: #2e7d32; }
                 .loss-value { color: #e53935; font-size: 14px; font-weight: 800; }
-
-                .btn-print {
-                    padding: 9px 18px;
-                    background: #2e7d32;
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    font-weight: bold;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    transition: all 0.2s;
-                }
-
-                .btn-print:hover {
-                    background: #1b5e20;
-                    transform: translateY(-1px);
-                    box-shadow: 0 4px 10px rgba(46, 125, 50, 0.2);
-                }
-
-                .btn-close {
-                    padding: 9px;
-                    background: #e0e0e0;
-                    border: none;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    color: #555;
-                    transition: all 0.2s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-
-                .btn-close:hover {
-                    background: #d0d0d0;
-                    color: #000;
-                    transform: translateY(-1px);
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-                }
 
                 /* Grilla de 3 columnas para animales */
                 .animals-multi-column-grid {
@@ -249,127 +156,101 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                         overflow-x: auto;
                         white-space: nowrap;
                     }
-                    .report-container {
-                        padding: 15px;
-                    }
                 }
-                `}
-            </style>
+            `}</style>
 
-            <div className="report-container">
-                <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '15px' }}>
-                    <button onClick={handlePrint} className="btn-print">
-                        <Printer size={16} /> Imprimir (Carta)
-                    </button>
-                    <button onClick={onClose} className="btn-close">
-                        <X size={20} />
-                    </button>
+            <div className="report-header">
+                <div className="report-title">Ingreso Ganado - {fincaNombre}</div>
+                <div className="report-subtitle">
+                    <span><strong>Fecha Informe:</strong> {format(new Date(), 'dd/MM/yyyy')}</span>
+                    <span><strong>Fecha Ingreso Lote:</strong> {format(new Date(fechaIngreso + 'T12:00:00'), 'dd/MM/yyyy')}</span>
                 </div>
+            </div>
 
-                <div className="report-header">
-                    <div className="report-title">Ingreso Ganado - {fincaNombre}</div>
-                    <div className="report-subtitle">
-                        <span><strong>Fecha Informe:</strong> {format(new Date(), 'dd/MM/yyyy')}</span>
-                        <span><strong>Fecha Ingreso Lote:</strong> {format(new Date(fechaIngreso + 'T12:00:00'), 'dd/MM/yyyy')}</span>
-                    </div>
+            <div className="summary-grid">
+                <div className="summary-item">
+                    <span className="summary-label">Animales</span>
+                    <div className="summary-value">{totalAnimales}</div>
                 </div>
-
-                <div className="summary-grid">
-                    <div className="summary-item">
-                        <span className="summary-label">Animales</span>
-                        <div className="summary-value">{totalAnimales}</div>
-                    </div>
-                    <div className="summary-item">
-                        <span className="summary-label">Peso Total</span>
-                        <div className="summary-value">{totalKilos.toLocaleString()} kg</div>
-                    </div>
-                    <div className="summary-item">
-                        <span className="summary-label">Promedio</span>
-                        <div className="summary-value">{promedioPeso.toFixed(1)} kg</div>
-                    </div>
-                    {pesoCompraTotal && (
-                        <>
-                            <div className="summary-item highlight">
-                                <span className="summary-label">Peso Compra</span>
-                                <div className="summary-value">{pesoCompraTotal.toLocaleString()} kg</div>
-                            </div>
-                            <div className="summary-item loss">
-                                <span className="summary-label">% Pérdida</span>
-                                <div className="loss-value">{porcentajePerdida.toFixed(1)}%</div>
-                            </div>
-                        </>
-                    )}
+                <div className="summary-item">
+                    <span className="summary-label">Peso Total</span>
+                    <div className="summary-value">{totalKilos.toLocaleString()} kg</div>
                 </div>
-
-                <div className="table-title">Detalle de Ingresos</div>
-                <div className="animals-multi-column-grid">
-                    {(() => {
-                        const sortedAnimales = [...animales].sort((a, b) =>
-                            a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true, sensitivity: 'base' })
-                        );
-                        return [0, 1, 2].map(colIdx => {
-                            // Dividir el array en 3 partes
-                            const itemsPerCol = Math.ceil(sortedAnimales.length / 3);
-                            const colItems = sortedAnimales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
-                            
-                            return (
-                                <table key={colIdx} className="column-table">
-                                    <thead>
-                                        <tr>
-                                            <th style={{ width: '20px' }}>#</th>
-                                            <th>Chapeta</th>
-                                            <th style={{ textAlign: 'right' }}>Peso</th>
-                                            <th>Prop.</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {colItems.map((a, i) => (
-                                            <tr key={i}>
-                                                <td style={{ color: '#888', fontSize: '8px' }}>{colIdx * itemsPerCol + i + 1}</td>
-                                                <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
-                                                <td style={{ fontWeight: '700', textAlign: 'right' }}>{a.peso_ingreso}</td>
-                                                <td style={{ color: '#666', fontSize: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>{a.propietario}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            );
-                        });
-                    })()}
+                <div className="summary-item">
+                    <span className="summary-label">Promedio</span>
+                    <div className="summary-value">{promedioPeso.toFixed(1)} kg</div>
                 </div>
+                {pesoCompraTotal && (
+                    <>
+                        <div className="summary-item highlight">
+                            <span className="summary-label">Peso Compra</span>
+                            <div className="summary-value">{pesoCompraTotal.toLocaleString()} kg</div>
+                        </div>
+                        <div className="summary-item loss">
+                            <span className="summary-label">% Pérdida</span>
+                            <div className="loss-value">{porcentajePerdida.toFixed(1)}%</div>
+                        </div>
+                    </>
+                )}
+            </div>
 
-                <div className="table-title" style={{ marginTop: '20px' }}>Resumen por Marca</div>
-                <div className="resumen-marca-container" style={{ display: 'flex', gap: '20px' }}>
-                    <table className="column-table resumen-marca-table" style={{ width: '70%' }}>
+            <div className="table-title">Detalle de Ingresos</div>
+            <div className="animals-multi-column-grid">
+                {columnData.map((colItems, colIdx) => (
+                    <table key={colIdx} className="column-table">
                         <thead>
                             <tr>
-                                <th style={{ textAlign: 'left' }}>Propietario</th>
-                                <th style={{ textAlign: 'center' }}>Cant.</th>
-                                <th style={{ textAlign: 'center' }}>Kg Recibo</th>
-                                <th style={{ textAlign: 'center', background: '#fff8e1' }}>Kg Compra</th>
-                                <th style={{ textAlign: 'right' }}>Prom. kg</th>
+                                <th style={{ width: '20px' }}>#</th>
+                                <th>Chapeta</th>
+                                <th style={{ textAlign: 'right' }}>Peso</th>
+                                <th>Prop.</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {resumenMarcas.map((r, i) => (
+                            {colItems.map((a, i) => (
                                 <tr key={i}>
-                                    <td style={{ textAlign: 'left', fontWeight: '600' }}>{r.marca}</td>
-                                    <td style={{ textAlign: 'center' }}>{r.count}</td>
-                                    <td style={{ textAlign: 'center' }}>{r.kilos.toLocaleString()}</td>
-                                    <td style={{ textAlign: 'center', fontWeight: '800', borderLeft: '2px solid #ffe082', background: '#fffef9' }}>
-                                        {r.kilosCompra.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                                    </td>
-                                    <td style={{ fontWeight: '700', textAlign: 'right' }}>{Math.round(r.promedio)}</td>
+                                    <td style={{ color: '#888', fontSize: '8px' }}>{colIdx * itemsPerCol + i + 1}</td>
+                                    <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
+                                    <td style={{ fontWeight: '700', textAlign: 'right' }}>{a.peso_ingreso}</td>
+                                    <td style={{ color: '#666', fontSize: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>{a.propietario}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    <div style={{ flex: 1, fontSize: '9px', color: '#888', borderLeft: '1px solid #eee', paddingLeft: '15px' }}>
-                        <p><strong>Nota:</strong> Los "Kg Compra" son proporcionales al peso total de báscula de compra vs báscula de recepción.</p>
-                        <p style={{ marginTop: '5px' }}>Generado por Agrogestión v3.0</p>
-                    </div>
+                ))}
+            </div>
+
+            <div className="table-title" style={{ marginTop: '20px' }}>Resumen por Marca</div>
+            <div className="resumen-marca-container" style={{ display: 'flex', gap: '20px' }}>
+                <table className="column-table resumen-marca-table" style={{ width: '70%' }}>
+                    <thead>
+                        <tr>
+                            <th style={{ textAlign: 'left' }}>Propietario</th>
+                            <th style={{ textAlign: 'center' }}>Cant.</th>
+                            <th style={{ textAlign: 'center' }}>Kg Recibo</th>
+                            <th style={{ textAlign: 'center', background: '#fff8e1' }}>Kg Compra</th>
+                            <th style={{ textAlign: 'right' }}>Prom. kg</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {resumenMarcas.map((r, i) => (
+                            <tr key={i}>
+                                <td style={{ textAlign: 'left', fontWeight: '600' }}>{r.marca}</td>
+                                <td style={{ textAlign: 'center' }}>{r.count}</td>
+                                <td style={{ textAlign: 'center' }}>{r.kilos.toLocaleString()}</td>
+                                <td style={{ textAlign: 'center', fontWeight: '800', borderLeft: '2px solid #ffe082', background: '#fffef9' }}>
+                                    {r.kilosCompra.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                                </td>
+                                <td style={{ fontWeight: '700', textAlign: 'right' }}>{Math.round(r.promedio)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                <div style={{ flex: 1, fontSize: '9px', color: '#888', borderLeft: '1px solid #eee', paddingLeft: '15px' }}>
+                    <p><strong>Nota:</strong> Los "Kg Compra" son proporcionales al peso total de báscula de compra vs báscula de recepción.</p>
+                    <p style={{ marginTop: '5px' }}>Generado por Agrogestión v3.0</p>
                 </div>
             </div>
-        </div>
+        </ReportPrintShell>
     );
 }

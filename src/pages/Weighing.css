@@ -36,40 +36,6 @@
   white-space: nowrap !important;
 }
 
-.weighing-upsell-banner {
-  background: var(--error-soft-bg);
-  border: 1px solid var(--error-soft-border);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.weighing-btn-upsell {
-  width: auto;
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  background-color: var(--error);
-  color: var(--on-primary);
-  border: none;
-  border-radius: 8px;
-  font-weight: 700;
-  text-transform: none;
-  letter-spacing: normal;
-  white-space: nowrap;
-}
-
-.weighing-btn-upsell:hover:not(:disabled) {
-  background-color: var(--error);
-  filter: brightness(0.92);
-  transform: none;
-  box-shadow: none;
-}
-
 .weighing-feedback-success {
   background-color: var(--success-soft-bg);
   border: 1px solid var(--success-soft-border);

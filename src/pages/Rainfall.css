@@ -818,111 +818,6 @@ dialog.rainfall-dialog::backdrop {
   min-height: 48px;
 }
 
-.rainfall-btn-danger {
-  flex: 1;
-  min-height: 48px;
-  background-color: var(--error);
-  color: #ffffff;
-  border: none;
-}
-
-/* Toast Notification + Inline Status */
-.rainfall-toast-region {
-  position: fixed;
-  z-index: 1200;
-  pointer-events: none;
-}
-
-.rainfall-toast {
-  display: none;
-  position: fixed;
-  inset: auto 20px 24px auto;
-  margin: 0;
-  max-width: min(440px, calc(100vw - 24px));
-  width: max-content;
-  padding: 12px 12px 12px 16px;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  box-shadow: var(--shadow-popover);
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  pointer-events: auto;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  transition-behavior: allow-discrete;
-}
-
-.rainfall-toast:popover-open {
-  display: flex;
-}
-
-.rainfall-toast--success {
-  background: var(--bg-card);
-  border: 1px solid var(--success);
-  color: var(--success);
-}
-
-.rainfall-toast--error {
-  background: var(--bg-card);
-  border: 1px solid var(--error);
-  color: var(--error);
-}
-
-.rainfall-toast-close {
-  width: auto;
-  min-inline-size: 44px;
-  min-block-size: 44px;
-  padding: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  border: 1px solid transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: none;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.rainfall-toast-close:hover:not(:disabled) {
-  background: var(--surface-subtle-hover);
-  transform: none;
-  box-shadow: none;
-}
-
-.rainfall-inline-status {
-  padding: 12px 14px;
-  border-radius: 10px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.rainfall-inline-status--success {
-  background: var(--success-soft-bg);
-  border: 1px solid var(--success-soft-border);
-  color: var(--success);
-}
-
-.rainfall-inline-status--error {
-  background: var(--error-soft-bg);
-  border: 1px solid var(--error-soft-border);
-  color: var(--error);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rainfall-toast {
-    transition: none;
-  }
-}
-
 /* Breakpoints */
 @media (max-width: 1024px) {
   .rainfall-kpi-grid {
@@ -942,13 +837,11 @@ dialog.rainfall-dialog::backdrop {
   .rainfall-mode-btn,
   .rainfall-pluv-edit-btn,
   .rainfall-pluv-cancel-btn,
-  .rainfall-dialog-close,
-  .rainfall-toast-close {
+  .rainfall-dialog-close {
     min-height: 48px;
   }
 
-  .rainfall-dialog-close,
-  .rainfall-toast-close {
+  .rainfall-dialog-close {
     min-width: 48px;
   }
 
@@ -991,12 +884,6 @@ dialog.rainfall-dialog::backdrop {
     border-radius: 20px 20px 0 0;
     max-height: 92dvh;
     padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .rainfall-toast {
-    inset: auto 12px calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 12px) 12px;
-    width: auto;
-    max-width: none;
   }
 }
 
@@ -1054,8 +941,7 @@ dialog.rainfall-dialog::backdrop {
   }
 
   .rainfall-btn-secondary,
-  .rainfall-btn-primary,
-  .rainfall-btn-danger {
+  .rainfall-btn-primary {
     width: 100%;
     flex: none;
     min-height: 50px;
@@ -1069,8 +955,7 @@ dialog.rainfall-dialog::backdrop {
   .rainfall-pluv-edit-btn,
   .rainfall-pluv-cancel-btn,
   .rainfall-icon-btn,
-  .rainfall-dialog-close,
-  .rainfall-toast-close {
+  .rainfall-dialog-close {
     min-height: 48px;
   }
 

@@ -3,19 +3,24 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import ModalUpsell from '../components/ModalUpsell';
-import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale, Activity, AlertTriangle, AlertOctagon } from 'lucide-react';
+import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
+import { getLicenseBlockState } from '../utils/licenseUtils';
+import { Users, Edit2, Calendar, Save, X, Plus, Trash2, Search, MapPin, TrendingUp, Info, Scale, Activity, AlertTriangle } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Download, Loader2 } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { captureElementCanvas } from '../utils/exportPdf';
 import {
     toDisplayValue,
     getUnidadLabel,
     getModoLabel,
+    getGmpColor as resolveGmpColor,
+    getGmpRgb,
     calcularGmpUltimoPeriodo,
     calcularGmpAcumulado,
     esPesajePosteriorAIngreso,
@@ -79,9 +84,7 @@ interface ChartData {
 export default function Potreradas() {
     const { fincaId, role, modoGanancia, licenciaInfo } = useAuth();
     const { confirmAction, showAlert, toast } = useFeedback();
-    const isVencida = Boolean(licenciaInfo?.isVencida);
-    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
-    const isBloqueado = isVencida || isSobrecupo;
+    const { isBloqueado } = getLicenseBlockState(licenciaInfo);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const location = useLocation();
     const [potreradas, setPotreradas] = useState<Potrerada[]>([]);
@@ -161,14 +164,7 @@ export default function Potreradas() {
     const [searchMoveAnimals, setSearchMoveAnimals] = useState('');
     const [moveDate, setMoveDate] = useState(getLocalIsoDate());
     const [manageTab, setManageTab] = useState<'en-lote' | 'agregar'>('en-lote');
-    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
-
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)');
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener('change', handler);
-        return () => mq.removeEventListener('change', handler);
-    }, []);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         if (managingPotrerada) {
@@ -1039,17 +1035,8 @@ export default function Potreradas() {
             const ultimoGmpLote = detailData.gmpPromedioGrupo;
             const historicoGmpLote = p.gmpAcumulado ?? detailData.gmpPromedioGrupo;
 
-            let lastGmpColor = [40, 40, 40];
-            if (ultimoGmpLote < 0) lastGmpColor = [244, 67, 54];
-            else if (ultimoGmpLote <= umbralMedio) lastGmpColor = [255, 152, 0];
-            else if (ultimoGmpLote <= umbralAlto) lastGmpColor = [0, 0, 0];
-            else lastGmpColor = [76, 175, 80];
-
-            let acumGmpColor = [40, 40, 40];
-            if (historicoGmpLote < 0) acumGmpColor = [244, 67, 54];
-            else if (historicoGmpLote <= umbralMedio) acumGmpColor = [255, 152, 0];
-            else if (historicoGmpLote <= umbralAlto) acumGmpColor = [0, 0, 0];
-            else acumGmpColor = [76, 175, 80];
+            const lastGmpColor = getGmpRgb(ultimoGmpLote, umbralMedio, umbralAlto);
+            const acumGmpColor = getGmpRgb(historicoGmpLote, umbralMedio, umbralAlto);
 
             // FILA 1
             let xPos = marginX;
@@ -1092,12 +1079,9 @@ export default function Potreradas() {
             // Añadir las gráficas si existen y se pueden capturar
             if (chartsRef.current && detailData.history.length > 1) {
                 const exportBg = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#1E1E1E';
-                const canvas = await html2canvas(chartsRef.current, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: exportBg
+                const { canvas, imgData } = await captureElementCanvas(chartsRef.current, {
+                    backgroundColor: exportBg,
                 });
-                const imgData = canvas.toDataURL('image/png');
                 
                 const imgWidth = 250;
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
@@ -1232,15 +1216,7 @@ export default function Potreradas() {
                         const val = parseFloat(data.cell.raw as string);
                         if (!isNaN(val)) {
                             data.cell.styles.fontStyle = 'bold';
-                            if (val < 0) {
-                                data.cell.styles.textColor = [244, 67, 54]; // Rojo (error)
-                            } else if (val <= umbralMedio) {
-                                data.cell.styles.textColor = [255, 152, 0]; // Naranja (warning)
-                            } else if (val <= umbralAlto) {
-                                data.cell.styles.textColor = [0, 0, 0]; // Negro (neutro)
-                            } else {
-                                data.cell.styles.textColor = [76, 175, 80]; // Verde (success)
-                            }
+                            data.cell.styles.textColor = getGmpRgb(val, umbralMedio, umbralAlto);
                         }
                     }
                     // Fila PROMEDIOS: fondo verde suave y texto verde
@@ -1467,53 +1443,12 @@ export default function Potreradas() {
                 )}
             </div>
 
-            {isBloqueado && (
-                <div style={{
-                    background: 'var(--error-soft-bg)',
-                    border: '1px solid var(--error-soft-border)',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    marginBottom: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '16px',
-                    flexWrap: 'wrap'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', lineHeight: 1.4 }}>
-                            {isVencida ? (
-                                <>
-                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción ha vencido. Puedes consultar los lotes, métricas e historial de pesajes, pero la creación de nuevos lotes, pesajes grupales y traslados se encuentran pausados hasta la renovación.
-                                </>
-                            ) : (
-                                <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar pesajes grupales y crear nuevos lotes, actualiza tu suscripción.
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setShowUpsellModal(true)}
-                        style={{
-                            width: 'auto',
-                            padding: '8px 16px',
-                            fontSize: '0.85rem',
-                            backgroundColor: 'var(--error)',
-                            color: 'var(--on-primary)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap'
-                        }}
-                    >
-                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
-                    </button>
-                </div>
-            )}
+            <LicenseBlockedBanner
+                licenciaInfo={licenciaInfo}
+                onUpgradeClick={() => setShowUpsellModal(true)}
+                expiredDetail="Puedes consultar los lotes, métricas e historial de pesajes, pero la creación de nuevos lotes, pesajes grupales y traslados se encuentran pausados hasta la renovación."
+                overLimitDetail="Para registrar pesajes grupales y crear nuevos lotes, actualiza tu suscripción."
+            />
 
             <search className="potreradas-search-wrap" role="search">
                 <Search size={18} aria-hidden="true" className="potreradas-search-icon" />
@@ -1661,7 +1596,7 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Últ:</span>
                                                 <span style={{
-                                                    color: p.gmpPromedio < 0 ? 'var(--error)' : (p.gmpPromedio <= umbralMedio ? 'var(--warning)' : (p.gmpPromedio <= umbralAlto ? 'var(--text-main)' : 'var(--success)')),
+                                                    color: resolveGmpColor(p.gmpPromedio, umbralMedio, umbralAlto),
                                                     fontWeight: 'bold'
                                                 }}>
                                                     {toDisplayValue(p.gmpPromedio, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
@@ -1670,7 +1605,7 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Acum:</span>
                                                 <span style={{
-                                                    color: p.gmpAcumulado === null ? 'var(--text-muted)' : (p.gmpAcumulado < 0 ? 'var(--error)' : (p.gmpAcumulado <= umbralMedio ? 'var(--warning)' : (p.gmpAcumulado <= umbralAlto ? 'var(--text-main)' : 'var(--success)'))),
+                                                    color: resolveGmpColor(p.gmpAcumulado, umbralMedio, umbralAlto),
                                                     fontWeight: '500'
                                                 }}>
                                                     {p.gmpAcumulado === null ? 'N/A' : toDisplayValue(p.gmpAcumulado, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
@@ -2020,7 +1955,7 @@ export default function Potreradas() {
                             const promActual = validActual.length > 0 ? totalActual / validActual.length : 0;
 
                             const getGmpColor = (val: number) =>
-                                val < 0 ? 'var(--error)' : val <= umbralMedio ? 'var(--warning)' : val <= umbralAlto ? 'var(--text-light)' : 'var(--success)';
+                                resolveGmpColor(val, umbralMedio, umbralAlto);
 
                             const getSortAria = (key: string): 'ascending' | 'descending' | undefined =>
                                 sortConfig?.key === key ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined;

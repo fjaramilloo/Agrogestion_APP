@@ -7,12 +7,12 @@ import {
 } from 'recharts';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { exportElementToPdf } from '../utils/exportPdf';
 import {
     toDisplayValue,
     getUnidadLabel,
     getModoLabel,
+    getGmpColor as resolveGmpColor,
     calcularGmpUltimoPeriodo,
     calcularGmpAcumulado,
     esPesajePosteriorAIngreso,
@@ -71,12 +71,7 @@ export default function PropietarioDashboardModal({
     const [isExporting, setIsExporting] = useState(false);
     const { showAlert } = useFeedback();
 
-    const getGmpColor = (gmpValue: number) => {
-        if (gmpValue < 0) return 'var(--error)';
-        if (gmpValue <= umbralMedio) return 'var(--warning)';
-        if (gmpValue <= umbralAlto) return 'var(--text-light)';
-        return 'var(--success)';
-    };
+    const getGmpColor = (gmpValue: number) => resolveGmpColor(gmpValue, umbralMedio, umbralAlto);
 
     const { 
         totalAnimales, 
@@ -239,47 +234,13 @@ export default function PropietarioDashboardModal({
         if (!printRef.current) return;
         setIsExporting(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 800)); // Esperar un poco más para que apliquen los estilos
-            
-            const canvas = await html2canvas(printRef.current, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: '#FFFFFF', // Fondo blanco para el PDF
+            await exportElementToPdf(printRef.current, {
+                filename: `Informe_${propietario.replace(/\s+/g, '_')}_${fincaNombre.replace(/\s+/g, '_')}.pdf`,
+                backgroundColor: '#FFFFFF',
+                delayMs: 800,
+                format: 'PNG',
+                multiPage: true,
             });
-
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-            
-            if (imgHeight <= pdfHeight) {
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-            } else {
-                // Multi-page: slice the canvas into pages
-                const pageHeightPx = (canvas.width * pdfHeight) / pdfWidth;
-                let yOffset = 0;
-                while (yOffset < canvas.height) {
-                    const pageCanvas = document.createElement('canvas');
-                    pageCanvas.width = canvas.width;
-                    pageCanvas.height = Math.min(pageHeightPx, canvas.height - yOffset);
-                    const ctx = pageCanvas.getContext('2d')!;
-                    ctx.drawImage(canvas, 0, yOffset, canvas.width, pageCanvas.height, 0, 0, canvas.width, pageCanvas.height);
-                    const pageImg = pageCanvas.toDataURL('image/png');
-                    const pageImgHeight = (pageCanvas.height * pdfWidth) / canvas.width;
-                    if (yOffset > 0) pdf.addPage();
-                    pdf.addImage(pageImg, 'PNG', 0, 0, pdfWidth, pageImgHeight);
-                    yOffset += pageHeightPx;
-                }
-            }
-            
-            pdf.save(`Informe_${propietario.replace(/\s+/g, '_')}_${fincaNombre.replace(/\s+/g, '_')}.pdf`);
-            
         } catch (error) {
             console.error("Error generando PDF", error);
             await showAlert('Hubo un error al generar el documento PDF.', {

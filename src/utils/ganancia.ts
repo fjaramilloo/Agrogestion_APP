@@ -4,6 +4,48 @@ import { getLocalIsoDate } from './dateUtils';
 // BD siempre almacena en kg/mes (GMP). Solo el display cambia según el modo.
 
 export type ModoGanancia = 'GMP' | 'GDP';
+export type GmpColorVariant = 'theme' | 'print';
+
+/**
+ * Retorna el color semáforo para valores de GMP (siempre comparando en kg/mes).
+ * - variant 'theme': tokens CSS globales del tema actual (dark/light)
+ * - variant 'print': colores hex de alto contraste sobre fondo blanco
+ */
+export function getGmpColor(
+    gmpKgMes: number | null | undefined,
+    umbralMedio = 10,
+    umbralAlto = 20,
+    variant: GmpColorVariant = 'theme'
+): string {
+    if (gmpKgMes === null || gmpKgMes === undefined || isNaN(gmpKgMes)) {
+        return variant === 'print' ? '#888888' : 'var(--text-muted)';
+    }
+    if (gmpKgMes < 0) {
+        return variant === 'print' ? '#d32f2f' : 'var(--error)';
+    }
+    if (gmpKgMes <= umbralMedio) {
+        return variant === 'print' ? '#f57c00' : 'var(--warning)';
+    }
+    if (gmpKgMes <= umbralAlto) {
+        return variant === 'print' ? '#000000' : 'var(--text-main)';
+    }
+    return variant === 'print' ? '#2e7d32' : 'var(--success)';
+}
+
+/**
+ * Retorna tupla RGB semáforo para reportes jsPDF.
+ */
+export function getGmpRgb(
+    gmpKgMes: number | null | undefined,
+    umbralMedio = 10,
+    umbralAlto = 20
+): [number, number, number] {
+    if (gmpKgMes === null || gmpKgMes === undefined || isNaN(gmpKgMes)) return [120, 120, 120];
+    if (gmpKgMes < 0) return [244, 67, 54];
+    if (gmpKgMes <= umbralMedio) return [255, 152, 0];
+    if (gmpKgMes <= umbralAlto) return [0, 0, 0];
+    return [76, 175, 80];
+}
 
 export function toDisplayValue(valorKgMes: number, modo: ModoGanancia): number {
     if (modo === 'GDP') return valorKgMes * (1000 / 30);
@@ -115,6 +157,34 @@ export function calcularGmpAcumulado(
 
     const gananciaKilos = pesoAct - pesoBase;
     return (gananciaKilos / diffDias) * 30;
+}
+
+/**
+ * Resuelve el último peso, fecha y GMP de último período a partir de registros de pesaje
+ * (o fallback si el animal no tiene registros posteriores al ingreso).
+ */
+export function resolverResumenUltimoPesaje(
+    pesajesRaw: PesajeProyeccionInput[] | null | undefined,
+    pesoBase: number,
+    fechaBase: string,
+    ultimoPesoFallback?: number,
+    fechaUltimoFallback?: string
+): { ultimoPeso: number; fechaUltimoPeso: string; gmp: number } {
+    const pesajes = normalizarPesajesDesc(pesajesRaw);
+    let ultimoPeso = ultimoPesoFallback ?? pesoBase;
+    let fechaUltimoPeso = fechaUltimoFallback ?? fechaBase;
+    let gmp = 0;
+
+    if (pesajes.length > 0) {
+        const ultimo = pesajes[0];
+        ultimoPeso = Number(ultimo.peso) || ultimoPeso;
+        fechaUltimoPeso = ultimo.fecha || fechaUltimoPeso;
+        gmp = calcularGmpUltimoPeriodo(ultimo, fechaBase, pesoBase, pesajes[1]) ?? 0;
+    } else if (ultimoPeso && fechaUltimoPeso && fechaBase && fechaUltimoPeso !== fechaBase) {
+        gmp = calcularGmpAcumulado(ultimoPeso, pesoBase, fechaBase, fechaUltimoPeso) ?? 0;
+    }
+
+    return { ultimoPeso, fechaUltimoPeso, gmp };
 }
 
 // ============================================================================

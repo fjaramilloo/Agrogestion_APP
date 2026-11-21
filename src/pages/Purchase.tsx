@@ -5,7 +5,9 @@ import { useConnection } from '../contexts/ConnectionContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import ModalUpsell from '../components/ModalUpsell';
-import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X, AlertOctagon } from 'lucide-react';
+import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
+import { getLicenseBlockState } from '../utils/licenseUtils';
+import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { getLocalIsoDate } from '../utils/dateUtils';
@@ -40,9 +42,7 @@ export default function Purchase() {
     const { modoCampo, toggleModoCampo, isOnline } = useConnection();
     const { confirmAction } = useFeedback();
     const isMobile = useIsMobile();
-    const isVencida = Boolean(licenciaInfo?.isVencida);
-    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion >= licenciaInfo.limiteAnimales));
-    const isBloqueado = isVencida || isSobrecupo;
+    const { isBloqueado } = getLicenseBlockState(licenciaInfo, true);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [cantidad, setCantidad] = useState('1');
     const [fechaIngreso, setFechaIngreso] = useState(getLocalIsoDate());
@@ -605,31 +605,14 @@ export default function Purchase() {
                 </div>
             </div>
 
-            {isBloqueado && (
-                <div className="trade-upsell-banner">
-                    <div className="trade-upsell-text">
-                        <AlertOctagon size={24} color="var(--error)" aria-hidden="true" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                            {isVencida ? (
-                                <>
-                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Para registrar nuevas compras e ingresar ganado al hato, renueva tu suscripción.
-                                </>
-                            ) : (
-                                <>
-                                    <strong>Capacidad del Plan Superada:</strong> Tu hato actual cuenta con <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (capacidad de tu plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar nuevas compras e ingresar ganado al hato, actualiza tu suscripción.
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setShowUpsellModal(true)}
-                        className="trade-upsell-btn"
-                    >
-                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
-                    </button>
-                </div>
-            )}
+            <LicenseBlockedBanner
+                licenciaInfo={licenciaInfo}
+                onUpgradeClick={() => setShowUpsellModal(true)}
+                blockAtLimit
+                overLimitTitle="Capacidad del Plan Superada:"
+                expiredDetail="Para registrar nuevas compras e ingresar ganado al hato, renueva tu suscripción."
+                overLimitDetail="Para registrar nuevas compras e ingresar ganado al hato, actualiza tu suscripción."
+            />
 
             {/* MODAL NATIVO COMPRA RÁPIDA (completamente volátil, no guarda en DB) */}
             <dialog

@@ -2,17 +2,18 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import ModalUpsell from '../components/ModalUpsell';
-import { ArrowLeftRight, Save, Search, ChevronDown, Check, AlertOctagon, X } from 'lucide-react';
+import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
+import { getLicenseBlockState } from '../utils/licenseUtils';
+import { ArrowLeftRight, Save, Search, ChevronDown, Check, X } from 'lucide-react';
 import { getLocalIsoDate } from '../utils/dateUtils';
 import './Movements.css';
 
 export default function Movements() {
     const { fincaId, role, licenciaInfo } = useAuth();
     const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
-    const isVencida = Boolean(licenciaInfo?.isVencida);
-    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
-    const isBloqueado = isVencida || isSobrecupo;
+    const { isVencida, isBloqueado } = getLicenseBlockState(licenciaInfo);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
 
     const [loading, setLoading] = useState(false);
@@ -34,18 +35,11 @@ export default function Movements() {
     const [rotacionMode, setRotacionMode] = useState<'misma' | 'cambiar' | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [showOptions, setShowOptions] = useState(false);
-    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+    const isMobile = useIsMobile();
 
     const dropdownRef = useRef<HTMLDivElement>(null);
     const rotacionesRef = useRef(rotaciones);
     rotacionesRef.current = rotaciones;
-
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)');
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener('change', handler);
-        return () => mq.removeEventListener('change', handler);
-    }, []);
 
     useEffect(() => {
         if (!showOptions) return;
@@ -333,53 +327,12 @@ export default function Movements() {
                 <ArrowLeftRight size={isMobile ? 26 : 32} aria-hidden="true" /> Rotación de Lotes
             </h1>
 
-            {isBloqueado && (
-                <div style={{
-                    background: 'var(--error-soft-bg)',
-                    border: '1px solid var(--error-soft-border)',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    marginBottom: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '16px',
-                    flexWrap: 'wrap'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                            {isVencida ? (
-                                <>
-                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Para registrar rotaciones y movimientos de potrero, renueva tu suscripción.
-                                </>
-                            ) : (
-                                <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu hato cuenta con <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite del plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar rotaciones de potrero, actualiza tu suscripción.
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setShowUpsellModal(true)}
-                        style={{
-                            width: 'auto',
-                            padding: '8px 16px',
-                            fontSize: '0.85rem',
-                            backgroundColor: 'var(--error)',
-                            color: 'var(--on-primary)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap'
-                        }}
-                    >
-                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
-                    </button>
-                </div>
-            )}
+            <LicenseBlockedBanner
+                licenciaInfo={licenciaInfo}
+                onUpgradeClick={() => setShowUpsellModal(true)}
+                expiredDetail="Para registrar rotaciones y movimientos de potrero, renueva tu suscripción."
+                overLimitDetail="Para registrar rotaciones de potrero, actualiza tu suscripción."
+            />
 
             {msjExito && (
                 <div role="status" aria-live="polite" className="movements-feedback movements-feedback--success">

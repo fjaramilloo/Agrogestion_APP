@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
+import { useModalDialog } from '../hooks/useModalDialog';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award, CloudRain, AlertTriangle, X, Eye, EyeOff } from 'lucide-react';
+import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award, CloudRain, X, Eye, EyeOff } from 'lucide-react';
 import PushNotificationsCard from '../components/PushNotificationsCard';
 import './Settings.css';
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
@@ -120,6 +122,7 @@ export default function Settings() {
     const navigate = useNavigate();
     const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, setModoGanancia, licenciaInfo, refreshLicencia } = useAuth();
     const { theme } = useTheme();
+    const { toast, showAlert, confirmAction } = useFeedback();
     const isLight = theme === 'light';
     const accentPurple = isLight ? '#7c3aed' : '#c084fc';
     const [umbral, setUmbral] = useState('0.434');
@@ -129,104 +132,20 @@ export default function Settings() {
     const [umbralAltoDisplay, setUmbralAltoDisplay] = useState('20');
     const [modoLocal, setModoLocal] = useState<ModoGanancia>(modoGanancia);
     const [loading, setLoading] = useState(false);
-    const [msjExito, setMsjExito] = useState('');
-    const [msjError, setMsjError] = useState('');
-    const [showExitoModal, setShowExitoModal] = useState(false);
-    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [inlineStatus, setInlineStatus] = useState<{ section: string; type: 'success' | 'error'; text: string } | null>(null);
+    const [exitoModalMessage, setExitoModalMessage] = useState<string | null>(null);
     const [showNewPwd, setShowNewPwd] = useState(false);
     const [showConfirmPwd, setShowConfirmPwd] = useState(false);
-    const [inlineFeedbackSection, setInlineFeedbackSection] = useState<string | null>(null);
-    const [toastPaused, setToastPaused] = useState(false);
 
-    interface ConfirmDialogState {
-        title: string;
-        message: string;
-        confirmLabel: string;
-        cancelLabel?: string;
-        variant?: 'danger' | 'primary';
-        resolve: (accepted: boolean) => void;
-    }
-    const [confirmModal, setConfirmModal] = useState<ConfirmDialogState | null>(null);
-
-    const exitoDialogRef = useRef<HTMLDialogElement>(null);
-    const errorDialogRef = useRef<HTMLDialogElement>(null);
-    const confirmDialogRef = useRef<HTMLDialogElement>(null);
-    const toastRef = useRef<HTMLDivElement>(null);
     const sectionPanelRef = useRef<HTMLDivElement>(null);
 
     const canManageFarm = role === 'administrador' || isSuperAdmin;
 
-    const askConfirmation = (opts: Omit<ConfirmDialogState, 'resolve'>): Promise<boolean> => {
-        return new Promise((resolve) => {
-            setConfirmModal({ ...opts, resolve });
-        });
+    const showSectionFeedback = (section: string, type: 'success' | 'error', text: string) => {
+        setInlineStatus({ section, type, text });
+        toast(text, type);
     };
 
-    const resolveConfirmation = (accepted: boolean) => {
-        const current = confirmModal;
-        setConfirmModal(null);
-        current?.resolve(accepted);
-    };
-
-    useEffect(() => {
-        const dlg = exitoDialogRef.current;
-        if (!dlg) return;
-        if (showExitoModal) {
-            if (!dlg.open) dlg.showModal();
-        } else if (dlg.open) {
-            dlg.close();
-        }
-    }, [showExitoModal]);
-
-    useEffect(() => {
-        const dlg = errorDialogRef.current;
-        if (!dlg) return;
-        if (showErrorModal) {
-            if (!dlg.open) dlg.showModal();
-        } else if (dlg.open) {
-            dlg.close();
-        }
-    }, [showErrorModal]);
-
-    useEffect(() => {
-        const dlg = confirmDialogRef.current;
-        if (!dlg) return;
-        if (confirmModal) {
-            if (!dlg.open) dlg.showModal();
-        } else if (dlg.open) {
-            dlg.close();
-        }
-    }, [confirmModal]);
-
-    const activeToastText = (!showExitoModal && !showErrorModal && !confirmModal) ? (msjError || msjExito) : '';
-    const activeToastType: 'success' | 'error' | null = activeToastText ? (msjError ? 'error' : 'success') : null;
-
-    useEffect(() => {
-        const el = toastRef.current as (HTMLDivElement & { showPopover?: () => void; hidePopover?: () => void }) | null;
-        if (!el || typeof el.showPopover !== 'function') return;
-        if (activeToastText) {
-            try {
-                if (!el.matches(':popover-open')) el.showPopover();
-            } catch {
-                // fallback CSS handled automatically
-            }
-        } else {
-            try {
-                if (el.matches(':popover-open')) el.hidePopover();
-            } catch {
-                // ignore
-            }
-        }
-    }, [activeToastText]);
-
-    useEffect(() => {
-        if (!activeToastText || toastPaused) return;
-        const timer = window.setTimeout(() => {
-            setMsjExito('');
-            setMsjError('');
-        }, 6000);
-        return () => window.clearTimeout(timer);
-    }, [activeToastText, toastPaused]);
     const [reporteCarga, setReporteCarga] = useState<{
         tipo: 'animales' | 'pesajes';
         creados: number;
@@ -234,6 +153,12 @@ export default function Settings() {
         omitidos: number;
         omitidosList: string[];
     } | null>(null);
+
+    const closeExitoModal = () => {
+        setExitoModalMessage(null);
+        setReporteCarga(null);
+    };
+    const exitoDialogProps = useModalDialog(Boolean(exitoModalMessage), closeExitoModal);
     const [importProgress, setImportProgress] = useState<{ current: number, total: number } | null>(null);
     const [cargasMasivasHoy, setCargasMasivasHoy] = useState<CargaMasivaItem[]>([]);
 
@@ -279,19 +204,18 @@ export default function Settings() {
     };
 
     const renderInlineStatus = (sectionKey: string) => {
-        if (inlineFeedbackSection !== sectionKey || showExitoModal || showErrorModal) return null;
-        if (!msjError && !msjExito) return null;
-        const isErr = Boolean(msjError);
+        if (!inlineStatus || inlineStatus.section !== sectionKey || exitoModalMessage) return null;
+        const isErr = inlineStatus.type === 'error';
         return (
             <div
                 role={isErr ? 'alert' : 'status'}
                 className={`settings-inline-status ${isErr ? 'settings-inline-status--error' : 'settings-inline-status--success'}`}
             >
-                <span>{isErr ? msjError : msjExito}</span>
+                <span>{inlineStatus.text}</span>
                 <button
                     type="button"
                     className="settings-toast-close"
-                    onClick={() => { setMsjError(''); setMsjExito(''); }}
+                    onClick={() => setInlineStatus(null)}
                     aria-label="Cerrar aviso"
                 >
                     <X size={16} aria-hidden="true" />
@@ -440,18 +364,19 @@ export default function Settings() {
 
     const handleRevertirCargaMasiva = async (carga: CargaMasivaItem) => {
         const tipoLabel = carga.tipo === 'animales' ? 'animales' : 'pesajes';
-        const confirmed = await askConfirmation({
-            title: '¿Revertir carga masiva?',
-            message: `Se revertirá la carga de ${tipoLabel} "${carga.nombre_archivo || 'archivo CSV'}" (${carga.total_registros} registros) y se eliminarán los datos cargados en esta importación.`,
-            confirmLabel: 'Sí, revertir carga',
-            cancelLabel: 'Cancelar',
-            variant: 'danger'
-        });
+        const confirmed = await confirmAction(
+            `Se revertirá la carga de ${tipoLabel} "${carga.nombre_archivo || 'archivo CSV'}" (${carga.total_registros} registros) y se eliminarán los datos cargados en esta importación.`,
+            {
+                title: '¿Revertir carga masiva?',
+                confirmLabel: 'Sí, revertir carga',
+                cancelLabel: 'Cancelar',
+                destructive: true,
+            }
+        );
         if (!confirmed) return;
 
         setLoading(true);
-        setMsjError('');
-        setMsjExito('');
+        setInlineStatus(null);
 
         try {
             if (carga.tipo === 'animales') {
@@ -490,8 +415,10 @@ export default function Settings() {
                     .eq('id', carga.id);
 
                 await refreshLicencia();
-                setMsjExito(`Carga de animales "${carga.nombre_archivo}" revertida con éxito.`);
-                setShowExitoModal(true);
+                await showAlert(
+                    `Carga de animales "${carga.nombre_archivo}" revertida con éxito.`,
+                    { title: '¡Importación Revertida!', variant: 'success', confirmLabel: 'Cerrar Reporte' }
+                );
             } else if (carga.tipo === 'pesajes') {
                 // 1. Obtener los pesajes para identificar qué animales se ven afectados
                 const { data: pesajesABorrar, error: errGetP } = await supabase
@@ -527,14 +454,19 @@ export default function Settings() {
                     }
                 }
 
-                setMsjExito(`Carga de pesajes "${carga.nombre_archivo}" revertida y ganancias recalculadas con éxito.`);
-                setShowExitoModal(true);
+                await showAlert(
+                    `Carga de pesajes "${carga.nombre_archivo}" revertida y ganancias recalculadas con éxito.`,
+                    { title: '¡Importación Revertida!', variant: 'success', confirmLabel: 'Cerrar Reporte' }
+                );
             }
 
             await fetchCargasMasivasHoy();
         } catch (err: any) {
-            setMsjError('Error al revertir la carga: ' + (err.message || err));
-            setShowErrorModal(true);
+            await showAlert('Error al revertir la carga: ' + (err.message || err), {
+                title: 'Error en la Carga',
+                variant: 'error',
+                confirmLabel: 'Cerrar',
+            });
         } finally {
             setLoading(false);
         }
@@ -608,25 +540,21 @@ export default function Settings() {
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault();
-        setInlineFeedbackSection('seguridad');
+        setInlineStatus(null);
         if (newPassword !== confirmPassword) {
-            setMsjExito('');
-            setMsjError('Las contraseñas no coinciden.');
+            showSectionFeedback('seguridad', 'error', 'Las contraseñas no coinciden.');
             return;
         }
         if (newPassword.length < 6) {
-            setMsjExito('');
-            setMsjError('La contraseña debe tener al menos 6 caracteres.');
+            showSectionFeedback('seguridad', 'error', 'La contraseña debe tener al menos 6 caracteres.');
             return;
         }
         setLoading(true);
-        setMsjError('');
-        setMsjExito('');
         const { error } = await supabase.auth.updateUser({ password: newPassword });
         if (error) {
-            setMsjError('Error al actualizar contraseña: ' + error.message);
+            showSectionFeedback('seguridad', 'error', 'Error al actualizar contraseña: ' + error.message);
         } else {
-            setMsjExito('Contraseña actualizada correctamente.');
+            showSectionFeedback('seguridad', 'success', 'Contraseña actualizada correctamente.');
             setNewPassword('');
             setConfirmPassword('');
         }
@@ -637,10 +565,8 @@ export default function Settings() {
         e.preventDefault();
         if (!fincaId) return;
 
-        setInlineFeedbackSection('datosTecnicos');
+        setInlineStatus(null);
         setLoading(true);
-        setMsjExito('');
-        setMsjError('');
 
         try {
             // 1. Guardar configuracion_kpi (umbrales y precios)
@@ -706,9 +632,9 @@ export default function Settings() {
 
             if (fincaError) throw new Error('Error finca: ' + fincaError.message);
 
-            setMsjExito('Información y parámetros actualizados exitosamente.');
+            showSectionFeedback('datosTecnicos', 'success', 'Información y parámetros actualizados exitosamente.');
         } catch (err: any) {
-            setMsjError('Error al guardar: ' + err.message);
+            showSectionFeedback('datosTecnicos', 'error', 'Error al guardar: ' + err.message);
         } finally {
             setLoading(false);
         }
@@ -790,9 +716,7 @@ export default function Settings() {
         e.preventDefault();
         if (!fincaId || !nuevoPropietario.trim()) return;
 
-        setInlineFeedbackSection('contactosNegocio');
-        setMsjExito('');
-        setMsjError('');
+        setInlineStatus(null);
         setLoading(true);
         try {
             const { error } = await supabase
@@ -803,36 +727,36 @@ export default function Settings() {
 
             setNuevoPropietario('');
             fetchPropietarios();
-            setMsjExito('Propietario agregado correctamente.');
+            showSectionFeedback('contactosNegocio', 'success', 'Propietario agregado correctamente.');
         } catch (err: any) {
-            setMsjError('Error al agregar propietario: ' + (err.code === '23505' ? 'Ya existe un propietario con ese nombre.' : err.message));
+            showSectionFeedback('contactosNegocio', 'error', 'Error al agregar propietario: ' + (err.code === '23505' ? 'Ya existe un propietario con ese nombre.' : err.message));
         } finally {
             setLoading(false);
         }
     };
 
     const removePropietario = async (id: string, nombre?: string) => {
-        const confirmed = await askConfirmation({
-            title: '¿Eliminar propietario?',
-            message: nombre
+        const confirmed = await confirmAction(
+            nombre
                 ? `Se eliminará "${nombre}" de la lista de propietarios de la finca.`
                 : '¿Está seguro de eliminar este propietario?',
-            confirmLabel: 'Eliminar',
-            cancelLabel: 'Cancelar',
-            variant: 'danger'
-        });
+            {
+                title: '¿Eliminar propietario?',
+                confirmLabel: 'Eliminar',
+                cancelLabel: 'Cancelar',
+                destructive: true,
+            }
+        );
         if (!confirmed) return;
-        setInlineFeedbackSection('contactosNegocio');
-        setMsjExito('');
-        setMsjError('');
+        setInlineStatus(null);
         setLoading(true);
         try {
             const { error } = await supabase.from('propietarios').delete().eq('id', id);
             if (error) throw error;
             fetchPropietarios();
-            setMsjExito('Propietario eliminado.');
+            showSectionFeedback('contactosNegocio', 'success', 'Propietario eliminado.');
         } catch (err: any) {
-            setMsjError('Error al eliminar: ' + err.message);
+            showSectionFeedback('contactosNegocio', 'error', 'Error al eliminar: ' + err.message);
         } finally {
             setLoading(false);
         }
@@ -842,9 +766,7 @@ export default function Settings() {
         e.preventDefault();
         if (!fincaId || !nuevoProveedor.trim()) return;
 
-        setInlineFeedbackSection('contactosNegocio');
-        setMsjExito('');
-        setMsjError('');
+        setInlineStatus(null);
         setLoading(true);
         try {
             const { error } = await supabase
@@ -855,36 +777,36 @@ export default function Settings() {
 
             setNuevoProveedor('');
             fetchProveedores();
-            setMsjExito('Proveedor agregado correctamente.');
+            showSectionFeedback('contactosNegocio', 'success', 'Proveedor agregado correctamente.');
         } catch (err: any) {
-            setMsjError('Error al agregar proveedor: ' + (err.code === '23505' ? 'Ya existe un proveedor con ese nombre.' : err.message));
+            showSectionFeedback('contactosNegocio', 'error', 'Error al agregar proveedor: ' + (err.code === '23505' ? 'Ya existe un proveedor con ese nombre.' : err.message));
         } finally {
             setLoading(false);
         }
     };
 
     const removeProveedor = async (id: string, nombre?: string) => {
-        const confirmed = await askConfirmation({
-            title: '¿Eliminar proveedor?',
-            message: nombre
+        const confirmed = await confirmAction(
+            nombre
                 ? `Se eliminará "${nombre}" de la lista de proveedores.`
                 : '¿Está seguro de eliminar este proveedor?',
-            confirmLabel: 'Eliminar',
-            cancelLabel: 'Cancelar',
-            variant: 'danger'
-        });
+            {
+                title: '¿Eliminar proveedor?',
+                confirmLabel: 'Eliminar',
+                cancelLabel: 'Cancelar',
+                destructive: true,
+            }
+        );
         if (!confirmed) return;
-        setInlineFeedbackSection('contactosNegocio');
-        setMsjExito('');
-        setMsjError('');
+        setInlineStatus(null);
         setLoading(true);
         try {
             const { error } = await supabase.from('proveedores').delete().eq('id', id);
             if (error) throw error;
             fetchProveedores();
-            setMsjExito('Proveedor eliminado.');
+            showSectionFeedback('contactosNegocio', 'success', 'Proveedor eliminado.');
         } catch (err: any) {
-            setMsjError('Error al eliminar: ' + err.message);
+            showSectionFeedback('contactosNegocio', 'error', 'Error al eliminar: ' + err.message);
         } finally {
             setLoading(false);
         }
@@ -894,9 +816,7 @@ export default function Settings() {
         e.preventDefault();
         if (!fincaId || !nuevoComprador.trim()) return;
 
-        setInlineFeedbackSection('contactosNegocio');
-        setMsjExito('');
-        setMsjError('');
+        setInlineStatus(null);
         setLoading(true);
         try {
             const { error } = await supabase
@@ -907,36 +827,36 @@ export default function Settings() {
 
             setNuevoComprador('');
             fetchCompradores();
-            setMsjExito('Comprador agregado correctamente.');
+            showSectionFeedback('contactosNegocio', 'success', 'Comprador agregado correctamente.');
         } catch (err: any) {
-            setMsjError('Error al agregar comprador: ' + (err.code === '23505' ? 'Ya existe un comprador con ese nombre.' : err.message));
+            showSectionFeedback('contactosNegocio', 'error', 'Error al agregar comprador: ' + (err.code === '23505' ? 'Ya existe un comprador con ese nombre.' : err.message));
         } finally {
             setLoading(false);
         }
     };
 
     const removeComprador = async (id: string, nombre?: string) => {
-        const confirmed = await askConfirmation({
-            title: '¿Eliminar comprador?',
-            message: nombre
+        const confirmed = await confirmAction(
+            nombre
                 ? `Se eliminará "${nombre}" de la lista de compradores.`
                 : '¿Está seguro de eliminar este comprador?',
-            confirmLabel: 'Eliminar',
-            cancelLabel: 'Cancelar',
-            variant: 'danger'
-        });
+            {
+                title: '¿Eliminar comprador?',
+                confirmLabel: 'Eliminar',
+                cancelLabel: 'Cancelar',
+                destructive: true,
+            }
+        );
         if (!confirmed) return;
-        setInlineFeedbackSection('contactosNegocio');
-        setMsjExito('');
-        setMsjError('');
+        setInlineStatus(null);
         setLoading(true);
         try {
             const { error } = await supabase.from('compradores').delete().eq('id', id);
             if (error) throw error;
             fetchCompradores();
-            setMsjExito('Comprador eliminado.');
+            showSectionFeedback('contactosNegocio', 'success', 'Comprador eliminado.');
         } catch (err: any) {
-            setMsjError('Error al eliminar: ' + err.message);
+            showSectionFeedback('contactosNegocio', 'error', 'Error al eliminar: ' + err.message);
         } finally {
             setLoading(false);
         }
@@ -945,10 +865,8 @@ export default function Settings() {
     const handleAddPluviometro = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!fincaId || !nuevoPluvNombre.trim()) return;
-        setInlineFeedbackSection('pluviometros');
+        setInlineStatus(null);
         setSavingPluv(true);
-        setMsjError('');
-        setMsjExito('');
         try {
             const nextOrden = pluviometros.length > 0
                 ? Math.max(...pluviometros.map(p => p.orden || 0)) + 1
@@ -966,19 +884,17 @@ export default function Settings() {
             setNuevoPluvNombre('');
             setNuevoPluvModo('diaria');
             await fetchPluviometros();
-            setMsjExito('Pluviómetro agregado correctamente.');
+            showSectionFeedback('pluviometros', 'success', 'Pluviómetro agregado correctamente.');
         } catch (err: any) {
-            setMsjError('Error al agregar pluviómetro: ' + (err.code === '23505' ? 'Ya existe un pluviómetro con ese nombre en la finca.' : err.message));
+            showSectionFeedback('pluviometros', 'error', 'Error al agregar pluviómetro: ' + (err.code === '23505' ? 'Ya existe un pluviómetro con ese nombre en la finca.' : err.message));
         } finally {
             setSavingPluv(false);
         }
     };
 
     const handleUpdatePluviometro = async (id: string, changes: Partial<Pick<PluviometroFinca, 'nombre' | 'tipo_medicion' | 'activo'>>) => {
-        setInlineFeedbackSection('pluviometros');
+        setInlineStatus(null);
         setSavingPluv(true);
-        setMsjError('');
-        setMsjExito('');
         try {
             const { error } = await supabase
                 .from('pluviometros_finca')
@@ -986,19 +902,17 @@ export default function Settings() {
                 .eq('id', id);
             if (error) throw error;
             await fetchPluviometros();
-            setMsjExito('Pluviómetro actualizado. Los registros históricos permanecen intactos.');
+            showSectionFeedback('pluviometros', 'success', 'Pluviómetro actualizado. Los registros históricos permanecen intactos.');
         } catch (err: any) {
-            setMsjError('Error al actualizar pluviómetro: ' + (err.code === '23505' ? 'Ya existe otro pluviómetro con ese nombre.' : err.message));
+            showSectionFeedback('pluviometros', 'error', 'Error al actualizar pluviómetro: ' + (err.code === '23505' ? 'Ya existe otro pluviómetro con ese nombre.' : err.message));
         } finally {
             setSavingPluv(false);
         }
     };
 
     const handleRemovePluviometro = async (pluv: PluviometroFinca) => {
-        setInlineFeedbackSection('pluviometros');
+        setInlineStatus(null);
         setSavingPluv(true);
-        setMsjError('');
-        setMsjExito('');
         try {
             const { count } = await supabase
                 .from('registros_lluvia')
@@ -1008,34 +922,37 @@ export default function Settings() {
             setSavingPluv(false);
 
             if ((count || 0) > 0) {
-                const desactivar = await askConfirmation({
-                    title: '¿Desactivar pluviómetro?',
-                    message: `"${pluv.nombre}" tiene ${count} registros históricos de lluvia. Desactivarlo evita perder ese historial y dejará de aparecer en nuevos registros.`,
-                    confirmLabel: 'Sí, desactivar',
-                    cancelLabel: 'Cancelar',
-                    variant: 'primary'
-                });
+                const desactivar = await confirmAction(
+                    `"${pluv.nombre}" tiene ${count} registros históricos de lluvia. Desactivarlo evita perder ese historial y dejará de aparecer en nuevos registros.`,
+                    {
+                        title: '¿Desactivar pluviómetro?',
+                        confirmLabel: 'Sí, desactivar',
+                        cancelLabel: 'Cancelar',
+                    }
+                );
                 if (desactivar) {
                     await handleUpdatePluviometro(pluv.id, { activo: false });
                 }
                 return;
             }
 
-            const confirmed = await askConfirmation({
-                title: '¿Eliminar pluviómetro?',
-                message: `Se eliminará "${pluv.nombre}" de la finca.`,
-                confirmLabel: 'Eliminar',
-                cancelLabel: 'Cancelar',
-                variant: 'danger'
-            });
+            const confirmed = await confirmAction(
+                `Se eliminará "${pluv.nombre}" de la finca.`,
+                {
+                    title: '¿Eliminar pluviómetro?',
+                    confirmLabel: 'Eliminar',
+                    cancelLabel: 'Cancelar',
+                    destructive: true,
+                }
+            );
             if (!confirmed) return;
             setSavingPluv(true);
             const { error } = await supabase.from('pluviometros_finca').delete().eq('id', pluv.id);
             if (error) throw error;
             await fetchPluviometros();
-            setMsjExito('Pluviómetro eliminado.');
+            showSectionFeedback('pluviometros', 'success', 'Pluviómetro eliminado.');
         } catch (err: any) {
-            setMsjError('Error al eliminar pluviómetro: ' + err.message);
+            showSectionFeedback('pluviometros', 'error', 'Error al eliminar pluviómetro: ' + err.message);
         } finally {
             setSavingPluv(false);
         }
@@ -1049,8 +966,7 @@ export default function Settings() {
         if (!file || !fincaId) return;
 
         setLoading(true);
-        setMsjExito('');
-        setMsjError('');
+        setInlineStatus(null);
 
         Papa.parse(file, {
             header: true,
@@ -1293,11 +1209,13 @@ export default function Settings() {
                         ? ` Además, se crearon ${potreradasNuevas.size} potrerada(s) nueva(s).`
                         : '';
                     
-                    setMsjExito(`¡Proceso completado!${msgPotreradas}`);
-                    setShowExitoModal(true);
+                    setExitoModalMessage(`¡Proceso completado!${msgPotreradas}`);
                 } catch (err: any) {
-                    setMsjError('Error en carga de animales: ' + err.message);
-                    setShowErrorModal(true);
+                    await showAlert('Error en carga de animales: ' + err.message, {
+                        title: 'Error en la Carga',
+                        variant: 'error',
+                        confirmLabel: 'Corregir Archivo',
+                    });
                 } finally {
                     setLoading(false);
                     setImportProgress(null);
@@ -1312,8 +1230,7 @@ export default function Settings() {
         if (!file || !fincaId) return;
 
         setLoading(true);
-        setMsjExito('');
-        setMsjError('');
+        setInlineStatus(null);
 
         Papa.parse(file, {
             header: true,
@@ -1604,15 +1521,20 @@ export default function Settings() {
                         omitidosList: omitidosNoExistentes // Mostramos los animales que faltan en el inventario
                     });
 
-                    setMsjExito(msg);
-                    setShowExitoModal(true);
                     if (errores.length > 0) {
-                        setMsjError(`Inconsistencias omitidas:\n${errores.join('\n')}`);
-                        setShowErrorModal(true);
+                        await showAlert(`Inconsistencias omitidas:\n${errores.join('\n')}`, {
+                            title: 'Inconsistencias omitidas',
+                            variant: 'warning',
+                            confirmLabel: 'Continuar',
+                        });
                     }
+                    setExitoModalMessage(msg);
                 } catch (err: any) {
-                    setMsjError(err.message || 'Error procesando el archivo CSV.');
-                    setShowErrorModal(true);
+                    await showAlert(err.message || 'Error procesando el archivo CSV.', {
+                        title: 'Error en la Carga',
+                        variant: 'error',
+                        confirmLabel: 'Corregir Archivo',
+                    });
                 } finally {
                     setLoading(false);
                     e.target.value = '';
@@ -1626,8 +1548,7 @@ export default function Settings() {
         if (!file || !fincaId) return;
 
         setLoading(true);
-        setMsjExito('');
-        setMsjError('');
+        setInlineStatus(null);
 
         Papa.parse(file, {
             header: true,
@@ -1721,11 +1642,16 @@ export default function Settings() {
                         if (potInsErr) throw potInsErr;
                     }
 
-                    setMsjExito(`¡Carga exitosa! Se crearon ${recordsPotreros.length} potreros nuevos y se actualizaron ${updatesPotrerosCnt} existentes.`);
-                    setShowExitoModal(true);
+                    await showAlert(
+                        `¡Carga exitosa! Se crearon ${recordsPotreros.length} potreros nuevos y se actualizaron ${updatesPotrerosCnt} existentes.`,
+                        { title: '¡Importación Finalizada!', variant: 'success', confirmLabel: 'Aceptar' }
+                    );
                 } catch (err: any) {
-                    setMsjError(err.message || 'Error procesando el archivo CSV.');
-                    setShowErrorModal(true);
+                    await showAlert(err.message || 'Error procesando el archivo CSV.', {
+                        title: 'Error en la Carga',
+                        variant: 'error',
+                        confirmLabel: 'Corregir Archivo',
+                    });
                 } finally {
                     setLoading(false);
                     if (e.target) e.target.value = '';
@@ -1743,8 +1669,6 @@ export default function Settings() {
         { id: 'suscripcion', label: 'Suscripción', icon: <Award size={28} />, desc: 'Plan y Licencia', isLink: true }
     ];
 
-
-    const supportsNativePopover = typeof HTMLElement !== 'undefined' && 'showPopover' in HTMLElement.prototype;
     const isSeguridadOpen = !canManageFarm || !collapsed.seguridad;
 
     return (
@@ -1754,40 +1678,11 @@ export default function Settings() {
                 <span>{canManageFarm ? 'Ajustes y Gestión de la Finca' : 'Mi Perfil y Seguridad'}</span>
             </h1>
 
-            {/* Región persistente de notificaciones toast (popover manual con respaldo inline) */}
-            <div role="region" aria-label="Notificaciones de configuración" className="settings-toast-region">
-                <div
-                    ref={toastRef}
-                    {...(supportsNativePopover ? ({ popover: 'manual' } as React.HTMLAttributes<HTMLDivElement>) : {})}
-                    role={activeToastType === 'error' ? 'alert' : 'status'}
-                    aria-live={activeToastType === 'error' ? 'assertive' : 'polite'}
-                    hidden={!activeToastText}
-                    onMouseEnter={() => setToastPaused(true)}
-                    onMouseLeave={() => setToastPaused(false)}
-                    onFocus={() => setToastPaused(true)}
-                    onBlur={() => setToastPaused(false)}
-                    className={`settings-toast ${activeToastText && !supportsNativePopover ? 'settings-toast--fallback' : ''} ${activeToastType === 'error' ? 'settings-toast--error' : 'settings-toast--success'}`}
-                >
-                    <span>{activeToastText}</span>
-                    {activeToastText && (
-                        <button
-                            type="button"
-                            className="settings-toast-close"
-                            onClick={() => { setMsjExito(''); setMsjError(''); }}
-                            aria-label="Cerrar notificación"
-                        >
-                            <X size={18} aria-hidden="true" />
-                        </button>
-                    )}
-                </div>
-            </div>
-
             {/* Modal nativo de Éxito para Cargas Masivas */}
             <dialog
-                ref={exitoDialogRef}
+                {...exitoDialogProps}
                 className="settings-dialog"
                 aria-labelledby="settings-exito-title"
-                onClose={() => { setShowExitoModal(false); setMsjExito(''); setReporteCarga(null); }}
             >
                 <div className="card settings-dialog-card" style={{ textAlign: 'center', border: '1px solid var(--primary)', padding: '24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
@@ -1797,7 +1692,7 @@ export default function Settings() {
                     </div>
                     <h2 id="settings-exito-title" style={{ marginBottom: '8px', color: 'var(--text-main)' }}>¡Importación Finalizada!</h2>
                     <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
-                        {msjExito}
+                        {exitoModalMessage}
                     </p>
 
                     {reporteCarga && (
@@ -1846,102 +1741,12 @@ export default function Settings() {
                     <button
                         type="button"
                         autoFocus
-                        onClick={() => { setShowExitoModal(false); setMsjExito(''); setReporteCarga(null); }}
+                        onClick={closeExitoModal}
                         style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', padding: '12px 24px', fontSize: '1rem', width: '100%' }}
                     >
                         Cerrar Reporte
                     </button>
                 </div>
-            </dialog>
-
-            {/* Modal nativo de Error para Cargas Masivas / Errores Críticos */}
-            <dialog
-                ref={errorDialogRef}
-                className="settings-dialog"
-                aria-labelledby="settings-error-title"
-                onClose={() => { setShowErrorModal(false); setMsjError(''); }}
-            >
-                <div className="card settings-dialog-card" style={{ textAlign: 'center', border: '1px solid var(--error)', padding: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-                        <div style={{ backgroundColor: 'var(--error-soft-bg)', padding: '16px', borderRadius: '50%' }}>
-                            <Upload size={44} color="var(--error)" aria-hidden="true" />
-                        </div>
-                    </div>
-                    <h2 id="settings-error-title" style={{ marginBottom: '14px', color: 'var(--text-main)' }}>Error en la Carga</h2>
-                    <div style={{ 
-                        backgroundColor: 'var(--error-soft-bg)', 
-                        padding: '16px', 
-                        borderRadius: '12px', 
-                        marginBottom: '20px',
-                        border: '1px solid var(--error-soft-border)',
-                        maxHeight: '220px',
-                        overflowY: 'auto'
-                    }}>
-                        <p style={{ color: 'var(--error)', fontSize: '0.98rem', lineHeight: '1.5', margin: 0, whiteSpace: 'pre-line' }}>
-                            {msjError}
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        autoFocus
-                        onClick={() => { setShowErrorModal(false); setMsjError(''); }}
-                        className="settings-btn-danger"
-                        style={{ padding: '12px 24px', fontSize: '1rem', width: '100%' }}
-                    >
-                        Corregir Archivo
-                    </button>
-                </div>
-            </dialog>
-
-            {/* Modal nativo de Confirmación PWA (reemplaza window.confirm) */}
-            <dialog
-                ref={confirmDialogRef}
-                className="settings-dialog"
-                aria-labelledby="settings-confirm-title"
-                aria-describedby="settings-confirm-msg"
-                onClose={() => {
-                    if (confirmModal) resolveConfirmation(false);
-                }}
-            >
-                {confirmModal && (
-                    <div className="card settings-dialog-card" style={{ border: `1px solid ${confirmModal.variant === 'danger' ? 'var(--error)' : 'var(--primary)'}`, padding: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                            <div style={{
-                                backgroundColor: confirmModal.variant === 'danger' ? 'var(--error-soft-bg)' : 'var(--warning-soft-bg)',
-                                padding: '10px',
-                                borderRadius: '50%',
-                                display: 'flex'
-                            }}>
-                                <AlertTriangle size={22} color={confirmModal.variant === 'danger' ? 'var(--error)' : 'var(--warning)'} aria-hidden="true" />
-                            </div>
-                            <h2 id="settings-confirm-title" style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-main)' }}>
-                                {confirmModal.title}
-                            </h2>
-                        </div>
-                        <p id="settings-confirm-msg" style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                            {confirmModal.message}
-                        </p>
-                        <div className="settings-dialog-actions">
-                            <button
-                                type="button"
-                                autoFocus
-                                className="settings-btn-secondary"
-                                style={{ width: 'auto' }}
-                                onClick={() => resolveConfirmation(false)}
-                            >
-                                {confirmModal.cancelLabel || 'Cancelar'}
-                            </button>
-                            <button
-                                type="button"
-                                className={confirmModal.variant === 'danger' ? 'settings-btn-danger' : ''}
-                                style={{ width: 'auto' }}
-                                onClick={() => resolveConfirmation(true)}
-                            >
-                                {confirmModal.confirmLabel}
-                            </button>
-                        </div>
-                    </div>
-                )}
             </dialog>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>

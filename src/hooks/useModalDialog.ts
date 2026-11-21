@@ -8,7 +8,8 @@ import type { PointerEvent as ReactPointerEvent, SyntheticEvent } from 'react';
 export function useModalDialog(
   isOpen: boolean,
   onClose: () => void,
-  allowLightDismiss = true
+  allowLightDismiss = true,
+  disabled = false
 ) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const pressedOutsideRef = useRef(false);
@@ -41,18 +42,20 @@ export function useModalDialog(
 
   const handleCancel = (e: SyntheticEvent<HTMLDialogElement>) => {
     e.preventDefault();
-    onClose();
+    if (!disabled) {
+      onClose();
+    }
   };
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDialogElement>) => {
-    if (!allowLightDismiss || 'closedBy' in HTMLDialogElement.prototype) return;
+    if (disabled || !allowLightDismiss || 'closedBy' in HTMLDialogElement.prototype) return;
     const dialog = dialogRef.current;
     if (!dialog) return;
     pressedOutsideRef.current = isOutsideDialog(e, dialog);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDialogElement>) => {
-    if (!allowLightDismiss || 'closedBy' in HTMLDialogElement.prototype) return;
+    if (disabled || !allowLightDismiss || 'closedBy' in HTMLDialogElement.prototype) return;
     const dialog = dialogRef.current;
     if (!dialog) return;
     const shouldClose = pressedOutsideRef.current && isOutsideDialog(e, dialog);
@@ -67,10 +70,12 @@ export function useModalDialog(
     if (dialog) {
       dialog.returnValue = '';
     }
-    if (isOpen) {
+    if (isOpen && !disabled) {
       onClose();
     }
   };
+
+  const closedByValue = disabled ? 'none' : allowLightDismiss ? 'any' : 'closerequest';
 
   return {
     ref: dialogRef,
@@ -78,6 +83,6 @@ export function useModalDialog(
     onClose: handleNativeClose,
     onPointerDown: handlePointerDown,
     onPointerUp: handlePointerUp,
-    ...({ closedby: allowLightDismiss ? 'any' : 'closerequest' } as Record<string, string>),
+    ...({ closedby: closedByValue } as Record<string, string>),
   };
 }

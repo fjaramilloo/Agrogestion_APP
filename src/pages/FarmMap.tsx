@@ -7,8 +7,11 @@ import { MultiFarmMap, type FarmSummaryData } from '../components/MultiFarmMap';
 import { KmzUploaderModal } from '../components/KmzUploaderModal';
 import { localDB } from '../lib/db';
 import { useModalDialog } from '../hooks/useModalDialog';
-import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles, WifiOff, AlertOctagon, AlertCircle, CheckCircle2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles, WifiOff, AlertCircle, CheckCircle2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import ModalUpsell from '../components/ModalUpsell';
+import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
+import { getLicenseBlockState } from '../utils/licenseUtils';
 import {
   calcularMetricasMapaPotreradas,
   type ConfianzaPeso,
@@ -28,25 +31,12 @@ export interface PotreradaModalItem {
   peso_promedio: number;
 }
 
-// Hook para saber si estamos en pantalla móvil
-function useIsMobile(breakpoint = 640) {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
-  useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < breakpoint);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, [breakpoint]);
-  return isMobile;
-}
-
 export const FarmMapPage: React.FC = () => {
   const { fincaId, userFincas, role, licenciaInfo, setFincaId } = useAuth();
   const { modoCampo, isOnline } = useConnection();
-  const isVencida = Boolean(licenciaInfo?.isVencida);
-  const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
-  const isBloqueado = isVencida || isSobrecupo;
+  const { isBloqueado } = getLicenseBlockState(licenciaInfo);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(639);
 
   const currentFincaName = userFincas.find((f) => f.id_finca === fincaId)?.nombre_finca || 'Mi Finca';
 
@@ -714,53 +704,13 @@ export const FarmMapPage: React.FC = () => {
 
       {/* Banner Informativo para Licencia Vencida o Sobrecupo */}
       {isBloqueado ? (
-        <div style={{
-          background: 'var(--error-soft-bg)',
-          border: '1px solid var(--error-soft-border)',
-          borderRadius: '12px',
-          padding: '14px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          color: 'var(--text-main)',
-          fontSize: '0.85rem',
-          flexWrap: 'wrap',
-          marginBottom: '16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertOctagon size={20} color="var(--error)" style={{ flexShrink: 0 }} />
-            <span>
-              {isVencida ? (
-                <>
-                  <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción ha vencido. Puedes explorar tus potreros y plano de finca en modo visualización, pero los traslados y el seguimiento GPS en campo se encuentran pausados hasta la renovación.
-                </>
-              ) : (
-                <>
-                  <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu organización tiene <strong>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> registrados (límite de plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Los traslados interactivos se encuentran pausados en modo lectura.
-                </>
-              )}
-            </span>
-          </div>
-          <button
-            type="button"
-            className="farm-map-inline-btn"
-            onClick={() => setShowUpsellModal(true)}
-            style={{
-              backgroundColor: 'var(--error)',
-              color: 'var(--on-primary)',
-              border: 'none',
-              padding: '7px 16px',
-              borderRadius: '8px',
-              fontWeight: 600,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {isVencida ? 'Renovar Plan' : 'Ver Planes'}
-          </button>
-        </div>
+        <LicenseBlockedBanner
+          licenciaInfo={licenciaInfo}
+          onUpgradeClick={() => setShowUpsellModal(true)}
+          compact
+          expiredDetail="Puedes explorar tus potreros y plano de finca en modo visualización, pero los traslados y el seguimiento GPS en campo se encuentran pausados hasta la renovación."
+          overLimitDetail="Los traslados interactivos se encuentran pausados en modo lectura."
+        />
       ) : licenciaInfo?.licencia === 'demo' ? (
         <div style={{
           backgroundColor: 'var(--info-soft-bg)',

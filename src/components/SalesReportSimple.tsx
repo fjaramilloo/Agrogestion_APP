@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
 import { format } from 'date-fns';
-import { Printer, X } from 'lucide-react';
 import { es } from 'date-fns/locale';
+import { ReportPrintShell } from './ReportPrintShell';
+import { splitIntoColumns } from '../utils/exportPdf';
 
 interface AnimalSimple {
     numero_chapeta: string;
@@ -21,92 +21,27 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
     const totalAnimales = animales.length;
     const pesoPromedio = totalAnimales > 0 ? totalKilos / totalAnimales : 0;
 
-    useEffect(() => {
-        const originalTitle = document.title;
-        const nombreComprador = (comprador || 'Comprador').trim();
-        const fecha = (fechaVenta || '').trim().replace(/\//g, '-');
-        document.title = `Venta-${nombreComprador}-${fecha}`.replace(/[\\/:*?"<>|]/g, '-');
+    const nombreComprador = (comprador || 'Comprador').trim();
+    const fechaDoc = (fechaVenta || '').trim().replace(/\//g, '-');
+    const reportTitle = `Venta-${nombreComprador}-${fechaDoc}`.replace(/[\\/:*?"<>|]/g, '-');
 
-        return () => {
-            document.title = originalTitle;
-        };
-    }, [comprador, fechaVenta]);
-
-    const handlePrint = () => {
-        const nombreComprador = (comprador || 'Comprador').trim();
-        const fecha = (fechaVenta || '').trim().replace(/\//g, '-');
-        document.title = `Venta-${nombreComprador}-${fecha}`.replace(/[\\/:*?"<>|]/g, '-');
-        window.print();
-    };
+    const { itemsPerCol, columnData } = splitIntoColumns(animales, 3);
 
     return (
-        <div className="report-modal-overlay">
+        <ReportPrintShell
+            variant="letter"
+            pageMargin="15mm"
+            printLabel="Imprimir / PDF"
+            documentTitle={reportTitle}
+            onClose={onClose}
+        >
             <style>{`
-                @media print {
-                    @page { 
-                        size: letter;
-                        margin: 15mm; 
-                    }
-                    body { background: white !important; -webkit-print-color-adjust: exact; }
-                    .no-print { display: none !important; }
-                    
-                    /* TÉCNICA PARA IMPRIMIR SOLO EL REPORTE SIN PÁGINA EN BLANCO */
-                    body * {
-                        visibility: hidden;
-                    }
-                    .report-modal-overlay, .report-modal-overlay * {
-                        visibility: visible;
-                    }
-                    .report-modal-overlay {
-                        position: absolute !important;
-                        left: 0 !important;
-                        top: 0 !important;
-                        width: 100% !important;
-                        height: auto !important;
-                        background: white !important;
-                        padding: 0 !important;
-                        margin: 0 !important;
-                        overflow: visible !important;
-                        display: block !important;
-                    }
-                    .report-container {
-                        box-shadow: none !important;
-                        border: none !important;
-                        width: 100% !important;
-                        padding: 0 !important;
-                        margin: 0 !important;
-                        height: auto !important;
-                        min-height: 0 !important;
-                    }
-                }
-
-                .report-modal-overlay {
-                    position: fixed;
-                    top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0,0,0,0.85);
-                    z-index: 3000;
-                    display: flex;
-                    justify-content: center;
-                    padding: 40px 20px;
-                    overflow-y: auto;
-                }
-
-                .report-container {
-                    background: white;
-                    width: 21.59cm;
-                    min-height: 27.94cm;
-                    padding: 20mm;
-                    color: #1a1a1a;
-                    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-                    position: relative;
-                    border-radius: 4px;
-                }
-
                 .report-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-start;
+                    gap: 12px;
+                    flex-wrap: wrap;
                     border-bottom: 3px solid #1b5e20;
                     padding-bottom: 20px;
                     margin-bottom: 25px;
@@ -190,140 +125,100 @@ export default function SalesReportSimple({ fincaNombre, fechaVenta, animales, c
                 .sum-value { font-size: 20px; font-weight: 900; color: #2e7d32; }
                 .sum-unit { font-size: 12px; color: #777; font-weight: 500; margin-left: 2px; }
 
-                .btn-close {
-                    padding: 10px;
-                    background: #e0e0e0;
-                    border: none;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    color: #555;
-                    transition: all 0.2s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-
-                .btn-close:hover {
-                    background: #d0d0d0;
-                    color: #000;
-                    transform: translateY(-1px);
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-                }
-
-                .btn-print {
-                    padding: 10px 20px;
-                    background: #2e7d32;
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    fontWeight: bold;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    transition: background 0.2s;
-                }
-
-                .btn-print:hover {
-                    background: #1b5e20;
-                }
-
                 .footer-note {
-                    position: absolute;
-                    bottom: 1cm;
-                    left: 1.5cm;
-                    right: 1.5cm;
+                    margin-top: 28px;
                     font-size: 9px;
-                    color: #bbb;
+                    color: #999;
                     text-align: center;
-                    border-top: 1px solid #f9f9f9;
+                    border-top: 1px solid #eee;
                     padding-top: 10px;
+                }
+
+                @media print {
+                    .footer-note {
+                        position: absolute;
+                        bottom: 1cm;
+                        left: 1.5cm;
+                        right: 1.5cm;
+                        margin-top: 0;
+                    }
+                }
+
+                @media screen and (max-width: 768px) {
+                    .header-left .finca-title { font-size: 19px; }
+                    .info-strip { grid-template-columns: 1fr; gap: 12px; margin-bottom: 20px; }
+                    .matrix-grid { flex-direction: column; gap: 12px; }
+                    .summary-section { grid-template-columns: 1fr; gap: 10px; padding-top: 18px; }
                 }
             `}</style>
 
-            <div className="report-container">
-                <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
-                    <button onClick={handlePrint} className="btn-print">
-                        <Printer size={18} /> Imprimir / PDF
-                    </button>
-                    <button onClick={onClose} className="btn-close">
-                        <X size={20} />
-                    </button>
+            <div className="report-header">
+                <div className="header-left">
+                    <h1 className="finca-title">{fincaNombre}</h1>
+                    <div className="report-subtitle">Resumen de Salida de Ganado</div>
                 </div>
-
-                <div className="report-header">
-                    <div className="header-left">
-                        <h1 className="finca-title">{fincaNombre}</h1>
-                        <div className="report-subtitle">Resumen de Salida de Ganado</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '11px', color: '#999', textTransform: 'uppercase', fontWeight: 700 }}>Fecha Generado</div>
-                        <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{format(new Date(), 'dd/MM/yyyy')}</div>
-                    </div>
-                </div>
-
-                <div className="info-strip">
-                    <div className="info-item">
-                        <label>Comprador / Destino</label>
-                        <span>{comprador}</span>
-                    </div>
-                    <div className="info-item">
-                        <label>Fecha Salida</label>
-                        <span>{format(new Date(fechaVenta + 'T12:00:00'), "dd 'de' MMMM, yyyy", { locale: es })}</span>
-                    </div>
-                </div>
-
-                <div className="matrix-grid">
-                    {[0, 1, 2].map(colIdx => {
-                        const itemsPerCol = Math.ceil(animales.length / 3);
-                        const colData = animales.slice(colIdx * itemsPerCol, (colIdx + 1) * itemsPerCol);
-                        
-                        return (
-                            <table key={colIdx} className="column-table">
-                                <thead>
-                                    <tr>
-                                        <th>Chapeta</th>
-                                        <th>Peso (kg)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {colData.map((a, i) => (
-                                        <tr key={i}>
-                                            <td>{a.numero_chapeta}</td>
-                                            <td>{parseFloat(a.peso_salida.toString()).toFixed(1)}</td>
-                                        </tr>
-                                    ))}
-                                    {/* Mantenemos simetría visual */}
-                                    {colData.length < itemsPerCol && Array.from({ length: itemsPerCol - colData.length }).map((_, i) => (
-                                        <tr key={`empty-${i}`} style={{ height: '24px' }}>
-                                            <td>&nbsp;</td><td>&nbsp;</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        );
-                    })}
-                </div>
-
-                <div className="summary-section">
-                    <div className="summary-card">
-                        <span className="sum-label">Animales</span>
-                        <div className="sum-value">{totalAnimales}</div>
-                    </div>
-                    <div className="summary-card">
-                        <span className="sum-label">Peso Promedio</span>
-                        <div className="sum-value">{pesoPromedio.toFixed(1)}<span className="sum-unit">kg</span></div>
-                    </div>
-                    <div className="summary-card">
-                        <span className="sum-label">Peso Total</span>
-                        <div className="sum-value">{totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 1 })}<span className="sum-unit">kg</span></div>
-                    </div>
-                </div>
-
-                <div className="footer-note">
-                    Reporte simple de despacho generado por Agrogestión v3.0 | {fincaNombre}
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '11px', color: '#999', textTransform: 'uppercase', fontWeight: 700 }}>Fecha Generado</div>
+                    <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{format(new Date(), 'dd/MM/yyyy')}</div>
                 </div>
             </div>
-        </div>
+
+            <div className="info-strip">
+                <div className="info-item">
+                    <label>Comprador / Destino</label>
+                    <span>{comprador}</span>
+                </div>
+                <div className="info-item">
+                    <label>Fecha Salida</label>
+                    <span>{format(new Date(fechaVenta + 'T12:00:00'), "dd 'de' MMMM, yyyy", { locale: es })}</span>
+                </div>
+            </div>
+
+            <div className="matrix-grid">
+                {columnData.map((colData, colIdx) => (
+                    <table key={colIdx} className="column-table">
+                        <thead>
+                            <tr>
+                                <th>Chapeta</th>
+                                <th>Peso (kg)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {colData.map((a, i) => (
+                                <tr key={i}>
+                                    <td>{a.numero_chapeta}</td>
+                                    <td>{parseFloat(a.peso_salida.toString()).toFixed(1)}</td>
+                                </tr>
+                            ))}
+                            {/* Mantenemos simetría visual */}
+                            {colData.length < itemsPerCol && Array.from({ length: itemsPerCol - colData.length }).map((_, i) => (
+                                <tr key={`empty-${i}`} style={{ height: '24px' }}>
+                                    <td>&nbsp;</td><td>&nbsp;</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                ))}
+            </div>
+
+            <div className="summary-section">
+                <div className="summary-card">
+                    <span className="sum-label">Animales</span>
+                    <div className="sum-value">{totalAnimales}</div>
+                </div>
+                <div className="summary-card">
+                    <span className="sum-label">Peso Promedio</span>
+                    <div className="sum-value">{pesoPromedio.toFixed(1)}<span className="sum-unit">kg</span></div>
+                </div>
+                <div className="summary-card">
+                    <span className="sum-label">Peso Total</span>
+                    <div className="sum-value">{totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 1 })}<span className="sum-unit">kg</span></div>
+                </div>
+            </div>
+
+            <div className="footer-note">
+                Reporte simple de despacho generado por Agrogestión v3.0 | {fincaNombre}
+            </div>
+        </ReportPrintShell>
     );
 }

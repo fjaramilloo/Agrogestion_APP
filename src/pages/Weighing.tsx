@@ -3,10 +3,13 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import ModalUpsell from '../components/ModalUpsell';
-import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check, AlertOctagon } from 'lucide-react';
+import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
+import { getLicenseBlockState } from '../utils/licenseUtils';
+import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, getGmpColor, resolverResumenUltimoPesaje } from '../utils/ganancia';
 import { localDB } from '../lib/db';
 import { guardarPesajeOffline } from '../lib/offlineService';
 import { getLocalIsoDate } from '../utils/dateUtils';
@@ -32,66 +35,13 @@ interface AnimalPreview {
     id_potrerada?: string | null;
 }
 
-const calcularGmpDesdePesajes = (
-    pesajesRaw: any[] | undefined,
-    pesoBase: number,
-    fechaBase: string,
-    ultimoPesoFallback?: number,
-    fechaUltimoFallback?: string
-): { ultimoPeso: number; fechaUltimoPeso: string; gmp: number } => {
-    const pesajes = (pesajesRaw || [])
-        .filter((p: any) => !p.is_deleted)
-        .sort((a: any, b: any) => new Date(b.fecha || 0).getTime() - new Date(a.fecha || 0).getTime());
-
-    let ultimoPeso = ultimoPesoFallback ?? pesoBase;
-    let fechaUltimoPeso = fechaUltimoFallback ?? fechaBase;
-    let gmp = 0;
-
-    if (pesajes.length > 0) {
-        const ultimo = pesajes[0];
-        ultimoPeso = Number(ultimo.peso) || ultimoPeso;
-        fechaUltimoPeso = ultimo.fecha || fechaUltimoPeso;
-
-        const diasDesdeIngreso = differenceInDays(
-            new Date(String(ultimo.fecha).split('T')[0] + 'T12:00:00'),
-            new Date(String(fechaBase).split('T')[0] + 'T12:00:00')
-        );
-
-        if (diasDesdeIngreso > 0) {
-            if (ultimo.gmp_calculada !== null && ultimo.gmp_calculada !== undefined) {
-                gmp = Number(ultimo.gmp_calculada);
-            } else if (ultimo.gdp_calculada !== null && ultimo.gdp_calculada !== undefined) {
-                gmp = Number(ultimo.gdp_calculada) * 30;
-            } else if (pesajes.length > 1) {
-                const penultimo = pesajes[1];
-                const diffDias = differenceInDays(new Date(ultimo.fecha), new Date(penultimo.fecha)) || 1;
-                gmp = ((ultimo.peso - penultimo.peso) / diffDias) * 30;
-            } else {
-                gmp = ((ultimo.peso - pesoBase) / diasDesdeIngreso) * 30;
-            }
-        }
-    } else if (ultimoPeso && fechaUltimoPeso && fechaBase && fechaUltimoPeso !== fechaBase) {
-        const dias = differenceInDays(
-            new Date(String(fechaUltimoPeso).split('T')[0] + 'T12:00:00'),
-            new Date(String(fechaBase).split('T')[0] + 'T12:00:00')
-        );
-        if (dias > 0) {
-            gmp = ((ultimoPeso - pesoBase) / dias) * 30;
-        }
-    }
-
-    return { ultimoPeso, fechaUltimoPeso, gmp };
-};
-
 const collatorHoy = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
 export default function Weighing() {
     const { fincaId, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
     const { modoCampo, isOnline } = useConnection();
     const { confirmAction, toast } = useFeedback();
-    const isVencida = Boolean(licenciaInfo?.isVencida);
-    const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
-    const isBloqueado = isVencida || isSobrecupo;
+    const { isVencida, isBloqueado } = getLicenseBlockState(licenciaInfo);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
     const [chapeta, setChapeta] = useState('');
     const [animal, setAnimal] = useState<AnimalPreview | null>(null);
@@ -133,14 +83,7 @@ export default function Weighing() {
     const [editPeso, setEditPeso] = useState('');
     const [sortColHoy, setSortColHoy] = useState<'chapeta' | 'marca' | 'potrerada' | 'peso'>('chapeta');
     const [sortDirHoy, setSortDirHoy] = useState<'asc' | 'desc'>('asc');
-    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
-
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)');
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener('change', handler);
-        return () => mq.removeEventListener('change', handler);
-    }, []);
+    const isMobile = useIsMobile();
 
     // 1. Precargar el hato activo en memoria RAM desde IndexedDB (en 5ms) y actualizar en silencio desde la nube
     const cargarHatoEnRam = useCallback(async () => {
@@ -158,7 +101,7 @@ export default function Weighing() {
                 if (a.estado && a.estado !== 'activo') continue;
                 const pesoBase = a.peso_ingreso || a.peso_compra || 0;
                 const fechaBase = a.fecha_ingreso;
-                const { ultimoPeso, fechaUltimoPeso, gmp } = calcularGmpDesdePesajes(
+                const { ultimoPeso, fechaUltimoPeso, gmp } = resolverResumenUltimoPesaje(
                     a.registros_pesaje,
                     pesoBase,
                     fechaBase,
@@ -352,7 +295,7 @@ export default function Weighing() {
             if (cached) {
                 const pesoBase = cached.peso_ingreso || cached.peso_compra || 0;
                 const fechaBase = cached.fecha_ingreso;
-                const { ultimoPeso, fechaUltimoPeso, gmp } = calcularGmpDesdePesajes(
+                const { ultimoPeso, fechaUltimoPeso, gmp } = resolverResumenUltimoPesaje(
                     cached.registros_pesaje,
                     pesoBase,
                     fechaBase,
@@ -405,7 +348,7 @@ export default function Weighing() {
                 if (data) {
                     const pesoBase = data.peso_ingreso || data.peso_compra || 0;
                     const fechaBase = data.fecha_ingreso;
-                    const { ultimoPeso, fechaUltimoPeso, gmp } = calcularGmpDesdePesajes(
+                    const { ultimoPeso, fechaUltimoPeso, gmp } = resolverResumenUltimoPesaje(
                         (data as any).registros_pesaje,
                         pesoBase,
                         fechaBase
@@ -739,31 +682,12 @@ export default function Weighing() {
                 Umbral entrada a ceba: <strong style={{ color: 'var(--primary-light)' }}>{pesoEntradaCeba} kg</strong>
             </p>
 
-            {isBloqueado && (
-                <div className="weighing-upsell-banner">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                        <AlertOctagon size={24} color="var(--error)" style={{ flexShrink: 0 }} aria-hidden="true" />
-                        <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                            {isVencida ? (
-                                <>
-                                    <strong>Modo Solo Lectura (Licencia Vencida):</strong> Tu suscripción al Plan <strong style={{ textTransform: 'uppercase' }}>{licenciaInfo?.licencia}</strong> ha expirado. Tu información histórica está disponible, pero el registro de nuevos pesajes y cálculos de GDP está pausado.
-                                </>
-                            ) : (
-                                <>
-                                    <strong>Modo Solo Lectura (Sobrecupo):</strong> Tu hato cuenta con <strong style={{ color: 'var(--error)' }}>{licenciaInfo?.totalAnimalesOrganizacion} animales</strong> (límite del plan: <strong>{licenciaInfo?.limiteAnimales}</strong>). Para registrar nuevos pesajes y GDP, actualiza tu suscripción.
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        className="weighing-btn-upsell"
-                        onClick={() => setShowUpsellModal(true)}
-                    >
-                        {isVencida ? 'Renovar Plan' : 'Ver Planes'}
-                    </button>
-                </div>
-            )}
+            <LicenseBlockedBanner
+                licenciaInfo={licenciaInfo}
+                onUpgradeClick={() => setShowUpsellModal(true)}
+                expiredDetail="Tu información histórica está disponible, pero el registro de nuevos pesajes y cálculos de GDP está pausado."
+                overLimitDetail="Para registrar nuevos pesajes y GDP, actualiza tu suscripción."
+            />
 
             {msjExito && (
                 <div
@@ -931,7 +855,7 @@ export default function Weighing() {
                                 <div style={{
                                     fontSize: '1.5rem',
                                     fontWeight: 'bold',
-                                    color: (animal.gmp || 0) < 0 ? 'var(--error)' : ((animal.gmp || 0) <= umbralMedio ? 'var(--warning)' : ((animal.gmp || 0) <= umbralAlto ? 'var(--text-light)' : 'var(--success)')),
+                                    color: getGmpColor(animal.gmp || 0, umbralMedio, umbralAlto),
                                 }}>
                                     {animal.gmp ? toDisplayValue(animal.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1) : '0'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{getUnidadLabel(modoGanancia)}</span>
                                 </div>

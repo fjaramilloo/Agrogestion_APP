@@ -1,8 +1,11 @@
 
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { useModalDialog } from '../hooks/useModalDialog';
 import { useNavigate } from 'react-router-dom';
 import {
     CloudRain, Plus, Trash2, Calendar, Droplets,
@@ -66,91 +69,15 @@ const TAB_MENSUAL = 'mensual';
 const TAB_DIARIA = 'diaria';
 const TAB_YOY = 'yoy';
 
-function useModalDialog(
-    dialogRef: React.RefObject<HTMLDialogElement | null>,
-    isOpen: boolean,
-    onClose: () => void,
-    disabled = false
-) {
-    useEffect(() => {
-        const dialog = dialogRef.current;
-        if (!dialog) return;
-        if (isOpen && !dialog.open) {
-            dialog.showModal();
-        } else if (!isOpen && dialog.open) {
-            dialog.close();
-        }
-    }, [dialogRef, isOpen]);
-
-    useEffect(() => {
-        const dialog = dialogRef.current;
-        if (!dialog) return;
-
-        const handleClose = () => {
-            dialog.returnValue = '';
-            onClose();
-        };
-
-        const handleCancel = (e: Event) => {
-            if (disabled) {
-                e.preventDefault();
-            }
-        };
-
-        dialog.addEventListener('close', handleClose);
-        dialog.addEventListener('cancel', handleCancel);
-
-        // Fallback progresivo para navegadores sin <dialog closedby="any">
-        let removeLightDismiss: (() => void) | undefined;
-        if (!('closedBy' in HTMLDialogElement.prototype)) {
-            let pressedOutside = false;
-            const isBackdropClick = (e: PointerEvent) => {
-                if (e.target !== dialog) return false;
-                const r = dialog.getBoundingClientRect();
-                return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
-            };
-            const onPointerDown = (e: PointerEvent) => {
-                pressedOutside = isBackdropClick(e);
-            };
-            const onPointerUp = (e: PointerEvent) => {
-                if (!disabled && pressedOutside && isBackdropClick(e)) {
-                    dialog.close();
-                }
-                pressedOutside = false;
-            };
-            dialog.addEventListener('pointerdown', onPointerDown);
-            dialog.addEventListener('pointerup', onPointerUp);
-            removeLightDismiss = () => {
-                dialog.removeEventListener('pointerdown', onPointerDown);
-                dialog.removeEventListener('pointerup', onPointerUp);
-            };
-        }
-
-        return () => {
-            dialog.removeEventListener('close', handleClose);
-            dialog.removeEventListener('cancel', handleCancel);
-            removeLightDismiss?.();
-        };
-    }, [dialogRef, onClose, disabled]);
-}
-
 export default function Rainfall() {
     const { fincaId, role, licenciaInfo } = useAuth();
     const { theme } = useTheme();
+    const { toast, confirmAction } = useFeedback();
     const accentPurple = theme === 'light' ? '#7c3aed' : '#c084fc';
     const navigate = useNavigate();
     const esDemo = licenciaInfo?.licencia === 'demo';
     const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
-
-    const [isMobile, setIsMobile] = useState(() =>
-        typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
-    );
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)');
-        const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener('change', onChange);
-        return () => mq.removeEventListener('change', onChange);
-    }, []);
+    const isMobile = useIsMobile();
 
     const [registrosRaw, setRegistrosRaw] = useState<RegistroLluviaRaw[]>([]);
     const [pluviometros, setPluviometros] = useState<PluviometroFinca[]>([]);
@@ -160,15 +87,7 @@ export default function Rainfall() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [tabGrafica, setTabGrafica] = useState<string>(TAB_MENSUAL);
-    const [pendingDelete, setPendingDelete] = useState<{ id: string; nombreEstacion?: string } | null>(null);
     const [deleting, setDeleting] = useState(false);
-    const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-    const registroDialogRef = useRef<HTMLDialogElement>(null);
-    const deleteDialogRef = useRef<HTMLDialogElement>(null);
-    const toastRef = useRef<HTMLDivElement>(null);
-    const toastTimerRef = useRef<number | null>(null);
-    const supportsPopover = typeof HTMLElement !== 'undefined' && 'showPopover' in HTMLElement.prototype;
 
     // ── Diagnóstico IA climático ───────────────────────────────────────
     const [diagnosticoIA, setDiagnosticoIA] = useState<DiagnosticoClimatico | null>(null);
@@ -402,63 +321,7 @@ export default function Rainfall() {
         if (!saving) setShowModal(false);
     }, [saving]);
 
-    const closeDeleteModal = useCallback(() => {
-        if (!deleting) setPendingDelete(null);
-    }, [deleting]);
-
-    useModalDialog(registroDialogRef, showModal, closeRegistroModal, saving);
-    useModalDialog(deleteDialogRef, pendingDelete !== null, closeDeleteModal, deleting);
-
-    const scheduleToastHide = useCallback((ms = 4200) => {
-        if (toastTimerRef.current !== null) {
-            window.clearTimeout(toastTimerRef.current);
-        }
-        toastTimerRef.current = window.setTimeout(() => {
-            setStatusMessage(null);
-            toastTimerRef.current = null;
-        }, ms);
-    }, []);
-
-    const showToast = useCallback((type: 'success' | 'error', text: string) => {
-        setStatusMessage({ type, text });
-    }, []);
-
-    const dismissToast = useCallback(() => {
-        if (toastTimerRef.current !== null) {
-            window.clearTimeout(toastTimerRef.current);
-            toastTimerRef.current = null;
-        }
-        const el = toastRef.current as (HTMLDivElement & { hidePopover?: () => void }) | null;
-        if (el?.hidePopover && supportsPopover) {
-            try { el.hidePopover(); } catch { /* noop */ }
-        }
-        setStatusMessage(null);
-    }, [supportsPopover]);
-
-    // Regla persistent-toast-notifications: nunca mostrar toast mientras haya un <dialog> modal abierto
-    useEffect(() => {
-        const el = toastRef.current as (HTMLDivElement & { showPopover?: () => void; hidePopover?: () => void }) | null;
-        const hasModalOpen = showModal || pendingDelete !== null;
-
-        if (!statusMessage || hasModalOpen) {
-            if (el?.hidePopover && supportsPopover) {
-                try { el.hidePopover(); } catch { /* noop */ }
-            }
-            return;
-        }
-
-        if (el?.showPopover && supportsPopover) {
-            try { el.showPopover(); } catch { /* noop */ }
-        }
-        scheduleToastHide();
-
-        return () => {
-            if (toastTimerRef.current !== null) {
-                window.clearTimeout(toastTimerRef.current);
-                toastTimerRef.current = null;
-            }
-        };
-    }, [statusMessage, showModal, pendingDelete, supportsPopover, scheduleToastHide]);
+    const registroDialogProps = useModalDialog(showModal, closeRegistroModal, true, saving);
 
     const toggleMes = (key: string) => {
         setMesGroups(prev => prev.map(g => g.key === key ? { ...g, open: !g.open } : g));
@@ -665,7 +528,7 @@ export default function Rainfall() {
             setNotas('');
 
             await recargarRegistrosYAnalizar();
-            showToast('success', 'Registro de lluvia guardado.');
+            toast('Registro de lluvia guardado.', 'success');
         } catch (err: any) {
             setError(err.message || 'Error al guardar el registro');
         } finally {
@@ -673,22 +536,29 @@ export default function Rainfall() {
         }
     };
 
-    const requestEliminar = (id: string, nombreEstacion?: string) => {
-        setPendingDelete({ id, nombreEstacion });
-    };
+    const requestEliminar = async (id: string, nombreEstacion?: string) => {
+        if (deleting) return;
+        const confirmed = await confirmAction(
+            nombreEstacion
+                ? `¿Estás seguro de eliminar el registro de "${nombreEstacion}"?`
+                : '¿Estás seguro de eliminar este registro de lluvia?',
+            {
+                title: 'Eliminar Registro',
+                confirmLabel: 'Sí, eliminar',
+                cancelLabel: 'Cancelar',
+                destructive: true,
+            }
+        );
+        if (!confirmed) return;
 
-    const confirmEliminar = async () => {
-        if (!pendingDelete) return;
         setDeleting(true);
         try {
-            const { error: delErr } = await supabase.from('registros_lluvia').delete().eq('id', pendingDelete.id);
+            const { error: delErr } = await supabase.from('registros_lluvia').delete().eq('id', id);
             if (delErr) throw delErr;
-            setPendingDelete(null);
             await recargarRegistrosYAnalizar();
-            showToast('success', 'Registro de lluvia eliminado.');
+            toast('Registro de lluvia eliminado.', 'success');
         } catch (err: any) {
-            setPendingDelete(null);
-            showToast('error', 'Error al eliminar: ' + (err?.message || 'Intenta nuevamente'));
+            toast('Error al eliminar: ' + (err?.message || 'Intenta nuevamente'), 'error');
         } finally {
             setDeleting(false);
         }
@@ -745,24 +615,6 @@ export default function Rainfall() {
     // ── Render ────────────────────────────────────────────────────────
     return (
         <div className="page-container rainfall-page">
-            {!supportsPopover && statusMessage && !showModal && !pendingDelete && (
-                <div
-                    role={statusMessage.type === 'error' ? 'alert' : 'status'}
-                    aria-live="polite"
-                    className={`rainfall-inline-status ${statusMessage.type === 'error' ? 'rainfall-inline-status--error' : 'rainfall-inline-status--success'}`}
-                >
-                    <span>{statusMessage.text}</span>
-                    <button
-                        type="button"
-                        className="rainfall-toast-close"
-                        onClick={dismissToast}
-                        aria-label="Cerrar aviso"
-                    >
-                        <X size={18} aria-hidden="true" />
-                    </button>
-                </div>
-            )}
-
             {/* ── HEADER ── */}
             <div className="rainfall-header">
                 <div className="rainfall-header-main">
@@ -1477,9 +1329,8 @@ export default function Rainfall() {
 
             {/* ── DIALOG REGISTRO DE LLUVIA ── */}
             <dialog
-                ref={registroDialogRef}
+                {...registroDialogProps}
                 className={`rainfall-dialog ${pluviometrosActivos.length < 2 ? 'rainfall-dialog--narrow' : ''}`}
-                {...({ closedby: 'any' } as Record<string, string>)}
                 aria-labelledby="rainfall-registro-title"
             >
                 {showModal && (
@@ -1737,97 +1588,6 @@ export default function Rainfall() {
                     </div>
                 )}
             </dialog>
-
-            {/* ── DIALOG CONFIRMAR ELIMINACIÓN ── */}
-            <dialog
-                ref={deleteDialogRef}
-                className="rainfall-dialog rainfall-dialog--narrow"
-                {...({ closedby: 'any' } as Record<string, string>)}
-                aria-labelledby="rainfall-delete-title"
-            >
-                {pendingDelete && (
-                    <div className="card rainfall-dialog-card">
-                        <div className="rainfall-dialog-header">
-                            <h3 id="rainfall-delete-title" style={{ margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Trash2 size={20} color="var(--error)" aria-hidden="true" />
-                                Eliminar Registro
-                            </h3>
-                            <button
-                                type="button"
-                                className="rainfall-dialog-close"
-                                aria-label="Cerrar confirmación"
-                                onClick={closeDeleteModal}
-                                disabled={deleting}
-                            >
-                                <X size={18} aria-hidden="true" />
-                            </button>
-                        </div>
-                        <p style={{ margin: '0 0 18px 0', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-                            {pendingDelete.nombreEstacion
-                                ? `¿Estás seguro de eliminar el registro de "${pendingDelete.nombreEstacion}"?`
-                                : '¿Estás seguro de eliminar este registro de lluvia?'}
-                        </p>
-                        <div className="rainfall-dialog-actions">
-                            <button
-                                type="button"
-                                autoFocus
-                                className="rainfall-btn-secondary"
-                                onClick={closeDeleteModal}
-                                disabled={deleting}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                className="rainfall-btn-danger"
-                                onClick={confirmEliminar}
-                                disabled={deleting}
-                            >
-                                {deleting ? 'Eliminando...' : 'Sí, eliminar'}
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </dialog>
-
-            {/* ── NOTIFICACIONES TOAST POPOVER ── */}
-            <div role="region" aria-label="Notificaciones de pluviometría" className="rainfall-toast-region">
-                <div
-                    ref={toastRef}
-                    popover="manual"
-                    role={statusMessage?.type === 'error' ? 'alert' : 'status'}
-                    aria-live="polite"
-                    className={`rainfall-toast ${statusMessage?.type === 'error' ? 'rainfall-toast--error' : 'rainfall-toast--success'}`}
-                    onMouseEnter={() => {
-                        if (toastTimerRef.current !== null) {
-                            window.clearTimeout(toastTimerRef.current);
-                            toastTimerRef.current = null;
-                        }
-                    }}
-                    onMouseLeave={() => {
-                        if (statusMessage) scheduleToastHide(2500);
-                    }}
-                    onFocus={() => {
-                        if (toastTimerRef.current !== null) {
-                            window.clearTimeout(toastTimerRef.current);
-                            toastTimerRef.current = null;
-                        }
-                    }}
-                    onBlur={() => {
-                        if (statusMessage) scheduleToastHide(2500);
-                    }}
-                >
-                    <span>{statusMessage?.text}</span>
-                    <button
-                        type="button"
-                        className="rainfall-toast-close"
-                        onClick={dismissToast}
-                        aria-label="Cerrar notificación"
-                    >
-                        <X size={18} aria-hidden="true" />
-                    </button>
-                </div>
-            </div>
         </div>
     );
 }
