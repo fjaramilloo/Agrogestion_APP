@@ -60,6 +60,144 @@ function differenceInDaysDate(dateA: Date, dateB: Date): number {
   return Math.floor((utcA - utcB) / 86_400_000);
 }
 
+// Reglas zootécnicas homologadas con src/utils/ganancia.ts
+const MIN_DIAS_TRAMO_ESTABLE = 45;
+const MAX_GMP_PASTOREO = 18.0;
+const DIAS_CONFIANZA_ALTA = 90;
+const DIAS_CONFIANZA_MEDIA = 180;
+const DIAS_VENCIDO_DESPACHO = 150;
+const MAX_DIAS_EFECTIVOS = 135;
+
+function getEtapaObjetivoVenta(presetPeso?: string | null): string {
+  if (presetPeso === "levante_preceba") return "levante";
+  if (presetPeso === "destete_cria") return "cria";
+  return "ceba";
+}
+
+function getFactorMadurezPeso(pesoKg: number): number {
+  if (pesoKg < 450) return 1.0;
+  if (pesoKg < 500) return 0.85;
+  if (pesoKg < 540) return 0.65;
+  return 0.35;
+}
+
+function getDiasEfectivos(diasSinPesar: number): number {
+  if (diasSinPesar <= 0) return 0;
+  if (diasSinPesar <= DIAS_CONFIANZA_ALTA) return diasSinPesar;
+  if (diasSinPesar <= DIAS_CONFIANZA_MEDIA) {
+    return DIAS_CONFIANZA_ALTA + (diasSinPesar - DIAS_CONFIANZA_ALTA) * 0.5;
+  }
+  return MAX_DIAS_EFECTIVOS;
+}
+
+function normDate(s?: string | null): string | null {
+  if (!s) return null;
+  return String(s).split("T")[0].trim() || null;
+}
+
+function daysBetweenIso(a?: string | null, b?: string | null): number {
+  const fa = normDate(a);
+  const fb = normDate(b);
+  if (!fa || !fb) return 0;
+  return differenceInDaysDate(new Date(`${fb}T12:00:00Z`), new Date(`${fa}T12:00:00Z`));
+}
+
+function dedupPesajesDesc(registros: any[]): any[] {
+  const sorted = [...(registros || [])]
+    .filter((r) => r && r.fecha && r.is_deleted !== true)
+    .sort((x, y) => (normDate(y.fecha) || "").localeCompare(normDate(x.fecha) || ""));
+  const seen = new Set<string>();
+  const out: any[] = [];
+  for (const r of sorted) {
+    const f = normDate(r.fecha);
+    if (!f || seen.has(f)) continue;
+    seen.add(f);
+    out.push(r);
+  }
+  return out;
+}
+
+function extraerTasasAnimal(a: any) {
+  const regs = dedupPesajesDesc(a.registros_pesaje || []);
+  const ult = regs[0] || null;
+  const penult = regs[1] || null;
+  const fechaIng = normDate(a.fecha_ingreso);
+  const pesoIng = Number(a.peso_ingreso ?? a.peso_compra ?? 0);
+  const posterior = Boolean(ult && (!fechaIng || daysBetweenIso(fechaIng, ult.fecha) > 0));
+  const pesoActual = posterior ? Number(ult.peso) : (pesoIng > 0 ? pesoIng : Number(ult?.peso || 0));
+  const fechaRef = posterior ? normDate(ult.fecha) : (fechaIng || normDate(ult?.fecha));
+
+  let gmpAcum: number | null = null;
+  if (posterior && ult) {
+    const esCeba = (a.etapa || "").toLowerCase() === "ceba";
+    const fechaCeba = normDate(a.fecha_ingreso_ceba);
+    const pesoCeba = Number(a.peso_ingreso_ceba || 0);
+    if (esCeba && fechaCeba && pesoCeba > 0) {
+      const dCeba = daysBetweenIso(fechaCeba, ult.fecha);
+      if (dCeba >= MIN_DIAS_TRAMO_ESTABLE) {
+        gmpAcum = ((Number(ult.peso) - pesoCeba) / dCeba) * 30;
+      }
+    }
+    if (gmpAcum === null && fechaIng && pesoIng > 0) {
+      const dTot = daysBetweenIso(fechaIng, ult.fecha);
+      if (dTot >= MIN_DIAS_TRAMO_ESTABLE) {
+        gmpAcum = ((Number(ult.peso) - pesoIng) / dTot) * 30;
+      }
+    }
+  }
+
+  let gmpUltimo: number | null = null;
+  if (posterior && ult) {
+    if (penult && Number(penult.peso) > 0) {
+      const dTramo = daysBetweenIso(penult.fecha, ult.fecha);
+      if (dTramo >= MIN_DIAS_TRAMO_ESTABLE) {
+        gmpUltimo = ((Number(ult.peso) - Number(penult.peso)) / dTramo) * 30;
+      }
+    } else if (fechaIng && pesoIng > 0) {
+      const dTramo = daysBetweenIso(fechaIng, ult.fecha);
+      if (dTramo >= MIN_DIAS_TRAMO_ESTABLE) {
+        gmpUltimo = ((Number(ult.peso) - pesoIng) / dTramo) * 30;
+      }
+    }
+  }
+
+  return { gmpAcum, gmpUltimo, pesoActual, fechaRef };
+}
+
+function calcularFallbackFinca(animales: any[]): Record<string, number> {
+  const buckets: Record<string, number[]> = { ceba: [], levante: [], cria: [], all: [] };
+  for (const a of animales) {
+    const { gmpAcum, gmpUltimo } = extraerTasasAnimal(a);
+    const tasa = gmpAcum !== null && gmpUltimo !== null ? 0.6 * gmpAcum + 0.4 * gmpUltimo : (gmpAcum ?? gmpUltimo);
+    if (tasa === null || !Number.isFinite(tasa)) continue;
+    const clamped = Math.min(MAX_GMP_PASTOREO, Math.max(0, tasa));
+    buckets.all.push(clamped);
+    const et = (a.etapa || "").toLowerCase();
+    if (buckets[et]) buckets[et].push(clamped);
+  }
+  const avg = (arr: number[], def: number) =>
+    arr.length >= 3 ? Math.min(16, Math.max(6, arr.reduce((s, v) => s + v, 0) / arr.length)) : def;
+  const general = avg(buckets.all, 11.5);
+  return {
+    ceba: avg(buckets.ceba, general),
+    levante: avg(buckets.levante, 10.0),
+    cria: avg(buckets.cria, 10.0),
+    general,
+  };
+}
+
+function calcularPesoEstAnimal(a: any, hoyIso: string, fallback: Record<string, number>) {
+  const { gmpAcum, gmpUltimo, pesoActual, fechaRef } = extraerTasasAnimal(a);
+  const etapa = (a.etapa || "").toLowerCase();
+  const def = fallback[etapa] ?? fallback.general ?? 11.5;
+  const raw = gmpAcum !== null && gmpUltimo !== null ? 0.6 * gmpAcum + 0.4 * gmpUltimo : (gmpAcum ?? gmpUltimo ?? def);
+  const gmpBase = Math.min(MAX_GMP_PASTOREO, Math.max(0, raw));
+  const dias = fechaRef ? Math.max(0, daysBetweenIso(fechaRef, hoyIso)) : 0;
+  const diasEf = getDiasEfectivos(dias);
+  const est = pesoActual > 0 ? pesoActual + diasEf * ((gmpBase * getFactorMadurezPeso(pesoActual)) / 30) : 0;
+  return { est, dias };
+}
+
 async function loadRuntimeConfig(adminClient: any): Promise<{
   vapid: VapidConfig;
   internalCronSecret: string;
@@ -556,10 +694,10 @@ async function handleDailyDigest(adminClient: any, vapid: VapidConfig): Promise<
     { data: lluviasAyer },
     { data: climasRecientes },
   ] = await Promise.all([
-    adminClient.from("configuracion_kpi").select("id_finca, corte_peso_3").in("id_finca", fincaIds),
+    adminClient.from("configuracion_kpi").select("id_finca, corte_peso_3, preset_peso").in("id_finca", fincaIds),
     adminClient
       .from("animales")
-      .select("id, id_finca, fecha_ingreso, peso_ingreso, peso_compra, id_potrerada, registros_pesaje(peso, fecha, gmp_calculada, is_deleted)")
+      .select("id, id_finca, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, id_potrerada, registros_pesaje(peso, fecha, gdp_calculada, gmp_calculada, is_deleted)")
       .in("id_finca", fincaIds)
       .eq("estado", "activo")
       .or("is_deleted.is.null,is_deleted.eq.false")
@@ -599,8 +737,10 @@ async function handleDailyDigest(adminClient: any, vapid: VapidConfig): Promise<
   }
 
   const corteVentaMap = new Map<string, number>();
+  const presetMap = new Map<string, string | null>();
   for (const c of configs || []) {
     corteVentaMap.set(c.id_finca, Number(c.corte_peso_3) || 530);
+    presetMap.set(c.id_finca, c.preset_peso || null);
   }
 
   const lluviasPorFinca = new Map<string, number[]>();
@@ -689,33 +829,50 @@ async function handleDailyDigest(adminClient: any, vapid: VapidConfig): Promise<
       });
     }
 
-    // 4. Lotes listos para despacho
-    const lotesMap = new Map<string, number[]>();
+    // 4. Lotes listos para despacho (etapa comercial, pesaje <= 150d y modelo zootécnico acotado)
+    const metaKg = corteVentaMap.get(fId) || 530;
+    const etapaObjetivo = getEtapaObjetivoVenta(presetMap.get(fId) || null);
+    const fallbackFinca = calcularFallbackFinca(fincaAnimals);
+    const lotesMap = new Map<string, { ests: number[]; dias: number[]; listos: number }>();
+
     for (const a of fincaAnimals) {
       if (!a.id_potrerada) continue;
-      const regs = (a.registros_pesaje || []).filter((r: any) => r.is_deleted !== true);
-      const ult = regs[0];
-      const pesoRef = Number(ult ? ult.peso : a.peso_compra ?? a.peso_ingreso) || 0;
-      const fechaRef = ult?.fecha || a.fecha_ingreso;
-      if (!fechaRef || pesoRef <= 0) continue;
-      const dias = Math.max(0, differenceInDaysDate(hoyDate, new Date(`${fechaRef}T12:00:00Z`)));
-      const gmp = ult?.gmp_calculada !== null && ult?.gmp_calculada !== undefined ? Number(ult.gmp_calculada) : 10.3;
-      const est = pesoRef + dias * (gmp / 30);
-      const arr = lotesMap.get(a.id_potrerada) || [];
-      arr.push(est);
-      lotesMap.set(a.id_potrerada, arr);
+      if ((a.etapa || "").toLowerCase() !== etapaObjetivo) continue;
+      const { est, dias } = calcularPesoEstAnimal(a, hoyBogota, fallbackFinca);
+      if (est <= 0) continue;
+      const entry = lotesMap.get(a.id_potrerada) || { ests: [], dias: [], listos: 0 };
+      entry.ests.push(est);
+      entry.dias.push(dias);
+      if (est >= metaKg) entry.listos++;
+      lotesMap.set(a.id_potrerada, entry);
     }
-    const metaKg = corteVentaMap.get(fId) || 530;
+
     let lotesListos = 0;
-    for (const pesos of lotesMap.values()) {
-      const avg = pesos.reduce((acc, x) => acc + x, 0) / pesos.length;
-      if (avg >= metaKg) lotesListos++;
+    let lotesPorConfirmar = 0;
+    for (const data of lotesMap.values()) {
+      const n = data.ests.length;
+      if (n === 0) continue;
+      const avg = data.ests.reduce((acc, x) => acc + x, 0) / n;
+      const avgDias = data.dias.reduce((acc, x) => acc + x, 0) / n;
+      const pctListos = data.listos / n;
+      if (avgDias <= DIAS_VENCIDO_DESPACHO) {
+        if (avg >= metaKg || pctListos >= 0.5) lotesListos++;
+      } else if (avg >= metaKg * 0.94 || pctListos >= 0.25) {
+        lotesPorConfirmar++;
+      }
     }
     if (lotesListos > 0) {
       alerts.push({
         line: `${lotesListos} lote${lotesListos > 1 ? "s" : ""} listos para despacho (>= ${metaKg} kg)`,
         target: "/potreradas",
         roles: ["administrador", "observador"],
+      });
+    }
+    if (lotesPorConfirmar > 0) {
+      alerts.push({
+        line: `${lotesPorConfirmar} lote${lotesPorConfirmar > 1 ? "s" : ""} >150d sin pesar por confirmar en báscula`,
+        target: "/potreradas",
+        roles: ["administrador", "vaquero"],
       });
     }
 

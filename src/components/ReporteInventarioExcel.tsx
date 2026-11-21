@@ -7,7 +7,15 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 // @ts-ignore
 import autoTable from 'jspdf-autotable';
-import { toDisplayValue, getUnidadLabel, getModoLabel } from '../utils/ganancia';
+import {
+  toDisplayValue,
+  getUnidadLabel,
+  getModoLabel,
+  calcularFallbackGmpPorEtapa,
+  calcularPesoEstimadoHoy,
+  normalizarPesajesDesc,
+  esPesajePosteriorAIngreso
+} from '../utils/ganancia';
 
 interface Props {
   onClose: () => void;
@@ -55,11 +63,13 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
         const { data: animalesData, error: anErr } = await supabase
           .from('animales')
           .select(`
-            id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra, fecha_ingreso, etapa, id_potrero_actual,
+            id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra, fecha_ingreso,
+            fecha_ingreso_ceba, peso_ingreso_ceba, etapa, id_potrero_actual,
             potreros ( nombre, id_rotacion, rotaciones ( nombre ) ),
-            registros_pesaje ( peso, fecha, gdp_calculada, gmp_calculada )
+            registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
           `)
           .eq('estado', 'activo')
+          .or('is_deleted.is.null,is_deleted.eq.false')
           .eq('id_finca', fincaId);
 
         if (anErr) {
@@ -73,27 +83,14 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           return;
         }
 
-        const hoy = new Date();
-        hoy.setHours(0,0,0,0);
+        const fallbackPorEtapa = calcularFallbackGmpPorEtapa(animalesData);
 
         // Lógica de agrupamiento: Rotación -> Potrero -> Animal(es)
         const group: Record<string, Record<string, any>> = {};
         const marcasSet = new Set<string>();
-        const gdpsTotales: number[] = [];
 
         animalesData.forEach((a: any) => {
-          // Deduplicar pesajes del mismo día
-          let registros = (a.registros_pesaje || []).sort((x: any, y: any) =>
-              new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-          );
-          const uniqueDates = new Set();
-          registros = registros.filter((p: any) => {
-              const dateOnly = (p.fecha || '').split('T')[0];
-              if (uniqueDates.has(dateOnly)) return false;
-              uniqueDates.add(dateOnly);
-              return true;
-          });
-
+          const registros = normalizarPesajesDesc(a.registros_pesaje);
           const ultimoP = registros[0];
           const potreroObj = a.potreros;
           const potreroName = potreroObj?.nombre || 'Sin Potrero';
@@ -103,28 +100,15 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           const marca = a.nombre_propietario ? a.nombre_propietario.trim() : 'ND';
           marcasSet.add(marca);
 
-          // GDP para estimado (excluyendo pesajes del mismo día de ingreso)
           const pesoBaseFinca = a.peso_ingreso ?? a.peso_compra;
-          if (registros.length > 1) {
-              const ant = registros[1];
-              const d = differenceInDays(new Date(ultimoP.fecha), new Date(ant.fecha));
-              if (d > 0) {
-                  const gan = ultimoP.peso - ant.peso;
-                  let gdpV = (ultimoP.gdp_calculada !== null && ultimoP.gdp_calculada !== undefined) ? Number(ultimoP.gdp_calculada) : (gan/d);
-                  if (gdpV === 0 && gan !== 0) gdpV = gan/d;
-                  gdpsTotales.push(gdpV);
-              }
-          } else if (registros.length === 1) {
-              const d = differenceInDays(new Date(ultimoP.fecha), new Date(a.fecha_ingreso));
-              if (d > 0) {
-                  const gan = ultimoP.peso - pesoBaseFinca;
-                  gdpsTotales.push(gan/d);
-              }
-          }
+          const estRes = calcularPesoEstimadoHoy(
+            { ...a, registros_pesaje: registros },
+            { fallbackGmp: fallbackPorEtapa }
+          );
 
           // GMP Total del animal: Acumulado desde ingreso a la finca (peso_ingreso)
           let gmpTotalAnimal = 0;
-          if (ultimoP) {
+          if (ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, a.fecha_ingreso)) {
               const fechaIngresoEtapa = a.fecha_ingreso;
               const pesoIngresoEtapa = pesoBaseFinca;
 
@@ -168,9 +152,9 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
 
           group[rotacionName][potreroName].animales.push({
               ...a,
-              ultimo_peso: ultimoP ? ultimoP.peso : (a.peso_compra ?? a.peso_ingreso),
-              fecha_ultimo_pesaje: ultimoP ? ultimoP.fecha : a.fecha_ingreso,
-              gmp_aplicada: gmpTotalAnimal // GUARDAMOS LA GMP PARA EL CÁLCULO POSTERIOR
+              ultimo_peso: estRes.pesoActual,
+              peso_estimado_hoy: estRes.pesoEstimado,
+              fecha_ultimo_pesaje: estRes.fechaRef || a.fecha_ingreso
           });
         });
 
@@ -195,13 +179,11 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
 
                 pData.animales.forEach((anim: any) => {
                     sumPesoReal += Number(anim.ultimo_peso);
-                    const refDate = new Date(anim.fecha_ultimo_pesaje);
-                    refDate.setHours(0,0,0,0);
-                    const diff = differenceInDays(hoy, refDate) || 0;
-                    // USAR LA GMP INDIVIDUAL: Usamos la GMP que guardamos específicamente para este animal
-                    const gdpIndividual = Number(anim.gmp_aplicada || 0) / 30;
-                    sumPesoE += Number(anim.ultimo_peso) + (diff * (gdpIndividual || 0.45));
-                    dates.push(refDate);
+                    sumPesoE += Number(anim.peso_estimado_hoy);
+                    if (anim.fecha_ultimo_pesaje) {
+                        const refDate = new Date(String(anim.fecha_ultimo_pesaje).split('T')[0] + 'T12:00:00');
+                        if (!isNaN(refDate.getTime())) dates.push(refDate);
+                    }
                 });
 
                 const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => d.getTime()))) : null;

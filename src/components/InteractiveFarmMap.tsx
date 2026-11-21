@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { findCurrentPaddockByGps } from '../utils/geoUtils';
+import type { ConfianzaPeso } from '../utils/ganancia';
 import './InteractiveFarmMap.css';
 
 interface PotreroMapData {
@@ -33,6 +34,8 @@ interface PotreroMapData {
     total_animales: number;
     peso_promedio: number;
     peso_promedio_estimado: number;
+    dias_sin_pesar?: number;
+    confianza_peso?: ConfianzaPeso;
     dias_en_potrero: number;
     fecha_entrada?: string;
     marcas: string[];
@@ -1179,7 +1182,15 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
                 <span>🐄 <strong style={{ color: 'var(--text-main)' }}>{currentPaddock.potrerada_actual.total_animales} cab.</strong></span>
                 <span>⏱️ <strong>{currentPaddock.potrerada_actual.dias_en_potrero}d</strong></span>
                 <span>⚖️ Prom: <strong>{currentPaddock.potrerada_actual.peso_promedio} kg</strong></span>
-                <span>📈 Est: <strong>{currentPaddock.potrerada_actual.peso_promedio_estimado} kg</strong></span>
+                <span>
+                  📈 Est:{' '}
+                  <strong style={{ color: currentPaddock.potrerada_actual.confianza_peso === 'vencida' ? 'var(--warning)' : undefined }}>
+                    {currentPaddock.potrerada_actual.peso_promedio_estimado} kg
+                  </strong>
+                  {currentPaddock.potrerada_actual.confianza_peso === 'vencida' && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--warning)', marginLeft: '3px' }}>⚠️</span>
+                  )}
+                </span>
               </div>
               {currentPaddock.potrerada_actual.marcas && currentPaddock.potrerada_actual.marcas.length > 0 && (
                 <div className="farm-map-gps-marcas">
@@ -1380,9 +1391,19 @@ export const InteractiveFarmMap: React.FC<InteractiveFarmMapProps> = ({
 
                 <div style={{ backgroundColor: 'var(--surface-inset)', border: '1px solid var(--border-subtle)', padding: '8px', borderRadius: '8px' }}>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>📈 Peso Estimado</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--success)' }}>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: selectedPotrero.potrerada_actual.confianza_peso === 'vencida' ? 'var(--warning)' : 'var(--success)' }}>
                     {selectedPotrero.potrerada_actual.peso_promedio_estimado} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)' }}>kg</span>
                   </div>
+                  {selectedPotrero.potrerada_actual.confianza_peso === 'vencida' && (
+                    <div style={{ fontSize: '0.64rem', color: 'var(--warning)', marginTop: '2px', fontWeight: 600 }}>
+                      ⚠️ +180d sin pesar (requiere báscula)
+                    </div>
+                  )}
+                  {selectedPotrero.potrerada_actual.confianza_peso === 'media' && (
+                    <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
+                      Confianza media (91-180d)
+                    </div>
+                  )}
                 </div>
               </div>
 

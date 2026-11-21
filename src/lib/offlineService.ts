@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { isConexionDegradada, isModoCampoActivo } from './httpOffline';
+import { calcularMetricasMapaPotreradas } from '../utils/ganancia';
 import {
   localDB,
   type AnimalCacheItem,
@@ -651,7 +652,7 @@ async function guardarSnapshotMapa(fincaId: string, mapData: any): Promise<void>
         .is('fecha_salida', null),
       supabase
         .from('animales')
-        .select('id, id_potrerada, nombre_propietario, peso_ingreso, peso_compra, fecha_ingreso, registros_pesaje (peso, fecha, gdp_calculada, gmp_calculada)')
+        .select('id, id_potrerada, nombre_propietario, etapa, peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba, registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted)')
         .eq('id_finca', fincaId)
         .eq('estado', 'activo')
         .or('is_deleted.is.null,is_deleted.eq.false')
@@ -668,67 +669,19 @@ async function guardarSnapshotMapa(fincaId: string, mapData: any): Promise<void>
       return Math.max(0, Math.floor((hoy.getTime() - t.getTime()) / 86400000));
     };
 
-    const porPotrerada = new Map<string, any[]>();
-    (animalesRes.data || []).forEach((a: any) => {
-      if (!a.id_potrerada) return;
-      if (!porPotrerada.has(a.id_potrerada)) porPotrerada.set(a.id_potrerada, []);
-      porPotrerada.get(a.id_potrerada)!.push(a);
-    });
-
-    const metricas = new Map<string, any>();
-    porPotrerada.forEach((animales, idPotrerada) => {
-      let sumPeso = 0;
-      let sumEst = 0;
-      let ultimaFecha: string | null = null;
-      const marcas = new Set<string>();
-
-      for (const a of animales) {
-        const regs = (a.registros_pesaje || []).sort(
-          (x: any, y: any) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-        );
-        const last = regs[0];
-        const base = Number(a.peso_compra ?? a.peso_ingreso ?? 0);
-        const actual = last ? Number(last.peso) : base;
-        if (last?.fecha && (!ultimaFecha || new Date(last.fecha).getTime() > new Date(ultimaFecha).getTime())) {
-          ultimaFecha = last.fecha;
-        }
-        sumPeso += actual;
-        if (last) {
-          const gmp = last.gmp_calculada != null
-            ? Number(last.gmp_calculada)
-            : (last.gdp_calculada ? Number(last.gdp_calculada) * 30 : 10.3);
-          sumEst += actual + diasDesde(last.fecha) * (gmp / 30);
-        } else if (a.fecha_ingreso) {
-          sumEst += base + diasDesde(a.fecha_ingreso) * (10.3 / 30);
-        } else {
-          sumEst += actual;
-        }
-        if (a.nombre_propietario) marcas.add(a.nombre_propietario);
-      }
-
-      let fechaTxt: string | null = null;
-      if (ultimaFecha) {
-        const d = new Date(ultimaFecha.split('T')[0] + 'T00:00:00');
-        const dias = diasDesde(ultimaFecha);
-        const ds = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-        fechaTxt = dias === 0 ? 'Hoy' : dias === 1 ? 'Ayer' : `${ds} (hace ${dias}d)`;
-      }
-
-      const n = animales.length;
-      metricas.set(idPotrerada, {
-        total_animales: n,
-        peso_promedio: n > 0 ? Math.round(sumPeso / n) : 0,
-        peso_promedio_estimado: n > 0 ? Math.round(sumEst / n) : 0,
-        marcas: Array.from(marcas).sort(),
-        fecha_ultimo_pesaje: fechaTxt
-      });
-    });
+    const metricas = calcularMetricasMapaPotreradas(animalesRes.data || []);
 
     const asignacion = new Map<string, any>();
     (movsRes.data || []).forEach((m: any) => {
       if (!m.id_potrero || !m.id_potrerada) return;
       const met = metricas.get(m.id_potrerada) || {
-        total_animales: 0, peso_promedio: 0, peso_promedio_estimado: 0, marcas: []
+        total_animales: 0,
+        peso_promedio: 0,
+        peso_promedio_estimado: 0,
+        dias_sin_pesar: 0,
+        confianza_peso: 'alta',
+        marcas: [],
+        fecha_ultimo_pesaje: null
       };
       asignacion.set(m.id_potrero, {
         id: m.id_potrerada,

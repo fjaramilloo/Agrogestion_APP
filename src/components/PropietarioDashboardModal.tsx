@@ -9,7 +9,16 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
+import {
+    toDisplayValue,
+    getUnidadLabel,
+    getModoLabel,
+    calcularGmpUltimoPeriodo,
+    calcularGmpAcumulado,
+    esPesajePosteriorAIngreso,
+    calcularFallbackGmpPorEtapa,
+    calcularPesoEstimadoHoy
+} from '../utils/ganancia';
 
 interface Pesaje {
     peso: number;
@@ -103,6 +112,7 @@ export default function PropietarioDashboardModal({
         let utilidadBrutaTotal = 0;
         let utilidadSocioTotal = 0;
         let valorizacionTotal = 0;
+        const fallbackPorEtapa = calcularFallbackGmpPorEtapa(animales);
 
         animales.forEach(a => {
             const pesoBaseFinanciero = a.peso_compra ?? a.peso_ingreso;
@@ -110,18 +120,14 @@ export default function PropietarioDashboardModal({
             const ultimoP = a.registros_pesaje?.[0];
             const penultimoP = a.registros_pesaje?.[1];
             const tienePesajePosterior = Boolean(ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, a.fecha_ingreso));
-            const pesoU = (tienePesajePosterior && ultimoP) ? ultimoP.peso : pesoBaseFinca;
-            
-            const refDate = (tienePesajePosterior && ultimoP) ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
-            const diasHoy = differenceInDays(new Date(), refDate) || 0;
-            
+
             const gmpUltimoVal = calcularGmpUltimoPeriodo(ultimoP, a.fecha_ingreso, pesoBaseFinca, penultimoP);
             const gmpHistoricoVal = calcularGmpAcumulado(ultimoP?.peso, pesoBaseFinca, a.fecha_ingreso, ultimoP?.fecha);
             const gmpUltimo = gmpUltimoVal ?? 0;
             const gmpHistorico = gmpHistoricoVal ?? 0;
 
-            const gmpParaProyeccion = (gmpHistoricoVal !== null && gmpHistoricoVal !== 0) ? gmpHistoricoVal : 10.3;
-            const estimadoHoy = pesoU + (diasHoy * (gmpParaProyeccion / 30));
+            const estRes = calcularPesoEstimadoHoy(a, { fallbackGmp: fallbackPorEtapa });
+            const estimadoHoy = estRes.pesoEstimado;
             totalPeso += estimadoHoy;
 
             if (gmpHistoricoVal !== null) {
@@ -563,7 +569,7 @@ export default function PropietarioDashboardModal({
                             </div>
                             
                             <div style={{ marginTop: '8px', fontSize: '0.7rem', color: theme.textMuted, fontStyle: 'italic', textAlign: 'center' }}>
-                                * Los pesos estimados se calculan proyectando la ganancia ({getModoLabel(modoGanancia)}) del último período hacia hoy. La rentabilidad es sobre la participación del 40% del socio, con base en el capital invertido declarado.
+                                * Los pesos estimados se calculan con la tasa histórica estabilizada (acotada por madurez fisiológica y con límite de 180 días sin pesar). La rentabilidad es sobre la participación del 40% del socio, con base en el capital invertido declarado.
                             </div>
                         </>
                     )}

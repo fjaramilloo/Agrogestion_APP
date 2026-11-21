@@ -4,6 +4,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { differenceInDays, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import {
+    calcularDiasEntreFechas,
+    evaluarLotesParaDespacho,
+    normalizarPesajesDesc
+} from '../utils/ganancia';
+import { getLocalIsoDate } from '../utils/dateUtils';
 import './NotificationCenter.css';
 
 interface Notification {
@@ -107,19 +113,25 @@ export default function NotificationCenter() {
                 .select(`
                     id,
                     numero_chapeta,
+                    etapa,
                     fecha_ingreso,
                     peso_ingreso,
                     peso_compra,
+                    fecha_ingreso_ceba,
+                    peso_ingreso_ceba,
                     id_potrerada,
                     id_finca,
                     registros_pesaje (
                         peso,
                         fecha,
-                        gmp_calculada
+                        etapa,
+                        gmp_calculada,
+                        is_deleted
                     )
                 `)
                 .in('id_finca', fincaIds)
                 .eq('estado', 'activo')
+                .or('is_deleted.is.null,is_deleted.eq.false')
                 .order('fecha', { foreignTable: 'registros_pesaje', ascending: false });
 
             if (error) {
@@ -138,18 +150,23 @@ export default function NotificationCenter() {
                 }
             }
 
-            // Obtener umbrales de despacho personalizados por finca (o fallback a 530)
+            // Obtener umbrales de despacho y preset productivo por finca (o fallback a 530)
             const corteVentaMap = new Map<string, number>();
+            const presetMap = new Map<string, string | null>();
             const { data: configs } = await supabase
                 .from('configuracion_kpi')
-                .select('id_finca, corte_peso_3')
+                .select('id_finca, corte_peso_3, preset_peso')
                 .in('id_finca', fincaIds);
             if (configs) {
-                configs.forEach((c: any) => corteVentaMap.set(c.id_finca, Number(c.corte_peso_3) || 530));
+                configs.forEach((c: any) => {
+                    corteVentaMap.set(c.id_finca, Number(c.corte_peso_3) || 530);
+                    presetMap.set(c.id_finca, c.preset_peso || null);
+                });
             }
 
             const newNotifications: Notification[] = [];
             const hoy = new Date();
+            const hoyStr = getLocalIsoDate();
             
             // 1. Procesar alertas por cada Finca
             fincaIds.forEach(fid => {
@@ -158,9 +175,9 @@ export default function NotificationCenter() {
 
                 // A. Pesajes Vencidos (> 90 días)
                 const vencidos = fincaAnimals.filter((a: any) => {
-                    const registros = a.registros_pesaje || [];
-                    const ultimaFecha = registros.length > 0 ? new Date(registros[0].fecha) : new Date(a.fecha_ingreso);
-                    return differenceInDays(hoy, ultimaFecha) > 90;
+                    const registros = normalizarPesajesDesc(a.registros_pesaje);
+                    const ultimaFecha = registros.length > 0 ? registros[0].fecha : a.fecha_ingreso;
+                    return calcularDiasEntreFechas(ultimaFecha, hoyStr) > 90;
                 });
 
                 if (vencidos.length > 0) {
@@ -179,9 +196,9 @@ export default function NotificationCenter() {
                     });
                 }
 
-                // B. Detección de Ganancia Negativa (los pesajes ya vienen ordenados DESC por fecha)
+                // B. Detección de Ganancia Negativa (los pesajes limpios ordenados DESC por fecha)
                 const conPerdida = fincaAnimals.filter((a: any) => {
-                    const registros = a.registros_pesaje || [];
+                    const registros = normalizarPesajesDesc(a.registros_pesaje);
                     if (registros.length >= 2) {
                         return Number(registros[0].peso) < Number(registros[1].peso);
                     }
@@ -204,44 +221,58 @@ export default function NotificationCenter() {
                     });
                 }
 
-                // C. Lotes Listos para Despacho (> 530kg promedio estimado)
-                const potsMap: Record<string, { nombre: string, pesos: number[] }> = {};
-                fincaAnimals.forEach((a: any) => {
-                    if (!a.id_potrerada) return;
-                    const potName = potreradasMap[a.id_potrerada] || 'Sin nombre';
-                    if (!potsMap[a.id_potrerada]) potsMap[a.id_potrerada] = { nombre: potName, pesos: [] };
-                    
-                    const registros = a.registros_pesaje || [];
-                    const ultimoP = registros[0];
-                    const pesoRef = ultimoP ? ultimoP.peso : (a.peso_compra ?? a.peso_ingreso);
-                    const fechaRef = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
-                    const dias = differenceInDays(hoy, fechaRef) || 0;
-                    const gmp = (ultimoP?.gmp_calculada !== null && ultimoP?.gmp_calculada !== undefined) 
-                        ? Number(ultimoP.gmp_calculada) : 10.3;
-                    
-                    const estimado = pesoRef + (dias * (gmp / 30));
-                    potsMap[a.id_potrerada].pesos.push(estimado);
-                });
-
+                // C. Lotes Listos para Despacho (solo etapa comercial, pesaje <= 150d y modelo acotado)
                 const umbralDespacho = corteVentaMap.get(fid) || 530;
-                Object.entries(potsMap).forEach(([id, data]) => {
-                    const avg = data.pesos.reduce((a, b) => a + b, 0) / data.pesos.length;
-                    if (avg >= umbralDespacho) {
+                const presetPeso = presetMap.get(fid) || null;
+                const fincaAnimalsConNombre = fincaAnimals.map((a: any) => ({
+                    ...a,
+                    potreradaNombre: a.id_potrerada ? (potreradasMap[a.id_potrerada] || 'Sin nombre') : null
+                }));
+                const { proximosVigentes, atrasadosPorConfirmar } = evaluarLotesParaDespacho(
+                    fincaAnimalsConNombre,
+                    umbralDespacho,
+                    presetPeso,
+                    hoyStr
+                );
+
+                proximosVigentes.forEach((lote) => {
+                    if (lote.pesoPromedioEstimado >= umbralDespacho || lote.pctListos >= 0.5) {
+                        const desc = lote.pesoPromedioEstimado >= umbralDespacho
+                            ? `El lote ${lote.nombre} promedia ${Math.round(lote.pesoPromedioEstimado)} kg est. (báscula: ${Math.round(lote.pesoPromedioReal)} kg · meta: ${umbralDespacho} kg).`
+                            : `El lote ${lote.nombre} tiene ${lote.listos} de ${lote.cantidad} animales sobre ${umbralDespacho} kg (prom: ${Math.round(lote.pesoPromedioEstimado)} kg est.).`;
                         newNotifications.push({
-                            id: `lote-listo-${id}`,
+                            id: `lote-listo-${lote.id}`,
                             title: 'Lote Listo para Despacho',
-                            description: `El lote ${data.nombre} promedia ${Math.round(avg)} kg estimado hoy (meta: ${umbralDespacho} kg).`,
+                            description: desc,
                             time: format(hoy, 'HH:mm'),
                             type: 'success',
                             read: false,
                             roles: ['administrador', 'observador'],
                             target: '/potreradas',
-                            targetState: { idPotrerada: id },
+                            targetState: { idPotrerada: lote.id },
                             fincaId: fid,
                             fincaNombre: fName
                         });
                     }
                 });
+
+                if (atrasadosPorConfirmar.length > 0) {
+                    const nombres = atrasadosPorConfirmar.slice(0, 3).map((l) => l.nombre).join(', ');
+                    const extra = atrasadosPorConfirmar.length > 3 ? ` (+${atrasadosPorConfirmar.length - 3})` : '';
+                    newNotifications.push({
+                        id: `lotes-por-confirmar-${fid}`,
+                        title: 'Lotes por Confirmar en Báscula',
+                        description: `${atrasadosPorConfirmar.length} ${atrasadosPorConfirmar.length === 1 ? 'lote lleva' : 'lotes llevan'} >150 días sin pesar y podrían estar listos (${nombres}${extra}).`,
+                        time: format(hoy, 'HH:mm'),
+                        type: 'warning',
+                        read: false,
+                        roles: ['administrador', 'vaquero'],
+                        target: '/potreradas',
+                        targetState: { idPotrerada: atrasadosPorConfirmar[0].id },
+                        fincaId: fid,
+                        fincaNombre: fName
+                    });
+                }
             });
 
             // 2. Alerta de Cambio de Potrero (Multi-finca)
@@ -380,7 +411,6 @@ export default function NotificationCenter() {
                 }
             }
 
-            const hoyStr = format(hoy, 'yyyy-MM-dd');
             const readTodayIds = getReadIdsToday(hoyStr, fincaId);
 
             // Filtrar las que ya se leyeron hoy

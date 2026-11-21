@@ -4,11 +4,11 @@ import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
-import { differenceInDays } from 'date-fns';
 import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud, AlertOctagon, AlertTriangle } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
 import ModalUpsell from '../components/ModalUpsell';
 import { getLocalIsoDate } from '../utils/dateUtils';
+import { calcularPesoEstimadoHoy } from '../utils/ganancia';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './TradeOperations.css';
@@ -219,6 +219,8 @@ export default function Sales() {
                         peso,
                         fecha,
                         etapa,
+                        gdp_calculada,
+                        gmp_calculada,
                         is_deleted
                     )
                 `)
@@ -307,25 +309,12 @@ export default function Sales() {
                     peso_inicio_ceba: pesoInicioCeba
                 };
 
-                // Si es Carnicero y no han puesto peso, estimar basado en GMP
+                // Si es Carnicero y no han puesto peso, estimar con el motor zootécnico unificado a fechaVenta
                 if (isCarnicero && !newAnimales[index].peso_salida) {
-                    // Calculamos GMP histórico (ciclo actual) desde peso_ingreso hasta el último pesaje
-                    let gmpCalculado = 12.5; // Default razonable si no hay datos
-                    const registrosGmp = [...registrosActivos].sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
-                    if (registrosGmp.length >= 1) {
-                        const rUltimo = registrosGmp[registrosGmp.length - 1];
-                        const dGmp = differenceInDays(new Date(rUltimo.fecha), new Date(animalEncontrado.fecha_ingreso));
-                        if (dGmp > 0 && pesoBaseIngreso > 0) {
-                            gmpCalculado = ((rUltimo.peso - pesoBaseIngreso) / dGmp) * 30;
-                        }
-                    }
-
-                    const diasDesdeUltimo = differenceInDays(new Date(fechaVenta), new Date(ultimaFecha));
-                    const estWeight = Number(ultimoPeso) + (diasDesdeUltimo * (gmpCalculado / 30));
-                    
-                    newAnimales[index].peso_salida = estWeight.toFixed(1);
+                    const estVenta = calcularPesoEstimadoHoy(animalEncontrado, { fechaObjetivo: fechaVenta });
+                    newAnimales[index].peso_salida = estVenta.pesoEstimado.toFixed(1);
                     newAnimales[index].es_estimado = true;
-                    newAnimales[index].gmp = gmpCalculado;
+                    newAnimales[index].gmp = estVenta.gmpEfectiva;
                 }
             }
             setAnimales(newAnimales);

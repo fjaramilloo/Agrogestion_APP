@@ -9,7 +9,16 @@ import {
 import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, AlertOctagon, SlidersHorizontal, ArrowLeftRight, Leaf, CloudRain, Users, ListChecks, ChevronRight } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
+import {
+    toDisplayValue,
+    getUnidadLabel,
+    getModoLabel,
+    calcularGmpAcumulado,
+    calcularFallbackGmpPorEtapa,
+    calcularPesoEstimadoHoy,
+    evaluarLotesParaDespacho,
+    type LoteDespachoEvaluado
+} from '../utils/ganancia';
 import { consolidarLluviasPorFecha } from '../utils/rainfallUtils';
 import { useNavigate, Link } from 'react-router-dom';
 import './Dashboard.css';
@@ -137,14 +146,10 @@ export default function Dashboard() {
         nombre: string,
         animales: any[]
     } | null>(null);
-    const [proximosDespachos, setProximosDespachos] = useState<{
-        id: string;
-        nombre: string;
-        cantidad: number;
-        listos: number;
-        diasFaltantes: number;
-        gmpLote: number;
-    } | null>(null);
+    const [despachosInfo, setDespachosInfo] = useState<{
+        proximosVigentes: LoteDespachoEvaluado[];
+        atrasadosPorConfirmar: LoteDespachoEvaluado[];
+    }>({ proximosVigentes: [], atrasadosPorConfirmar: [] });
 
     const handleOpenMuertes = () => {
         setMuertesModalVisible(true);
@@ -190,7 +195,7 @@ export default function Dashboard() {
                         registros_pesaje (
                             id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted
                         )
-                    `).eq('id_finca', fincaId).limit(10000), { data: [], error: null })
+                    `).eq('id_finca', fincaId).or('is_deleted.is.null,is_deleted.eq.false').limit(10000), { data: [], error: null })
                 ]);
 
                 const [{ data: resumen }, fincaRes, configRes] = await pResumen;
@@ -445,33 +450,31 @@ export default function Dashboard() {
                     ]);
                 }
 
-                // Calcular Distribución de Pesos Estimados
+                // Calcular Distribución de Pesos Estimados con motor zootécnico unificado
                 const dist = { rango1: 0, rango2: 0, rango3: 0, rango4: 0 };
                 const distAnimales: Record<string, any[]> = { rango1: [], rango2: [], rango3: [], rango4: [] };
-                
-                animales.forEach((animal: any) => {
-                    const ultimoP = ultPesajesMap.get(animal.id) || null;
-                    const pesoBase = animal.peso_ingreso ?? animal.peso_compra ?? 0;
-                    const tienePesajePosterior = Boolean(ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, animal.fecha_ingreso));
-                    const pesoRef = (tienePesajePosterior && ultimoP) ? ultimoP.peso : pesoBase;
-                    const fechaRef = (tienePesajePosterior && ultimoP) ? ultimoP.fecha : animal.fecha_ingreso;
-                    const dias = fechaRef ? (differenceInDays(new Date(), new Date(fechaRef)) || 0) : 0;
+                const animalesConPesajes = animales.map((animal: any) => ({
+                    ...animal,
+                    registros_pesaje: pesajesMap[animal.id] || animal.registros_pesaje || []
+                }));
+                const fallbackPorEtapa = calcularFallbackGmpPorEtapa(animalesConPesajes);
 
-                    const gmpAcum = calcularGmpAcumulado(ultimoP?.peso, pesoBase, animal.fecha_ingreso, ultimoP?.fecha);
-                    const gmpIndiv = (gmpAcum !== null && gmpAcum !== 0) ? gmpAcum : 10.3;
+                const c1 = Number(configKpi?.corte_peso_1) || 430;
+                const c2 = Number(configKpi?.corte_peso_2) || 480;
+                const c3 = Number(configKpi?.corte_peso_3) || 530;
 
-                    const estimado = pesoRef + (dias * (gmpIndiv / 30));
+                animalesConPesajes.forEach((animal: any) => {
+                    const estRes = calcularPesoEstimadoHoy(animal, { fallbackGmp: fallbackPorEtapa });
+                    const estimado = estRes.pesoEstimado;
 
                     const objAnimal = {
                         ...animal,
-                        ultimoPeso: pesoRef,
+                        ultimoPeso: estRes.pesoActual,
                         pesoEstimado: estimado,
+                        diasSinPesar: estRes.diasSinPesar,
+                        confianzaPeso: estRes.confianza,
                         potrerada: animal.potreradas?.nombre || animal.potreros?.nombre || 'Sin Ubicación'
                     };
-
-                    const c1 = Number(configKpi?.corte_peso_1) || 430;
-                    const c2 = Number(configKpi?.corte_peso_2) || 480;
-                    const c3 = Number(configKpi?.corte_peso_3) || 530;
 
                     if (estimado <= c1) {
                         dist.rango1++;
@@ -491,69 +494,14 @@ export default function Dashboard() {
                 setAnimalesPorRango(distAnimales);
 
                 // --- CÁLCULO DE PRÓXIMOS DESPACHOS ---
-                const corteMetaDespacho = Number(configKpi?.corte_peso_3) || 530;
-                const reportePots: Record<string, { 
-                    id: string, 
-                    nombre: string, 
-                    countAll: number, 
-                    countReady: number, 
-                    sumPeso: number, 
-                    sumGmp: number, 
-                    countGmp: number 
-                }> = {};
-
-                animales.forEach((a: any) => {
-                    const idPot = a.id_potrerada;
-                    if (!idPot || a.etapa !== 'ceba') return;
-
-                    const potNombre = a.potreradas?.nombre || 'Potrerada Desconocida';
-                    const ultimoP = ultPesajesMap.get(a.id) || null;
-                    const pesoBase = a.peso_ingreso ?? a.peso_compra ?? 0;
-                    const tienePesajePosterior = Boolean(ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, a.fecha_ingreso));
-                    const pesoRef = (tienePesajePosterior && ultimoP) ? ultimoP.peso : pesoBase;
-                    const fechaRef = (tienePesajePosterior && ultimoP) ? ultimoP.fecha : a.fecha_ingreso;
-                    const diasRef = fechaRef ? (differenceInDays(new Date(), new Date(fechaRef)) || 0) : 0;
-                    
-                    const gmpAcum = calcularGmpAcumulado(ultimoP?.peso, pesoBase, a.fecha_ingreso, ultimoP?.fecha);
-                    const gmpIndiv = (gmpAcum !== null && gmpAcum !== 0) ? gmpAcum : 10.3;
-
-                    const pesoEst = pesoRef + (diasRef * (gmpIndiv / 30));
-
-                    if (!reportePots[idPot]) {
-                        reportePots[idPot] = { id: idPot, nombre: potNombre, countAll: 0, countReady: 0, sumPeso: 0, sumGmp: 0, countGmp: 0 };
-                    }
-
-                    reportePots[idPot].countAll++;
-                    reportePots[idPot].sumPeso += pesoEst;
-                    reportePots[idPot].sumGmp += gmpIndiv;
-                    reportePots[idPot].countGmp++;
-                    if (pesoEst >= corteMetaDespacho) {
-                        reportePots[idPot].countReady++;
-                    }
-                });
-
-                const potsKeys = Object.keys(reportePots);
-                if (potsKeys.length > 0) {
-                    const sortedPots = potsKeys.map(k => reportePots[k]).sort((a, b) => {
-                        if (b.countReady !== a.countReady) return b.countReady - a.countReady;
-                        return (b.sumPeso / b.countAll) - (a.sumPeso / a.countAll);
-                    });
-
-                    const best = sortedPots[0];
-                    const gmpProm = best.countGmp > 0 ? best.sumGmp / best.countGmp : 10.3;
-                    const pesoProm = best.countAll > 0 ? best.sumPeso / best.countAll : 0;
-                    const faltanKg = Math.max(0, corteMetaDespacho - pesoProm);
-                    const dias = gmpProm > 0 ? Math.ceil(faltanKg / (gmpProm / 30)) : 999;
-
-                    setProximosDespachos({
-                        id: best.id,
-                        nombre: best.nombre,
-                        cantidad: best.countAll,
-                        listos: best.countReady,
-                        diasFaltantes: best.countReady === best.countAll ? 0 : dias,
-                        gmpLote: gmpProm
-                    });
-                }
+                const corteMetaDespacho = c3;
+                const lotesConNombre = animalesConPesajes.map((a: any) => ({
+                    ...a,
+                    potreradaNombre: a.potreradas?.nombre || 'Potrerada Desconocida'
+                }));
+                setDespachosInfo(
+                    evaluarLotesParaDespacho(lotesConNombre, corteMetaDespacho, configKpi?.preset_peso)
+                );
             } catch (err) {
                 console.error('[Dashboard] Error cargando datos del dashboard:', err);
             } finally {
@@ -1166,50 +1114,111 @@ export default function Dashboard() {
                                             </tbody>
                                         </table>
                                     </div>
-                                    <div 
-                                        className="dashboard-dispatch-card"
-                                        onClick={() => {
-                                            if (proximosDespachos) {
-                                                navigate('/potreradas', { state: { idPotrerada: proximosDespachos.id } });
-                                            }
-                                        }}
-                                        style={{ 
-                                            cursor: proximosDespachos ? 'pointer' : 'default'
-                                        }}
-                                        onMouseOver={(e) => { if(proximosDespachos) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = 'var(--shadow-card)'; } }}
-                                        onMouseOut={(e) => { if(proximosDespachos) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; } }}
-                                    >
-                                        <div style={{ color: 'var(--primary-light)', fontSize: '0.85rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    <div className="dashboard-dispatch-card">
+                                        <div style={{ color: 'var(--primary-light)', fontSize: '0.85rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', position: 'relative', zIndex: 1 }}>
                                             <ShoppingCart size={18} /> Alerta de Próximos Despachos
                                         </div>
-                                        
-                                        {proximosDespachos ? (
-                                            <>
-                                                <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '12px', lineHeight: '1.2' }}>
-                                                    Lote: <span style={{ color: 'var(--primary-light)' }}>{proximosDespachos.nombre}</span>
+
+                                        {despachosInfo.proximosVigentes.length > 0 ? (() => {
+                                            const top = despachosInfo.proximosVigentes[0];
+                                            const siguientes = despachosInfo.proximosVigentes.slice(1, 3);
+                                            const pct = Math.round(top.pctListos * 100);
+                                            return (
+                                                <div style={{ position: 'relative', zIndex: 1 }}>
+                                                    <div
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => navigate('/potreradas', { state: { idPotrerada: top.id } })}
+                                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/potreradas', { state: { idPotrerada: top.id } }); }}
+                                                        style={{ cursor: 'pointer', marginBottom: siguientes.length > 0 ? '14px' : '8px' }}
+                                                    >
+                                                        <div style={{ fontSize: '1.35rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '6px', lineHeight: '1.2', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                                                            <span>Lote #1: <span style={{ color: 'var(--primary-light)' }}>{top.nombre}</span></span>
+                                                            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                                                hace {Math.round(top.diasSinPesarPromedio)} d
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.96rem', lineHeight: '1.5', color: 'var(--text-secondary)' }}>
+                                                            Tienes <b style={{ color: 'var(--text-main)', fontSize: '1.1rem' }}>{top.listos} de {top.cantidad}</b> animales ({pct}%) sobre {cortesPeso.corte3} kg · Prom. <b style={{ color: 'var(--text-main)' }}>{Math.round(top.pesoPromedioEstimado)} kg est.</b> <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>(báscula: {Math.round(top.pesoPromedioReal)} kg)</span>
+                                                            <span style={{ display: 'block', marginTop: '10px', padding: '10px 12px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', borderLeft: '4px solid var(--primary)', fontSize: '0.9rem' }}>
+                                                                {top.diasFaltantes === 0
+                                                                    ? `¡Lote de ${top.cantidad} animales LISTO para despacho!`
+                                                                    : `Faltan ~${top.diasFaltantes} días para meta promedio (${toDisplayValue(top.gmpLote, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)} ajustada)`
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {siguientes.length > 0 && (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+                                                            <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', fontWeight: 700 }}>
+                                                                Siguientes en fila
+                                                            </div>
+                                                            {siguientes.map((l, idx) => (
+                                                                <div
+                                                                    key={l.id}
+                                                                    role="button"
+                                                                    tabIndex={0}
+                                                                    onClick={() => navigate('/potreradas', { state: { idPotrerada: l.id } })}
+                                                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/potreradas', { state: { idPotrerada: l.id } }); }}
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        justifyContent: 'space-between',
+                                                                        alignItems: 'center',
+                                                                        gap: '8px',
+                                                                        padding: '7px 10px',
+                                                                        borderRadius: '8px',
+                                                                        background: 'var(--bg-card)',
+                                                                        border: '1px solid var(--border-subtle)',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '0.82rem'
+                                                                    }}
+                                                                >
+                                                                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                                                                        #{idx + 2} {l.nombre} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({l.cantidad} cab.)</span>
+                                                                    </span>
+                                                                    <span style={{ color: 'var(--primary-light)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                                                        {Math.round(l.pesoPromedioEstimado)} kg est. · {l.diasFaltantes === 0 ? 'Listo' : `~${l.diasFaltantes}d`}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div style={{ fontSize: '1.05rem', lineHeight: '1.6', color: 'var(--text-secondary)' }}>
-                                                    Tienes <b style={{ color: 'var(--text-main)', fontSize: '1.2rem' }}>{proximosDespachos.listos}</b> animales de más de {cortesPeso.corte3} kg. 
-                                                    <br />
-                                                    <span style={{ display: 'block', marginTop: '12px', padding: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
-                                                        {proximosDespachos.diasFaltantes === 0 
-                                                            ? `¡Lote de ${proximosDespachos.cantidad} animales LISTO para despacho!` 
-                                                            : `Próximo lote (${proximosDespachos.cantidad} animales): Listos en ${proximosDespachos.diasFaltantes} días (Basado en la ${getModoLabel(modoGanancia)} actual de ${toDisplayValue(proximosDespachos.gmpLote, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)})`
-                                                        }
-                                                    </span>
-                                                </div>
-                                                <div style={{ marginTop: '16px', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    Click para ver detalle del lote <TrendingUp size={12} />
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem', fontStyle: 'italic' }}>
-                                                No hay lotes de ceba activos con proyecciones de venta cercanas.
+                                            );
+                                        })() : (
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem', fontStyle: 'italic', position: 'relative', zIndex: 1 }}>
+                                                No hay lotes vigentes (&le;150 días sin pesar) próximos a meta de venta.
                                             </div>
                                         )}
-                                        
+
+                                        {despachosInfo.atrasadosPorConfirmar.length > 0 && (
+                                            <div
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => navigate('/potreradas', { state: { idPotrerada: despachosInfo.atrasadosPorConfirmar[0].id } })}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/potreradas', { state: { idPotrerada: despachosInfo.atrasadosPorConfirmar[0].id } }); }}
+                                                style={{
+                                                    marginTop: '12px',
+                                                    padding: '8px 10px',
+                                                    borderRadius: '8px',
+                                                    background: 'var(--warning-soft-bg)',
+                                                    border: '1px solid var(--warning-soft-border)',
+                                                    fontSize: '0.78rem',
+                                                    color: 'var(--text-main)',
+                                                    cursor: 'pointer',
+                                                    position: 'relative',
+                                                    zIndex: 1
+                                                }}
+                                            >
+                                                <strong>⚖️ Por confirmar en báscula (&gt;150d sin pesar):</strong>{' '}
+                                                {despachosInfo.atrasadosPorConfirmar.slice(0, 3).map(l => `${l.nombre} (${Math.round(l.diasSinPesarPromedio)}d)`).join(', ')}
+                                                {despachosInfo.atrasadosPorConfirmar.length > 3 ? ` (+${despachosInfo.atrasadosPorConfirmar.length - 3})` : ''}
+                                            </div>
+                                        )}
+
                                         {/* Decoración visual */}
-                                        <div style={{ position: 'absolute', bottom: '-20px', right: '-20px', opacity: 0.05 }}>
+                                        <div style={{ position: 'absolute', bottom: '-20px', right: '-20px', opacity: 0.05, pointerEvents: 'none' }}>
                                             <ShoppingCart size={120} />
                                         </div>
                                     </div>
@@ -1829,7 +1838,19 @@ export default function Dashboard() {
                                                                 </td>
                                                                 <td style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
                                                                 <td>{Math.round(a.ultimoPeso)} kg</td>
-                                                                <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{Math.round(a.pesoEstimado)} kg</td>
+                                                                <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>
+                                                                    {Math.round(a.pesoEstimado)} kg
+                                                                    {a.confianzaPeso === 'vencida' && (
+                                                                        <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: 'var(--warning)', fontWeight: 600 }}>
+                                                                            ⚠️ {a.diasSinPesar}d
+                                                                        </span>
+                                                                    )}
+                                                                    {a.confianzaPeso === 'media' && (
+                                                                        <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                                                                            ({a.diasSinPesar}d)
+                                                                        </span>
+                                                                    )}
+                                                                </td>
                                                             </tr>
                                                         ))}
                                                     </Fragment>

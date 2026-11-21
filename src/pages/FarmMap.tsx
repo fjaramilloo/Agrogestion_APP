@@ -9,6 +9,10 @@ import { localDB } from '../lib/db';
 import { useModalDialog } from '../hooks/useModalDialog';
 import { MapPin, Upload, Lock, RefreshCw, Trash2, Sparkles, WifiOff, AlertOctagon, AlertCircle, CheckCircle2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import ModalUpsell from '../components/ModalUpsell';
+import {
+  calcularMetricasMapaPotreradas,
+  type ConfianzaPeso,
+} from '../utils/ganancia';
 import './FarmMap.css';
 
 export interface PotreradaModalItem {
@@ -214,14 +218,19 @@ export const FarmMapPage: React.FC = () => {
             id,
             id_potrerada,
             nombre_propietario,
+            etapa,
             peso_ingreso,
             peso_compra,
             fecha_ingreso,
+            fecha_ingreso_ceba,
+            peso_ingreso_ceba,
             registros_pesaje (
               peso,
               fecha,
+              etapa,
               gdp_calculada,
-              gmp_calculada
+              gmp_calculada,
+              is_deleted
             )
           `)
           .eq('id_finca', fincaId)
@@ -277,94 +286,7 @@ export const FarmMapPage: React.FC = () => {
         return Math.max(0, Math.floor((todayMs - targetMs) / 86400000));
       };
 
-      // Agrupar métricas por potrerada
-      const potreradaMetricsMap = new Map<string, {
-        total_animales: number;
-        peso_promedio: number;
-        peso_promedio_estimado: number;
-        marcas: string[];
-        fecha_ultimo_pesaje?: string | null;
-      }>();
-
-      const animalesPorPotrerada = new Map<string, any[]>();
-      animalesData.forEach((a: any) => {
-        if (a.id_potrerada) {
-          if (!animalesPorPotrerada.has(a.id_potrerada)) {
-            animalesPorPotrerada.set(a.id_potrerada, []);
-          }
-          animalesPorPotrerada.get(a.id_potrerada)!.push(a);
-        }
-      });
-
-      animalesPorPotrerada.forEach((animales, potreradaId) => {
-        let sumPeso = 0;
-        let sumPesoEstimado = 0;
-        let validCount = 0;
-        let latestPesajeDate: string | null = null;
-
-        for (const a of animales) {
-          // Búsqueda en una sola pasada O(n) del pesaje más reciente (sin array sort costoso)
-          let lastP: any = null;
-          if (a.registros_pesaje && a.registros_pesaje.length > 0) {
-            for (const r of a.registros_pesaje) {
-              if (!lastP || r.fecha > lastP.fecha) {
-                lastP = r;
-              }
-            }
-          }
-
-          const pesoBase = Number(a.peso_compra ?? a.peso_ingreso ?? 0);
-          const pesoActual = lastP ? Number(lastP.peso) : pesoBase;
-
-          if (lastP?.fecha) {
-            if (!latestPesajeDate || lastP.fecha > latestPesajeDate) {
-              latestPesajeDate = lastP.fecha;
-            }
-          }
-
-          sumPeso += pesoActual;
-          validCount++;
-
-          // Estimación de peso
-          if (lastP) {
-            const gmp = lastP.gmp_calculada !== null && lastP.gmp_calculada !== undefined 
-              ? Number(lastP.gmp_calculada) 
-              : (lastP.gdp_calculada ? Number(lastP.gdp_calculada) * 30 : 10.3);
-            const diasDesdePesaje = calculateDaysDiff(lastP.fecha);
-            const pesoEst = pesoActual + (diasDesdePesaje * (gmp / 30));
-            sumPesoEstimado += pesoEst;
-          } else if (a.fecha_ingreso) {
-            const diasDesdeIngreso = calculateDaysDiff(a.fecha_ingreso);
-            const pesoEst = pesoBase + (diasDesdeIngreso * (10.3 / 30));
-            sumPesoEstimado += pesoEst;
-          } else {
-            sumPesoEstimado += pesoActual;
-          }
-        }
-
-        // Formato legible de fecha de pesaje (ej. 15 Ago o hace X días)
-        let formattedPesajeDate: string | null = null;
-        if (latestPesajeDate) {
-          const d = new Date(latestPesajeDate.split('T')[0] + 'T00:00:00');
-          const dias = calculateDaysDiff(latestPesajeDate);
-          const dateStr = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-          formattedPesajeDate = dias === 0 ? 'Hoy' : dias === 1 ? 'Ayer' : `${dateStr} (hace ${dias}d)`;
-        }
-
-        // Calcular marcas (propietarios únicos) de esta potrerada
-        const marcasSet = new Set<string>();
-        animales.forEach((a: any) => {
-          if (a.nombre_propietario) marcasSet.add(a.nombre_propietario);
-        });
-
-        potreradaMetricsMap.set(potreradaId, {
-          total_animales: validCount,
-          peso_promedio: validCount > 0 ? Math.round(sumPeso / validCount) : 0,
-          peso_promedio_estimado: validCount > 0 ? Math.round(sumPesoEstimado / validCount) : 0,
-          marcas: Array.from(marcasSet).sort(),
-          fecha_ultimo_pesaje: formattedPesajeDate,
-        });
-      });
+      const potreradaMetricsMap = calcularMetricasMapaPotreradas(animalesData);
 
       const potreroAssignmentMap = new Map<string, {
         id: string;
@@ -372,6 +294,8 @@ export const FarmMapPage: React.FC = () => {
         total_animales: number;
         peso_promedio: number;
         peso_promedio_estimado: number;
+        dias_sin_pesar: number;
+        confianza_peso: ConfianzaPeso;
         dias_en_potrero: number;
         fecha_entrada?: string;
         marcas: string[];
@@ -384,7 +308,10 @@ export const FarmMapPage: React.FC = () => {
             total_animales: 0,
             peso_promedio: 0,
             peso_promedio_estimado: 0,
+            dias_sin_pesar: 0,
+            confianza_peso: 'alta' as ConfianzaPeso,
             marcas: [] as string[],
+            fecha_ultimo_pesaje: null,
           };
           const diasOcupacion = m.fecha_entrada ? calculateDaysDiff(m.fecha_entrada) : 0;
 
@@ -394,6 +321,8 @@ export const FarmMapPage: React.FC = () => {
             total_animales: metrics.total_animales,
             peso_promedio: metrics.peso_promedio,
             peso_promedio_estimado: metrics.peso_promedio_estimado,
+            dias_sin_pesar: metrics.dias_sin_pesar,
+            confianza_peso: metrics.confianza_peso,
             dias_en_potrero: diasOcupacion,
             fecha_entrada: m.fecha_entrada,
             marcas: metrics.marcas,

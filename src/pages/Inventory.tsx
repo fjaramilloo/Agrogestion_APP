@@ -10,7 +10,15 @@ import ModalUpsell from '../components/ModalUpsell';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
+import {
+    toDisplayValue,
+    getUnidadLabel,
+    getModoLabel,
+    calcularGmpUltimoPeriodo,
+    calcularGmpAcumulado,
+    esPesajePosteriorAIngreso,
+    calcularPesoEstimadoHoy
+} from '../utils/ganancia';
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
 import { getLocalIsoDate } from '../utils/dateUtils';
@@ -1333,15 +1341,13 @@ export default function Inventory() {
                 const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : format(new Date(fechaInicioModal), 'dd/MM/yyyy');
                 const pesoU = ultimoP ? ultimoP.peso : pesoBaseModal;
 
-                const refDate = ultimoP ? new Date(ultimoP.fecha) : new Date(fechaInicioModal);
-                const diasHoy = differenceInDays(new Date(), refDate) || 0;
-                
                 const gmpUltimoModal = calcularGmpUltimoPeriodo(ultimoP, fechaInicioModal, pesoBaseModal, penultimoP);
                 const gmpHistoricoModal = calcularGmpAcumulado(ultimoP?.peso, pesoBaseModal, fechaInicioModal, ultimoP?.fecha);
 
-                // Usar GMP histórica acumulada para proyectar peso estimado a hoy con estabilidad
-                const gmpParaProyeccion = (gmpHistoricoModal !== null && gmpHistoricoModal !== 0) ? gmpHistoricoModal : 10.3;
-                const estimadoHoy = pesoU + (diasHoy * (gmpParaProyeccion / 30));
+                const estModal = calcularPesoEstimadoHoy(selectedAnimal);
+                const diasHoy = estModal.diasSinPesar;
+                const estimadoHoy = estModal.pesoEstimado;
+                const confianzaHoy = estModal.confianza;
 
                 interface TimelineItem {
                     id: string;
@@ -1619,11 +1625,13 @@ export default function Inventory() {
                                 )}
                                 <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
-                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: confianzaHoy === 'vencida' ? 'var(--warning)' : 'var(--primary-light)' }}>
                                         {estimadoHoy.toFixed(1)} kg
                                     </div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                        {diasHoy > 0 ? `+${(estimadoHoy - pesoU).toFixed(1)} kg (${diasHoy} d)` : 'Calculado a la fecha'}
+                                    <div style={{ fontSize: '0.72rem', color: confianzaHoy === 'vencida' ? 'var(--warning)' : 'var(--text-muted)', marginTop: '4px' }}>
+                                        {confianzaHoy === 'vencida'
+                                            ? `⚠️ Congelado (${diasHoy} d sin pesar)`
+                                            : (diasHoy > 0 ? `+${(estimadoHoy - pesoU).toFixed(1)} kg (${diasHoy} d)` : 'Calculado a la fecha')}
                                     </div>
                                 </div>
                             </div>

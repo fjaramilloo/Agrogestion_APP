@@ -12,7 +12,19 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Download, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import { toDisplayValue, getUnidadLabel, getModoLabel, calcularGmpUltimoPeriodo, calcularGmpAcumulado, esPesajePosteriorAIngreso } from '../utils/ganancia';
+import {
+    toDisplayValue,
+    getUnidadLabel,
+    getModoLabel,
+    calcularGmpUltimoPeriodo,
+    calcularGmpAcumulado,
+    esPesajePosteriorAIngreso,
+    calcularFallbackGmpPorEtapa,
+    calcularPesoEstimadoHoy,
+    getConfianzaPeso,
+    normalizarPesajesDesc,
+    type ConfianzaPeso
+} from '../utils/ganancia';
 import { getLocalIsoDate } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Potreradas.css';
@@ -26,6 +38,7 @@ interface Potrerada {
     loteListoParaLimpiar: boolean;
     pesoPromedio: number;
     pesoEstimadoPromedio: number;
+    confianzaPeso?: ConfianzaPeso;
     gmpPromedio: number;
     gmpAcumulado: number | null;
     diasPesajePromedio: number;
@@ -175,8 +188,8 @@ export default function Potreradas() {
                         peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
                         fecha_ingreso_ceba, peso_ingreso_ceba,
                         potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                        registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada )
-                    `).eq('id_finca', fincaId).eq('estado', 'activo').order('fecha', { foreignTable: 'registros_pesaje', ascending: false }),
+                        registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
+                    `).eq('id_finca', fincaId).eq('estado', 'activo').or('is_deleted.is.null,is_deleted.eq.false').order('fecha', { foreignTable: 'registros_pesaje', ascending: false }),
                     supabase.from('animales').select(`
                         id, numero_chapeta, nombre_propietario, id_potrerada,
                         peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
@@ -209,6 +222,8 @@ export default function Potreradas() {
 
             const pots = potsRes.data || [];
             const animals = animRes.data || [];
+            const activeAnimalsAll = animals.filter((a: any) => a.estado === 'activo');
+            const fallbackPorEtapa = calcularFallbackGmpPorEtapa(activeAnimalsAll);
             setRotaciones(rotsRes.data || []);
 
             const areaRotacionMap = new Map<string, number>();
@@ -262,9 +277,6 @@ export default function Potreradas() {
 
             setAnimalesFinca(animalesProcesados);
 
-            const hoy = new Date();
-            hoy.setHours(0, 0, 0, 0);
-
             // [NUEVO] Agregar potrerada virtual para animales sin asignar
             if (animalesSinPotrerada.length > 0) {
                 pots.push({
@@ -293,17 +305,24 @@ export default function Potreradas() {
                 let validGmpAccCount = 0;
                 let validDateCount = 0;
 
-                groupAnimals.forEach((a: any) => {
-                    const registros = a.registros_pesaje || [];
-
+                // Solo promediar sobre animales activos (excluir vendidos que aún conserven id_potrerada)
+                animalesActivos.forEach((a: any) => {
+                    const registros = normalizarPesajesDesc(a.registros_pesaje);
                     const lastP = registros[0];
                     const penultimoP = registros[1];
                     const pesoBase = a.peso_ingreso ?? a.peso_compra ?? 0;
                     const tienePesajePosterior = Boolean(lastP && esPesajePosteriorAIngreso(lastP.fecha, a.fecha_ingreso));
-                    
-                    const pesoActual = (tienePesajePosterior && lastP) ? lastP.peso : pesoBase;
-                    totalPeso += Number(pesoActual);
+
+                    const estRes = calcularPesoEstimadoHoy(
+                        { ...a, registros_pesaje: registros },
+                        { fallbackGmp: fallbackPorEtapa }
+                    );
+
+                    totalPeso += estRes.pesoActual;
+                    totalPesoEstimado += estRes.pesoEstimado;
                     validWeightCount++;
+                    totalDiasPesaje += estRes.diasSinPesar;
+                    validDateCount++;
 
                     // 1. GMP Último Periodo (excluyendo pesajes del mismo día de ingreso)
                     if (tienePesajePosterior && lastP) {
@@ -315,32 +334,15 @@ export default function Potreradas() {
 
                         // 2. GMP Acumulada Histórica: desde ingreso en finca (peso_ingreso) hasta último pesaje
                         const gmpIndiv = calcularGmpAcumulado(lastP.peso, pesoBase, a.fecha_ingreso, lastP.fecha);
-
-                        let gmpForEstimation = (gmpIndiv !== null && gmpIndiv !== 0) ? gmpIndiv : 10.3;
-
                         if (gmpIndiv !== null) {
                             totalGmpAcc += gmpIndiv;
                             validGmpAccCount++;
                         }
-
-                        const fechaRef = new Date(lastP.fecha);
-                        fechaRef.setHours(0,0,0,0);
-                        const diff = differenceInDays(hoy, fechaRef) || 0;
-                        totalPesoEstimado += Number(lastP.peso) + (diff * (gmpForEstimation / 30));
-                    } else {
-                        // Sin pesajes posteriores al ingreso
-                        const fechaRef = new Date(a.fecha_ingreso);
-                        fechaRef.setHours(0,0,0,0);
-                        const diff = differenceInDays(hoy, fechaRef) || 0;
-                        totalPesoEstimado += Number(pesoBase) + (diff * (10.3 / 30));
                     }
-
-                    const fechaRefP = new Date((tienePesajePosterior && lastP) ? lastP.fecha : a.fecha_ingreso);
-                    fechaRefP.setHours(0,0,0,0);
-                    const diffP = differenceInDays(hoy, fechaRefP);
-                    totalDiasPesaje += diffP;
-                    validDateCount++;
                 });
+
+                const diasPesajePromedio = validDateCount > 0 ? totalDiasPesaje / validDateCount : 0;
+                const marcasFuente = animalesActivos.length > 0 ? animalesActivos : groupAnimals;
 
                 return {
                     id: p.id,
@@ -351,10 +353,11 @@ export default function Potreradas() {
                     loteListoParaLimpiar,
                     pesoPromedio: validWeightCount > 0 ? totalPeso / validWeightCount : 0,
                     pesoEstimadoPromedio: validWeightCount > 0 ? totalPesoEstimado / validWeightCount : 0,
+                    confianzaPeso: getConfianzaPeso(diasPesajePromedio),
                     gmpPromedio: validGmpLastCount > 0 ? totalGmpLast / validGmpLastCount : 0,
                     gmpAcumulado: validGmpAccCount > 0 ? totalGmpAcc / validGmpAccCount : null,
-                    diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0,
-                    marcas: Object.entries(groupAnimals.reduce((acc: Record<string, number>, a: any) => {
+                    diasPesajePromedio,
+                    marcas: Object.entries(marcasFuente.reduce((acc: Record<string, number>, a: any) => {
                         if (a.nombre_propietario) acc[a.nombre_propietario] = (acc[a.nombre_propietario] || 0) + 1;
                         return acc;
                     }, {})).map(([nombre, count]) => ({ nombre, count })).sort((a, b) => a.nombre.localeCompare(b.nombre)),
@@ -621,13 +624,13 @@ export default function Potreradas() {
                 id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra,
                 fecha_ingreso, etapa, estado, fecha_ingreso_ceba, peso_ingreso_ceba,
                 id_potrero_actual, potreros (nombre, area_hectareas),
-                registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada)
+                registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted)
             `);
             
             if (isSinPotrerada) {
-                queryAnimales.is('id_potrerada', null).eq('estado', 'activo');
+                queryAnimales.is('id_potrerada', null).eq('estado', 'activo').or('is_deleted.is.null,is_deleted.eq.false');
             } else {
-                queryAnimales.eq('id_potrerada', p.id).in('estado', ['activo', 'vendido']);
+                queryAnimales.eq('id_potrerada', p.id).in('estado', ['activo', 'vendido']).or('is_deleted.is.null,is_deleted.eq.false');
             }
 
             // MEJORA 3: Consultas de detalle en paralelo
@@ -681,15 +684,13 @@ export default function Potreradas() {
 
         // 3. Procesar animales y sus métricas
         const processedAnimals: AnimalPotrero[] = (animals || []).map((a: any) => {
-            const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
-                new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
-            );
+            const registros = normalizarPesajesDesc(a.registros_pesaje);
 
             const registrosEtapa = showFullHistory
-                ? [...registros].sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())
-                : (a.registros_pesaje || [])
+                ? [...registros].reverse()
+                : registros
                     .filter((r: any) => r.etapa?.toLowerCase() === p.etapa.toLowerCase())
-                    .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+                    .reverse();
 
             let fechaIngresoEtapa = null;
             let pesoIngresoEtapa = null;
@@ -817,7 +818,7 @@ export default function Potreradas() {
                 ? (a.registros_pesaje || [])
                 : (a.registros_pesaje || []).filter((r: any) => r.etapa?.toLowerCase() === p.etapa.toLowerCase())
             )
-                .filter((r: any) => esPesajePosteriorAIngreso(r.fecha, entryDateForChart || a.fecha_ingreso))
+                .filter((r: any) => r && r.is_deleted !== true && esPesajePosteriorAIngreso(r.fecha, entryDateForChart || a.fecha_ingreso))
                 .slice()
                 .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
 
@@ -1646,7 +1647,12 @@ export default function Potreradas() {
                                     </td>
                                     <td className="mobile-hide potreradas-col-peso" style={{ padding: '16px 24px', textAlign: 'right' }}>
                                         <span className="potreradas-cell-prefix">Peso prom.</span>
-                                        <div style={{ fontWeight: 'bold' }}>{Math.round(p.pesoEstimadoPromedio)} <span style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>kg est.</span></div>
+                                        <div style={{ fontWeight: 'bold' }}>
+                                            {Math.round(p.pesoEstimadoPromedio)} <span style={{ fontSize: '0.8rem', color: 'var(--primary-light)' }}>kg est.</span>
+                                            {p.confianzaPeso === 'vencida' && (
+                                                <span title="Dato vencido (>180 días sin pesar): proyección congelada" style={{ marginLeft: '6px', fontSize: '0.7rem', color: 'var(--warning)', fontWeight: 700 }}>⚠️</span>
+                                            )}
+                                        </div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Real: {Math.round(p.pesoPromedio)} kg</div>
                                     </td>
                                     <td className="potreradas-col-gmp" style={{ padding: '16px 24px', textAlign: 'right' }}>
