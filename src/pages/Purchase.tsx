@@ -86,7 +86,7 @@ export default function Purchase() {
         const loadQueue = () => {
             const saved = localStorage.getItem('agrogestion_compras_offline');
             if (saved) {
-                try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
+                try { setOfflineQueue(JSON.parse(saved)); } catch {}
             } else {
                 setOfflineQueue([]);
             }

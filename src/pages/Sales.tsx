@@ -3,8 +3,7 @@ import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
-import { useFeedback } from '../contexts/UiFeedbackContext';
-import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, UploadCloud, AlertOctagon, AlertTriangle } from 'lucide-react';
+import { Tag, Trash2, CheckCircle2, Calendar, Search, AlertCircle, Plus, Wifi, WifiOff, AlertOctagon, AlertTriangle } from 'lucide-react';
 import SalesReport from '../components/SalesReport';
 import ModalUpsell from '../components/ModalUpsell';
 import { getLocalIsoDate } from '../utils/dateUtils';
@@ -12,14 +11,6 @@ import { calcularPesoEstimadoHoy } from '../utils/ganancia';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './TradeOperations.css';
-
-interface OfflineSalesPayload {
-    id: string;
-    fechaVenta: string;
-    animales: AnimalVenta[];
-    selectedComprador: string;
-    observaciones: string;
-}
 
 interface AnimalVenta {
     numero_chapeta: string;
@@ -45,7 +36,6 @@ interface AnimalVenta {
 export default function Sales() {
     const { fincaId, role, userFincas, modoGanancia, licenciaInfo } = useAuth();
     const { modoCampo, toggleModoCampo, isOnline } = useConnection();
-    const { confirmAction } = useFeedback();
     const isVencida = Boolean(licenciaInfo?.isVencida);
     const isSobrecupo = Boolean(licenciaInfo && (licenciaInfo.isSobrecupo || licenciaInfo.totalAnimalesOrganizacion > licenciaInfo.limiteAnimales));
     const isBloqueado = isVencida || isSobrecupo;
@@ -63,30 +53,12 @@ export default function Sales() {
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
 
-    // Offline / Sync State
-    const [offlineQueue, setOfflineQueue] = useState<OfflineSalesPayload[]>([]);
-    const [syncing, setSyncing] = useState(false);
-
     // Reporte
     const [showConfirm, setShowConfirm] = useState(false);
     const confirmDialogProps = useModalDialog(showConfirm, () => setShowConfirm(false), false);
 
     const [showReport, setShowReport] = useState(false);
     const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalVenta[], comprador: string, observaciones?: string } | null>(null);
-
-    useEffect(() => {
-        const loadQueue = () => {
-            const saved = localStorage.getItem('agrogestion_ventas_offline');
-            if (saved) {
-                try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
-            } else {
-                setOfflineQueue([]);
-            }
-        };
-        loadQueue();
-        window.addEventListener('offline-queue-changed', loadQueue);
-        return () => window.removeEventListener('offline-queue-changed', loadQueue);
-    }, []);
 
     useEffect(() => {
         if (!fincaId) return;
@@ -452,90 +424,6 @@ export default function Sales() {
         return <div className="page-container text-center">Acceso denegado. Solo administradores y trabajadores pueden registrar ventas.</div>;
     }
 
-    const syncOfflineQueue = async () => {
-        if (!fincaId || offlineQueue.length === 0 || !isOnline) return;
-        setSyncing(true);
-        setMsjError('');
-        setMsjExito('');
-        let syncedCount = 0;
-        let newQueue = [...offlineQueue];
-
-        try {
-            for (const payload of offlineQueue) {
-                const animalesProcesados: AnimalVenta[] = [];
-                const registrosInsert = [];
-
-                for (const a of payload.animales) {
-                    // Validar animal primero en BD
-                    const { data, error } = await supabase
-                        .from('animales')
-                        .select('id, nombre_propietario, peso_ingreso, peso_compra, fecha_ingreso, etapa, fecha_ingreso_ceba, peso_ingreso_ceba, potreros(nombre), registros_pesaje(peso,fecha,etapa)')
-                        .eq('id_finca', fincaId)
-                        .eq('numero_chapeta', a.numero_chapeta.trim())
-                        .eq('estado', 'activo')
-                        .single();
-
-                    if (error || !data) {
-                        throw new Error(`Animal ${a.numero_chapeta} en lote del ${payload.fechaVenta} no encontrado o inactivo.`);
-                    }
-
-                    const dbId = data.id;
-                    const ceba = parseDecimalInput(a.peso_salida);
-                    
-                    registrosInsert.push({
-                        id_animal: dbId,
-                        peso: ceba,
-                        fecha: payload.fechaVenta,
-                        etapa: 'ceba'
-                    });
-
-                    // Update en base de datos 
-                    const { error: errorAnimal } = await supabase
-                        .from('animales')
-                        .update({ 
-                            estado: 'vendido',
-                            comprador_venta: payload.selectedComprador,
-                            fecha_venta: payload.fechaVenta,
-                            peso_venta: ceba,
-                            observaciones_venta: payload.observaciones,
-                            es_emergencia: payload.selectedComprador.toLowerCase().includes('carnicero'),
-                            precio_venta: a.precio_venta ? parseFloat(a.precio_venta) : null
-                        })
-                        .eq('id', dbId);
-                    
-                    if (errorAnimal) throw errorAnimal;
-
-                    // Recalcular el GMP offline porque antes pudo usar valores temporales
-                    const gmp = a.peso_ingreso && a.fecha_ingreso ? calculateGMP(a.peso_salida, a.peso_ingreso, a.fecha_ingreso, payload.fechaVenta) : 0;
-                    
-                    animalesProcesados.push({...a, id_animal: dbId, propietario: data.nombre_propietario, gmp});
-                }
-
-                // Batch insert records
-                if (registrosInsert.length > 0) {
-                    const { error: errorPesaje } = await supabase.from('registros_pesaje').insert(registrosInsert);
-                    if (errorPesaje) throw errorPesaje;
-                }
-
-                syncedCount++;
-                newQueue = newQueue.filter(q => q.id !== payload.id);
-            }
-
-            if (syncedCount > 0) {
-                setOfflineQueue(newQueue);
-                localStorage.setItem('agrogestion_ventas_offline', JSON.stringify(newQueue));
-                setMsjExito(`¡Sincronización completa! Se subieron y validaron ${syncedCount} ventas.`);
-            }
-
-        } catch (err: any) {
-            setOfflineQueue(newQueue);
-            localStorage.setItem('agrogestion_ventas_offline', JSON.stringify(newQueue));
-            setMsjError('Error al sincronizar cola: ' + err.message);
-        } finally {
-            setSyncing(false);
-        }
-    };
-
     return (
         <div className="page-container trade-page sales-page">
             {/* Modal nativo de Confirmación */}
@@ -607,38 +495,6 @@ export default function Sales() {
                     >
                         {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} aria-hidden="true" /> Online</> : <><WifiOff size={14} aria-hidden="true" /> Offline</>}
                     </button>
-                    {offlineQueue.length > 0 && isOnline && (
-                        <div className="trade-queue-actions">
-                            <button
-                                type="button"
-                                onClick={syncOfflineQueue}
-                                disabled={syncing}
-                                className="trade-sync-btn trade-sync-btn--danger"
-                            >
-                                <UploadCloud size={15} aria-hidden="true" /> {syncing ? 'Validando...' : `Sincronizar (${offlineQueue.length})`}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    const confirmed = await confirmAction('¿Estás seguro de limpiar la cola de ventas pendientes? Esto borrará los lotes que no se han subido.', {
-                                        title: 'Limpiar cola offline',
-                                        confirmLabel: 'Sí, limpiar',
-                                        destructive: true,
-                                    });
-                                    if (confirmed) {
-                                        setOfflineQueue([]);
-                                        localStorage.removeItem('agrogestion_ventas_offline');
-                                        setMsjExito('Cola de ventas pendientes limpiada correctamente.');
-                                    }
-                                }}
-                                className="trade-clear-queue-btn"
-                                title="Limpiar todos los pendientes"
-                                aria-label="Limpiar cola de ventas pendientes"
-                            >
-                                <Trash2 size={18} aria-hidden="true" />
-                            </button>
-                        </div>
-                    )}
                 </div>
             </div>
 

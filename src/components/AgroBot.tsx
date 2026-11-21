@@ -159,6 +159,12 @@ function extractSql(text: string): string | null {
     return null;
 }
 
+function stripMarkdownNode<T extends Record<string, any>>(props: T): Omit<T, 'node'> {
+    const rest = { ...props };
+    delete rest.node;
+    return rest;
+}
+
 export default function AgroBot() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -365,13 +371,13 @@ export default function AgroBot() {
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}
                                                     components={{
-                                                        table: ({node, ...props}: any) => <div style={{ overflowX: 'auto', margin: '8px 0' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }} {...props} /></div>,
-                                                        th: ({node, ...props}: any) => <th style={{ border: '1px solid var(--border-strong)', padding: '6px', textAlign: 'left', background: 'var(--surface-inset)' }} {...props} />,
-                                                        td: ({node, ...props}: any) => <td style={{ border: '1px solid var(--border-subtle)', padding: '6px' }} {...props} />,
-                                                        p: ({node, ...props}: any) => <p style={{ margin: '0 0 8px 0' }} {...props} />,
-                                                        ul: ({node, ...props}: any) => <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
-                                                        ol: ({node, ...props}: any) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...props} />,
-                                                        strong: ({node, ...props}: any) => <strong style={{ color: 'var(--primary-light)' }} {...props} />
+                                                        table: (props: any) => <div style={{ overflowX: 'auto', margin: '8px 0' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }} {...stripMarkdownNode(props)} /></div>,
+                                                        th: (props: any) => <th style={{ border: '1px solid var(--border-strong)', padding: '6px', textAlign: 'left', background: 'var(--surface-inset)' }} {...stripMarkdownNode(props)} />,
+                                                        td: (props: any) => <td style={{ border: '1px solid var(--border-subtle)', padding: '6px' }} {...stripMarkdownNode(props)} />,
+                                                        p: (props: any) => <p style={{ margin: '0 0 8px 0' }} {...stripMarkdownNode(props)} />,
+                                                        ul: (props: any) => <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...stripMarkdownNode(props)} />,
+                                                        ol: (props: any) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }} {...stripMarkdownNode(props)} />,
+                                                        strong: (props: any) => <strong style={{ color: 'var(--primary-light)' }} {...stripMarkdownNode(props)} />
                                                     }}
                                                 >
                                                     {m.text}

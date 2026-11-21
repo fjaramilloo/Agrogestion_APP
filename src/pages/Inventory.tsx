@@ -258,7 +258,7 @@ export default function Inventory() {
                 if (localDB?.animalesCache) {
                     await localDB.animalesCache.update(selectedAnimal.id, { numero_chapeta: nueva });
                 }
-            } catch (eCache) {}
+            } catch {}
 
             setIsEditingChapeta(false);
             setEditChapetaError('');
@@ -315,7 +315,7 @@ export default function Inventory() {
                 if (localDB?.animalesCache) {
                     await localDB.animalesCache.delete(selectedAnimal.id);
                 }
-            } catch (eCache) {}
+            } catch {}
 
             setAnimales(prev => prev.filter(a => a.id !== selectedAnimal.id));
             setSelectedAnimal(null);
@@ -626,7 +626,7 @@ export default function Inventory() {
                 });
                 void localDB.animalesCache.bulkPut(itemsCache).catch(() => {});
             }
-        } catch (err) {
+        } catch {
             console.warn('[Inventario] Revalidación en segundo plano falló por red. Manteniendo datos locales.');
         } finally {
             setLoading(false);

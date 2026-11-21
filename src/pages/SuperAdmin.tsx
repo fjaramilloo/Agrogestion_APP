@@ -201,7 +201,7 @@ export default function SuperAdmin() {
             const semana_ano = Math.max(1, Math.ceil((pastDays + startOfYear.getDay() + 1) / 7));
 
             const rowsToInsert = Object.entries(preciosCategorias)
-                .filter(([_, val]) => val && parseFloat(val) > 0)
+                .filter(([, val]) => val && parseFloat(val) > 0)
                 .map(([cat, val]) => ({
                     fecha_boletin: formFechaBoletin,
                     semana_ano,

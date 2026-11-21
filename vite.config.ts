@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['leaf.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         id: '/',
         name: 'AgroGestión',
@@ -83,7 +83,7 @@ export default defineConfig({
           if (id.includes('node_modules/@supabase/')) {
             return 'vendor-supabase';
           }
-          if (id.includes('node_modules/dexie') || id.includes('node_modules/dexie-react-hooks')) {
+          if (id.includes('node_modules/dexie')) {
             return 'vendor-dexie';
           }
           if (id.includes('node_modules/date-fns/')) {

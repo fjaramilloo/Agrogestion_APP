@@ -39,7 +39,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
         setErrorMsg('');
 
         // Nombre de la finca y umbrales KPI del admin
-        const [{ data: fincaData }, { data: kpiData }] = await Promise.all([
+        const [{ data: fincaData }, { data: kpiData }, { data: allPotrerosData }] = await Promise.all([
           supabase.from('fincas').select('nombre').eq('id', fincaId).single(),
           supabase.from('configuracion_kpi').select('umbral_alto_gmp, umbral_medio_gmp').eq('id_finca', fincaId).single(),
           supabase.from('potreros').select('nombre, id_rotacion').eq('id_finca', fincaId)
@@ -50,7 +50,6 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           setUmbralMedioGmp(Number(kpiData.umbral_medio_gmp) || 10);
         }
 
-        const { data: allPotrerosData } = await supabase.from('potreros').select('nombre, id_rotacion').eq('id_finca', fincaId);
         const rotationPotreros: Record<string, string[]> = {};
         allPotrerosData?.forEach((p: any) => {
           if (p.id_rotacion) {

@@ -340,17 +340,6 @@ button:disabled {
 }
 
 
-.app-layout {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.main-content {
-  flex: 1;
-  padding: 24px 16px;
-}
-
 .main-content-layout {
   flex: 1;
   width: 100%;
@@ -540,54 +529,6 @@ table {
   font-weight: 700;
   color: var(--primary-light);
   line-height: 1.2;
-}
-
-/* Navigation */
-.navbar {
-  background: var(--bg-dark-paper);
-  padding: 16px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border-subtle);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.nav-brand {
-  font-size: 1.2em;
-  font-weight: 700;
-  color: var(--primary-light);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.nav-links {
-  display: flex;
-  gap: 16px;
-}
-
-.nav-link {
-  color: var(--text-muted);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.nav-link:hover,
-.nav-link.active {
-  color: var(--text-main);
-}
-
-.nav-user {
-  display: flex;
-  align-items: center;
-  gap: 16px;
 }
 
 .btn-icon {

@@ -23,19 +23,6 @@ export function getModoLabel(modo: ModoGanancia): string {
     return modo === 'GDP' ? 'GDP' : 'GMP';
 }
 
-export function formatGanancia(valorKgMes: number, modo: ModoGanancia, decimales?: number): string {
-    const display = toDisplayValue(valorKgMes, modo);
-    const dec = decimales !== undefined ? decimales : (modo === 'GDP' ? 0 : 1);
-    const signo = valorKgMes > 0 ? '+' : '';
-    return signo + display.toFixed(dec) + ' ' + getUnidadLabel(modo);
-}
-
-export function formatGananciaNeutral(valorKgMes: number, modo: ModoGanancia, decimales?: number): string {
-    const display = toDisplayValue(valorKgMes, modo);
-    const dec = decimales !== undefined ? decimales : (modo === 'GDP' ? 0 : 1);
-    return display.toFixed(dec) + ' ' + getUnidadLabel(modo);
-}
-
 /**
  * Normaliza una fecha ISO o timestamp a YYYY-MM-DD
  */

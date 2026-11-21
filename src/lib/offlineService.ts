@@ -765,28 +765,7 @@ export async function guardarAforoOffline(aforo: {
 }
 
 /**
- * 4. Obtiene el recuento de pesajes y aforos pendientes de sincronizar.
- */
-export async function obtenerConteoPendienteOffline(fincaId: string): Promise<{ pesajes: number; aforos: number; total: number }> {
-  if (!fincaId) return { pesajes: 0, aforos: 0, total: 0 };
-
-  const pesajes = await localDB.pesajesOfflineQueue
-    .where('id_finca')
-    .equals(fincaId)
-    .and((item: PesajeOfflineQueueItem) => item.status_sync === 'pending' || item.status_sync === 'failed')
-    .count();
-
-  const aforos = await localDB.aforosOfflineQueue
-    .where('id_finca')
-    .equals(fincaId)
-    .and((item: AforoOfflineQueueItem) => item.status_sync === 'pending' || item.status_sync === 'failed')
-    .count();
-
-  return { pesajes, aforos, total: pesajes + aforos };
-}
-
-/**
- * 5. Procesa la cola de sincronización offline enviando los datos a Supabase en lotes (batch upsert).
+ * 4. Procesa la cola de sincronización offline enviando los datos a Supabase en lotes (batch upsert).
  */
 export async function procesarSincronizacionOffline(fincaId: string): Promise<{
   procesados: number;

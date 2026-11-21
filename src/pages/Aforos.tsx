@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
-import { useFeedback } from '../contexts/UiFeedbackContext';
-import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, UploadCloud, TrendingUp, Calendar, Activity } from 'lucide-react';
+import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, TrendingUp, Calendar, Activity } from 'lucide-react';
 import { guardarAforoOffline } from '../lib/offlineService';
 import { localDB } from '../lib/db';
 import { getLocalIsoDate } from '../utils/dateUtils';
@@ -25,27 +24,11 @@ interface RegistroAforo {
     potrero: { nombre: string };
     animales_presentes?: number;
     id_potrero: string;
-    isOffline?: boolean;
-}
-
-interface OfflineAforoPayload {
-    id_temp: string;
-    id_finca: string;
-    id_potrero: string;
-    fecha: string;
-    muestras: number[];
-    promedio_muestras_kg: number;
-    viabilidad: number;
-    aforo_real_kg: number;
-    id_potrerada: string | null;
-    animales_presentes: number;
-    potrero: { nombre: string };
 }
 
 export default function Aforos() {
     const { fincaId, role } = useAuth();
     const { modoCampo, toggleModoCampo, isOnline } = useConnection();
-    const { confirmAction } = useFeedback();
     const isAdminOrCowboy = role === 'administrador' || role === 'vaquero';
 
     const [potreros, setPotreros] = useState<Potrero[]>([]);
@@ -54,10 +37,6 @@ export default function Aforos() {
     const [consumoBase, setConsumoBase] = useState(50); // Default, from config
     const [totalAnimalesFinca, setTotalAnimalesFinca] = useState<number>(0);
     const [activeTab, setActiveTab] = useState<'cuna' | 'historial'>('cuna');
-
-    // Online / Sync State
-    const [offlineQueue, setOfflineQueue] = useState<OfflineAforoPayload[]>([]);
-    const [syncing, setSyncing] = useState(false);
     
     // Potrero Info Context
     const [areaInfo, setAreaInfo] = useState<number | null>(null);
@@ -79,20 +58,6 @@ export default function Aforos() {
     const [calcConsumo, setCalcConsumo] = useState('50');
     const [calcAnimales, setCalcAnimales] = useState('0');
     const [calcDias, setCalcDias] = useState('0');
-
-    useEffect(() => {
-        const loadQueue = () => {
-            const saved = localStorage.getItem('agrogestion_aforos_offline');
-            if (saved) {
-                try { setOfflineQueue(JSON.parse(saved)); } catch (e) {}
-            } else {
-                setOfflineQueue([]);
-            }
-        };
-        loadQueue();
-        window.addEventListener('offline-queue-changed', loadQueue);
-        return () => window.removeEventListener('offline-queue-changed', loadQueue);
-    }, []);
 
     useEffect(() => {
         if (!fincaId) return;
@@ -127,12 +92,6 @@ export default function Aforos() {
         fetchPotreros();
         fetchHistorial();
     }, [fincaId, isOnline]);
-    
-    useEffect(() => {
-        if (isOnline && offlineQueue.length > 0) {
-            syncOfflineQueue();
-        }
-    }, [isOnline]);
 
     useEffect(() => {
         if (!selectedPotreroId) {
@@ -219,34 +178,7 @@ export default function Aforos() {
                     setPotreros(data);
                     localStorage.setItem(`agrogestion_potreros_aforo_${fincaId}`, JSON.stringify(data));
                 }
-            } catch (e) {}
-        }
-    };
-
-    const syncOfflineQueue = async () => {
-        if (!fincaId || offlineQueue.length === 0 || !isOnline) return;
-        setSyncing(true);
-        let newQueue = [...offlineQueue];
-        try {
-            for (const payload of offlineQueue) {
-                const aforoToInsert = { ...payload };
-                delete (aforoToInsert as any).id_temp;
-                delete (aforoToInsert as any).potrero;
-
-                const { error } = await supabase.from('registros_aforo').insert(aforoToInsert);
-                if (!error) {
-                    newQueue = newQueue.filter(item => item.id_temp !== payload.id_temp);
-                }
-            }
-            setOfflineQueue(newQueue);
-            localStorage.setItem('agrogestion_aforos_offline', JSON.stringify(newQueue));
-            window.dispatchEvent(new CustomEvent('offline-queue-changed'));
-            if (offlineQueue.length > 0) setMsjExito('Aforos offline sincronizados exitosamente.');
-            fetchHistorial();
-        } catch (err) {
-            console.error('Error syncing:', err);
-        } finally {
-            setSyncing(false);
+            } catch {}
         }
     };
 
@@ -273,7 +205,7 @@ export default function Aforos() {
                     setHistorial(data as any);
                     localStorage.setItem(`agrogestion_aforos_hist_${fincaId}`, JSON.stringify(data));
                 }
-            } catch (e) {}
+            } catch {}
         }
     };
 
@@ -342,7 +274,7 @@ export default function Aforos() {
                 setSelectedPotreroId('');
                 setViabilidad('70');
                 fetchHistorial();
-            } catch (err: any) {
+            } catch {
                 // Si falla la red durante la inserción
                 const pNombre = potreros.find(p => p.id === selectedPotreroId)?.nombre || 'Desconocido';
                 await guardarAforoOffline({
@@ -436,42 +368,14 @@ export default function Aforos() {
         return { color: 'var(--error)', label: 'Crítico', desc: 'Baja disponibilidad de pasto' };
     };
 
-    const displayHistorial = [
-        ...offlineQueue.map(q => ({
-            id: q.id_temp,
-            fecha: q.fecha,
-            promedio_muestras_kg: q.promedio_muestras_kg,
-            viabilidad: q.viabilidad,
-            aforo_real_kg: q.aforo_real_kg,
-            animales_presentes: q.animales_presentes,
-            id_potrero: q.id_potrero,
-            potrero: q.potrero,
-            isOffline: true
-        })), 
-        ...historial
-    ];
-
     // Obtener el último aforo registrado para cada potrero para calcular indicadores globales
     const aforosPorPotrero: { [idPotrero: string]: RegistroAforo } = {};
     // Recorremos cronológicamente inverso para conservar el más nuevo
     [...historial].reverse().forEach(h => {
         aforosPorPotrero[h.id_potrero] = h;
     });
-    offlineQueue.forEach(q => {
-        aforosPorPotrero[q.id_potrero] = {
-            id: q.id_temp,
-            fecha: q.fecha,
-            promedio_muestras_kg: q.promedio_muestras_kg,
-            viabilidad: q.viabilidad,
-            aforo_real_kg: q.aforo_real_kg,
-            id_potrero: q.id_potrero,
-            potrero: q.potrero,
-            animales_presentes: q.animales_presentes
-        };
-    });
 
     let totalComidaUtilKg = 0;
-    let totalAreaAforadaHa = 0;
     let sumaDensidadesFV = 0;
     let conteoAforados = 0;
 
@@ -479,7 +383,6 @@ export default function Aforos() {
         const pot = potreros.find(p => p.id === idPotrero);
         if (pot) {
             totalComidaUtilKg += aforo.aforo_real_kg;
-            totalAreaAforadaHa += pot.area_hectareas || 0;
             if (pot.area_hectareas > 0) {
                 sumaDensidadesFV += aforo.aforo_real_kg / pot.area_hectareas;
                 conteoAforados++;
@@ -529,34 +432,6 @@ export default function Aforos() {
                     >
                         {modoCampo ? <>🚜 Modo Campo</> : isOnline ? <><Wifi size={14} aria-hidden="true" /> Online</> : <><WifiOff size={14} aria-hidden="true" /> Offline</>}
                     </button>
-
-                    {offlineQueue.length > 0 && isOnline && isAdminOrCowboy && (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            <button type="button" onClick={syncOfflineQueue} disabled={syncing} className="aforos-sync-btn">
-                                <UploadCloud size={15} aria-hidden="true" /> {syncing ? 'Subiendo...' : `Subir (${offlineQueue.length})`}
-                            </button>
-                            <button
-                                type="button"
-                                className="aforos-clear-queue-btn"
-                                onClick={async () => {
-                                    const confirmed = await confirmAction('¿Estás seguro de limpiar la cola de aforos pendientes?', {
-                                        title: 'Limpiar cola offline',
-                                        confirmLabel: 'Sí, limpiar',
-                                        destructive: true,
-                                    });
-                                    if (confirmed) {
-                                        setOfflineQueue([]);
-                                        localStorage.removeItem('agrogestion_aforos_offline');
-                                        setMsjExito('Cola de aforos pendientes limpiada.');
-                                    }
-                                }}
-                                title="Limpiar todos los pendientes"
-                                aria-label="Limpiar cola de aforos pendientes"
-                            >
-                                <Trash2 size={18} aria-hidden="true" />
-                            </button>
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -908,14 +783,14 @@ export default function Aforos() {
                     ) : (
                         /* PESTAÑA: HISTORIAL Y SEMÁFOROS */
                         <div role="tabpanel" aria-labelledby="aforos-tab-historial" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {displayHistorial.length === 0 ? (
+                            {historial.length === 0 ? (
                                 <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
                                     <Layers size={48} aria-hidden="true" style={{ opacity: 0.2, margin: '0 auto 16px auto' }} />
                                     <p>No hay aforos registrados aún.</p>
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {displayHistorial.map((h: any) => {
+                                    {historial.map((h: RegistroAforo) => {
                                         const pot = potreros.find(p => p.id === h.id_potrero);
                                         const area = pot?.area_hectareas || 0;
                                         const aforoClasif = clasificarAforo(h);
@@ -948,7 +823,6 @@ export default function Aforos() {
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
                                                     <strong style={{ color: 'var(--text-main)', fontSize: '1.08rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                         {h.potrero?.nombre || pot?.nombre || 'Potrero'}
-                                                        {h.isOffline && <span style={{ fontSize: '0.7rem', color: 'var(--on-primary)', backgroundColor: 'var(--error)', padding: '2px 6px', borderRadius: '10px' }}>Pendiente Sync</span>}
                                                     </strong>
                                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         <Calendar size={14} aria-hidden="true" /> {h.fecha}
