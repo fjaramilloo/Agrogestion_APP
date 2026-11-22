@@ -10,7 +10,7 @@ import { getLicenseBlockState } from '../utils/licenseUtils';
 import { ShoppingCart, Plus, Trash2, CheckCircle2, Calendar, Wifi, WifiOff, UploadCloud, Info, X } from 'lucide-react';
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './TradeOperations.css';
@@ -172,6 +172,11 @@ export default function Purchase() {
 
     const generarFilas = (e: React.FormEvent) => {
         e.preventDefault();
+        const dateError = getGanadoDateError(fechaIngreso, 'La fecha de entrada');
+        if (dateError) {
+            setMsjError(dateError);
+            return;
+        }
         const num = parseInt(cantidad);
         if (isNaN(num) || num <= 0) return;
 
@@ -214,6 +219,8 @@ export default function Purchase() {
         const effectiveOnline = isOnline;
 
         try {
+            const dateError = getGanadoDateError(fechaIngreso, 'La fecha de entrada');
+            if (dateError) throw new Error(dateError);
             if (!selectedProveedor) throw new Error("Debe seleccionar un Vendedor/Proveedor para la compra.");
 
             const chapetas = animales.map(a => a.numero_chapeta.trim().toUpperCase());
@@ -833,6 +840,7 @@ export default function Purchase() {
                                 <input
                                     id="purchase-fecha"
                                     type="date"
+                                    min={MIN_GANADO_DATE}
                                     value={fechaIngreso}
                                     onChange={e => setFechaIngreso(e.target.value)}
                                     className="trade-date-input"

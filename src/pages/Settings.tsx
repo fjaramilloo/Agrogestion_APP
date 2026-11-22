@@ -13,7 +13,7 @@ import { type PluviometroFinca, type TipoMedicionPluviometro } from '../utils/ra
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 // @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 
 interface CargaMasivaItem {
@@ -1048,7 +1048,7 @@ export default function Settings() {
                     }
 
                     // 3. Construir filas de animales con IDs resueltos
-                    const rows = results.data.map((row: any) => {
+                    const rows = results.data.map((row: any, index: number) => {
                         const potreradaNombre = row.potrerada?.toString().toLowerCase().trim();
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
                         const etapa = row.etapa?.toLowerCase() || 'levante';
@@ -1056,6 +1056,10 @@ export default function Settings() {
                         // Mapeo flexible de fechas
                         const rawFecha = row.fecha_ingreso || row['fecha_ingreso(Año-Mes-Día)'] || row.fecha_ingreso_ceba || row.fecha || row.Fecha;
                         const fechaFinal = parseFechaCol(rawFecha) || getLocalIsoDate();
+                        const fechaErr = getGanadoDateError(fechaFinal, `Fila ${index + 2} (${row.numero_chapeta || 'sin chapeta'}): Fecha de ingreso`);
+                        if (fechaErr) {
+                            throw new Error(fechaErr);
+                        }
                         const pesoIngreso = cleanNumber(row.peso_ingreso);
 
                         const sexoFinal = row.sexo?.toUpperCase() || 'M';
@@ -1354,6 +1358,11 @@ export default function Settings() {
                         const fecha = parseFechaCol(rawFecha) || getLocalIsoDate();
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
 
+                        const fechaErr = getGanadoDateError(fecha, 'Fecha');
+                        if (fechaErr) {
+                            errores.push(`Fila ${index + 2}: ${fechaErr}`);
+                            return;
+                        }
                         if (isNaN(peso) || peso <= 0) {
                             errores.push(`Fila ${index + 2}: Peso inválido.`);
                             return;

@@ -25,7 +25,7 @@ import {
 } from '../utils/ganancia';
 import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Inventory.css';
 
@@ -363,8 +363,9 @@ export default function Inventory() {
             await showAlert('Por favor ingrese un peso numérico válido mayor a cero.', { title: 'Dato inválido', variant: 'warning' });
             return;
         }
-        if (!editingPesaje.fecha) {
-            await showAlert('Por favor ingrese una fecha válida.', { title: 'Dato inválido', variant: 'warning' });
+        const fechaErr = getGanadoDateError(editingPesaje.fecha, 'La fecha del pesaje');
+        if (fechaErr) {
+            await showAlert(fechaErr, { title: 'Dato inválido', variant: 'warning' });
             return;
         }
 
@@ -647,6 +648,11 @@ export default function Inventory() {
         setMsjErrorMuerte('');
 
         try {
+            const fechaErr = getGanadoDateError(fechaMuerte, 'La fecha de fallecimiento');
+            if (fechaErr) {
+                throw new Error(fechaErr);
+            }
+
             const { data: animal, error: searchError } = await supabase
                 .from('animales')
                 .select('id')
@@ -697,6 +703,17 @@ export default function Inventory() {
         setMsjErrorCrear('');
 
         try {
+            const fechaIngresoErr = getGanadoDateError(nuevoAnimal.fecha_ingreso, 'La fecha de ingreso');
+            if (fechaIngresoErr) {
+                throw new Error(fechaIngresoErr);
+            }
+            for (let i = 0; i < nuevosPesajes.length; i++) {
+                if (nuevosPesajes[i].peso) {
+                    const pFechaErr = getGanadoDateError(nuevosPesajes[i].fecha, `La fecha del pesaje adicional #${i + 1}`);
+                    if (pFechaErr) throw new Error(pFechaErr);
+                }
+            }
+
             const pesoIngresoNum = parseDecimalInput(nuevoAnimal.peso_ingreso);
             if (isNaN(pesoIngresoNum) || pesoIngresoNum <= 0) {
                 throw new Error('Por favor ingrese un peso de ingreso numérico válido mayor a cero.');
@@ -1252,6 +1269,7 @@ export default function Inventory() {
                                 <input
                                     id="inventory-muerte-fecha"
                                     type="date"
+                                    min={MIN_GANADO_DATE}
                                     value={fechaMuerte}
                                     onChange={e => setFechaMuerte(e.target.value)}
                                     style={{ paddingLeft: '40px', marginBottom: 0 }}
@@ -1633,6 +1651,7 @@ export default function Inventory() {
                                                                     <input
                                                                         id={`hist-edit-date-${index}`}
                                                                         type="date"
+                                                                        min={MIN_GANADO_DATE}
                                                                         value={editingPesaje.fecha}
                                                                         onChange={e => setEditingPesaje(prev => prev ? { ...prev, fecha: e.target.value } : null)}
                                                                         style={{ padding: '6px 10px', marginBottom: 0, borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '0.85rem' }}
@@ -1815,7 +1834,7 @@ export default function Inventory() {
                             </div>
                             <div>
                                 <label htmlFor="inv-new-fecha">Fecha Ingreso*</label>
-                                <input id="inv-new-fecha" type="date" value={nuevoAnimal.fecha_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, fecha_ingreso: e.target.value})} />
+                                <input id="inv-new-fecha" type="date" min={MIN_GANADO_DATE} value={nuevoAnimal.fecha_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, fecha_ingreso: e.target.value})} />
                             </div>
                         </div>
 
@@ -1854,7 +1873,7 @@ export default function Inventory() {
                                 <div key={idx} className="inventory-extra-weighing-row">
                                     <div style={{ flex: 1.5 }}>
                                         <label htmlFor={`inv-extra-date-${idx}`} style={{ fontSize: '0.72rem' }}>Fecha</label>
-                                        <input id={`inv-extra-date-${idx}`} type="date" value={p.fecha} onChange={e => {
+                                        <input id={`inv-extra-date-${idx}`} type="date" min={MIN_GANADO_DATE} value={p.fecha} onChange={e => {
                                             const up = [...nuevosPesajes];
                                             up[idx].fecha = e.target.value;
                                             setNuevosPesajes(up);

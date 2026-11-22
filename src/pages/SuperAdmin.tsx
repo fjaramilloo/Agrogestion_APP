@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import './SuperAdmin.css';
 import {
     Building2, UserPlus, ShieldCheck, MapPin, Users,
@@ -167,6 +167,10 @@ export default function SuperAdmin() {
         setSavingPrecios(true);
         setMsjPrecios(null);
         try {
+            const dateError = getGanadoDateError(formFechaBoletin, 'La fecha del boletín');
+            if (dateError) {
+                throw new Error(dateError);
+            }
             const fechaParts = formFechaBoletin.split('-');
             const d = new Date(parseInt(fechaParts[0]), parseInt(fechaParts[1]) - 1, parseInt(fechaParts[2]));
             const year = d.getFullYear();
@@ -449,6 +453,13 @@ export default function SuperAdmin() {
         try {
             const isDemo = formLicencia === 'demo';
             const isIndefinido = isDemo || formPeriodo === 'indefinido' || !formVencimiento;
+
+            const inicioError = getGanadoDateError(formFechaInicio, 'La fecha de inicio');
+            if (inicioError) throw new Error(inicioError);
+            if (!isIndefinido) {
+                const vencError = getGanadoDateError(formVencimiento, 'La fecha de vencimiento');
+                if (vencError) throw new Error(vencError);
+            }
 
             const updates: any = {
                 licencia: formLicencia,
@@ -1422,6 +1433,7 @@ export default function SuperAdmin() {
                                 </label>
                                 <input
                                     type="date"
+                                    min={MIN_GANADO_DATE}
                                     value={formFechaInicio}
                                     onChange={e => handleFechaInicioChange(e.target.value)}
                                     required
@@ -1461,6 +1473,7 @@ export default function SuperAdmin() {
                                     </label>
                                     <input
                                         type="date"
+                                        min={MIN_GANADO_DATE}
                                         value={formVencimiento}
                                         onChange={e => setFormVencimiento(e.target.value)}
                                         style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-input)', color: 'var(--text-main)', fontSize: '0.9rem', marginBottom: 0 }}
@@ -1660,6 +1673,7 @@ export default function SuperAdmin() {
                                         <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Fecha Boletín</label>
                                         <input
                                             type="date"
+                                            min={MIN_GANADO_DATE}
                                             value={formFechaBoletin}
                                             onChange={e => setFormFechaBoletin(e.target.value)}
                                             required

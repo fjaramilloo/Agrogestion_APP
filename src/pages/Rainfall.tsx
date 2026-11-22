@@ -19,7 +19,7 @@ import {
     LineChart, Line, ReferenceLine, Legend
 } from 'recharts';
 import { detectarRegionClimatica, generarRecomendacion } from '../utils/climateRegions';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import {
     type DiagnosticoClimatico,
@@ -421,6 +421,10 @@ export default function Rainfall() {
         setSaving(true);
         setError('');
         try {
+            const dateError = getGanadoDateError(fecha, 'La fecha del registro');
+            if (dateError) {
+                throw new Error(dateError);
+            }
             const notasFinal = notas.trim() || null;
 
             if (pluviometrosActivos.length === 0) {
@@ -1354,7 +1358,7 @@ export default function Rainfall() {
                             {/* Fecha */}
                             <div style={{ marginBottom: '16px' }}>
                                 <label htmlFor="rainfall-fecha-input" style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Fecha</label>
-                                <input id="rainfall-fecha-input" type="date" className="input-field" value={fecha} onChange={e => handleChangeFechaModal(e.target.value)} required />
+                                <input id="rainfall-fecha-input" type="date" min={MIN_GANADO_DATE} className="input-field" value={fecha} onChange={e => handleChangeFechaModal(e.target.value)} required />
                             </div>
 
                             {pluviometrosActivos.length === 0 ? (

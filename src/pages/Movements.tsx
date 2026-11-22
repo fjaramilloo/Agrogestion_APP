@@ -7,7 +7,7 @@ import ModalUpsell from '../components/ModalUpsell';
 import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
 import { getLicenseBlockState } from '../utils/licenseUtils';
 import { ArrowLeftRight, Save, Search, ChevronDown, Check, X } from 'lucide-react';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import './Movements.css';
 
 export default function Movements() {
@@ -243,6 +243,11 @@ export default function Movements() {
 
         if (!fincaId || !selectedPotreradaId || !selectedTargetPotreroId || !fechaMovimiento) {
             setMsjError('Por favor complete todos los campos obligatorios.');
+            return;
+        }
+        const dateError = getGanadoDateError(fechaMovimiento, 'La fecha de movimiento');
+        if (dateError) {
+            setMsjError(dateError);
             return;
         }
 
@@ -535,6 +540,7 @@ export default function Movements() {
                                             id="movements-fecha"
                                             name="fecha_entrada"
                                             type="date"
+                                            min={MIN_GANADO_DATE}
                                             value={fechaMovimiento}
                                             onChange={e => setFechaMovimiento(e.target.value)}
                                             required

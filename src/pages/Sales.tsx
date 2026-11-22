@@ -8,7 +8,7 @@ import SalesReport from '../components/SalesReport';
 import ModalUpsell from '../components/ModalUpsell';
 import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
 import { getLicenseBlockState } from '../utils/licenseUtils';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { calcularDiasEntreFechas, calcularPesoEstimadoHoy } from '../utils/ganancia';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import { useModalDialog } from '../hooks/useModalDialog';
@@ -86,6 +86,11 @@ export default function Sales() {
 
     const generarFilas = (e: React.FormEvent) => {
         e.preventDefault();
+        const dateError = getGanadoDateError(fechaVenta, 'La fecha de salida');
+        if (dateError) {
+            setMsjError(dateError);
+            return;
+        }
         const num = parseInt(cantidad);
         if (isNaN(num) || num <= 0) return;
 
@@ -308,6 +313,8 @@ export default function Sales() {
         setMsjError('');
 
         try {
+            const dateError = getGanadoDateError(fechaVenta, 'La fecha de salida');
+            if (dateError) throw new Error(dateError);
             if (!selectedComprador) throw new Error("Debe seleccionar un Comprador para la venta.");
             if (isCarnicero && !observaciones.trim()) throw new Error("Para ventas al Carnicero es obligatorio detallar el motivo en observaciones.");
             
@@ -514,6 +521,7 @@ export default function Sales() {
                                 <input
                                     id="sales-fecha"
                                     type="date"
+                                    min={MIN_GANADO_DATE}
                                     value={fechaVenta}
                                     onChange={e => handleFechaVentaChange(e.target.value)}
                                     className="trade-date-input"

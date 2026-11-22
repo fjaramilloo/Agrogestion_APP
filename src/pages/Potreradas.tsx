@@ -30,7 +30,7 @@ import {
     normalizarPesajesDesc,
     type ConfianzaPeso
 } from '../utils/ganancia';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Potreradas.css';
 
@@ -1289,6 +1289,14 @@ export default function Potreradas() {
             return;
         }
         if (!detailData || selectedAnimalsToMove.size === 0 || !targetPotreradaId) return;
+        const targetPotCheck = potreradas.find(p => p.id === targetPotreradaId);
+        if (targetPotCheck?.etapa === 'ceba' && detailData.potrerada.etapa !== 'ceba') {
+            const dateError = getGanadoDateError(moveDate, 'La fecha de movimiento');
+            if (dateError) {
+                await showAlert(dateError, { title: 'Dato inválido', variant: 'warning' });
+                return;
+            }
+        }
         setMovingAnimals(true);
         try {
             const ids = Array.from(selectedAnimalsToMove);
@@ -1337,6 +1345,11 @@ export default function Potreradas() {
 
     const handleSaveWeighings = async () => {
         if (!detailData) return;
+        const dateError = getGanadoDateError(weighingDate, 'La fecha del pesaje');
+        if (dateError) {
+            await showAlert(dateError, { title: 'Dato inválido', variant: 'warning' });
+            return;
+        }
         const etapa = detailData.potrerada.etapa;
         const idsOkCeba: string[] = [];
 
@@ -2506,6 +2519,7 @@ export default function Potreradas() {
                             <input
                                 id="potreradas-move-date"
                                 type="date"
+                                min={MIN_GANADO_DATE}
                                 value={moveDate}
                                 onChange={e => setMoveDate(e.target.value)}
                                 style={{
@@ -2713,6 +2727,7 @@ export default function Potreradas() {
                                         <input
                                             id="potreradas-group-weighing-date"
                                             type="date"
+                                            min={MIN_GANADO_DATE}
                                             value={weighingDate}
                                             onChange={(e) => setWeighingDate(e.target.value)}
                                             className="potreradas-weighing-date-input"

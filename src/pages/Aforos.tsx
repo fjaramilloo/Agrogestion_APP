@@ -5,7 +5,7 @@ import { useConnection } from '../contexts/ConnectionContext';
 import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, TrendingUp, Calendar, Activity } from 'lucide-react';
 import { guardarAforoOffline } from '../lib/offlineService';
 import { localDB } from '../lib/db';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Aforos.css';
 
@@ -239,6 +239,11 @@ export default function Aforos() {
         e.preventDefault();
         setMsjError('');
         setMsjExito('');
+        const dateError = getGanadoDateError(fecha, 'La fecha de medición');
+        if (dateError) {
+            setMsjError(dateError);
+            return;
+        }
         if (!selectedPotreroId) {
             setMsjError('Selecciona un potrero');
             return;
@@ -494,7 +499,7 @@ export default function Aforos() {
                     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div>
                             <label htmlFor="aforos-fecha" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Fecha de medición</label>
-                            <input id="aforos-fecha" type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ marginBottom: 0 }} required />
+                            <input id="aforos-fecha" type="date" min={MIN_GANADO_DATE} value={fecha} onChange={e => setFecha(e.target.value)} style={{ marginBottom: 0 }} required />
                         </div>
 
                         <div>

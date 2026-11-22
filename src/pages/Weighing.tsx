@@ -12,7 +12,7 @@ import { format, differenceInDays } from 'date-fns';
 import { toDisplayValue, getUnidadLabel, getModoLabel, getGmpColor, resolverResumenUltimoPesaje } from '../utils/ganancia';
 import { localDB } from '../lib/db';
 import { guardarPesajeOffline } from '../lib/offlineService';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Weighing.css';
 
@@ -398,6 +398,10 @@ export default function Weighing() {
         setMsjError('');
 
         try {
+            const dateError = getGanadoDateError(fechaIngresoNueva, 'La fecha de ingreso');
+            if (dateError) {
+                throw new Error(dateError);
+            }
             const pesoFloat = Math.round(parseDecimalInput(pesoIngresoNuevo));
             if (isNaN(pesoFloat) || pesoFloat <= 0) {
                 throw new Error('El peso inicial debe ser mayor a 0');
@@ -463,6 +467,12 @@ export default function Weighing() {
 
         setMsjError('');
         setMarcadoCeba(false);
+
+        const dateError = getGanadoDateError(fechaPesaje, 'La fecha del pesaje');
+        if (dateError) {
+            setMsjError(dateError);
+            return;
+        }
 
         const pesoFloat = Math.round(parseDecimalInput(nuevoPeso));
         if (isNaN(pesoFloat) || pesoFloat <= 0) {
@@ -810,6 +820,7 @@ export default function Weighing() {
                                 <input
                                     id="weighing-fecha-ingreso"
                                     type="date"
+                                    min={MIN_GANADO_DATE}
                                     value={fechaIngresoNueva}
                                     onChange={e => setFechaIngresoNueva(e.target.value)}
                                 />
@@ -955,6 +966,7 @@ export default function Weighing() {
                                 <input
                                     id="weighing-fecha-pesaje"
                                     type="date"
+                                    min={MIN_GANADO_DATE}
                                     value={fechaPesaje}
                                     onChange={(e) => setFechaPesaje(e.target.value)}
                                     style={{ marginBottom: 0 }}
