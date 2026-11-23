@@ -5,64 +5,31 @@ import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { Search, Skull, Calendar, AlertCircle, ArrowUpDown, X, Plus, Trash2, BarChart2, Pencil, Check, MapPin } from 'lucide-react';
+import { Search, Skull, ArrowUpDown, X, Plus, BarChart2 } from 'lucide-react';
 import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
 import ModalUpsell from '../components/ModalUpsell';
 import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
 import { getLicenseBlockState } from '../utils/licenseUtils';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import {
     toDisplayValue,
     getUnidadLabel,
     getModoLabel,
-    getGmpColor,
     calcularGmpUltimoPeriodo,
     calcularGmpAcumulado,
-    esPesajePosteriorAIngreso,
-    calcularPesoEstimadoHoy
+    esPesajePosteriorAIngreso
 } from '../utils/ganancia';
-import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
-import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
-import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
+import InventoryDetailModal from './inventory/InventoryDetailModal';
+import InventoryCreateAnimalModal from './inventory/InventoryCreateAnimalModal';
+import InventoryDeathReportModal from './inventory/InventoryDeathReportModal';
+import type { Animal, PotreradaOption, PropietarioOption } from './inventory/types';
 import './Inventory.css';
-
-interface Pesaje {
-    id?: string;
-    peso: number;
-    fecha: string;
-    gdp_calculada: number;
-    gmp_calculada?: number;
-    potreros?: { nombre: string } | null;
-}
-
-interface Animal {
-    id: string;
-    numero_chapeta: string;
-    nombre_propietario: string;
-    especie: string;
-    sexo: string;
-    etapa: string;
-    peso_ingreso: number;
-    peso_compra?: number | null;
-    fecha_ingreso: string;
-    fecha_ingreso_ceba?: string | null;
-    peso_ingreso_ceba?: number | null;
-    estado: string;
-    id_potrerada?: string | null;
-    potreros?: { nombre: string } | null;
-    potreradas?: { nombre: string } | null;
-    potreroNombre?: string;
-    potreradaNombre?: string;
-    diasDesdeUltimoPesaje?: number;
-    registros_pesaje: Pesaje[];
-}
 
 export default function Inventory() {
     const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
-    const { confirmAction, showAlert, toast } = useFeedback();
+    const { toast } = useFeedback();
     const isAdmin = role === 'administrador' || isSuperAdmin;
     const { isBloqueado } = getLicenseBlockState(licenciaInfo);
     const location = useLocation();
@@ -77,7 +44,7 @@ export default function Inventory() {
     const [filterPropietario, setFilterPropietario] = useState('');
     const [filterLateWeighing, setFilterLateWeighing] = useState(false);
     const [filterNegativeGain, setFilterNegativeGain] = useState(false);
-    
+
     // sorting states
     const [sortBy, setSortBy] = useState('dias_pesaje');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -99,17 +66,12 @@ export default function Inventory() {
         }
     }, [location]);
 
-    // Estados para Muerte
+    // Modales
     const [showMuerteModal, setShowMuerteModal] = useState(false);
-    const [chapetaMuerte, setChapetaMuerte] = useState('');
-    const [fechaMuerte, setFechaMuerte] = useState(getLocalIsoDate());
-    const [msjErrorMuerte, setMsjErrorMuerte] = useState('');
-
-    // Modal Historial Animal
+    const [showCrearModal, setShowCrearModal] = useState(false);
     const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
-    const [potreradasDisponibles, setPotreradasDisponibles] = useState<{ id: string; nombre: string; etapa?: string }[]>([]);
-    const [propietariosLista, setPropietariosLista] = useState<{ id: string; nombre: string }[]>([]);
-
+    const [potreradasDisponibles, setPotreradasDisponibles] = useState<PotreradaOption[]>([]);
+    const [propietariosLista, setPropietariosLista] = useState<PropietarioOption[]>([]);
 
     const fincaNombre = userFincas.find(f => f.id_finca === fincaId)?.nombre_finca || 'Finca';
 
@@ -118,337 +80,6 @@ export default function Inventory() {
     const [showCapitalModal, setShowCapitalModal] = useState(false);
     const [capitalInvertido, setCapitalInvertido] = useState('');
     const [precioVentaPromedio, setPrecioVentaPromedio] = useState(0);
-
-    // Estados para Crear Animal Solo
-    const [showCrearModal, setShowCrearModal] = useState(false);
-    const [nuevoAnimal, setNuevoAnimal] = useState({
-        numero_chapeta: '',
-        nombre_propietario: '',
-        especie: 'bovino',
-        sexo: 'M',
-        etapa: 'levante',
-        peso_ingreso: '',
-        fecha_ingreso: getLocalIsoDate(),
-        id_potrerada: '',
-        tipo_macho: 'Toro'
-    });
-    const [nuevosPesajes, setNuevosPesajes] = useState<{ fecha: string; peso: string; etapa: string }[]>([]);
-    const [msjErrorCrear, setMsjErrorCrear] = useState('');
-    const [isChapetaTaken, setIsChapetaTaken] = useState(false);
-    const [validatingChapeta, setValidatingChapeta] = useState(false);
-
-    useEffect(() => {
-        const checkChapeta = async () => {
-            if (!nuevoAnimal.numero_chapeta || !fincaId) {
-                setIsChapetaTaken(false);
-                return;
-            }
-            setValidatingChapeta(true);
-            const { data } = await supabase
-                .from('animales')
-                .select('id')
-                .eq('id_finca', fincaId)
-                .eq('numero_chapeta', nuevoAnimal.numero_chapeta)
-                .eq('estado', 'activo')
-                .or('is_deleted.is.null,is_deleted.eq.false')
-                .maybeSingle();
-            
-            setIsChapetaTaken(!!data);
-            setValidatingChapeta(false);
-        };
-        
-        const timeoutId = setTimeout(checkChapeta, 500);
-        return () => clearTimeout(timeoutId);
-    }, [nuevoAnimal.numero_chapeta, fincaId]);
-
-    // Estados y funciones para Edición de Chapeta (Exclusivo Admin)
-    const [isEditingChapeta, setIsEditingChapeta] = useState(false);
-    const [editChapetaVal, setEditChapetaVal] = useState('');
-    const [editChapetaError, setEditChapetaError] = useState('');
-    const [validatingEditChapeta, setValidatingEditChapeta] = useState(false);
-    const [isEditChapetaTaken, setIsEditChapetaTaken] = useState(false);
-
-    const checkEditChapetaUnica = async (val: string) => {
-        const target = val.trim();
-        if (!target || !fincaId || target === selectedAnimal?.numero_chapeta) {
-            setIsEditChapetaTaken(false);
-            setEditChapetaError('');
-            return;
-        }
-        setValidatingEditChapeta(true);
-        try {
-            const { data } = await supabase
-                .from('animales')
-                .select('id')
-                .eq('id_finca', fincaId)
-                .eq('numero_chapeta', target)
-                .or('is_deleted.is.null,is_deleted.eq.false')
-                .neq('id', selectedAnimal?.id)
-                .maybeSingle();
-
-            if (data) {
-                setIsEditChapetaTaken(true);
-                setEditChapetaError(`La chapeta #${target} ya está en uso por otro animal en la finca.`);
-            } else {
-                setIsEditChapetaTaken(false);
-                setEditChapetaError('');
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setValidatingEditChapeta(false);
-        }
-    };
-
-    const handleGuardarNuevaChapeta = async () => {
-        if (!selectedAnimal || !fincaId) return;
-        const nueva = editChapetaVal.trim();
-        if (!nueva) {
-            setEditChapetaError('El número de chapeta no puede estar vacío.');
-            return;
-        }
-        if (nueva === selectedAnimal.numero_chapeta) {
-            setIsEditingChapeta(false);
-            return;
-        }
-        setLoading(true);
-        try {
-            const { data: existente } = await supabase
-                .from('animales')
-                .select('id')
-                .eq('id_finca', fincaId)
-                .eq('numero_chapeta', nueva)
-                .or('is_deleted.is.null,is_deleted.eq.false')
-                .neq('id', selectedAnimal.id)
-                .maybeSingle();
-
-            if (existente) {
-                setEditChapetaError(`¡Error! Ya existe otro animal con la chapeta #${nueva}.`);
-                setLoading(false);
-                return;
-            }
-
-            const { error: errUpd } = await supabase
-                .from('animales')
-                .update({ numero_chapeta: nueva })
-                .eq('id', selectedAnimal.id);
-
-            if (errUpd) throw errUpd;
-
-            const userResp = await supabase.auth.getUser();
-            await supabase.from('auditoria_cambios').insert({
-                id_finca: fincaId,
-                tabla: 'animales',
-                id_registro: selectedAnimal.id,
-                accion: 'update_chapeta',
-                valores_previos: { numero_chapeta: selectedAnimal.numero_chapeta },
-                valores_nuevos: { numero_chapeta: nueva },
-                usuario_id: userResp.data.user?.id
-            });
-
-            setSelectedAnimal(prev => prev ? { ...prev, numero_chapeta: nueva } : null);
-            setAnimales(prev => prev.map(a => a.id === selectedAnimal.id ? { ...a, numero_chapeta: nueva } : a));
-
-            try {
-                if (localDB?.animalesCache) {
-                    await localDB.animalesCache.update(selectedAnimal.id, { numero_chapeta: nueva });
-                }
-            } catch {}
-
-            setIsEditingChapeta(false);
-            setEditChapetaError('');
-        } catch (err: any) {
-            setEditChapetaError('Error al guardar: ' + err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleEliminarAnimalPorError = async () => {
-        if (!selectedAnimal || !fincaId) return;
-        const confirmed = await confirmAction(
-            `¿Está seguro de eliminar permanentemente el animal #${selectedAnimal.numero_chapeta} del inventario?\n\n⚠️ Esta acción es para corregir errores de digitación. Si el animal murió o se vendió, use las opciones correspondientes.`,
-            { title: 'Eliminar animal', confirmLabel: 'Sí, eliminar', destructive: true }
-        );
-        if (!confirmed) return;
-
-        setLoading(true);
-        try {
-            const userResp = await supabase.auth.getUser();
-            const userId = userResp.data.user?.id;
-
-            const { error: errAnim } = await supabase
-                .from('animales')
-                .update({
-                    is_deleted: true,
-                    deleted_at: new Date().toISOString(),
-                    deleted_by: userId
-                })
-                .eq('id', selectedAnimal.id);
-
-            if (errAnim) throw errAnim;
-
-            await supabase
-                .from('registros_pesaje')
-                .update({
-                    is_deleted: true,
-                    deleted_at: new Date().toISOString(),
-                    deleted_by: userId
-                })
-                .eq('id_animal', selectedAnimal.id);
-
-            await supabase.from('auditoria_cambios').insert({
-                id_finca: fincaId,
-                tabla: 'animales',
-                id_registro: selectedAnimal.id,
-                accion: 'delete_animal_error',
-                valores_previos: { numero_chapeta: selectedAnimal.numero_chapeta },
-                usuario_id: userId
-            });
-
-            try {
-                if (localDB?.animalesCache) {
-                    await localDB.animalesCache.delete(selectedAnimal.id);
-                }
-            } catch {}
-
-            setAnimales(prev => prev.filter(a => a.id !== selectedAnimal.id));
-            setSelectedAnimal(null);
-            await refreshLicencia();
-            toast('Animal eliminado del inventario.', 'success');
-        } catch (err: any) {
-            await showAlert('Error al eliminar animal: ' + (err.message || err), { title: 'Error', variant: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Estados y funciones para Edición de Pesajes del Animal
-    const [editingPesaje, setEditingPesaje] = useState<{ id: string; fecha: string; peso: string } | null>(null);
-
-    const recargarHistorialAnimal = async (animalId: string) => {
-        const { data: historial } = await supabase
-            .from('registros_pesaje')
-            .select('id, peso, fecha, gdp_calculada, gmp_calculada, potreros(nombre)')
-            .eq('id_animal', animalId)
-            .or('is_deleted.is.null,is_deleted.eq.false')
-            .order('fecha', { ascending: false });
-
-        if (historial) {
-            const unique = new Set<string>();
-            const dedup: Pesaje[] = historial
-                .filter((p: any) => {
-                    const d = p.fecha.split('T')[0];
-                    if (unique.has(d)) return false;
-                    unique.add(d); return true;
-                })
-                .map((p: any) => ({
-                    id: p.id,
-                    peso: p.peso,
-                    fecha: p.fecha,
-                    gdp_calculada: p.gdp_calculada,
-                    gmp_calculada: p.gmp_calculada,
-                    potreros: Array.isArray(p.potreros) ? (p.potreros[0] || null) : p.potreros
-                }));
-
-            setSelectedAnimal(prev => prev ? { ...prev, registros_pesaje: dedup } : null);
-            setAnimales(prev => prev.map(a => a.id === animalId ? { ...a, registros_pesaje: dedup } : a));
-        }
-    };
-
-    const handleGuardarEdicionPesaje = async () => {
-        if (!editingPesaje || !selectedAnimal) return;
-        const pesoNum = parseDecimalInput(editingPesaje.peso);
-        if (isNaN(pesoNum) || pesoNum <= 0) {
-            await showAlert('Por favor ingrese un peso numérico válido mayor a cero.', { title: 'Dato inválido', variant: 'warning' });
-            return;
-        }
-        const fechaErr = getGanadoDateError(editingPesaje.fecha, 'La fecha del pesaje');
-        if (fechaErr) {
-            await showAlert(fechaErr, { title: 'Dato inválido', variant: 'warning' });
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const userResp = await supabase.auth.getUser();
-
-            const { error: errUpd } = await supabase
-                .from('registros_pesaje')
-                .update({
-                    peso: pesoNum,
-                    fecha: editingPesaje.fecha,
-                    modificado_by: userResp.data.user?.id,
-                    fecha_modificacion: new Date().toISOString()
-                })
-                .eq('id', editingPesaje.id);
-
-            if (errUpd) throw errUpd;
-
-            await supabase.from('auditoria_cambios').insert({
-                id_finca: fincaId,
-                tabla: 'registros_pesaje',
-                id_registro: editingPesaje.id,
-                accion: 'update_pesaje',
-                valores_nuevos: { peso: pesoNum, fecha: editingPesaje.fecha },
-                usuario_id: userResp.data.user?.id
-            });
-
-            // Recalcular en cascada el siguiente pesaje y todos los posteriores
-            await recalcularHistorialPesajesAnimal(selectedAnimal.id, supabase);
-
-            // Recargar historial del animal
-            await recargarHistorialAnimal(selectedAnimal.id);
-            setEditingPesaje(null);
-        } catch (err: any) {
-            await showAlert('Error al guardar pesaje: ' + (err.message || err), { title: 'Error', variant: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleEliminarPesaje = async (pesajeId: string, fechaPesaje: string) => {
-        if (!selectedAnimal) return;
-        const confirmed = await confirmAction(
-            `¿Está seguro de eliminar el pesaje del ${fechaPesaje}? Las ganancias del siguiente pesaje y todos los posteriores se recalcularán automáticamente.`,
-            { title: 'Eliminar pesaje', confirmLabel: 'Sí, eliminar', destructive: true }
-        );
-        if (!confirmed) return;
-
-        setLoading(true);
-        try {
-            const userResp = await supabase.auth.getUser();
-
-            const { error: errDel } = await supabase
-                .from('registros_pesaje')
-                .update({
-                    is_deleted: true,
-                    deleted_at: new Date().toISOString(),
-                    deleted_by: userResp.data.user?.id
-                })
-                .eq('id', pesajeId);
-
-            if (errDel) throw errDel;
-
-            await supabase.from('auditoria_cambios').insert({
-                id_finca: fincaId,
-                tabla: 'registros_pesaje',
-                id_registro: pesajeId,
-                accion: 'delete_pesaje',
-                usuario_id: userResp.data.user?.id
-            });
-
-            // Recalcular en cascada
-            await recalcularHistorialPesajesAnimal(selectedAnimal.id, supabase);
-
-            // Recargar historial
-            await recargarHistorialAnimal(selectedAnimal.id);
-        } catch (err: any) {
-            await showAlert('Error al eliminar pesaje: ' + (err.message || err), { title: 'Error', variant: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const { modoCampo, isOnline } = useConnection();
 
@@ -648,7 +279,6 @@ export default function Inventory() {
     };
 
     // Debounce search term to improve performance with 1700+ animals
-
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearchTerm(searchTerm);
@@ -663,50 +293,6 @@ export default function Inventory() {
         return () => window.removeEventListener('offline-sync-completed', onSyncCompleted);
     }, [fincaId]);
 
-    const handleReportarMuerte = async () => {
-        if (!fincaId || !chapetaMuerte.trim()) return;
-        setLoading(true);
-        setMsjErrorMuerte('');
-
-        try {
-            const fechaErr = getGanadoDateError(fechaMuerte, 'La fecha de fallecimiento');
-            if (fechaErr) {
-                throw new Error(fechaErr);
-            }
-
-            const { data: animal, error: searchError } = await supabase
-                .from('animales')
-                .select('id')
-                .eq('id_finca', fincaId)
-                .eq('numero_chapeta', chapetaMuerte.trim())
-                .eq('estado', 'activo')
-                .single();
-
-            if (searchError || !animal) {
-                throw new Error("Animal no encontrado o no está activo en esta finca.");
-            }
-
-            const { error: updateError } = await supabase
-                .from('animales')
-                .update({
-                    estado: 'muerto',
-                    fecha_muerte: fechaMuerte
-                })
-                .eq('id', animal.id);
-
-            if (updateError) throw updateError;
-
-            setShowMuerteModal(false);
-            setChapetaMuerte('');
-            fetchAnimales();
-            toast(`Se ha registrado el fallecimiento del animal #${chapetaMuerte}`, 'success');
-        } catch (err: any) {
-            setMsjErrorMuerte(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleSort = (field: string) => {
         if (sortBy === field) {
             setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -716,101 +302,16 @@ export default function Inventory() {
         }
     };
 
+    const handleAnimalUpdated = (animalId: string, patch: Partial<Animal>) => {
+        setSelectedAnimal(prev => (prev && prev.id === animalId) ? { ...prev, ...patch } : prev);
+        setAnimales(prev => prev.map(a => a.id === animalId ? { ...a, ...patch } : a));
+    };
 
-    const handleCrearAnimal = async () => {
-        const isFormValid = nuevoAnimal.numero_chapeta && nuevoAnimal.peso_ingreso && nuevoAnimal.nombre_propietario && nuevoAnimal.especie && nuevoAnimal.sexo && nuevoAnimal.etapa && nuevoAnimal.fecha_ingreso && !isChapetaTaken;
-        if (!fincaId || !isFormValid) return;
-        setLoading(true);
-        setMsjErrorCrear('');
-
-        try {
-            const fechaIngresoErr = getGanadoDateError(nuevoAnimal.fecha_ingreso, 'La fecha de ingreso');
-            if (fechaIngresoErr) {
-                throw new Error(fechaIngresoErr);
-            }
-            for (let i = 0; i < nuevosPesajes.length; i++) {
-                if (nuevosPesajes[i].peso) {
-                    const pFechaErr = getGanadoDateError(nuevosPesajes[i].fecha, `La fecha del pesaje adicional #${i + 1}`);
-                    if (pFechaErr) throw new Error(pFechaErr);
-                }
-            }
-
-            const pesoIngresoNum = parseDecimalInput(nuevoAnimal.peso_ingreso);
-            if (isNaN(pesoIngresoNum) || pesoIngresoNum <= 0) {
-                throw new Error('Por favor ingrese un peso de ingreso numérico válido mayor a cero.');
-            }
-
-            const { data: exist } = await supabase
-                .from('animales')
-                .select('id')
-                .eq('id_finca', fincaId)
-                .eq('numero_chapeta', nuevoAnimal.numero_chapeta)
-                .eq('estado', 'activo')
-                .maybeSingle();
-            
-            if (exist) throw new Error(`El animal con chapeta #${nuevoAnimal.numero_chapeta} ya existe y está activo.`);
-
-            const { data: animalInsertado, error: errAnimal } = await supabase
-                .from('animales')
-                .insert([{
-                    id_finca: fincaId,
-                    numero_chapeta: nuevoAnimal.numero_chapeta,
-                    nombre_propietario: nuevoAnimal.nombre_propietario || 'Finca',
-                    especie: nuevoAnimal.especie,
-                    sexo: nuevoAnimal.sexo,
-                    etapa: nuevoAnimal.etapa,
-                    peso_ingreso: pesoIngresoNum,
-                    fecha_ingreso: nuevoAnimal.fecha_ingreso,
-                    id_potrerada: nuevoAnimal.id_potrerada || null,
-                    tipo_macho: nuevoAnimal.sexo === 'M' ? nuevoAnimal.tipo_macho : null,
-                    estado: 'activo'
-                }])
-                .select()
-                .single();
-
-            if (errAnimal) throw errAnimal;
-
-            if (animalInsertado && nuevosPesajes.length > 0) {
-                const pesajesData = nuevosPesajes
-                    .filter(p => p.fecha && p.peso && !isNaN(parseDecimalInput(p.peso)))
-                    .map(p => ({
-                        id_animal: animalInsertado.id,
-                        fecha: p.fecha,
-                        peso: parseDecimalInput(p.peso),
-                        etapa: p.etapa,
-                        gdp_calculada: 0
-                    }));
-
-                if (pesajesData.length > 0) {
-                    const { error: errPesajes } = await supabase
-                        .from('registros_pesaje')
-                        .insert(pesajesData);
-                    if (errPesajes) throw errPesajes;
-                }
-            }
-
-            setShowCrearModal(false);
-            if (refreshLicencia) await refreshLicencia();
-            setNuevoAnimal({
-                numero_chapeta: '',
-                nombre_propietario: '',
-                especie: 'bovino',
-                sexo: 'M',
-                etapa: 'levante',
-                peso_ingreso: '',
-                fecha_ingreso: getLocalIsoDate(),
-                id_potrerada: '',
-                tipo_macho: 'Toro'
-            });
-            setNuevosPesajes([]);
-            fetchAnimales();
-            toast('Animal creado exitosamente con su historial.', 'success');
-
-        } catch (err: any) {
-            setMsjErrorCrear(err.message);
-        } finally {
-            setLoading(false);
-        }
+    const handleAnimalDeleted = async (animalId: string) => {
+        setAnimales(prev => prev.filter(a => a.id !== animalId));
+        setSelectedAnimal(null);
+        await refreshLicencia();
+        toast('Animal eliminado del inventario.', 'success');
     };
 
     const sortedAndFilteredAnimals = useMemo(() => {
@@ -823,7 +324,7 @@ export default function Inventory() {
                 const matchesPotrero = filterPotrero ? a.potreroNombre === filterPotrero : true;
                 const matchesPotrerada = filterPotrerada ? a.potreradaNombre === filterPotrerada : true;
                 const matchesPropietario = filterPropietario ? a.nombre_propietario === filterPropietario : true;
-                
+
                 // Filtros de notificaciones
                 const matchesVencidos = filterLateWeighing ? (a.diasDesdeUltimoPesaje || 0) > 90 : true;
                 const matchesPerdida = filterNegativeGain ? (() => {
@@ -875,13 +376,13 @@ export default function Inventory() {
         sortedAndFilteredAnimals.forEach(a => {
             if (a.potreroNombre && a.potreroNombre !== 'Sin potrero') potreros.add(a.potreroNombre);
             if (a.potreradaNombre && a.potreradaNombre !== 'Sin potrerada') potreradas.add(a.potreradaNombre);
-            
+
             const ultimoP = a.registros_pesaje?.[0];
             const penultimoP = a.registros_pesaje?.[1];
             const pesoBase = a.peso_ingreso ?? a.peso_compra ?? 0;
             const fechaInicio = a.fecha_ingreso;
             const gmpUltimo = calcularGmpUltimoPeriodo(ultimoP, fechaInicio, pesoBase, penultimoP);
-            
+
             if (gmpUltimo !== null && gmpUltimo <= umbralMedioGmp) {
                 alertas++;
             }
@@ -894,8 +395,6 @@ export default function Inventory() {
             alertas
         };
     }, [sortedAndFilteredAnimals, umbralMedioGmp]);
-
-
 
     return (
         <div className="page-container inventory-page">
@@ -937,7 +436,7 @@ export default function Inventory() {
                 expiredDetail="Toda tu información histórica está visible e intacta. Para habilitar nuevos pesajes y operaciones, renueva tu suscripción."
                 overLimitDetail="Toda tu información histórica está visible e intacta. Para habilitar nuevos pesajes y compras, actualiza tu plan."
             />
-            
+
             <div className="inventory-kpi-grid">
                 <div className="card inventory-kpi-card" style={{ background: 'var(--primary-soft-bg)', border: '1px solid var(--primary-soft-border)' }}>
                     <div className="inventory-kpi-label">Total Animales</div>
@@ -1123,7 +622,7 @@ export default function Inventory() {
                                 const penultimoP = animal.registros_pesaje?.[1];
                                 const pesoBase = animal.peso_ingreso ?? animal.peso_compra ?? 0;
                                 const fechaInicio = animal.fecha_ingreso;
-                                
+
                                 const tienePesajePosterior = Boolean(ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, fechaInicio));
                                 const fechaU = tienePesajePosterior && ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
                                 const pesoU = tienePesajePosterior && ultimoP ? `${Math.round(ultimoP.peso)} kg` : `${Math.round(pesoBase)} kg*`;
@@ -1145,36 +644,8 @@ export default function Inventory() {
                                 const gmpHistColor = getColorForGmp(gmpHistorico);
 
                                 return (
-                                    <tr key={animal.id} 
-                                        onClick={async () => {
-                                            setSelectedAnimal(animal);
-                                            setIsEditingChapeta(false);
-                                            setEditingPesaje(null);
-                                            const { data: historial } = await supabase
-                                                .from('registros_pesaje')
-                                                .select('id, peso, fecha, gdp_calculada, gmp_calculada, potreros(nombre)')
-                                                .eq('id_animal', animal.id)
-                                                .or('is_deleted.is.null,is_deleted.eq.false')
-                                                .order('fecha', { ascending: false });
-                                            if (historial) {
-                                                const unique = new Set<string>();
-                                                const dedup: Pesaje[] = historial
-                                                    .filter((p: any) => {
-                                                        const d = p.fecha.split('T')[0];
-                                                        if (unique.has(d)) return false;
-                                                        unique.add(d); return true;
-                                                    })
-                                                    .map((p: any) => ({
-                                                        id: p.id,
-                                                        peso: p.peso,
-                                                        fecha: p.fecha,
-                                                        gdp_calculada: p.gdp_calculada,
-                                                        gmp_calculada: p.gmp_calculada,
-                                                        potreros: Array.isArray(p.potreros) ? (p.potreros[0] || null) : p.potreros
-                                                    }));
-                                                setSelectedAnimal(prev => prev ? { ...prev, registros_pesaje: dedup } : null);
-                                            }
-                                        }}
+                                    <tr key={animal.id}
+                                        onClick={() => setSelectedAnimal(animal)}
                                         className={`table-row-hover${isAlerta ? ' is-alerta' : ''}`}
                                         style={{
                                             borderBottom: '1px solid var(--border-subtle)',
@@ -1187,17 +658,17 @@ export default function Inventory() {
                                         </td>
                                         <td className="inventory-col-meta" style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: '500' }}>{animal.nombre_propietario}</div>
-                                             <div style={{ fontSize: '0.8rem', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                            <div style={{ fontSize: '0.8rem', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                                 {animal.etapa} • <span style={{ color: 'var(--primary-light)', fontStyle: 'italic', textTransform: 'capitalize' }}>{animal.potreradaNombre}</span>
                                                 <span style={{ marginLeft: '8px', opacity: 0.85 }}>({animal.potreroNombre})</span>
                                             </div>
                                         </td>
                                         <td className="inventory-col-pesaje" style={{ padding: '16px' }}>
                                             <span className="inventory-cell-prefix">Último pesaje</span>
-                                            <div style={{ 
-                                                fontWeight: 'bold', 
-                                                fontSize: '1.05rem', 
-                                                color: (animal.diasDesdeUltimoPesaje || 0) > 90 ? 'var(--error)' : 'var(--text-main)' 
+                                            <div style={{
+                                                fontWeight: 'bold',
+                                                fontSize: '1.05rem',
+                                                color: (animal.diasDesdeUltimoPesaje || 0) > 90 ? 'var(--error)' : 'var(--text-main)'
                                             }}>
                                                 Hace {animal.diasDesdeUltimoPesaje} {animal.diasDesdeUltimoPesaje === 1 ? 'día' : 'días'}
                                             </div>
@@ -1222,10 +693,10 @@ export default function Inventory() {
                                                         color: gmpColor === 'var(--text-light)' ? 'var(--text-main)' : gmpColor,
                                                         fontWeight: 'bold'
                                                     }}>
-                                                        <div style={{ 
-                                                            width: '10px', 
-                                                            height: '10px', 
-                                                            borderRadius: '50%', 
+                                                        <div style={{
+                                                            width: '10px',
+                                                            height: '10px',
+                                                            borderRadius: '50%',
                                                             backgroundColor: gmpColor,
                                                             border: gmpColor === 'var(--text-light)' ? '1px solid var(--border-strong)' : 'none'
                                                         }}></div>
@@ -1252,703 +723,41 @@ export default function Inventory() {
                     </tbody>
                 </table>
             </div>
-            
+
             {showMuerteModal && (
-                <div className="modal-overlay" onClick={() => setShowMuerteModal(false)}>
-                    <div className="card inventory-modal-card" style={{ maxWidth: '450px', border: '1px solid var(--error)' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                            <Skull size={48} color="var(--error)" aria-hidden="true" style={{ marginBottom: '12px' }} />
-                            <h2 style={{ color: 'var(--text-main)', margin: '0 0 8px 0' }}>Reportar Fallecimiento</h2>
-                            <p style={{ color: 'var(--text-muted)', margin: 0 }}>Esta acción inactivará al animal permanentemente.</p>
-                        </div>
-
-                        {msjErrorMuerte && (
-                            <div role="alert" style={{ backgroundColor: 'var(--error-soft-bg)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <AlertCircle size={16} aria-hidden="true" /> {msjErrorMuerte}
-                            </div>
-                        )}
-
-                        <div style={{ marginBottom: '18px' }}>
-                            <label htmlFor="inventory-muerte-chapeta">Número de Chapeta</label>
-                            <input
-                                id="inventory-muerte-chapeta"
-                                type="text"
-                                placeholder="Ej: 1234"
-                                value={chapetaMuerte}
-                                onChange={e => setChapetaMuerte(e.target.value)}
-                                autoCorrect="off"
-                                autoCapitalize="characters"
-                                spellCheck={false}
-                                style={{ fontSize: '1.2rem', marginBottom: 0 }}
-                            />
-                        </div>
-
-                        <div style={{ marginBottom: '24px' }}>
-                            <label htmlFor="inventory-muerte-fecha">Fecha de Fallecimiento</label>
-                            <div style={{ position: 'relative' }}>
-                                <Calendar size={18} aria-hidden="true" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-                                <input
-                                    id="inventory-muerte-fecha"
-                                    type="date"
-                                    min={MIN_GANADO_DATE}
-                                    value={fechaMuerte}
-                                    onChange={e => setFechaMuerte(e.target.value)}
-                                    style={{ paddingLeft: '40px', marginBottom: 0 }}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="inventory-modal-actions-row" style={{ display: 'flex', gap: '12px' }}>
-                            <button
-                                type="button"
-                                className="inventory-btn-ghost"
-                                onClick={() => { setShowMuerteModal(false); setMsjErrorMuerte(''); }}
-                                style={{ flex: 1 }}
-                                disabled={loading}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                className="inventory-header-btn--danger"
-                                onClick={handleReportarMuerte}
-                                style={{ flex: 2 }}
-                                disabled={loading || !chapetaMuerte}
-                            >
-                                {loading ? 'Procesando...' : 'Confirmar'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <InventoryDeathReportModal
+                    fincaId={fincaId}
+                    onClose={() => setShowMuerteModal(false)}
+                    onReported={() => { void fetchAnimales(); }}
+                />
             )}
 
-            {selectedAnimal && (() => {
-                const pesoBaseModal = selectedAnimal.peso_ingreso ?? selectedAnimal.peso_compra ?? 0;
-                const fechaInicioModal = selectedAnimal.fecha_ingreso;
-                
-                const pesajesPosteriores = (selectedAnimal.registros_pesaje || []).filter(p =>
-                    esPesajePosteriorAIngreso(p.fecha, fechaInicioModal)
-                );
-                const ultimoP = pesajesPosteriores[0];
-                const penultimoP = pesajesPosteriores[1];
-                const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : format(new Date(fechaInicioModal), 'dd/MM/yyyy');
-                const pesoU = ultimoP ? ultimoP.peso : pesoBaseModal;
-
-                const gmpUltimoModal = calcularGmpUltimoPeriodo(ultimoP, fechaInicioModal, pesoBaseModal, penultimoP);
-                const gmpHistoricoModal = calcularGmpAcumulado(ultimoP?.peso, pesoBaseModal, fechaInicioModal, ultimoP?.fecha);
-
-                const estModal = calcularPesoEstimadoHoy(selectedAnimal);
-                const diasHoy = estModal.diasSinPesar;
-                const estimadoHoy = estModal.pesoEstimado;
-                const confianzaHoy = estModal.confianza;
-
-                interface TimelineItem {
-                    id: string;
-                    pesajeId?: string;
-                    fecha: string;
-                    peso: number;
-                    gmp: number;
-                    gdp: number;
-                    esIngreso: boolean;
-                }
-
-                const timeline: TimelineItem[] = [
-                    ...pesajesPosteriores.map((p, i, arr) => {
-                        const ant = arr[i + 1] || { peso: pesoBaseModal, fecha: fechaInicioModal };
-                        const d = Math.max(1, differenceInDays(new Date(p.fecha.split('T')[0] + 'T12:00:00'), new Date(ant.fecha.split('T')[0] + 'T12:00:00')));
-                        const ganancia = p.peso - ant.peso;
-                        const gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined && p.gdp_calculada !== 0) ? Number(p.gdp_calculada) : (ganancia / d);
-                        const gmp = (p.gmp_calculada !== null && p.gmp_calculada !== undefined && p.gmp_calculada !== 0) ? Number(p.gmp_calculada) : (gdp * 30);
-                        return {
-                            id: p.id || p.fecha,
-                            pesajeId: p.id,
-                            fecha: p.fecha,
-                            peso: p.peso,
-                            gmp: gmp,
-                            gdp: gdp,
-                            esIngreso: false
-                        };
-                    }),
-                    {
-                        id: selectedAnimal.fecha_ingreso,
-                        pesajeId: undefined,
-                        fecha: selectedAnimal.fecha_ingreso,
-                        peso: pesoBaseModal,
-                        gmp: 0,
-                        gdp: 0,
-                        esIngreso: true
-                    }
-                ];
-
-                const chartData = [...timeline].reverse().map(item => ({
-                    fechaStr: format(new Date(item.fecha), 'dd/MMM', { locale: es }),
-                    peso: item.peso
-                }));
-
-                return (
-                    <div className="modal-overlay" onClick={() => setSelectedAnimal(null)}>
-                        <div className="card inventory-modal-card" style={{ maxWidth: '640px', backgroundColor: 'var(--surface)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-popover)' }} onClick={e => e.stopPropagation()}>
-
-                            {/* Modal Header: Title, badges, subtle actions */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
-                                <div style={{ minWidth: 0, flex: 1 }}>
-                                    {!isEditingChapeta ? (
-                                        <h2 style={{
-                                            color: 'var(--text-main)',
-                                            margin: 0,
-                                            fontSize: isMobile ? '1.5rem' : '1.75rem',
-                                            fontWeight: 700,
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            whiteSpace: 'nowrap',
-                                            letterSpacing: '-0.5px'
-                                        }}>
-                                            <span style={{ color: 'var(--primary)', marginRight: '4px', fontWeight: 800 }}>#</span>
-                                            <span style={{ whiteSpace: 'nowrap' }}>{selectedAnimal.numero_chapeta}</span>
-                                        </h2>
-                                    ) : (
-                                        <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                <span style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '1.4rem' }}>#</span>
-                                                <input
-                                                    type="text"
-                                                    aria-label="Nueva chapeta"
-                                                    value={editChapetaVal}
-                                                    onChange={e => {
-                                                        setEditChapetaVal(e.target.value);
-                                                        checkEditChapetaUnica(e.target.value);
-                                                    }}
-                                                    placeholder="Nueva chapeta"
-                                                    autoCorrect="off"
-                                                    autoCapitalize="characters"
-                                                    spellCheck={false}
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: '6px',
-                                                        border: isEditChapetaTaken ? '1px solid var(--error)' : '1px solid var(--primary)',
-                                                        backgroundColor: 'var(--bg-input)',
-                                                        color: 'var(--text-main)',
-                                                        fontSize: '1.1rem',
-                                                        fontWeight: 'bold',
-                                                        width: '140px',
-                                                        marginBottom: 0
-                                                    }}
-                                                    autoFocus={!isMobile}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={handleGuardarNuevaChapeta}
-                                                    disabled={loading || validatingEditChapeta || isEditChapetaTaken || !editChapetaVal.trim()}
-                                                    style={{
-                                                        width: 'auto',
-                                                        padding: '8px 12px',
-                                                        borderRadius: '6px',
-                                                        backgroundColor: 'var(--primary)',
-                                                        color: 'var(--on-primary)',
-                                                        border: 'none',
-                                                        cursor: (loading || validatingEditChapeta || isEditChapetaTaken || !editChapetaVal.trim()) ? 'not-allowed' : 'pointer',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        fontSize: '0.82rem',
-                                                        fontWeight: 600,
-                                                        minHeight: isMobile ? '44px' : undefined
-                                                    }}
-                                                >
-                                                    <Check size={14} aria-hidden="true" />
-                                                    <span>Guardar</span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="inventory-btn-ghost"
-                                                    onClick={() => { setIsEditingChapeta(false); setEditChapetaError(''); }}
-                                                    style={{
-                                                        padding: '8px 10px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '0.82rem',
-                                                        minHeight: isMobile ? '44px' : undefined
-                                                    }}
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </div>
-                                            {validatingEditChapeta && (
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                                    Validando si la chapeta ya existe...
-                                                </div>
-                                            )}
-                                            {editChapetaError && (
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--error)', marginTop: '4px', fontWeight: 500 }}>
-                                                    {editChapetaError}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Metadata Badges / Info */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-                                        <span style={{
-                                            backgroundColor: 'var(--success-soft-bg)',
-                                            color: 'var(--success)',
-                                            border: '1px solid var(--success-soft-border)',
-                                            padding: '2px 8px',
-                                            borderRadius: '6px',
-                                            fontSize: '0.72rem',
-                                            fontWeight: 600,
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.5px'
-                                        }}>
-                                            {selectedAnimal.etapa}
-                                        </span>
-
-                                        <span style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>•</span>
-
-                                        <span style={{ color: 'var(--text-main)', fontSize: '0.82rem', fontWeight: 500 }}>
-                                            {selectedAnimal.nombre_propietario}
-                                        </span>
-
-                                        {selectedAnimal.especie && (
-                                            <>
-                                                <span style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>•</span>
-                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'capitalize' }}>
-                                                    {selectedAnimal.especie} {selectedAnimal.sexo ? `(${selectedAnimal.sexo})` : ''}
-                                                </span>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Right action buttons: Subtle Edit + Subtle Trash + Close */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                    {isAdmin && !isEditingChapeta && (
-                                        <button
-                                            type="button"
-                                            className="inventory-icon-btn inventory-icon-btn--edit"
-                                            onClick={() => {
-                                                setIsEditingChapeta(true);
-                                                setEditChapetaVal(selectedAnimal.numero_chapeta);
-                                                setEditChapetaError('');
-                                                setIsEditChapetaTaken(false);
-                                            }}
-                                            title="Editar número de chapeta"
-                                            aria-label="Editar número de chapeta"
-                                        >
-                                            <Pencil size={16} aria-hidden="true" />
-                                        </button>
-                                    )}
-                                    {isAdmin && (
-                                        <button
-                                            type="button"
-                                            className="inventory-icon-btn inventory-icon-btn--delete"
-                                            onClick={handleEliminarAnimalPorError}
-                                            title="Eliminar animal (por error de digitación)"
-                                            aria-label="Eliminar animal"
-                                        >
-                                            <Trash2 size={16} aria-hidden="true" />
-                                        </button>
-                                    )}
-                                    <button
-                                        type="button"
-                                        className="inventory-icon-btn inventory-icon-btn--close"
-                                        onClick={() => setSelectedAnimal(null)}
-                                        title="Cerrar"
-                                        aria-label="Cerrar detalle del animal"
-                                    >
-                                        <X size={16} aria-hidden="true" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Location / Potrerada Bar */}
-                            <div style={{
-                                backgroundColor: 'var(--surface-subtle)',
-                                padding: '10px 14px',
-                                borderRadius: '10px',
-                                border: '1px solid var(--border-subtle)',
-                                marginBottom: '16px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: '12px',
-                                flexWrap: 'wrap'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Potrerada Actual:</span>
-                                    <span style={{ fontWeight: '600', color: selectedAnimal.id_potrerada ? 'var(--primary-light)' : 'var(--text-muted)', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                        <MapPin size={13} style={{ opacity: 0.8 }} aria-hidden="true" />
-                                        {selectedAnimal.potreradaNombre || 'Sin potrerada'}
-                                    </span>
-                                </div>
-                                {selectedAnimal.potreroNombre && (
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                        Potrero: <strong style={{ color: 'var(--text-main)' }}>{selectedAnimal.potreroNombre}</strong>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Metric Cards */}
-                            <div className="inventory-detail-metrics" style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                                gap: '12px',
-                                marginBottom: '28px'
-                            }}>
-                                <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Último Pesaje</div>
-                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{pesoU} kg</div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Llegada: '} {fechaU}</div>
-                                </div>
-                                <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Última {getModoLabel(modoGanancia)}</div>
-                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: getGmpColor(gmpUltimoModal, umbralMedioGmp, umbralAltoGmp) }}>
-                                        {gmpUltimoModal !== null ? `${toDisplayValue(gmpUltimoModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'Sin pesajes'}
-                                    </div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                        Histórica: <strong style={{ color: getGmpColor(gmpHistoricoModal, umbralMedioGmp, umbralAltoGmp) }}>
-                                            {gmpHistoricoModal !== null ? `${toDisplayValue(gmpHistoricoModal, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}` : 'N/A'}
-                                        </strong>
-                                    </div>
-                                </div>
-                                {selectedAnimal.peso_compra && (
-                                    <div style={{ backgroundColor: 'var(--secondary-soft-bg)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--secondary-soft-border)' }}>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso de Compra</div>
-                                        <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
-                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Llegada: {selectedAnimal.peso_ingreso} kg</div>
-                                    </div>
-                                )}
-                                <div style={{ backgroundColor: 'var(--surface-subtle)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
-                                    <div style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 'bold', color: confianzaHoy === 'vencida' ? 'var(--warning)' : 'var(--primary-light)' }}>
-                                        {estimadoHoy.toFixed(1)} kg
-                                    </div>
-                                    <div style={{ fontSize: '0.72rem', color: confianzaHoy === 'vencida' ? 'var(--warning)' : 'var(--text-muted)', marginTop: '4px' }}>
-                                        {confianzaHoy === 'vencida'
-                                            ? `⚠️ Congelado (${diasHoy} d sin pesar)`
-                                            : (diasHoy > 0 ? `+${(estimadoHoy - pesoU).toFixed(1)} kg (${diasHoy} d)` : 'Calculado a la fecha')}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <h3 style={{ fontSize: '1.05rem', marginBottom: '12px', fontWeight: '600', color: 'var(--text-main)' }}>Evolución de Peso</h3>
-                            <div className="inventory-detail-chart" style={{ height: '240px', width: '100%', marginBottom: '28px' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                                        <XAxis dataKey="fechaStr" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
-                                        <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
-                                        <RechartsTooltip
-                                            contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: '8px', boxShadow: 'var(--shadow-popover)', color: 'var(--text-main)' }}
-                                            itemStyle={{ color: 'var(--primary-light)' }}
-                                            labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
-                                        />
-                                        <Line type="monotone" dataKey="peso" stroke="var(--primary)" strokeWidth={3} dot={{ fill: 'var(--primary-light)', strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: 'var(--primary)', stroke: 'var(--bg-card)', strokeWidth: 2 }} name="Peso (kg)" />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-
-                            <h3 style={{ fontSize: '1.05rem', marginBottom: '12px', fontWeight: '600', color: 'var(--text-main)' }}>Historial de Registros</h3>
-                            <div className="inventory-history-wrap" style={{ overflowX: 'auto', backgroundColor: 'var(--surface-inset)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                                <table className="inventory-history-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                    <thead style={{ backgroundColor: 'var(--surface-subtle)' }}>
-                                        <tr>
-                                            <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fecha</th>
-                                            <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Peso (kg)</th>
-                                            <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                                {modoGanancia === 'GDP' ? 'Ganancia Diaria' : 'Ganancia Mensual'}
-                                            </th>
-                                            {isAdmin && <th scope="col" style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'right' }}>Acciones</th>}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {timeline.map((item, index) => {
-                                            const isEditingThis = Boolean(editingPesaje && item.pesajeId && editingPesaje.id === item.pesajeId);
-                                            if (isEditingThis && editingPesaje) {
-                                                return (
-                                                    <tr key={index} className="is-editing" style={{ borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'var(--success-soft-bg)' }}>
-                                                        <td colSpan={4} style={{ padding: '14px 16px' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
-                                                                <div style={{ flex: '1 1 130px' }}>
-                                                                    <label htmlFor={`hist-edit-date-${index}`} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Fecha Pesaje</label>
-                                                                    <input
-                                                                        id={`hist-edit-date-${index}`}
-                                                                        type="date"
-                                                                        min={MIN_GANADO_DATE}
-                                                                        value={editingPesaje.fecha}
-                                                                        onChange={e => setEditingPesaje(prev => prev ? { ...prev, fecha: e.target.value } : null)}
-                                                                        style={{ padding: '6px 10px', marginBottom: 0, borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '0.85rem' }}
-                                                                    />
-                                                                </div>
-                                                                <div style={{ flex: '1 1 100px' }}>
-                                                                    <label htmlFor={`hist-edit-peso-${index}`} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Peso (kg)</label>
-                                                                    <input
-                                                                        id={`hist-edit-peso-${index}`}
-                                                                        type="text"
-                                                                        inputMode="decimal"
-                                                                        value={editingPesaje.peso}
-                                                                        onChange={e => setEditingPesaje(prev => prev ? { ...prev, peso: sanitizeDecimalInput(e.target.value) } : null)}
-                                                                        style={{ width: isMobile ? '100%' : '100px', marginBottom: 0, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--primary)', backgroundColor: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '0.85rem' }}
-                                                                    />
-                                                                </div>
-                                                                <div style={{ display: 'flex', gap: '8px', flex: isMobile ? '1 1 100%' : undefined }}>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={handleGuardarEdicionPesaje}
-                                                                        disabled={loading}
-                                                                        style={{ padding: '7px 14px', minHeight: isMobile ? '44px' : undefined, flex: isMobile ? 1 : undefined, borderRadius: '6px', backgroundColor: 'var(--primary)', border: 'none', color: 'var(--on-primary)', fontSize: '0.82rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                                                                    >
-                                                                        <Check size={14} aria-hidden="true" /> Guardar
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="inventory-btn-ghost"
-                                                                        onClick={() => setEditingPesaje(null)}
-                                                                        style={{ padding: '7px 12px', minHeight: isMobile ? '44px' : undefined, flex: isMobile ? 1 : undefined, borderRadius: '6px', fontSize: '0.82rem' }}
-                                                                    >
-                                                                        Cancelar
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', marginTop: '8px' }}>
-                                                                ℹ️ Al guardar, se recalculará automáticamente la GDP del pesaje siguiente y todos los posteriores.
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            }
-
-                                            return (
-                                                <tr key={index} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                                    <td className="inventory-hist-fecha" style={{ padding: '12px 16px' }}>
-                                                        <div style={{ fontWeight: '500' }}>{format(new Date(item.fecha), 'dd/MM/yyyy')}</div>
-                                                        {item.esIngreso && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 'bold' }}>INGRESO</div>}
-                                                    </td>
-                                                    <td className="inventory-hist-peso" style={{ padding: '12px 16px', fontWeight: 'bold' }}>
-                                                        {item.peso}
-                                                    </td>
-                                                    <td className="inventory-hist-gmp" style={{ padding: '12px 16px' }}>
-                                                        {item.esIngreso ? (
-                                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
-                                                        ) : (
-                                                            <div style={{
-                                                                color: getGmpColor(item.gmp, umbralMedioGmp, umbralAltoGmp),
-                                                                fontWeight: 'bold'
-                                                            }}>
-                                                                {item.gmp > 0 ? '+' : ''}{toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} {getUnidadLabel(modoGanancia)}
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    {isAdmin && (
-                                                        <td className="inventory-hist-actions" style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                                            {item.esIngreso || !item.pesajeId ? (
-                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic' }}>Base</span>
-                                                            ) : (
-                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="inventory-history-action-btn"
-                                                                        onClick={() => setEditingPesaje({ id: item.pesajeId!, fecha: item.fecha.split('T')[0], peso: item.peso.toString() })}
-                                                                        title="Editar este pesaje"
-                                                                        aria-label={`Editar pesaje del ${format(new Date(item.fecha), 'dd/MM/yyyy')}`}
-                                                                        style={{ backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border-strong)', color: 'var(--primary-light)' }}
-                                                                    >
-                                                                        <Pencil size={14} aria-hidden="true" />
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="inventory-history-action-btn"
-                                                                        onClick={() => handleEliminarPesaje(item.pesajeId!, format(new Date(item.fecha), 'dd/MM/yyyy'))}
-                                                                        title="Eliminar este pesaje"
-                                                                        aria-label={`Eliminar pesaje del ${format(new Date(item.fecha), 'dd/MM/yyyy')}`}
-                                                                        style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)' }}
-                                                                    >
-                                                                        <Trash2 size={14} aria-hidden="true" />
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
+            {selectedAnimal && (
+                <InventoryDetailModal
+                    animal={selectedAnimal}
+                    fincaId={fincaId}
+                    isAdmin={isAdmin}
+                    isMobile={isMobile}
+                    modoGanancia={modoGanancia}
+                    umbralAltoGmp={umbralAltoGmp}
+                    umbralMedioGmp={umbralMedioGmp}
+                    onClose={() => setSelectedAnimal(null)}
+                    onAnimalUpdated={handleAnimalUpdated}
+                    onAnimalDeleted={handleAnimalDeleted}
+                />
+            )}
 
             {showCrearModal && (
-                <div className="modal-overlay" onClick={() => setShowCrearModal(false)}>
-                    <div className="card inventory-modal-card" style={{ maxWidth: '600px', border: '1px solid var(--primary)' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h2 style={{ color: 'var(--text-main)', margin: 0 }}>Crear Nuevo Animal</h2>
-                            <button type="button" aria-label="Cerrar" onClick={() => setShowCrearModal(false)} className="btn-icon" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)' }}><X aria-hidden="true" /></button>
-                        </div>
-
-                        {msjErrorCrear && (
-                            <div role="alert" style={{ backgroundColor: 'var(--error-soft-bg)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem' }}>
-                                {msjErrorCrear}
-                            </div>
-                        )}
-
-                        <div className="inventory-create-grid-2">
-                            <div>
-                                <label htmlFor="inv-new-chapeta">Número de Chapeta*</label>
-                                <input id="inv-new-chapeta" type="text" value={nuevoAnimal.numero_chapeta} onChange={e => setNuevoAnimal({...nuevoAnimal, numero_chapeta: e.target.value})} placeholder="Ej: 1234" autoCorrect="off" autoCapitalize="characters" spellCheck={false} />
-                                {validatingChapeta && <span style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>Validando...</span>}
-                                {isChapetaTaken && <span style={{fontSize: '0.75rem', color: 'var(--danger)', display: 'block', marginTop: '4px'}}>Esta chapeta ya está en uso por un animal activo.</span>}
-                            </div>
-                            <div>
-                                <label htmlFor="inv-new-prop">Propietario*</label>
-                                <select
-                                    id="inv-new-prop"
-                                    value={nuevoAnimal.nombre_propietario}
-                                    onChange={e => setNuevoAnimal({...nuevoAnimal, nombre_propietario: e.target.value})}
-                                >
-                                    <option value="">Seleccionar propietario...</option>
-                                    {propietariosLista.map(p => (
-                                        <option key={p.id} value={p.nombre}>{p.nombre}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="inventory-create-grid-3">
-                            <div>
-                                <label htmlFor="inv-new-especie">Especie*</label>
-                                <select id="inv-new-especie" value={nuevoAnimal.especie} onChange={e => setNuevoAnimal({...nuevoAnimal, especie: e.target.value})}>
-                                    <option value="bovino">Bovino</option>
-                                    <option value="bufalino">Bufalino</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label htmlFor="inv-new-sexo">Sexo*</label>
-                                <select id="inv-new-sexo" value={nuevoAnimal.sexo} onChange={e => setNuevoAnimal({...nuevoAnimal, sexo: e.target.value})}>
-                                    <option value="M">Macho</option>
-                                    <option value="H">Hembra</option>
-                                </select>
-                            </div>
-                            {nuevoAnimal.sexo === 'M' && (
-                                <div>
-                                    <label htmlFor="inv-new-tipo-macho">Tipo Macho*</label>
-                                    <select id="inv-new-tipo-macho" value={nuevoAnimal.tipo_macho} onChange={e => setNuevoAnimal({...nuevoAnimal, tipo_macho: e.target.value})}>
-                                        <option value="Toro">Toro</option>
-                                        <option value="Novillo">Novillo</option>
-                                    </select>
-                                </div>
-                            )}
-                            <div>
-                                <label htmlFor="inv-new-etapa">Etapa*</label>
-                                <select id="inv-new-etapa" value={nuevoAnimal.etapa} onChange={e => setNuevoAnimal({...nuevoAnimal, etapa: e.target.value})}>
-                                    <option value="cria">Cría</option>
-                                    <option value="levante">Levante</option>
-                                    <option value="ceba">Ceba</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="inventory-create-grid-2">
-                            <div>
-                                <label htmlFor="inv-new-peso">Peso Ingreso (kg)*</label>
-                                <input id="inv-new-peso" type="text" inputMode="decimal" value={nuevoAnimal.peso_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, peso_ingreso: sanitizeDecimalInput(e.target.value)})} placeholder="0" />
-                            </div>
-                            <div>
-                                <label htmlFor="inv-new-fecha">Fecha Ingreso*</label>
-                                <input id="inv-new-fecha" type="date" min={MIN_GANADO_DATE} value={nuevoAnimal.fecha_ingreso} onChange={e => setNuevoAnimal({...nuevoAnimal, fecha_ingreso: e.target.value})} />
-                            </div>
-                        </div>
-
-                        <div style={{ marginBottom: '20px' }}>
-                            <label htmlFor="inv-new-lote">Asignar a Lote (Opcional)</label>
-                            <select
-                                id="inv-new-lote"
-                                value={nuevoAnimal.id_potrerada}
-                                onChange={e => {
-                                    const selectedPotId = e.target.value;
-                                    const selectedPot = potreradasDisponibles.find(p => p.id === selectedPotId);
-                                    setNuevoAnimal({
-                                        ...nuevoAnimal,
-                                        id_potrerada: selectedPotId,
-                                        ...(selectedPot?.etapa === 'ceba' ? { etapa: 'ceba' } : {})
-                                    });
-                                }}
-                            >
-                                <option value="">-- Sin Lote --</option>
-                                {potreradasDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}{p.etapa ? ` (${p.etapa.toUpperCase()})` : ''}</option>)}
-                            </select>
-                        </div>
-
-                        <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '18px', marginBottom: '20px' }}>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '8px', flexWrap: 'wrap' }}>
-                                <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--primary-light)' }}>Historial de Pesajes</h3>
-                                <button
-                                    type="button"
-                                    className="inventory-btn-add-weighing"
-                                    onClick={() => setNuevosPesajes([...nuevosPesajes, { fecha: getLocalIsoDate(), peso: '', etapa: nuevoAnimal.etapa }])}
-                                >
-                                    + Agregar Pesaje
-                                </button>
-                            </div>
-                                 {nuevosPesajes.map((p, idx) => (
-                                <div key={idx} className="inventory-extra-weighing-row">
-                                    <div style={{ flex: 1.5 }}>
-                                        <label htmlFor={`inv-extra-date-${idx}`} style={{ fontSize: '0.72rem' }}>Fecha</label>
-                                        <input id={`inv-extra-date-${idx}`} type="date" min={MIN_GANADO_DATE} value={p.fecha} onChange={e => {
-                                            const up = [...nuevosPesajes];
-                                            up[idx].fecha = e.target.value;
-                                            setNuevosPesajes(up);
-                                        }} style={{ marginBottom: 0 }} />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label htmlFor={`inv-extra-peso-${idx}`} style={{ fontSize: '0.72rem' }}>Peso (kg)</label>
-                                        <input id={`inv-extra-peso-${idx}`} type="text" inputMode="decimal" value={p.peso} onChange={e => {
-                                            const up = [...nuevosPesajes];
-                                            up[idx].peso = sanitizeDecimalInput(e.target.value);
-                                            setNuevosPesajes(up);
-                                        }} style={{ marginBottom: 0 }} placeholder="0" />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label htmlFor={`inv-extra-etapa-${idx}`} style={{ fontSize: '0.72rem' }}>Etapa</label>
-                                        <select id={`inv-extra-etapa-${idx}`} value={p.etapa} onChange={e => {
-                                            const up = [...nuevosPesajes];
-                                            up[idx].etapa = e.target.value;
-                                            setNuevosPesajes(up);
-                                        }} style={{ marginBottom: 0, padding: '8px' }}>
-                                            <option value="cria">Cría</option>
-                                            <option value="levante">Levante</option>
-                                            <option value="ceba">Ceba</option>
-                                        </select>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="inventory-history-action-btn"
-                                        aria-label={`Eliminar pesaje adicional ${idx + 1}`}
-                                        onClick={() => setNuevosPesajes(nuevosPesajes.filter((_, i) => i !== idx))}
-                                        style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)', padding: '8px', marginBottom: '2px' }}
-                                    >
-                                        <Trash2 size={18} aria-hidden="true" />
-                                    </button>
-                                </div>
-                            ))}
-                            {nuevosPesajes.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>No se han agregado pesajes adicionales.</p>}
-                        </div>
-
-                        <div className="inventory-modal-actions-row" style={{ display: 'flex', gap: '12px' }}>
-                            <button type="button" className="inventory-btn-ghost" onClick={() => setShowCrearModal(false)} style={{ flex: 1 }}>
-                                CANCELAR
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleCrearAnimal}
-                                style={{ flex: 2 }}
-                                disabled={loading || !nuevoAnimal.numero_chapeta || !nuevoAnimal.peso_ingreso || !nuevoAnimal.nombre_propietario || !nuevoAnimal.especie || !nuevoAnimal.sexo || !nuevoAnimal.etapa || !nuevoAnimal.fecha_ingreso || isChapetaTaken}
-                            >
-                                {loading ? 'GUARDANDO...' : 'GUARDAR ANIMAL'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <InventoryCreateAnimalModal
+                    fincaId={fincaId}
+                    propietariosLista={propietariosLista}
+                    potreradasDisponibles={potreradasDisponibles}
+                    onClose={() => setShowCrearModal(false)}
+                    onCreated={async () => {
+                        if (refreshLicencia) await refreshLicencia();
+                        void fetchAnimales();
+                    }}
+                />
             )}
 
             {/* Modal para ingresar capital invertido antes de generar el informe */}

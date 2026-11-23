@@ -1,12 +1,12 @@
-import { useEffect, useState, useMemo, Fragment, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
-    LineChart, Line, CartesianGrid, Legend, BarChart, Bar, ReferenceLine
+    CartesianGrid, BarChart, Bar
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X, SlidersHorizontal, ArrowLeftRight, Leaf, CloudRain, Users, ListChecks, ChevronRight } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, SlidersHorizontal, ArrowLeftRight, Leaf, CloudRain, Users, ListChecks, ChevronRight } from 'lucide-react';
 import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
 import { getLicenseBlockState } from '../utils/licenseUtils';
 import { format, differenceInDays } from 'date-fns';
@@ -29,45 +29,13 @@ import './Dashboard.css';
 // El reporte trae xlsx + jsPDF (pesados): se descarga solo cuando el usuario lo abre
 const ReporteInventarioExcel = lazy(() => import('../components/ReporteInventarioExcel'));
 import ModalUpsell from '../components/ModalUpsell';
-
-interface DashboardStats {
-    totalAnimales: number;
-    promedioLevanteMeses: number;
-    gmpLevante: number; 
-    promedioCebaMeses: number;
-    gmpCeba: number;
-    gmpTotal: number;
-    totalMuertosAno: number;
-    produccionCarneHaAno: number;
-    cargaAnimal: number;
-    pesoPromedioEntrada: number;
-    pesoPromedioSalida: number;
-    metaMinima?: number;
-}
-
-interface EvolucionItem {
-    numero: number;
-    label: string;
-    gmpLevante?: number;
-    gmpCeba?: number;
-}
-
-interface GmpDetailItem {
-    id_animal: string;
-    chapeta: string;
-    propietario: string;
-    potrerada: string;
-    fechaAnterior: string;
-    pesoAnterior: number;
-    fechaActual: string;
-    pesoActual: number;
-    gmp: number;
-}
-
-interface LluviaItem {
-    fecha: string;
-    mm: number;
-}
+import DashboardPerformanceChart from './dashboard/DashboardPerformanceChart';
+import {
+    DashboardMuertesModal,
+    DashboardGmpDetailModal,
+    DashboardRangoModal
+} from './dashboard/DashboardModals';
+import type { DashboardStats, LluviaItem, SelectedGmpDetail } from './dashboard/types';
 
 export default function Dashboard() {
     const { fincaId, modoGanancia, licenciaInfo, role, isSuperAdmin } = useAuth();
@@ -103,17 +71,9 @@ export default function Dashboard() {
         ubicacion: '',
         municipio: ''
     });
-    const [vistaGrafica, setVistaGrafica] = useState<'mensual' | 'pesaje' | 'rango'>('mensual');
     const [evolucionLluvia, setEvolucionLluvia] = useState<LluviaItem[]>([]);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
-    const [selectedDetail, setSelectedDetail] = useState<{
-        label: string,
-        etapa: string,
-        items: GmpDetailItem[]
-    } | null>(null);
-    const [sortCol, setSortCol] = useState<'chapeta' | 'propietario' | 'potrerada' | 'gmp'>('gmp');
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-    const [filterTipo, setFilterTipo] = useState<'historico' | 'actual'>('actual');
+    const [selectedDetail, setSelectedDetail] = useState<SelectedGmpDetail | null>(null);
     const [rawData, setRawData] = useState<{ animales: any[], pesajes: any[] } | null>(null);
     const [showReporteExcel, setShowReporteExcel] = useState(false);
     const [distribucionPesos, setDistribucionPesos] = useState({
@@ -144,13 +104,6 @@ export default function Dashboard() {
     const handleOpenMuertes = () => {
         setMuertesModalVisible(true);
     };
-
-    const muertesByYear = muertesData.reduce((acc, animal) => {
-        const year = animal.fecha_baja ? animal.fecha_baja.substring(0, 4) : 'Desconocido';
-        if (!acc[year]) acc[year] = [];
-        acc[year].push(animal);
-        return acc;
-    }, {} as Record<string, any[]>);
 
     useEffect(() => {
         async function fetchDashboardData() {
@@ -411,7 +364,7 @@ export default function Dashboard() {
                         });
                     }
                 });
-                
+
                 muertesCompletas.sort((a, b) => new Date(b.fecha_baja || 0).getTime() - new Date(a.fecha_baja || 0).getTime());
                 setMuertesData(muertesCompletas);
 
@@ -502,228 +455,6 @@ export default function Dashboard() {
         }
         fetchDashboardData();
     }, [fincaId]);
-
-    // Memo para procesar la evolución GMP según el filtro de forma instantánea sin re-renders adicionales
-    const { evolucionGmp, evolucionPorPesaje, evolucionPorRango, detallesGmpAgrupados } = useMemo(() => {
-        if (!rawData) {
-            return {
-                evolucionGmp: [] as EvolucionItem[],
-                evolucionPorPesaje: [] as any[],
-                evolucionPorRango: [] as any[],
-                detallesGmpAgrupados: { levante: {}, ceba: {} } as {
-                    levante: Record<number, GmpDetailItem[]>;
-                    ceba: Record<number, GmpDetailItem[]>;
-                }
-            };
-        }
-
-        const { animales, pesajes } = rawData;
-        const animalesFiltrados = filterTipo === 'actual' 
-            ? animales.filter(a => a.estado === 'activo')
-            : animales;
-
-        // Agrupar pesajes por animal
-        const pesajesPorAnimal: Record<string, any[]> = {};
-        pesajes.forEach((p: any) => {
-            if (!pesajesPorAnimal[p.id_animal]) {
-                pesajesPorAnimal[p.id_animal] = [];
-            }
-            pesajesPorAnimal[p.id_animal].push(p);
-        });
-
-        // Agrupar por Mes/Año del pesaje
-        const agrupadoPorMes: Record<string, {
-            sortIndex: string;
-            label: string;
-            levanteSum: number;
-            levanteCount: number;
-            cebaSum: number;
-            cebaCount: number;
-            levanteDetalles: GmpDetailItem[];
-            cebaDetalles: GmpDetailItem[];
-        }> = {};
-
-        // Agrupar por Rango de Peso
-        const agrupadoPorRango: Record<string, { sum: number, count: number, sumDias: number }> = {
-            'rango1': { sum: 0, count: 0, sumDias: 0 }, // < 400
-            'rango2': { sum: 0, count: 0, sumDias: 0 }, // 401 - 480
-            'rango3': { sum: 0, count: 0, sumDias: 0 }, // 481 - 530
-            'rango4': { sum: 0, count: 0, sumDias: 0 }, // > 531
-        };
-
-        // Agrupar por Número de Pesaje (2, 3, 4...)
-        const agrupadoPorNum: Record<number, {
-            sumLevante: number,
-            countLevante: number,
-            sumCeba: number,
-            countCeba: number,
-            sumDiasLevante: number,
-            sumDiasCeba: number
-        }> = {};
-
-        animalesFiltrados.forEach(animal => {
-            const misPesajes = pesajesPorAnimal[animal.id];
-            if (!misPesajes || misPesajes.length === 0) return;
-
-            // Ordenar pesajes cronológicamente
-            const ordenados = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-            
-            let prevWeight = parseFloat(animal.peso_ingreso ?? animal.peso_compra ?? 0);
-            let prevDate = new Date(`${animal.fecha_ingreso}T01:00:00`);
-            let validWeighingCounter = 1;
-            
-            ordenados.forEach((p: any) => {
-                const currentWeight = parseFloat(p.peso); 
-                const currentDateStr = p.fecha as string;
-                const currentDate = new Date(`${currentDateStr}T01:00:00`);
-                const diffDias = differenceInDays(currentDate, prevDate);
-                
-                if (diffDias > 0) {
-                    validWeighingCounter++;
-                    const numPesaje = validWeighingCounter;
-                    const ganancia = currentWeight - prevWeight;
-                    let gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined && p.gdp_calculada !== 0) ? Number(p.gdp_calculada) : (ganancia / diffDias);
-                    if (gdp === 0 && ganancia !== 0) {
-                        gdp = ganancia / diffDias;
-                    }
-                    const gmpVal = gdp * 30;
-
-                    // 1. Agrupar para gráfica Mensual
-                    const sortKey = currentDateStr.substring(0, 7); // YYYY-MM
-                    const labelMes = format(currentDate, 'MMM yy', { locale: es }).replace(/^\w/, c => c.toUpperCase());
-                    
-                    if (!agrupadoPorMes[sortKey]) {
-                        agrupadoPorMes[sortKey] = {
-                            sortIndex: sortKey,
-                            label: labelMes,
-                            levanteSum: 0, levanteCount: 0,
-                            cebaSum: 0, cebaCount: 0,
-                            levanteDetalles: [], cebaDetalles: []
-                        };
-                    }
-
-                    // 2. Agrupar para gráfica por Número de Pesaje
-                    if (!agrupadoPorNum[numPesaje]) {
-                        agrupadoPorNum[numPesaje] = { sumLevante: 0, countLevante: 0, sumCeba: 0, countCeba: 0, sumDiasLevante: 0, sumDiasCeba: 0 };
-                    }
-
-                    const detail: GmpDetailItem = {
-                        id_animal: animal.id,
-                        chapeta: animal.numero_chapeta || 'N/A',
-                        propietario: animal.nombre_propietario || 'Sin Propietario',
-                        potrerada: animal.potreradas?.nombre || 'Sin lote',
-                        fechaAnterior: format(prevDate, 'dd/MM/yyyy'),
-                        pesoAnterior: prevWeight,
-                        fechaActual: format(currentDate, 'dd/MM/yyyy'),
-                        pesoActual: currentWeight,
-                        gmp: parseFloat(gmpVal.toFixed(1))
-                    };
-
-                    if (p.etapa === 'levante') {
-                        agrupadoPorMes[sortKey].levanteSum += gmpVal;
-                        agrupadoPorMes[sortKey].levanteCount++;
-                        agrupadoPorMes[sortKey].levanteDetalles.push(detail);
-                        
-                        agrupadoPorNum[numPesaje].sumLevante += gmpVal;
-                        agrupadoPorNum[numPesaje].countLevante++;
-                        agrupadoPorNum[numPesaje].sumDiasLevante += diffDias;
-                    } else {
-                        agrupadoPorMes[sortKey].cebaSum += gmpVal;
-                        agrupadoPorMes[sortKey].cebaCount++;
-                        agrupadoPorMes[sortKey].cebaDetalles.push(detail);
-
-                        agrupadoPorNum[numPesaje].sumCeba += gmpVal;
-                        agrupadoPorNum[numPesaje].countCeba++;
-                        agrupadoPorNum[numPesaje].sumDiasCeba += diffDias;
-                    }
-
-                    // 3. Agrupar por Rango de Peso (Tomamos el peso al INICIO del intervalo)
-                    const pesoRef = prevWeight;
-                    const c1 = Number(cortesPeso.corte1) || 430;
-                    const c2 = Number(cortesPeso.corte2) || 480;
-                    const c3 = Number(cortesPeso.corte3) || 530;
-
-                    let targetRango = '';
-                    if (pesoRef <= c1) targetRango = 'rango1';
-                    else if (pesoRef <= c2) targetRango = 'rango2';
-                    else if (pesoRef <= c3) targetRango = 'rango3';
-                    else targetRango = 'rango4';
-
-                    agrupadoPorRango[targetRango].sum += gmpVal;
-                    agrupadoPorRango[targetRango].count++;
-                    agrupadoPorRango[targetRango].sumDias += diffDias;
-                }
-                
-                prevWeight = currentWeight;
-                prevDate = currentDate;
-            });
-        });
-
-        // Procesar gráfica de Número de Pesaje
-        const dataPorNum = Object.keys(agrupadoPorNum)
-            .map(k => parseInt(k))
-            .sort((a,b) => a - b)
-            .map(num => {
-                const item = agrupadoPorNum[num];
-                const avgMesesLev = item.countLevante > 0 ? (item.sumDiasLevante / item.countLevante) / 30 : 0;
-                const avgMesesCeba = item.countCeba > 0 ? (item.sumDiasCeba / item.countCeba) / 30 : 0;
-                
-                return {
-                    name: `P${num}`,
-                    levante: item.countLevante > 0 ? parseFloat((item.sumLevante / item.countLevante).toFixed(1)) : 0,
-                    ceba: item.countCeba > 0 ? parseFloat((item.sumCeba / item.countCeba).toFixed(1)) : 0,
-                    mesesLevante: parseFloat(avgMesesLev.toFixed(1)),
-                    mesesCeba: parseFloat(avgMesesCeba.toFixed(1))
-                };
-            })
-            .filter(d => d.levante !== 0 || d.ceba !== 0)
-            .slice(0, 15); // Mostrar máximo 15 pesajes para no saturar 
-
-        // 4. Procesar gráfica de Rangos de Peso
-        const c1Val = Number(cortesPeso.corte1) || 430;
-        const c2Val = Number(cortesPeso.corte2) || 480;
-        const c3Val = Number(cortesPeso.corte3) || 530;
-
-        const dataPorRango = [
-            { name: `< ${c1Val} kg`, ...agrupadoPorRango.rango1 },
-            { name: `${c1Val + 1} - ${c2Val} kg`, ...agrupadoPorRango.rango2 },
-            { name: `${c2Val + 1} - ${c3Val} kg`, ...agrupadoPorRango.rango3 },
-            { name: `> ${c3Val} kg`, ...agrupadoPorRango.rango4 },
-        ].map(r => ({
-            name: r.name,
-            gmp: r.count > 0 ? parseFloat((r.sum / r.count).toFixed(1)) : 0,
-            meses: r.count > 0 ? parseFloat(((r.sumDias / r.count) / 30).toFixed(1)) : 0
-        }));
-
-        const sortedKeys = Object.keys(agrupadoPorMes).sort(); // Sorts by YYYY-MM
-        
-        let dataEvolucion: EvolucionItem[] = [];
-        let levDetails: Record<number, GmpDetailItem[]> = {};
-        let cebaDetails: Record<number, GmpDetailItem[]> = {};
-
-        if (sortedKeys.length > 0) {
-            // Tomar los últimos 15 meses de pesaje maximo para no saturar 
-            const recentKeys = sortedKeys.slice(-15);
-
-            recentKeys.forEach((key, index) => {
-                const group = agrupadoPorMes[key];
-                const item: EvolucionItem = { numero: index, label: group.label };
-                if (group.levanteCount > 0) item.gmpLevante = parseFloat((group.levanteSum / group.levanteCount).toFixed(1));
-                if (group.cebaCount > 0) item.gmpCeba = parseFloat((group.cebaSum / group.cebaCount).toFixed(1));
-                
-                dataEvolucion.push(item);
-                levDetails[index] = group.levanteDetalles;
-                cebaDetails[index] = group.cebaDetalles;
-            });
-        }
-
-        return {
-            evolucionGmp: dataEvolucion,
-            evolucionPorPesaje: dataPorNum,
-            evolucionPorRango: dataPorRango,
-            detallesGmpAgrupados: { levante: levDetails, ceba: cebaDetails }
-        };
-    }, [filterTipo, rawData, cortesPeso]);
 
     const quickFieldActions = isObserverOnly
         ? [
@@ -882,9 +613,9 @@ export default function Dashboard() {
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{getModoLabel(modoGanancia)} Lote</span>
-                                    <span style={{ 
-                                        fontWeight: 'bold', 
-                                        fontSize: '1.25rem', 
+                                    <span style={{
+                                        fontWeight: 'bold',
+                                        fontSize: '1.25rem',
                                         whiteSpace: 'nowrap',
                                         color: getGmpColor(stats.gmpLevante, umbralMedio, umbralAlto)
                                     }}>{toDisplayValue(stats.gmpLevante, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>{getUnidadLabel(modoGanancia)}</span></span>
@@ -910,9 +641,9 @@ export default function Dashboard() {
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{getModoLabel(modoGanancia)} Lote</span>
-                                    <span style={{ 
-                                        fontWeight: 'bold', 
-                                        fontSize: '1.25rem', 
+                                    <span style={{
+                                        fontWeight: 'bold',
+                                        fontSize: '1.25rem',
                                         whiteSpace: 'nowrap',
                                         color: getGmpColor(stats.gmpCeba, umbralMedio, umbralAlto)
                                     }}>{toDisplayValue(stats.gmpCeba, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.85 }}>{getUnidadLabel(modoGanancia)}</span></span>
@@ -925,7 +656,6 @@ export default function Dashboard() {
                                 )}
                             </div>
                         </div>
-
 
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(147, 51, 234, 0.14)', color: '#9333ea' }}>
@@ -965,9 +695,9 @@ export default function Dashboard() {
                     {/* Distribución por Rangos de Peso */}
                     <div style={{ marginBottom: '32px' }}>
                         <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-                            <div style={{ 
-                                padding: '16px 24px', 
-                                borderBottom: '1px solid var(--border-subtle)', 
+                            <div style={{
+                                padding: '16px 24px',
+                                borderBottom: '1px solid var(--border-subtle)',
                                 background: 'var(--surface-subtle)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -979,7 +709,7 @@ export default function Dashboard() {
                                     <TrendingUp size={18} color="var(--primary)" />
                                     <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Proyección de Animales por Rango de Peso (Estimado Hoy)</h3>
                                 </div>
-                                <button 
+                                <button
                                     type="button"
                                     className="dashboard-range-btn"
                                     onClick={() => navigate('/configuracion')}
@@ -1014,7 +744,7 @@ export default function Dashboard() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr 
+                                                <tr
                                                     onClick={() => {
                                                         setSelectedRangoData({ nombre: `< ${cortesPeso.corte1} kg`, animales: animalesPorRango.rango1 });
                                                         setRangoModalVisible(true);
@@ -1025,7 +755,7 @@ export default function Dashboard() {
                                                     <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&lt; {cortesPeso.corte1} kg</td>
                                                     <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango1}</td>
                                                 </tr>
-                                                <tr 
+                                                <tr
                                                     onClick={() => {
                                                         setSelectedRangoData({ nombre: `${cortesPeso.corte1 + 1} - ${cortesPeso.corte2} kg`, animales: animalesPorRango.rango2 });
                                                         setRangoModalVisible(true);
@@ -1036,7 +766,7 @@ export default function Dashboard() {
                                                     <td style={{ padding: '12px 12px', fontSize: '1rem' }}>{cortesPeso.corte1 + 1} - {cortesPeso.corte2} kg</td>
                                                     <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango2}</td>
                                                 </tr>
-                                                <tr 
+                                                <tr
                                                     onClick={() => {
                                                         setSelectedRangoData({ nombre: `${cortesPeso.corte2 + 1} - ${cortesPeso.corte3} kg`, animales: animalesPorRango.rango3 });
                                                         setRangoModalVisible(true);
@@ -1047,7 +777,7 @@ export default function Dashboard() {
                                                     <td style={{ padding: '12px 12px', fontSize: '1rem' }}>{cortesPeso.corte2 + 1} - {cortesPeso.corte3} kg</td>
                                                     <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango3}</td>
                                                 </tr>
-                                                <tr 
+                                                <tr
                                                     onClick={() => {
                                                         setSelectedRangoData({ nombre: `> ${cortesPeso.corte3} kg`, animales: animalesPorRango.rango4 });
                                                         setRangoModalVisible(true);
@@ -1179,342 +909,20 @@ export default function Dashboard() {
                     </div>
 
                     {/* Centro de Análisis de Rendimiento (Gráfica Unificada) */}
-                    <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '32px' }}>
-                        {/* Cabecera con Selectores */}
-                        <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-subtle)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: isMobile ? '12px' : '20px' }}>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <h3 style={{ margin: 0, fontSize: isMobile ? '1rem' : '1.4rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <TrendingUp size={isMobile ? 18 : 24} color="var(--primary)" />
-                                        {isMobile ? 'Rendimiento Ganadero' : 'Análisis de Rendimiento Ganadero'}
-                                    </h3>
-                                    {!isMobile && (
-                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
-                                            {vistaGrafica === 'mensual' && 'Evolución cronológica del promedio de ganancia por mes.'}
-                                            {vistaGrafica === 'pesaje' && 'Eficiencia según el número de pesajes realizados al lote.'}
-                                            {vistaGrafica === 'rango' && 'Productividad segmentada por rangos de peso fisiológicos.'}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="dashboard-filter-toggle">
-                                    <button 
-                                        type="button"
-                                        onClick={() => setFilterTipo('actual')}
-                                        className={`btn-toggle ${filterTipo === 'actual' ? 'active' : ''}`}
-                                        style={{ padding: isMobile ? '6px 12px' : '8px 16px', fontSize: isMobile ? '0.8rem' : '0.85rem' }}
-                                    >Activos</button>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setFilterTipo('historico')}
-                                        className={`btn-toggle ${filterTipo === 'historico' ? 'active' : ''}`}
-                                        style={{ padding: isMobile ? '6px 12px' : '8px 16px', fontSize: isMobile ? '0.8rem' : '0.85rem' }}
-                                    >Histórico</button>
-                                </div>
-                            </div>
-
-                            {/* === KPI CARDS RÁPIDAS — SOLO MÓVIL === */}
-                            {isMobile && (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '16px' }}>
-                                    {/* Levante */}
-                                    <div style={{
-                                        background: 'var(--warning-soft-bg)',
-                                        border: '1px solid var(--warning-soft-border)',
-                                        borderRadius: '12px',
-                                        padding: '12px 14px',
-                                        display: 'flex', flexDirection: 'column', gap: '4px'
-                                    }}>
-                                        <span style={{ fontSize: '0.7rem', color: 'var(--warning)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>🐄 Levante</span>
-                                        <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--warning)', lineHeight: 1 }}>
-                                            {toDisplayValue(stats.gmpLevante, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
-                                        </span>
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{getUnidadLabel(modoGanancia)}</span>
-                                    </div>
-                                    {/* Ceba */}
-                                    <div style={{
-                                        background: 'var(--success-soft-bg)',
-                                        border: '1px solid var(--success-soft-border)',
-                                        borderRadius: '12px',
-                                        padding: '12px 14px',
-                                        display: 'flex', flexDirection: 'column', gap: '4px'
-                                    }}>
-                                        <span style={{ fontSize: '0.7rem', color: 'var(--success)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>🐂 Ceba</span>
-                                        <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>
-                                            {toDisplayValue(stats.gmpCeba, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
-                                        </span>
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{getUnidadLabel(modoGanancia)}</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Selector de Tipo de Gráfica (Tabs) */}
-                            {isMobile ? (
-                                /* === TABS PÍLDORA COMPACTOS — SOLO MÓVIL === */
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '6px',
-                                    marginTop: '14px',
-                                    background: 'var(--surface-inset)',
-                                    border: '1px solid var(--border-subtle)',
-                                    borderRadius: '10px',
-                                    padding: '4px',
-                                }}>
-                                    {([
-                                        { id: 'mensual', icon: '📅', label: 'Mensual' },
-                                        { id: 'pesaje', icon: '⚖️', label: 'Pesaje' },
-                                        { id: 'rango',  icon: '📊', label: 'Rango' },
-                                    ] as const).map(tab => (
-                                        <button
-                                            key={tab.id}
-                                            type="button"
-                                            onClick={() => setVistaGrafica(tab.id)}
-                                            style={{
-                                                flex: 1,
-                                                padding: '8px 4px',
-                                                borderRadius: '8px',
-                                                border: 'none',
-                                                background: vistaGrafica === tab.id
-                                                    ? 'var(--primary-soft-bg)'
-                                                    : 'transparent',
-                                                color: vistaGrafica === tab.id ? 'var(--primary-light)' : 'var(--text-muted)',
-                                                cursor: 'pointer',
-                                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
-                                                fontWeight: vistaGrafica === tab.id ? 700 : 400,
-                                                fontSize: '0.72rem',
-                                                textTransform: 'none',
-                                                letterSpacing: 'normal',
-                                                boxShadow: 'none',
-                                                transition: 'all 0.18s',
-                                                outline: vistaGrafica === tab.id ? '1px solid var(--primary-soft-border)' : 'none',
-                                            }}
-                                        >
-                                            <span style={{ fontSize: '1.1rem' }}>{tab.icon}</span>
-                                            {tab.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            ) : (
-                                /* === TABS DESKTOP — sin cambios === */
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '24px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px' }}>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setVistaGrafica('mensual')}
-                                        style={{ 
-                                            flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s', boxShadow: 'none',
-                                            background: vistaGrafica === 'mensual' ? 'var(--primary-soft-bg)' : 'transparent',
-                                            border: '1px solid',
-                                            borderColor: vistaGrafica === 'mensual' ? 'var(--primary)' : 'var(--border-subtle)',
-                                            color: vistaGrafica === 'mensual' ? 'var(--primary-light)' : 'var(--text-muted)',
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: vistaGrafica === 'mensual' ? 'bold' : 'normal'
-                                        }}
-                                    >
-                                        📅 Evolución Mensual
-                                    </button>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setVistaGrafica('pesaje')}
-                                        style={{ 
-                                            flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s', boxShadow: 'none',
-                                            background: vistaGrafica === 'pesaje' ? 'var(--primary-soft-bg)' : 'transparent',
-                                            border: '1px solid',
-                                            borderColor: vistaGrafica === 'pesaje' ? 'var(--primary)' : 'var(--border-subtle)',
-                                            color: vistaGrafica === 'pesaje' ? 'var(--primary-light)' : 'var(--text-muted)',
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: vistaGrafica === 'pesaje' ? 'bold' : 'normal'
-                                        }}
-                                    >
-                                        ⚖️ Por Nro Pesaje
-                                    </button>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setVistaGrafica('rango')}
-                                        style={{ 
-                                            flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s', boxShadow: 'none',
-                                            background: vistaGrafica === 'rango' ? 'var(--primary-soft-bg)' : 'transparent',
-                                            border: '1px solid',
-                                            borderColor: vistaGrafica === 'rango' ? 'var(--primary)' : 'var(--border-subtle)',
-                                            color: vistaGrafica === 'rango' ? 'var(--primary-light)' : 'var(--text-muted)',
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: vistaGrafica === 'rango' ? 'bold' : 'normal'
-                                        }}
-                                    >
-                                        📊 Por Rango de Peso
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Cuerpo de la Gráfica */}
-                        <div style={{ padding: isMobile ? '12px 8px' : '32px', minHeight: isMobile ? '280px' : '400px' }}>
-                            {isMobile && vistaGrafica === 'mensual' ? (
-                                /* === MÓVIL: SCROLL HORIZONTAL para la vista mensual con muchos puntos === */
-                                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                                    <div style={{ width: `${Math.max(evolucionGmp.length * 52, 320)}px`, height: '280px' }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={evolucionGmp} margin={{ top: 10, right: 16, left: -10, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                                                <ReferenceLine y={0} stroke="var(--chart-axis)" strokeDasharray="4 4" />
-                                                <XAxis dataKey="label" stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: 10 }} />
-                                                <YAxis stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: 10 }} width={42} />
-                                                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.8rem' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
-                                                {/* En móvil: dots pequeños solo en el último punto, línea suavizada */}
-                                                <Line 
-                                                    type="monotone"
-                                                    name={`${getModoLabel(modoGanancia)} Levante`}
-                                                    dataKey="gmpLevante"
-                                                    stroke="var(--warning)"
-                                                    strokeWidth={2.5}
-                                                    dot={(props: any) => {
-                                                        const isLast = props.index === evolucionGmp.length - 1;
-                                                        if (!isLast) return <g key={props.key} />;
-                                                        return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill="var(--warning)" stroke="var(--bg-card)" strokeWidth={2} />;
-                                                    }}
-                                                    activeDot={{ 
-                                                        r: 7, 
-                                                        onClick: (_e: any, payload: any) => {
-                                                            const num = payload.payload.numero;
-                                                            setSelectedDetail({ label: payload.payload.label, etapa: 'Levante', items: detallesGmpAgrupados.levante[num] || [] });
-                                                            setDetailModalVisible(true); setSortCol('gmp'); setSortOrder('asc');
-                                                        }
-                                                    }}
-                                                    connectNulls
-                                                />
-                                                <Line 
-                                                    type="monotone"
-                                                    name={`${getModoLabel(modoGanancia)} Ceba`}
-                                                    dataKey="gmpCeba"
-                                                    stroke="var(--success)"
-                                                    strokeWidth={2.5}
-                                                    dot={(props: any) => {
-                                                        const isLast = props.index === evolucionGmp.length - 1;
-                                                        if (!isLast) return <g key={props.key} />;
-                                                        return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill="var(--success)" stroke="var(--bg-card)" strokeWidth={2} />;
-                                                    }}
-                                                    activeDot={{ 
-                                                        r: 7, 
-                                                        onClick: (_e: any, payload: any) => {
-                                                            const num = payload.payload.numero;
-                                                            setSelectedDetail({ label: payload.payload.label, etapa: 'Ceba', items: detallesGmpAgrupados.ceba[num] || [] });
-                                                            setDetailModalVisible(true); setSortCol('gmp'); setSortOrder('asc');
-                                                        }
-                                                    }}
-                                                    connectNulls
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                    {/* Hint de scroll */}
-                                    {evolucionGmp.length > 6 && (
-                                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '6px', opacity: 0.6 }}>
-                                            ← Desliza para ver todos los meses →
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                /* === DESKTOP / TABLET + vistas pesaje/rango en móvil === */
-                                <div style={{ width: '100%', height: isMobile ? '260px' : '400px', minWidth: 0 }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        {vistaGrafica === 'mensual' ? (
-                                            <LineChart data={evolucionGmp} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                                                <ReferenceLine y={0} stroke="var(--chart-axis)" strokeDasharray="4 4" />
-                                                <XAxis dataKey="label" stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
-                                                <YAxis stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: 12 }} />
-                                                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)' }} formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]} />
-                                                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                                                <Line 
-                                                    type="monotone" 
-                                                    name={`${getModoLabel(modoGanancia)} Levante`} 
-                                                    dataKey="gmpLevante" 
-                                                    stroke="var(--warning)" 
-                                                    strokeWidth={4} 
-                                                    dot={{ r: 6, fill: 'var(--warning)', stroke: 'var(--bg-card)', strokeWidth: 2, cursor: 'pointer' }}
-                                                    activeDot={{ 
-                                                        r: 8, 
-                                                        onClick: (_e: any, payload: any) => {
-                                                            const num = payload.payload.numero;
-                                                            setSelectedDetail({ label: payload.payload.label, etapa: 'Levante', items: detallesGmpAgrupados.levante[num] || [] });
-                                                            setDetailModalVisible(true); setSortCol('gmp'); setSortOrder('asc');
-                                                        }
-                                                    }}
-                                                    connectNulls 
-                                                />
-                                                <Line 
-                                                    type="monotone" 
-                                                    name={`${getModoLabel(modoGanancia)} Ceba`} 
-                                                    dataKey="gmpCeba" 
-                                                    stroke="var(--success)" 
-                                                    strokeWidth={4} 
-                                                    dot={{ r: 6, fill: 'var(--success)', stroke: 'var(--bg-card)', strokeWidth: 2, cursor: 'pointer' }} 
-                                                    activeDot={{ 
-                                                        r: 8, 
-                                                        onClick: (_e: any, payload: any) => {
-                                                            const num = payload.payload.numero;
-                                                            setSelectedDetail({ label: payload.payload.label, etapa: 'Ceba', items: detallesGmpAgrupados.ceba[num] || [] });
-                                                            setDetailModalVisible(true); setSortCol('gmp'); setSortOrder('asc');
-                                                        }
-                                                    }}
-                                                    connectNulls 
-                                                />
-                                            </LineChart>
-                                        ) : vistaGrafica === 'pesaje' ? (
-                                            <BarChart data={evolucionPorPesaje} margin={{ top: 10, right: isMobile ? 8 : 30, left: isMobile ? -10 : 0, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                                                <ReferenceLine y={0} stroke="var(--chart-axis)" strokeDasharray="4 4" />
-                                                <XAxis dataKey="name" stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }} />
-                                                <YAxis stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }} width={isMobile ? 42 : undefined} />
-                                                <Tooltip
-                                                    cursor={{ fill: 'var(--surface-subtle)' }}
-                                                    contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)', fontSize: isMobile ? '0.8rem' : '1rem' }}
-                                                    formatter={(value: any, name: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, name]}
-                                                    labelFormatter={(label) => {
-                                                        const point = evolucionPorPesaje.find(d => d.name === label);
-                                                        return (
-                                                            <div style={{ paddingBottom: '8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '8px' }}>
-                                                                <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{label}</div>
-                                                                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                                    {point && point.levante > 0 && <div style={{ fontSize: '0.8rem', color: 'var(--warning)' }}>Intervalo Levante: {point.mesesLevante} meses</div>}
-                                                                    {point && point.ceba > 0 && <div style={{ fontSize: '0.8rem', color: 'var(--success)' }}>Intervalo Ceba: {point.mesesCeba} meses</div>}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    }}
-                                                />
-                                                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                                                <Bar name="Levante" dataKey="levante" fill="var(--warning)" radius={[4, 4, 0, 0]} barSize={isMobile ? 22 : 35} />
-                                                <Bar name="Ceba" dataKey="ceba" fill="var(--success)" radius={[4, 4, 0, 0]} barSize={isMobile ? 22 : 35} />
-                                            </BarChart>
-                                        ) : (
-                                            <BarChart data={evolucionPorRango} margin={{ top: 10, right: isMobile ? 8 : 30, left: isMobile ? -10 : 0, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                                                <ReferenceLine y={0} stroke="var(--chart-axis)" strokeDasharray="4 4" />
-                                                <XAxis dataKey="name" stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }} />
-                                                <YAxis stroke="var(--chart-tick)" axisLine={false} tickLine={false} tick={{ fill: 'var(--chart-tick)', fontSize: isMobile ? 10 : 12 }} unit=" kg" width={isMobile ? 42 : undefined} />
-                                                <Tooltip
-                                                    cursor={{ fill: 'var(--surface-subtle)' }}
-                                                    contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)', borderRadius: '8px', color: 'var(--text-main)', fontSize: isMobile ? '0.8rem' : '1rem' }}
-                                                    formatter={(value: any) => [`${toDisplayValue(value, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)} ${getUnidadLabel(modoGanancia)}`, getModoLabel(modoGanancia)]}
-                                                    labelFormatter={(label) => {
-                                                        const point = evolucionPorRango.find(d => d.name === label);
-                                                        return (
-                                                            <div style={{ paddingBottom: '8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '8px' }}>
-                                                                <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>Rango: {label}</div>
-                                                                <div style={{ fontSize: '0.8rem', color: 'var(--primary-light)', marginTop: '4px' }}>
-                                                                    Intervalo medio: {point?.meses} meses
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    }}
-                                                />
-                                                <Bar name={getModoLabel(modoGanancia)} dataKey="gmp" fill="var(--primary)" radius={[4, 4, 0, 0]} barSize={isMobile ? 30 : 45} label={{ position: 'top', fill: 'var(--text-main)', fontSize: isMobile ? 10 : 12, formatter: (v: any) => toDisplayValue(v, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1) }} />
-                                            </BarChart>
-                                        )}
-                                    </ResponsiveContainer>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    <DashboardPerformanceChart
+                        rawData={rawData}
+                        cortesPeso={cortesPeso}
+                        gmpLevante={stats.gmpLevante}
+                        gmpCeba={stats.gmpCeba}
+                        modoGanancia={modoGanancia}
+                        isMobile={isMobile}
+                        onSelectPointDetail={(detail) => {
+                            setSelectedDetail(detail);
+                            setDetailModalVisible(true);
+                        }}
+                    />
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
-                        {/* Se eliminaron las gráficas individuales para usar la tarjeta unificada arriba */}
-
                         <div className="card dashboard-rain-card">
                             <div style={{ marginBottom: isMobile ? '14px' : '24px' }}>
                                 <h3 style={{ margin: 0, fontSize: isMobile ? '1.05rem' : '1.2rem', color: 'var(--text-main)' }}>Histórico de Lluvias (Pluviosidad)</h3>
@@ -1557,264 +965,34 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* Modal de Muertes */}
                     {muertesModalVisible && (
-                        <div className="modal-overlay" onClick={() => setMuertesModalVisible(false)}>
-                            <div
-                                className="dashboard-modal-card"
-                                role="dialog"
-                                aria-modal="true"
-                                aria-labelledby="dashboard-muertes-title"
-                                onClick={e => e.stopPropagation()}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                                    <h2 id="dashboard-muertes-title" style={{ margin: 0, color: 'var(--text-main)' }}>Registro de Muertes y Descartes</h2>
-                                    <button type="button" aria-label="Cerrar modal de muertes" onClick={() => setMuertesModalVisible(false)} className="btn-icon dashboard-modal-close" style={{ width: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 8px' }}>&times;</button>
-                                </div>
-                                <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
-                                    {muertesData.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No hay muertes registradas.</div>
-                                    ) : (
-                                        Object.keys(muertesByYear).sort((a,b) => b.localeCompare(a)).map(year => (
-                                            <div key={year} style={{ marginBottom: '24px' }}>
-                                                <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px', color: 'var(--error)', marginTop: 0 }}>
-                                                    {year} <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal'}}>({muertesByYear[year].length} animales)</span>
-                                                </h3>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                    {muertesByYear[year].map((m: any, idx: number) => (
-                                                        <div key={idx} style={{ 
-                                                            background: 'var(--surface-subtle)', 
-                                                            padding: '16px', 
-                                                            borderRadius: '12px', 
-                                                            border: '1px solid var(--border-subtle)',
-                                                            display: 'flex', 
-                                                            justifyContent: 'space-between', 
-                                                            alignItems: 'flex-start',
-                                                            gap: '16px'
-                                                        }}>
-                                                            <div>
-                                                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                    Chapeta: {m.numero_chapeta || m.chapeta || 'N/A'}
-                                                                    {m.tipo_baja === 'carnicero' ? (
-                                                                        <span style={{ fontSize: '0.7rem', background: 'var(--warning-soft-bg)', color: 'var(--warning)', border: '1px solid var(--warning-soft-border)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>Carnicero</span>
-                                                                    ) : (
-                                                                        <span style={{ fontSize: '0.7rem', background: 'var(--error-soft-bg)', color: 'var(--error)', border: '1px solid var(--error-soft-border)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>Muerto</span>
-                                                                    )}
-                                                                </div>
-                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                                                    {m.fecha_baja ? format(new Date(m.fecha_baja), "d 'de' MMMM", { locale: es }) : 'Sin fecha'}
-                                                                </div>
-                                                            </div>
-                                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '50%', textAlign: 'right', fontStyle: 'italic', wordBreak: 'break-word' }}>
-                                                                {m.observacion || 'Sin observaciones detalladas'}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                        <DashboardMuertesModal
+                            muertesData={muertesData}
+                            onClose={() => setMuertesModalVisible(false)}
+                        />
                     )}
-                    {/* Modal de Detalle de Animales (GMP por punto) */}
+
                     {detailModalVisible && selectedDetail && (
-                        <div className="modal-overlay" onClick={() => setDetailModalVisible(false)}>
-                            <div className="modal-content card" role="dialog" aria-modal="true" aria-labelledby="dashboard-detail-title" style={{ maxWidth: '900px', height: 'auto', maxHeight: '85dvh' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                                    <div>
-                                        <h2 id="dashboard-detail-title" style={{ margin: 0, color: 'var(--text-main)', fontSize: isMobile ? '1.15rem' : undefined }}>Detalle de Pesajes: {selectedDetail.label}</h2>
-                                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: isMobile ? '0.82rem' : undefined }}>Etapa: <strong style={{color: selectedDetail.etapa === 'Levante' ? 'var(--warning)' : 'var(--success)'}}>{selectedDetail.etapa}</strong> | {selectedDetail.items.length} animales aportando.</p>
-                                    </div>
-                                    <button type="button" aria-label="Cerrar detalle de pesajes" onClick={() => setDetailModalVisible(false)} className="btn-icon dashboard-modal-close" style={{fontSize: '1.5rem'}}>&times;</button>
-                                </div>
-                                <div style={{ padding: isMobile ? '12px' : '24px', overflowY: 'auto' }}>
-                                    <div className="table-container">
-                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                            <thead>
-                                                <tr>
-                                                    <th
-                                                        onClick={() => {
-                                                            if (sortCol === 'chapeta') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                                            else { setSortCol('chapeta'); setSortOrder('asc'); }
-                                                        }}
-                                                        style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
-                                                    >
-                                                        Chapeta {sortCol === 'chapeta' && (sortOrder === 'asc' ? '↑' : '↓')}
-                                                    </th>
-                                                    <th 
-                                                        onClick={() => {
-                                                            if (sortCol === 'propietario') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                                            else { setSortCol('propietario'); setSortOrder('asc'); }
-                                                        }}
-                                                        style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
-                                                    >
-                                                        Propietario {sortCol === 'propietario' && (sortOrder === 'asc' ? '↑' : '↓')}
-                                                    </th>
-                                                    <th 
-                                                        onClick={() => {
-                                                            if (sortCol === 'potrerada') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                                            else { setSortCol('potrerada'); setSortOrder('asc'); }
-                                                        }}
-                                                        style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
-                                                    >
-                                                        Potrerada {sortCol === 'potrerada' && (sortOrder === 'asc' ? '↑' : '↓')}
-                                                    </th>
-                                                    <th>Fecha Ant.</th>
-                                                    <th>Peso Ant.</th>
-                                                    <th>Fecha Actual</th>
-                                                    <th>Peso Actual</th>
-                                                    <th 
-                                                        onClick={() => {
-                                                            if (sortCol === 'gmp') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                                            else { setSortCol('gmp'); setSortOrder('asc'); }
-                                                        }}
-                                                        style={{ textAlign: 'right', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                                                    >
-                                                        {getModoLabel(modoGanancia)} ({getUnidadLabel(modoGanancia)}) {sortCol === 'gmp' && (sortOrder === 'asc' ? '↑' : '↓')}
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {[...selectedDetail.items]
-                                                    .sort((a, b) => {
-                                                        if (sortCol === 'propietario') {
-                                                            const valA = a.propietario.toLowerCase();
-                                                            const valB = b.propietario.toLowerCase();
-                                                            return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                                                        } else if (sortCol === 'potrerada') {
-                                                            const valA = a.potrerada.toLowerCase();
-                                                            const valB = b.potrerada.toLowerCase();
-                                                            return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                                                        } else if (sortCol === 'chapeta') {
-                                                            const valA = a.chapeta.toLowerCase();
-                                                            const valB = b.chapeta.toLowerCase();
-                                                            return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                                                        } else {
-                                                            return sortOrder === 'asc' ? a.gmp - b.gmp : b.gmp - a.gmp;
-                                                        }
-                                                    })
-                                                    .map((item, idx) => (
-                                                    <tr key={idx} className="table-row-hover">
-                                                        <td style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{item.chapeta}</td>
-                                                        <td style={{ fontSize: '0.85rem' }}>{item.propietario}</td>
-                                                        <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{item.potrerada}</td>
-                                                        <td>{item.fechaAnterior}</td>
-                                                        <td>{item.pesoAnterior} kg</td>
-                                                        <td>{item.fechaActual}</td>
-                                                        <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{item.pesoActual} kg</td>
-                                                        <td style={{ 
-                                                            textAlign: 'right', 
-                                                            fontWeight: 'bold', 
-                                                            color: item.gmp < 10 ? 'var(--error)' : 'var(--success)' 
-                                                        }}>
-                                                            {toDisplayValue(item.gmp, modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1)}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {selectedDetail.items.length === 0 && (
-                                                    <tr>
-                                                        <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                                                            No hay datos detallados para este punto (Datos de ejemplo o históricos insuficientes).
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                <div style={{ padding: '20px 24px', background: 'var(--surface-subtle)', borderTop: '1px solid var(--border-subtle)', textAlign: 'right' }}>
-                                    <button onClick={() => setDetailModalVisible(false)} style={{ width: 'auto', padding: '10px 24px' }}>Cerrar</button>
-                                </div>
-                            </div>
-                        </div>
+                        <DashboardGmpDetailModal
+                            detail={selectedDetail}
+                            isMobile={isMobile}
+                            modoGanancia={modoGanancia}
+                            onClose={() => setDetailModalVisible(false)}
+                        />
                     )}
+
                     {showReporteExcel && (
                         <Suspense fallback={null}>
                             <ReporteInventarioExcel onClose={() => setShowReporteExcel(false)} />
                         </Suspense>
                     )}
 
-                    {/* Modal Detalle de Pesos por Rango */}
                     {rangoModalVisible && selectedRangoData && (
-                        <div className="modal-overlay" onClick={() => setRangoModalVisible(false)}>
-                            <div className="modal-content card" role="dialog" aria-modal="true" aria-labelledby="dashboard-rango-title" style={{ maxWidth: '900px', width: '95%', maxHeight: '85dvh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                                    <div>
-                                        <h2 id="dashboard-rango-title" style={{ margin: 0, fontSize: isMobile ? '1.15rem' : '1.4rem', color: 'var(--text-main)' }}>Animales en Rango: {selectedRangoData.nombre}</h2>
-                                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: isMobile ? '0.82rem' : '0.9rem' }}>Lista detallada de animales con peso estimado a hoy.</p>
-                                    </div>
-                                    <button type="button" aria-label="Cerrar detalle de rango" className="btn-icon dashboard-modal-close" onClick={() => setRangoModalVisible(false)}><X size={24} aria-hidden="true" /></button>
-                                </div>
-                                <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
-                                    <table className="dashboard-modal-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                        <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.12)' }}>
-                                            <tr>
-                                                <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Potrerada</th>
-                                                <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Chapeta</th>
-                                                <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Actual Real</th>
-                                                <th style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Estimado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(() => {
-                                                const grouped = selectedRangoData.animales.reduce((acc: Record<string, any[]>, a) => {
-                                                    const key = a.potrerada || 'Sin Ubicación';
-                                                    if (!acc[key]) acc[key] = [];
-                                                    acc[key].push(a);
-                                                    return acc;
-                                                }, {});
-
-                                                return Object.entries(grouped).map(([potrero, animals]) => (
-                                                    <Fragment key={potrero}>
-                                                        <tr style={{ background: 'var(--primary-soft-bg)', borderLeft: '4px solid var(--primary)' }}>
-                                                            <td colSpan={4} style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '0.95rem' }}>
-                                                                📍 Potrerada: {potrero} ({animals.length} animales)
-                                                            </td>
-                                                        </tr>
-                                                        {animals.map((a, idx) => (
-                                                            <tr key={`${potrero}-${idx}`} className="table-row-hover">
-                                                                <td>
-                                                                    <span style={{ 
-                                                                        padding: '4px 10px', 
-                                                                        borderRadius: '12px', 
-                                                                        background: 'var(--surface-subtle)',
-                                                                        border: '1px solid var(--border-subtle)',
-                                                                        fontSize: '0.8rem',
-                                                                        color: 'var(--text-muted)'
-                                                                    }}>
-                                                                        {a.potrerada}
-                                                                    </span>
-                                                                </td>
-                                                                <td style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
-                                                                <td>{Math.round(a.ultimoPeso)} kg</td>
-                                                                <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>
-                                                                    {Math.round(a.pesoEstimado)} kg
-                                                                    {a.confianzaPeso === 'vencida' && (
-                                                                        <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: 'var(--warning)', fontWeight: 600 }}>
-                                                                            ⚠️ {a.diasSinPesar}d
-                                                                        </span>
-                                                                    )}
-                                                                    {a.confianzaPeso === 'media' && (
-                                                                        <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                                                                            ({a.diasSinPesar}d)
-                                                                        </span>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </Fragment>
-                                                ));
-                                            })()}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div style={{ padding: '20px 24px', background: 'var(--surface-subtle)', borderTop: '1px solid var(--border-subtle)', textAlign: 'right' }}>
-                                    <button className="btn-secondary" onClick={() => setRangoModalVisible(false)} style={{ width: 'auto', padding: '10px 24px' }}>Cerrar</button>
-                                </div>
-                            </div>
-                        </div>
+                        <DashboardRangoModal
+                            selectedRangoData={selectedRangoData}
+                            isMobile={isMobile}
+                            onClose={() => setRangoModalVisible(false)}
+                        />
                     )}
 
                     {licenciaInfo && (
@@ -1823,7 +1001,7 @@ export default function Dashboard() {
                             onClose={() => setShowUpsellModal(false)}
                             licenciaInfo={licenciaInfo}
                             customTitle={!isBloqueado && licenciaInfo.licencia === 'demo' ? 'Exportación a Excel / CSV' : undefined}
-                            customMessage={!isBloqueado && licenciaInfo.licencia === 'demo' 
+                            customMessage={!isBloqueado && licenciaInfo.licencia === 'demo'
                                 ? 'La generación y exportación de informes consolidados de inventario en Excel/PDF es una funcionalidad exclusiva para cuentas en Plan Finca o Plan Hacienda.'
                                 : undefined}
                         />

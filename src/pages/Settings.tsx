@@ -5,129 +5,53 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useModalDialog } from '../hooks/useModalDialog';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock, Briefcase, Truck, ShoppingCart, Target, Scale, DollarSign, Coins, CreditCard, Leaf, Award, CloudRain, X, Eye, EyeOff } from 'lucide-react';
+import {
+    Settings as SettingsIcon,
+    Upload,
+    Users,
+    CheckCircle2,
+    MapPin,
+    Maximize,
+    Home,
+    Lock,
+    Briefcase,
+    Target,
+    Scale,
+    DollarSign,
+    Coins,
+    CreditCard,
+    Leaf,
+    Award,
+    X,
+    Eye,
+    EyeOff
+} from 'lucide-react';
 import PushNotificationsCard from '../components/PushNotificationsCard';
 import './Settings.css';
 import { toDisplayValue, toStorageValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../utils/ganancia';
-import { type PluviometroFinca, type TipoMedicionPluviometro } from '../utils/rainfallUtils';
-import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
-// @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
-import Papa from 'papaparse';
-import { getLocalIsoDate, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
+import SettingsPluviometrosSection from './settings/SettingsPluviometrosSection';
+import SettingsUsersSection from './settings/SettingsUsersSection';
+import SettingsBusinessListsSection from './settings/SettingsBusinessListsSection';
+import SettingsBulkUploadSection from './settings/SettingsBulkUploadSection';
+import {
+    PRESETS_RANGOS_PESO,
+    formatMilesNumber,
+    unformatMilesNumber,
+    type ReporteCargaMasiva
+} from './settings/types';
 
-interface CargaMasivaItem {
-    id: string;
-    tipo: 'animales' | 'pesajes';
-    nombre_archivo: string;
-    total_registros: number;
-    fecha_carga: string;
-    creado_en: string;
-    estado: string;
-}
-
-export const PRESETS_RANGOS_PESO = [
-    { 
-        id: 'ceba_tradicional', 
-        nombre: 'Ceba Tradicional (430 - 530+ kg)', 
-        corte1: 430, 
-        corte2: 480, 
-        corte3: 530, 
-        descripcion: 'Para engorde pesado de novillos (Palmola, Alejandría). Meta de despacho: 530 kg.' 
-    },
-    { 
-        id: 'levante_preceba', 
-        nombre: 'Levante / Pre-ceba (230 - 380 kg)', 
-        corte1: 280, 
-        corte2: 330, 
-        corte3: 380, 
-        descripcion: 'Para levante o ceba liviana (La Gerencia). Meta de despacho: 380 kg.' 
-    },
-    { 
-        id: 'ceba_liviana', 
-        nombre: 'Ceba Liviana / Exportación (340 - 440 kg)', 
-        corte1: 340, 
-        corte2: 390, 
-        corte3: 440, 
-        descripcion: 'Para exportación en pie o ceba de ciclo corto. Meta de despacho: 440 kg.' 
-    },
-    { 
-        id: 'destete_cria', 
-        nombre: 'Destete / Cría (140 - 220 kg)', 
-        corte1: 140, 
-        corte2: 180, 
-        corte3: 220, 
-        descripcion: 'Para terneros de destete temprano y cría. Meta de despacho: 220 kg.' 
-    },
-    { 
-        id: 'personalizado', 
-        nombre: 'Personalizado (Manual)', 
-        corte1: 0, 
-        corte2: 0, 
-        corte3: 0, 
-        descripcion: 'Ajusta manualmente los 3 umbrales según tus requerimientos específicos.' 
-    }
-];
-
-const parseFechaCol = (fechaStr: string) => {
-    if (!fechaStr) return null;
-    let s = fechaStr.toString().trim();
-    // Quitar parte de hora si existe
-    if (s.includes(' ')) {
-        s = s.split(' ')[0];
-    }
-    if (s.includes('T')) {
-        s = s.split('T')[0];
-    }
-    if (s.includes('/')) {
-        const parts = s.split('/');
-        if (parts.length === 3) {
-            let d = parts[0].trim(), m = parts[1].trim(), y = parts[2].trim();
-            // Si viene en formato YYYY/MM/DD
-            if (d.length === 4) {
-                return `${d}-${m.padStart(2, '0')}-${y.padStart(2, '0')}`;
-            }
-            if (y.length === 2) y = '20' + y;
-            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-        }
-    } else if (s.includes('-')) {
-        const parts = s.split('-');
-        if (parts.length === 3) {
-            let p1 = parts[0].trim(), p2 = parts[1].trim(), p3 = parts[2].trim();
-            // Si viene en formato YYYY-MM-DD
-            if (p1.length === 4) {
-                return `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`;
-            }
-            // Si viene en formato DD-MM-YYYY o similar
-            if (p3.length === 2) p3 = '20' + p3;
-            if (p3.length === 4) {
-                return `${p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`;
-            }
-        }
-    }
-    return s;
-};
-
-
-// MEJORA: Limpiador automático de números (borra espacios, letras, $, etc)
-const cleanNumber = (val: any): number => {
-    if (val === null || val === undefined) return 0;
-    // Mantiene solo números y el punto decimal
-    const str = val.toString().replace(/[^0-9.-]/g, '');
-    const parsed = parseFloat(str);
-    return isNaN(parsed) ? 0 : parsed;
-};
+export { PRESETS_RANGOS_PESO };
 
 export default function Settings() {
     const navigate = useNavigate();
     const { fincaId, role, userFincas, isSuperAdmin, modoGanancia, setModoGanancia, licenciaInfo, refreshLicencia } = useAuth();
     const { theme } = useTheme();
-    const { toast, showAlert, confirmAction } = useFeedback();
+    const { toast } = useFeedback();
     const isLight = theme === 'light';
     const accentPurple = isLight ? '#7c3aed' : '#c084fc';
     const [umbral, setUmbral] = useState('0.434');
     const [participacionUtilidad, setParticipacionUtilidad] = useState('60');
-    // Umbrales: siempre en la unidad seleccionada para display; se convierten a kg/mes al guardar
     const [umbralMedioDisplay, setUmbralMedioDisplay] = useState('10');
     const [umbralAltoDisplay, setUmbralAltoDisplay] = useState('20');
     const [modoLocal, setModoLocal] = useState<ModoGanancia>(modoGanancia);
@@ -138,7 +62,6 @@ export default function Settings() {
     const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
     const sectionPanelRef = useRef<HTMLDivElement>(null);
-
     const canManageFarm = role === 'administrador' || isSuperAdmin;
 
     const showSectionFeedback = (section: string, type: 'success' | 'error', text: string) => {
@@ -146,38 +69,21 @@ export default function Settings() {
         toast(text, type);
     };
 
-    const [reporteCarga, setReporteCarga] = useState<{
-        tipo: 'animales' | 'pesajes';
-        creados: number;
-        actualizados: number;
-        omitidos: number;
-        omitidosList: string[];
-    } | null>(null);
+    const [reporteCarga, setReporteCarga] = useState<ReporteCargaMasiva | null>(null);
 
     const closeExitoModal = () => {
         setExitoModalMessage(null);
         setReporteCarga(null);
     };
     const exitoDialogProps = useModalDialog(Boolean(exitoModalMessage), closeExitoModal);
-    const [importProgress, setImportProgress] = useState<{ current: number, total: number } | null>(null);
-    const [cargasMasivasHoy, setCargasMasivasHoy] = useState<CargaMasivaItem[]>([]);
+    const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
 
-    // Estados para Cambio de Contraseña
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
-    const [newUserEmail, setNewUserEmail] = useState('');
-    const [newUserPass, setNewUserPass] = useState('');
-    const [newUserNombre, setNewUserNombre] = useState('');
-    const [newUserApellido, setNewUserApellido] = useState('');
-    const [newUserRole, setNewUserRole] = useState<'vaquero' | 'observador'>('vaquero');
-    const [selectedFincas, setSelectedFincas] = useState<string[]>([]);
-    const [userFormMsg, setUserFormMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-    
-    // Estados para secciones colapsables
     const [collapsed, setCollapsed] = useState({
         seguridad: true,
-        datosTecnicos: true, 
+        datosTecnicos: true,
         usuarios: true,
         contactosNegocio: true,
         cargasMasivas: true
@@ -193,9 +99,6 @@ export default function Settings() {
             cargasMasivas: true,
             [section]: nextState
         });
-        if (section === 'cargasMasivas' && nextState) {
-            fetchCargasMasivasHoy();
-        }
         if (nextState && typeof window !== 'undefined' && window.innerWidth <= 768) {
             window.requestAnimationFrame(() => {
                 sectionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -224,31 +127,6 @@ export default function Settings() {
         );
     };
 
-    // Estados para creación de usuario
-
-    // Estados para Propietarios
-    const [propietarios, setPropietarios] = useState<{ id: string, nombre: string }[]>([]);
-    const [nuevoPropietario, setNuevoPropietario] = useState('');
-
-    // Estados para Proveedores
-    const [proveedores, setProveedores] = useState<{ id: string, nombre: string }[]>([]);
-    const [nuevoProveedor, setNuevoProveedor] = useState('');
-
-    // Estados para Compradores
-    const [compradores, setCompradores] = useState<{ id: string, nombre: string }[]>([]);
-    const [nuevoComprador, setNuevoComprador] = useState('');
-
-    // Estados para Pluviómetros de la Finca
-    const [pluviometros, setPluviometros] = useState<PluviometroFinca[]>([]);
-    const [nuevoPluvNombre, setNuevoPluvNombre] = useState('');
-    const [nuevoPluvModo, setNuevoPluvModo] = useState<TipoMedicionPluviometro>('diaria');
-    const [savingPluv, setSavingPluv] = useState(false);
-
-    // Estados para Potreradas (Movidos a Potreradas.tsx)
-
-    // Estados para Rotaciones y Potreros (Eliminados, movidos a Rotations.tsx)
-
-    // Estados para Información de la Finca
     const [farmInfo, setFarmInfo] = useState({
         area_total: '',
         area_aprovechable: '',
@@ -266,19 +144,6 @@ export default function Settings() {
         preset_peso: 'ceba_tradicional'
     });
 
-
-
-    const formatNumber = (val: string) => {
-        if (!val) return '';
-        const clean = val.toString().replace(/\D/g, '');
-        return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    };
-
-    const unformatNumber = (val: string) => {
-        return val.replace(/\D/g, '');
-    };
-
-    // Filtrar fincas donde el usuario es administrador
     const fincasAdmin = userFincas.filter((f: any) => f.rol === 'administrador' || isSuperAdmin);
 
     const fetchConfig = async () => {
@@ -301,191 +166,15 @@ export default function Settings() {
         }
     };
 
-    const fetchPropietarios = async () => {
-        if (!fincaId) return;
-        const { data, error } = await supabase
-            .from('propietarios')
-            .select('id, nombre')
-            .eq('id_finca', fincaId)
-            .order('nombre');
-
-        if (!error && data) setPropietarios(data);
-    };
-
-    const fetchProveedores = async () => {
-        if (!fincaId) return;
-        const { data, error } = await supabase
-            .from('proveedores')
-            .select('id, nombre')
-            .eq('id_finca', fincaId)
-            .order('nombre');
-
-        if (!error && data) setProveedores(data);
-    };
-
-    const fetchCompradores = async () => {
-        if (!fincaId) return;
-        const { data, error } = await supabase
-            .from('compradores')
-            .select('id, nombre')
-            .eq('id_finca', fincaId)
-            .order('nombre');
-
-        if (!error && data) setCompradores(data);
-    };
-
-    const fetchPluviometros = async () => {
-        if (!fincaId) return;
-        const { data, error } = await supabase
-            .from('pluviometros_finca')
-            .select('*')
-            .eq('id_finca', fincaId)
-            .order('orden', { ascending: true })
-            .order('creado_en', { ascending: true });
-
-        if (!error && data) setPluviometros(data as PluviometroFinca[]);
-    };
-
-    const fetchCargasMasivasHoy = async () => {
-        if (!fincaId) return;
-        const hoy = getLocalIsoDate();
-        const { data, error } = await supabase
-            .from('cargas_masivas')
-            .select('id, tipo, nombre_archivo, total_registros, fecha_carga, creado_en, estado')
-            .eq('id_finca', fincaId)
-            .eq('fecha_carga', hoy)
-            .eq('estado', 'activa')
-            .order('creado_en', { ascending: false });
-
-        if (!error && data) {
-            setCargasMasivasHoy(data as CargaMasivaItem[]);
-        }
-    };
-
-    const handleRevertirCargaMasiva = async (carga: CargaMasivaItem) => {
-        const tipoLabel = carga.tipo === 'animales' ? 'animales' : 'pesajes';
-        const confirmed = await confirmAction(
-            `Se revertirá la carga de ${tipoLabel} "${carga.nombre_archivo || 'archivo CSV'}" (${carga.total_registros} registros) y se eliminarán los datos cargados en esta importación.`,
-            {
-                title: '¿Revertir carga masiva?',
-                confirmLabel: 'Sí, revertir carga',
-                cancelLabel: 'Cancelar',
-                destructive: true,
-            }
-        );
-        if (!confirmed) return;
-
-        setLoading(true);
-        setInlineStatus(null);
-
-        try {
-            if (carga.tipo === 'animales') {
-                // 1. Validar que ninguno de los animales importados tenga ventas
-                const { data: animalesCarga, error: errCheck } = await supabase
-                    .from('animales')
-                    .select('id, numero_chapeta, fecha_venta')
-                    .eq('id_carga_masiva', carga.id);
-
-                if (errCheck) throw errCheck;
-
-                const conVenta = animalesCarga?.filter((a: any) => a.fecha_venta) || [];
-                if (conVenta.length > 0) {
-                    throw new Error(`No se puede deshacer la carga: ${conVenta.length} animal(es) ya tienen ventas registradas (ej. #${conVenta[0].numero_chapeta}).`);
-                }
-
-                const animalIds = animalesCarga?.map((a: any) => a.id) || [];
-                if (animalIds.length > 0) {
-                    // Eliminar pesajes asociados a estos animales
-                    await supabase
-                        .from('registros_pesaje')
-                        .delete()
-                        .in('id_animal', animalIds);
-
-                    // Eliminar animales cargados en esta sesión
-                    await supabase
-                        .from('animales')
-                        .delete()
-                        .eq('id_carga_masiva', carga.id);
-                }
-
-                // Marcar carga como revertida
-                await supabase
-                    .from('cargas_masivas')
-                    .update({ estado: 'revertida' })
-                    .eq('id', carga.id);
-
-                await refreshLicencia();
-                await showAlert(
-                    `Carga de animales "${carga.nombre_archivo}" revertida con éxito.`,
-                    { title: '¡Importación Revertida!', variant: 'success', confirmLabel: 'Cerrar Reporte' }
-                );
-            } else if (carga.tipo === 'pesajes') {
-                // 1. Obtener los pesajes para identificar qué animales se ven afectados
-                const { data: pesajesABorrar, error: errGetP } = await supabase
-                    .from('registros_pesaje')
-                    .select('id, id_animal')
-                    .eq('id_carga_masiva', carga.id);
-
-                if (errGetP) throw errGetP;
-
-                const animalesAfectados = Array.from(new Set(pesajesABorrar?.map((p: any) => p.id_animal).filter(Boolean))) as string[];
-
-                // 2. Eliminar los pesajes cargados
-                const { error: errDel } = await supabase
-                    .from('registros_pesaje')
-                    .delete()
-                    .eq('id_carga_masiva', carga.id);
-
-                if (errDel) throw errDel;
-
-                // 3. Marcar carga como revertida
-                await supabase
-                    .from('cargas_masivas')
-                    .update({ estado: 'revertida' })
-                    .eq('id', carga.id);
-
-                // 4. Recalcular en cascada las ganancias de cada animal afectado (Ultra rápido en PostgreSQL)
-                if (animalesAfectados.length > 0) {
-                    const { error: rpcErr } = await supabase.rpc('recalcular_historial_pesajes_animales', { p_id_animales: animalesAfectados });
-                    if (rpcErr) {
-                        for (const aId of animalesAfectados) {
-                            await recalcularHistorialPesajesAnimal(aId, supabase);
-                        }
-                    }
-                }
-
-                await showAlert(
-                    `Carga de pesajes "${carga.nombre_archivo}" revertida y ganancias recalculadas con éxito.`,
-                    { title: '¡Importación Revertida!', variant: 'success', confirmLabel: 'Cerrar Reporte' }
-                );
-            }
-
-            await fetchCargasMasivasHoy();
-        } catch (err: any) {
-            await showAlert('Error al revertir la carga: ' + (err.message || err), {
-                title: 'Error en la Carga',
-                variant: 'error',
-                confirmLabel: 'Cerrar',
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // fetchPotreradas movido a Potreradas.tsx
-
-
     const fetchFincaInfo = async () => {
         if (!fincaId) return;
-        
-        // Datos generales de la finca
+
         const { data: finca, error: fincaErr } = await supabase
             .from('fincas')
             .select('area_total, area_aprovechable, ubicacion, municipio, proposito')
             .eq('id', fincaId)
             .single();
 
-        // Precio de venta y umbral ceba desde configuracion_kpi
         const { data: config } = await supabase
             .from('configuracion_kpi')
             .select('precio_venta_promedio, precio_compra_promedio, costo_mensual_animal, peso_entrada_ceba, consumo_dia_potrero, participacion_utilidad, corte_peso_1, corte_peso_2, corte_peso_3, preset_peso')
@@ -509,7 +198,6 @@ export default function Settings() {
                 corte_peso_3: config?.corte_peso_3?.toString() || '530',
                 preset_peso: config?.preset_peso || 'ceba_tradicional'
             });
-            // Cargar participación de utilidad (guardar como % entero para el display)
             const partDecimal = config?.participacion_utilidad ?? 0.6;
             setParticipacionUtilidad(Math.round(partDecimal * 100).toString());
         }
@@ -517,26 +205,9 @@ export default function Settings() {
 
     useEffect(() => {
         if (!fincaId) return;
-        fetchConfig();
-        fetchPropietarios();
-        fetchProveedores();
-        fetchCompradores();
-        fetchPluviometros();
-        fetchFincaInfo();
-        fetchCargasMasivasHoy();
-
-        if (fincaId && selectedFincas.length === 0) {
-            setSelectedFincas([fincaId]);
-        }
+        void fetchConfig();
+        void fetchFincaInfo();
     }, [fincaId]);
-
-    const toggleFincaSelection = (id: string) => {
-        setSelectedFincas(prev =>
-            prev.includes(id)
-                ? prev.filter(f => f !== id)
-                : [...prev, id]
-        );
-    };
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -569,8 +240,6 @@ export default function Settings() {
         setLoading(true);
 
         try {
-            // 1. Guardar configuracion_kpi (umbrales y precios)
-            // Convert display values back to kg/mes for storage
             const valorBajoGMP = toStorageValue(parseDecimalInput(umbral) || 0.434, modoLocal);
             const valorMedioGMP = toStorageValue(parseDecimalInput(umbralMedioDisplay) || 10, modoLocal);
             const valorAltoGMP = toStorageValue(parseDecimalInput(umbralAltoDisplay) || 20, modoLocal);
@@ -579,7 +248,6 @@ export default function Settings() {
             const costoMensual = parseDecimalInput(farmInfo.costo_mensual_animal) || 0;
             const pesoCeba = parseDecimalInput(farmInfo.peso_entrada_ceba) || 380;
             const consumoDia = parseDecimalInput(farmInfo.consumo_dia_potrero) || 50;
-            // Convertir el porcentaje ingresado (ej. 60) a decimal (ej. 0.60)
             const partPct = Math.min(99, Math.max(1, parseInt(participacionUtilidad) || 60));
             const participacionDecimal = partPct / 100;
             const c1 = parseDecimalInput(farmInfo.corte_peso_1) || 430;
@@ -588,8 +256,8 @@ export default function Settings() {
 
             const { error: kpiError } = await supabase
                 .from('configuracion_kpi')
-                .upsert({ 
-                    id_finca: fincaId, 
+                .upsert({
+                    id_finca: fincaId,
                     umbral_bajo_gdp: valorBajoGMP,
                     umbral_medio_gmp: valorMedioGMP,
                     umbral_alto_gmp: valorAltoGMP,
@@ -607,12 +275,8 @@ export default function Settings() {
                 }, { onConflict: 'id_finca' });
 
             if (kpiError) throw kpiError;
-
-            // Sync modoGanancia globally
             setModoGanancia(modoLocal);
 
-            // 2. Guardar información de la finca
-            // Build payload dynamically to avoid sending empty string to enum column
             const areaTotalParsed = parseDecimalInput(farmInfo.area_total);
             const areaAprovechableParsed = parseDecimalInput(farmInfo.area_aprovechable);
             const fincaPayload: Record<string, any> = {
@@ -638,1035 +302,6 @@ export default function Settings() {
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleCreateUser = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setUserFormMsg(null);
-
-        if (selectedFincas.length === 0) {
-            setUserFormMsg({ type: 'error', text: 'Debe seleccionar al menos una finca para asignar al usuario.' });
-            return;
-        }
-        if (!newUserEmail || !newUserPass) {
-            setUserFormMsg({ type: 'error', text: 'El correo y la contraseña son obligatorios.' });
-            return;
-        }
-
-        setLoading(true);
-
-        try {
-            const { error } = await supabase.rpc('crear_trabajador_finca', {
-                p_email: newUserEmail,
-                p_password: newUserPass,
-                p_finca_ids: selectedFincas,
-                p_rol: newUserRole,
-                p_nombre: newUserNombre || null,
-                p_apellido: newUserApellido || null
-            });
-
-            if (error) throw error;
-
-            // Obtener nombres de las fincas asignadas para el correo de bienvenida
-            const nombresFincas = fincasAdmin
-                .filter((f: any) => selectedFincas.includes(f.id_finca))
-                .map((f: any) => f.nombre_finca);
-
-            // Enviar correo de bienvenida con credenciales e instructivo de instalación (PWA)
-            let emailEnviado = false;
-            try {
-                const { error: fnErr } = await supabase.functions.invoke('notify-worker-invite', {
-                    body: {
-                        email: newUserEmail.trim(),
-                        nombre: newUserNombre.trim(),
-                        apellido: newUserApellido.trim(),
-                        password: newUserPass,
-                        rol: newUserRole,
-                        fincas: nombresFincas
-                    }
-                });
-                if (!fnErr) {
-                    emailEnviado = true;
-                } else {
-                    console.warn('[handleCreateUser] Error al enviar email de bienvenida:', fnErr);
-                }
-            } catch (fnEx) {
-                console.warn('[handleCreateUser] Excepción al invocar función de email:', fnEx);
-            }
-
-            const successText = emailEnviado
-                ? `✓ Usuario ${newUserEmail} creado y asignado exitosamente. Se ha enviado un correo con sus credenciales y guía de instalación móvil.`
-                : `✓ Usuario ${newUserEmail} creado y asignado a ${selectedFincas.length} finca(s) exitosamente.`;
-
-            setUserFormMsg({ type: 'success', text: successText });
-            setNewUserEmail('');
-            setNewUserPass('');
-            setNewUserNombre('');
-            setNewUserApellido('');
-            setSelectedFincas([fincaId || '']);
-        } catch (err: any) {
-            const msg = err?.message || 'Error desconocido al crear el usuario.';
-            setUserFormMsg({ type: 'error', text: '✗ ' + msg });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAddPropietario = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!fincaId || !nuevoPropietario.trim()) return;
-
-        setInlineStatus(null);
-        setLoading(true);
-        try {
-            const { error } = await supabase
-                .from('propietarios')
-                .insert({ id_finca: fincaId, nombre: nuevoPropietario.trim() });
-
-            if (error) throw error;
-
-            setNuevoPropietario('');
-            fetchPropietarios();
-            showSectionFeedback('contactosNegocio', 'success', 'Propietario agregado correctamente.');
-        } catch (err: any) {
-            showSectionFeedback('contactosNegocio', 'error', 'Error al agregar propietario: ' + (err.code === '23505' ? 'Ya existe un propietario con ese nombre.' : err.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const removePropietario = async (id: string, nombre?: string) => {
-        const confirmed = await confirmAction(
-            nombre
-                ? `Se eliminará "${nombre}" de la lista de propietarios de la finca.`
-                : '¿Está seguro de eliminar este propietario?',
-            {
-                title: '¿Eliminar propietario?',
-                confirmLabel: 'Eliminar',
-                cancelLabel: 'Cancelar',
-                destructive: true,
-            }
-        );
-        if (!confirmed) return;
-        setInlineStatus(null);
-        setLoading(true);
-        try {
-            const { error } = await supabase.from('propietarios').delete().eq('id', id);
-            if (error) throw error;
-            fetchPropietarios();
-            showSectionFeedback('contactosNegocio', 'success', 'Propietario eliminado.');
-        } catch (err: any) {
-            showSectionFeedback('contactosNegocio', 'error', 'Error al eliminar: ' + err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAddProveedor = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!fincaId || !nuevoProveedor.trim()) return;
-
-        setInlineStatus(null);
-        setLoading(true);
-        try {
-            const { error } = await supabase
-                .from('proveedores')
-                .insert({ id_finca: fincaId, nombre: nuevoProveedor.trim() });
-
-            if (error) throw error;
-
-            setNuevoProveedor('');
-            fetchProveedores();
-            showSectionFeedback('contactosNegocio', 'success', 'Proveedor agregado correctamente.');
-        } catch (err: any) {
-            showSectionFeedback('contactosNegocio', 'error', 'Error al agregar proveedor: ' + (err.code === '23505' ? 'Ya existe un proveedor con ese nombre.' : err.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const removeProveedor = async (id: string, nombre?: string) => {
-        const confirmed = await confirmAction(
-            nombre
-                ? `Se eliminará "${nombre}" de la lista de proveedores.`
-                : '¿Está seguro de eliminar este proveedor?',
-            {
-                title: '¿Eliminar proveedor?',
-                confirmLabel: 'Eliminar',
-                cancelLabel: 'Cancelar',
-                destructive: true,
-            }
-        );
-        if (!confirmed) return;
-        setInlineStatus(null);
-        setLoading(true);
-        try {
-            const { error } = await supabase.from('proveedores').delete().eq('id', id);
-            if (error) throw error;
-            fetchProveedores();
-            showSectionFeedback('contactosNegocio', 'success', 'Proveedor eliminado.');
-        } catch (err: any) {
-            showSectionFeedback('contactosNegocio', 'error', 'Error al eliminar: ' + err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAddComprador = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!fincaId || !nuevoComprador.trim()) return;
-
-        setInlineStatus(null);
-        setLoading(true);
-        try {
-            const { error } = await supabase
-                .from('compradores')
-                .insert({ id_finca: fincaId, nombre: nuevoComprador.trim() });
-
-            if (error) throw error;
-
-            setNuevoComprador('');
-            fetchCompradores();
-            showSectionFeedback('contactosNegocio', 'success', 'Comprador agregado correctamente.');
-        } catch (err: any) {
-            showSectionFeedback('contactosNegocio', 'error', 'Error al agregar comprador: ' + (err.code === '23505' ? 'Ya existe un comprador con ese nombre.' : err.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const removeComprador = async (id: string, nombre?: string) => {
-        const confirmed = await confirmAction(
-            nombre
-                ? `Se eliminará "${nombre}" de la lista de compradores.`
-                : '¿Está seguro de eliminar este comprador?',
-            {
-                title: '¿Eliminar comprador?',
-                confirmLabel: 'Eliminar',
-                cancelLabel: 'Cancelar',
-                destructive: true,
-            }
-        );
-        if (!confirmed) return;
-        setInlineStatus(null);
-        setLoading(true);
-        try {
-            const { error } = await supabase.from('compradores').delete().eq('id', id);
-            if (error) throw error;
-            fetchCompradores();
-            showSectionFeedback('contactosNegocio', 'success', 'Comprador eliminado.');
-        } catch (err: any) {
-            showSectionFeedback('contactosNegocio', 'error', 'Error al eliminar: ' + err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAddPluviometro = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!fincaId || !nuevoPluvNombre.trim()) return;
-        setInlineStatus(null);
-        setSavingPluv(true);
-        try {
-            const nextOrden = pluviometros.length > 0
-                ? Math.max(...pluviometros.map(p => p.orden || 0)) + 1
-                : 0;
-            const { error } = await supabase
-                .from('pluviometros_finca')
-                .insert({
-                    id_finca: fincaId,
-                    nombre: nuevoPluvNombre.trim(),
-                    tipo_medicion: nuevoPluvModo,
-                    activo: true,
-                    orden: nextOrden,
-                });
-            if (error) throw error;
-            setNuevoPluvNombre('');
-            setNuevoPluvModo('diaria');
-            await fetchPluviometros();
-            showSectionFeedback('pluviometros', 'success', 'Pluviómetro agregado correctamente.');
-        } catch (err: any) {
-            showSectionFeedback('pluviometros', 'error', 'Error al agregar pluviómetro: ' + (err.code === '23505' ? 'Ya existe un pluviómetro con ese nombre en la finca.' : err.message));
-        } finally {
-            setSavingPluv(false);
-        }
-    };
-
-    const handleUpdatePluviometro = async (id: string, changes: Partial<Pick<PluviometroFinca, 'nombre' | 'tipo_medicion' | 'activo'>>) => {
-        setInlineStatus(null);
-        setSavingPluv(true);
-        try {
-            const { error } = await supabase
-                .from('pluviometros_finca')
-                .update(changes)
-                .eq('id', id);
-            if (error) throw error;
-            await fetchPluviometros();
-            showSectionFeedback('pluviometros', 'success', 'Pluviómetro actualizado. Los registros históricos permanecen intactos.');
-        } catch (err: any) {
-            showSectionFeedback('pluviometros', 'error', 'Error al actualizar pluviómetro: ' + (err.code === '23505' ? 'Ya existe otro pluviómetro con ese nombre.' : err.message));
-        } finally {
-            setSavingPluv(false);
-        }
-    };
-
-    const handleRemovePluviometro = async (pluv: PluviometroFinca) => {
-        setInlineStatus(null);
-        setSavingPluv(true);
-        try {
-            const { count } = await supabase
-                .from('registros_lluvia')
-                .select('id', { count: 'exact', head: true })
-                .eq('id_pluviometro', pluv.id);
-
-            setSavingPluv(false);
-
-            if ((count || 0) > 0) {
-                const desactivar = await confirmAction(
-                    `"${pluv.nombre}" tiene ${count} registros históricos de lluvia. Desactivarlo evita perder ese historial y dejará de aparecer en nuevos registros.`,
-                    {
-                        title: '¿Desactivar pluviómetro?',
-                        confirmLabel: 'Sí, desactivar',
-                        cancelLabel: 'Cancelar',
-                    }
-                );
-                if (desactivar) {
-                    await handleUpdatePluviometro(pluv.id, { activo: false });
-                }
-                return;
-            }
-
-            const confirmed = await confirmAction(
-                `Se eliminará "${pluv.nombre}" de la finca.`,
-                {
-                    title: '¿Eliminar pluviómetro?',
-                    confirmLabel: 'Eliminar',
-                    cancelLabel: 'Cancelar',
-                    destructive: true,
-                }
-            );
-            if (!confirmed) return;
-            setSavingPluv(true);
-            const { error } = await supabase.from('pluviometros_finca').delete().eq('id', pluv.id);
-            if (error) throw error;
-            await fetchPluviometros();
-            showSectionFeedback('pluviometros', 'success', 'Pluviómetro eliminado.');
-        } catch (err: any) {
-            showSectionFeedback('pluviometros', 'error', 'Error al eliminar pluviómetro: ' + err.message);
-        } finally {
-            setSavingPluv(false);
-        }
-    };
-
-    // handleAddPotrerada y removePotrerada movidos a Potreradas.tsx
-
-
-    const handleBulkAnimalUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !fincaId) return;
-
-        setLoading(true);
-        setInlineStatus(null);
-
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: async (results: any) => {
-                try {
-                    const headers = results.meta.fields || [];
-                    const required = ['numero_chapeta', 'propietario', 'peso_ingreso', 'fecha_ingreso'];
-                    const isWeighingFile = headers.includes('peso') && !headers.includes('peso_ingreso');
-                    const isRotationFile = headers.includes('nombre_rotacion') || headers.includes('nombre_potrero');
-
-                    if (isWeighingFile) {
-                        throw new Error('¡Atención! Parece que está intentando subir un archivo de SEGUIMIENTO DE PESAJES en la sección de INVENTARIO. Por favor, use la sección correcta.');
-                    }
-                    if (isRotationFile) {
-                        throw new Error('¡Atención! Parece que está intentando subir un archivo de ROTACIONES en la sección de INVENTARIO.');
-                    }
-
-                    const missing = required.filter(h => !headers.includes(h));
-                    if (missing.length > 0) {
-                        throw new Error(`El archivo no corresponde a la plantilla de Inventario. Faltan columnas: ${missing.join(', ')}`);
-                    }
-                    // 1. Obtener mapeos de potreradas y potreros existentes
-                    const { data: pds } = await supabase.from('potreradas').select('id, nombre').eq('id_finca', fincaId);
-                    const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
-
-                    const mapPotreradas = new Map(pds?.map((p: any) => [p.nombre.toLowerCase().trim(), p.id]));
-                    const mapPotreros = new Map(pts?.map((p: any) => [p.nombre.toLowerCase().trim(), p.id]));
-
-                    // VALIDACIÓN PREVENTIVA: Revisar si los potreros del CSV existen
-                    const potrerosNoReconocidos = new Set<string>();
-                    results.data.forEach((row: any) => {
-                        const pNombre = row.potrero?.toString().trim();
-                        if (pNombre && !mapPotreros.has(pNombre.toLowerCase())) {
-                            potrerosNoReconocidos.add(pNombre);
-                        }
-                    });
-
-                    if (potrerosNoReconocidos.size > 0) {
-                        const lista = Array.from(potrerosNoReconocidos).join(', ');
-                        throw new Error(`¡ERROR DE UBICACIÓN! Los siguientes potreros en tu Excel NO existen en la App: [${lista}]. Por favor, créalos en la sección de Potreros o corrige sus nombres en el Excel para que coincidan exactamente (ej. 'Iracales' vs 'Iracales 1').`);
-                    }
-
-                    // 2. Detectar potreradas nuevas que vengan en el CSV y crearlas
-                    //    Usamos la etapa del animal para la potrerada
-                    const potreradasNuevas = new Map<string, string>(); // nombre_lower -> etapa
-                    results.data.forEach((row: any) => {
-                        const nombre = row.potrerada?.toString().trim();
-                        const etapa = row.etapa?.toLowerCase() || 'levante';
-                        if (nombre && !mapPotreradas.has(nombre.toLowerCase())) {
-                            potreradasNuevas.set(nombre.toLowerCase(), etapa);
-                        }
-                    });
-
-                    if (potreradasNuevas.size > 0) {
-                        // Obtener nombre original (con capitalización) del CSV para insertar
-                        const inserts = results.data.reduce((acc: any[], row: any) => {
-                            const nombre = row.potrerada?.toString().trim();
-                            const nombreLower = nombre?.toLowerCase();
-                            if (nombre && potreradasNuevas.has(nombreLower) && !acc.find(a => a.nombre.toLowerCase() === nombreLower)) {
-                                acc.push({
-                                    id_finca: fincaId,
-                                    nombre: nombre,
-                                    etapa: row.etapa?.toLowerCase() || 'levante'
-                                });
-                            }
-                            return acc;
-                        }, []);
-
-                        const { data: creadas, error: errCreate } = await supabase
-                            .from('potreradas')
-                            .insert(inserts)
-                            .select('id, nombre');
-
-                        if (errCreate) throw new Error(`Error al crear potreradas: ${errCreate.message}`);
-
-                        // Agregar al mapa las recién creadas
-                        creadas?.forEach((p: any) => mapPotreradas.set(p.nombre.toLowerCase().trim(), p.id));
-                    }
-
-                    // 3. Construir filas de animales con IDs resueltos
-                    const rows = results.data.map((row: any, index: number) => {
-                        const potreradaNombre = row.potrerada?.toString().toLowerCase().trim();
-                        const potreroNombre = row.potrero?.toString().toLowerCase().trim();
-                        const etapa = row.etapa?.toLowerCase() || 'levante';
-                        
-                        // Mapeo flexible de fechas
-                        const rawFecha = row.fecha_ingreso || row['fecha_ingreso(Año-Mes-Día)'] || row.fecha_ingreso_ceba || row.fecha || row.Fecha;
-                        const fechaFinal = parseFechaCol(rawFecha) || getLocalIsoDate();
-                        const fechaErr = getGanadoDateError(fechaFinal, `Fila ${index + 2} (${row.numero_chapeta || 'sin chapeta'}): Fecha de ingreso`);
-                        if (fechaErr) {
-                            throw new Error(fechaErr);
-                        }
-                        const pesoIngreso = cleanNumber(row.peso_ingreso);
-
-                        const sexoFinal = row.sexo?.toUpperCase() || 'M';
-                        const tipoMachoCSV = row.tipo_macho?.toString().toLowerCase().trim();
-                        const tipoMachoFinal = sexoFinal === 'M'
-                            ? (tipoMachoCSV === 'novillo' ? 'novillo' : 'toro')
-                            : null;
-
-                        return {
-                            id_finca: fincaId,
-                            numero_chapeta: row.numero_chapeta?.toString().trim(),
-                            nombre_propietario: row.propietario || 'Sin Datos',
-                            especie: row.especie?.toLowerCase() || 'bovino',
-                            sexo: sexoFinal,
-                            etapa: etapa,
-                            fecha_ingreso: fechaFinal,
-                            peso_ingreso: pesoIngreso,
-                            id_potrerada: potreradaNombre ? (mapPotreradas.get(potreradaNombre) ?? null) : null,
-                            id_potrero_actual: potreroNombre ? (mapPotreros.get(potreroNombre) ?? null) : null,
-                            estado: 'activo',
-                            // Nuevos campos para trazabilidad de ceba
-                            fecha_ingreso_ceba: etapa === 'ceba' ? fechaFinal : null,
-                            peso_ingreso_ceba: etapa === 'ceba' ? pesoIngreso : null,
-                            ok_ceba: false,
-                            // Tipo de macho (toro o novillo)
-                            tipo_macho: tipoMachoFinal,
-                            // Campos opcionales de compra
-                            proveedor_compra: row.proveedor || row.proveedor_compra || null,
-                            observaciones_compra: row.observaciones || row.observaciones_compra || null
-                        };
-                    });
-
-                    const chapetas = rows.map((r: any) => r.numero_chapeta);
-                    if (chapetas.some((c: any) => !c)) throw new Error("Todas las filas deben tener un número de chapeta.");
-                    
-                    const omitidosList: string[] = [];
-                    const rowsUnicos: any[] = [];
-                    const chapetasVistas = new Set<string>();
-
-                    for (const r of rows) {
-                        if (chapetasVistas.has(r.numero_chapeta)) {
-                            omitidosList.push(`${r.numero_chapeta} (Duplicado en CSV)`);
-                        } else {
-                            chapetasVistas.add(r.numero_chapeta);
-                            rowsUnicos.push(r);
-                        }
-                    }
-
-                    // 4. Identificar animales existentes en la base de datos (MEJORA: EN BATCH de 200)
-                    const chapetasUnicas = Array.from(chapetasVistas);
-                    const existentes: any[] = [];
-                    
-                    for (let i = 0; i < chapetasUnicas.length; i += 200) {
-                        const batch = chapetasUnicas.slice(i, i + 200);
-                        const { data: batchData, error: checkError } = await supabase
-                            .from('animales')
-                            .select('id, numero_chapeta')
-                            .eq('id_finca', fincaId)
-                            .in('numero_chapeta', batch);
-                        
-                        if (checkError) throw checkError;
-                        if (batchData) existentes.push(...batchData);
-                        setImportProgress({ current: i + batch.length, total: chapetasUnicas.length });
-                    }
-
-                    const existentesMap = new Map(existentes.map(e => [e.numero_chapeta, e.id]));
-                    
-                    // Lógica solicitada: OMITIR los que ya existen
-                    const rowsNuevos = rowsUnicos.filter((r: any) => {
-                        if (existentesMap.has(r.numero_chapeta)) {
-                            omitidosList.push(`${r.numero_chapeta} (Ya existe)`);
-                            return false;
-                        }
-                        return true;
-                    });
-
-                    // 5. Insertar animales nuevos
-                    let insertados = 0;
-                    if (rowsNuevos.length > 0) {
-                        // Crear registro de carga masiva
-                        let idCargaMasiva: string | null = null;
-                        try {
-                            const userResp = await supabase.auth.getUser();
-                            const { data: cargaReg, error: errCarga } = await supabase
-                                .from('cargas_masivas')
-                                .insert({
-                                    id_finca: fincaId,
-                                    usuario_id: userResp.data.user?.id,
-                                    tipo: 'animales',
-                                    nombre_archivo: file.name,
-                                    total_registros: rowsNuevos.length,
-                                    fecha_carga: getLocalIsoDate(),
-                                    estado: 'activa'
-                                })
-                                .select('id')
-                                .single();
-                            if (!errCarga && cargaReg) {
-                                idCargaMasiva = cargaReg.id;
-                            }
-                        } catch (eCarga) {
-                            console.warn("No se pudo registrar en cargas_masivas:", eCarga);
-                        }
-
-                        if (idCargaMasiva) {
-                            rowsNuevos.forEach((r: any) => {
-                                r.id_carga_masiva = idCargaMasiva;
-                            });
-                        }
-
-                        const { data: nuevosAnimales, error: errIns } = await supabase
-                            .from('animales')
-                            .insert(rowsNuevos)
-                            .select();
-                        if (errIns) throw errIns;
-                        insertados = nuevosAnimales?.length ?? 0;
-
-                        // Insertar pesaje inicial en registros_pesaje para cada animal creado
-                        if (nuevosAnimales && nuevosAnimales.length > 0) {
-                            const pesajesIniciales = nuevosAnimales.map((animal: any) => ({
-                                id_animal: animal.id,
-                                peso: animal.peso_ingreso,
-                                fecha: animal.fecha_ingreso,
-                                etapa: animal.etapa,
-                                id_potrero: animal.id_potrero_actual,
-                                gdp_calculada: 0,
-                                id_carga_masiva: idCargaMasiva
-                            }));
-
-                            const { error: errPesajesInit } = await supabase
-                                .from('registros_pesaje')
-                                .insert(pesajesIniciales);
-
-                            if (errPesajesInit) {
-                                console.error("Error al crear pesajes iniciales para animales nuevos:", errPesajesInit);
-                            }
-                        }
-
-                        await fetchCargasMasivasHoy();
-                    }
-
-                    // 6. Preparar reporte detallado
-                    setReporteCarga({
-                        tipo: 'animales',
-                        creados: insertados,
-                        actualizados: 0,
-                        omitidos: omitidosList.length,
-                        omitidosList: omitidosList
-                    });
-
-                    const msgPotreradas = potreradasNuevas.size > 0
-                        ? ` Además, se crearon ${potreradasNuevas.size} potrerada(s) nueva(s).`
-                        : '';
-                    
-                    setExitoModalMessage(`¡Proceso completado!${msgPotreradas}`);
-                } catch (err: any) {
-                    await showAlert('Error en carga de animales: ' + err.message, {
-                        title: 'Error en la Carga',
-                        variant: 'error',
-                        confirmLabel: 'Corregir Archivo',
-                    });
-                } finally {
-                    setLoading(false);
-                    setImportProgress(null);
-                    e.target.value = '';
-                }
-            }
-        });
-    };
-
-    const handleBulkPesajeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !fincaId) return;
-
-        setLoading(true);
-        setInlineStatus(null);
-
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: async (results: any) => {
-                try {
-                    const headers = results.meta.fields || [];
-                    const required = ['numero_chapeta', 'peso', 'fecha'];
-                    const isInventoryFile = headers.includes('peso_ingreso') || headers.includes('propietario');
-                    const isRotationFile = headers.includes('nombre_rotacion') || headers.includes('nombre_potrero');
-
-                    if (isInventoryFile) {
-                        throw new Error('¡Atención! Parece que está intentando subir un archivo de INVENTARIO en la sección de PESAJES. Por favor, use la sección correcta.');
-                    }
-                    if (isRotationFile) {
-                        throw new Error('¡Atención! Parece que está intentando subir un archivo de ROTACIONES en la sección de PESAJES.');
-                    }
-
-                    const missing = required.filter(h => !headers.includes(h));
-                    if (missing.length > 0) {
-                        throw new Error(`El archivo no corresponde a la plantilla de Seguimiento de Pesajes. Faltan columnas: ${missing.join(', ')}`);
-                    }
-
-                    // 1. Obtener animales existentes, pero solo los que vengan en el CSV para no superar el límite de 1000 de Supabase.
-                    const chapetasCrudas = results.data
-                        .map((r: any) => r.numero_chapeta?.toString().trim())
-                        .filter(Boolean);
-                    const chapetasEnCSVUnicas = Array.from(new Set(chapetasCrudas));
-
-                    const animalesData: any[] = [];
-                    for (let i = 0; i < chapetasEnCSVUnicas.length; i += 200) {
-                        const batch = chapetasEnCSVUnicas.slice(i, i + 200);
-                        const { data, error: animError } = await supabase
-                            .from('animales')
-                            .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba')
-                            .eq('id_finca', fincaId)
-                            .in('numero_chapeta', batch);
-
-                        if (animError) throw new Error("No se pudieron cargar los datos de los animales");
-                        if (data) animalesData.push(...data);
-                    }
-
-                    let mapAnimales = new Map(animalesData.map(a => [
-                        a.numero_chapeta.toString().trim().toLowerCase(),
-                        { 
-                            id: a.id, 
-                            etapa: a.etapa, 
-                            fecha_ingreso: a.fecha_ingreso, 
-                            peso_ingreso: a.peso_ingreso,
-                            fecha_ingreso_ceba: a.fecha_ingreso_ceba,
-                        }
-                    ]));
-
-                    // 2. Identificar cuáles animales del CSV NO existen en la base de datos
-                    const omitidosNoExistentes: string[] = [];
-                    const chapetasEnCSV = new Set<string>();
-                    
-                    results.data.forEach((row: any) => {
-                        const chapeta = row.numero_chapeta?.toString().trim();
-                        if (chapeta) {
-                            chapetasEnCSV.add(chapeta);
-                            if (!mapAnimales.has(chapeta.toLowerCase())) {
-                                if (!omitidosNoExistentes.includes(chapeta)) {
-                                    omitidosNoExistentes.push(chapeta);
-                                }
-                            }
-                        }
-                    });
-
-                    // 3. Obtener pesajes existentes para evitar duplicados (POR LOTES de 200 para evitar Bad Request por URL larga)
-                    const idsAnimalesEnCSV = Array.from(mapAnimales.values()).map(a => a.id);
-                    const pesajesExistentes: any[] = [];
-                    const batchSize = 200;
-
-                    for (let i = 0; i < idsAnimalesEnCSV.length; i += batchSize) {
-                        const batch = idsAnimalesEnCSV.slice(i, i + batchSize);
-                        const { data: batchData, error: errPesajes } = await supabase
-                            .from('registros_pesaje')
-                            .select('id_animal, fecha, peso')
-                            .in('id_animal', batch);
-                        
-                        if (errPesajes) throw new Error(`Error verificando duplicados de pesaje: ${errPesajes.message}`);
-                        if (batchData) pesajesExistentes.push(...batchData);
-                    }
-
-                    const setDuplicados = new Set(pesajesExistentes?.map((p: any) => `${p.id_animal}|${p.fecha}|${p.peso}`));
-
-                    const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
-                    const mapPotreros = new Map(pts?.map((p: any) => [p.nombre.toLowerCase().trim(), p.id]));
-
-                    // VALIDACIÓN PREVENTIVA: Revisar si los potreros del CSV de pesajes existen
-                    const potrerosNoReconocidos = new Set<string>();
-                    results.data.forEach((row: any) => {
-                        const pNombre = row.potrero?.toString().trim();
-                        if (pNombre && !mapPotreros.has(pNombre.toLowerCase())) {
-                            potrerosNoReconocidos.add(pNombre);
-                        }
-                    });
-
-                    if (potrerosNoReconocidos.size > 0) {
-                        const lista = Array.from(potrerosNoReconocidos).join(', ');
-                        throw new Error(`¡ERROR DE UBICACIÓN EN PESAJES! Los siguientes potreros en tu Excel de PESAJES NO existen en la App: [${lista}]. Por favor, créalos o corrige sus nombres en el Excel.`);
-                    }
-
-                    const recordsInsert: any[] = [];
-                    const errores: string[] = [];
-                    const cebaUpdates = new Map<string, { fecha: string, peso: number }>();
-                    const ingresoAActualizar = new Map<string, { fecha: string; peso: number }>();
-
-                    let omitidosDuplicados = 0;
-
-                    results.data.forEach((row: any, index: number) => {
-                        const chapeta = row.numero_chapeta?.toString().trim();
-                        if (!chapeta) return;
-
-                        const anim = mapAnimales.get(chapeta.toLowerCase());
-                        if (!anim) return; // Ya debería existir
-
-                        const peso = cleanNumber(row.peso);
-                        const rawFecha = row.fecha || row['fecha(Año-Mes-Día)'] || row['Fecha'];
-                        const fecha = parseFechaCol(rawFecha) || getLocalIsoDate();
-                        const potreroNombre = row.potrero?.toString().toLowerCase().trim();
-
-                        const fechaErr = getGanadoDateError(fecha, 'Fecha');
-                        if (fechaErr) {
-                            errores.push(`Fila ${index + 2}: ${fechaErr}`);
-                            return;
-                        }
-                        if (isNaN(peso) || peso <= 0) {
-                            errores.push(`Fila ${index + 2}: Peso inválido.`);
-                            return;
-                        }
-
-                        // VALIDACIÓN DE DUPLICADOS (Idempotencia)
-                        const key = `${anim.id}|${fecha}|${peso}`;
-                        if (setDuplicados.has(key)) {
-                            omitidosDuplicados++;
-                            return;
-                        }
-
-                        // Evitar duplicados dentro del mismo archivo (Intra-CSV)
-                        setDuplicados.add(key);
-
-                        const etapaCSV = row.etapa?.toString().toLowerCase().trim();
-                        let etapaFinal = (etapaCSV === 'cria' || etapaCSV === 'levante' || etapaCSV === 'ceba') 
-                            ? etapaCSV 
-                            : anim.etapa;
-
-                        recordsInsert.push({
-                            id_animal: anim.id,
-                            peso,
-                            fecha,
-                            etapa: etapaFinal,
-                            id_potrero: potreroNombre ? mapPotreros.get(potreroNombre) : null
-                        });
-
-                        // Lógica de actualización de fechas de ingreso (Ingreso antiguo)
-                        if (fecha < anim.fecha_ingreso) {
-                            const actualUpdate = ingresoAActualizar.get(anim.id);
-                            if (!actualUpdate || fecha < actualUpdate.fecha) {
-                                ingresoAActualizar.set(anim.id, { fecha, peso });
-                            }
-                        }
-
-                        // Lógica de paso a ceba
-                        if (etapaFinal === 'ceba') {
-                            const fechaDB = anim.fecha_ingreso_ceba;
-                            const actualBuffer = cebaUpdates.get(anim.id);
-                            if (!fechaDB || fecha < fechaDB) {
-                                if (!actualBuffer || fecha < actualBuffer.fecha) {
-                                    cebaUpdates.set(anim.id, { fecha, peso });
-                                }
-                            }
-                        }
-                    });
-
-                    if (recordsInsert.length === 0 && omitidosDuplicados === 0) {
-                        throw new Error("El archivo no contenía datos válidos.");
-                    }
-
-                    // 4. Ejecutar actualizaciones de animales (Ingreso y Ceba) - MEJORA: AHORA EN BATCH
-                    let animalesIngresoActualizados = 0;
-                    if (ingresoAActualizar.size > 0 || cebaUpdates.size > 0) {
-                        const allIds = Array.from(new Set([...ingresoAActualizar.keys(), ...cebaUpdates.keys()]));
-                        animalesIngresoActualizados = allIds.length;
-                        
-                        // Procesar actualizaciones en lotes de 100 para ser ultra seguros
-                        for (let i = 0; i < allIds.length; i += 100) {
-                            const batchIds = allIds.slice(i, i + 100);
-                            const updatePromises = batchIds.map(id => {
-                                const ingreso = ingresoAActualizar.get(id);
-                                const ceba = cebaUpdates.get(id);
-                                const up: any = {};
-                                if (ingreso) {
-                                    up.fecha_ingreso = ingreso.fecha;
-                                    up.peso_ingreso = ingreso.peso;
-                                }
-                                if (ceba) {
-                                    up.etapa = 'ceba';
-                                    up.ok_ceba = true;
-                                    up.fecha_ingreso_ceba = ceba.fecha;
-                                    up.peso_ingreso_ceba = ceba.peso;
-                                }
-                                return supabase
-                                    .from('animales')
-                                    .update(up)
-                                    .eq('id', id);
-                            });
-
-                            const results = await Promise.all(updatePromises);
-                            const errors = results.filter(r => r.error);
-                            if (errors.length > 0) {
-                                console.error("Error al actualizar animales durante la recalibración:", errors);
-                            }
-                            setImportProgress({ current: i + batchIds.length, total: allIds.length });
-                        }
-                    }
-
-                    // 5. Insertar los nuevos pesajes - MEJORA: AHORA EN BATCH DE 200
-                    let pesajesInsertados = 0;
-                    if (recordsInsert.length > 0) {
-                        let idCargaMasiva: string | null = null;
-                        try {
-                            const userResp = await supabase.auth.getUser();
-                            const { data: cargaReg, error: errCarga } = await supabase
-                                .from('cargas_masivas')
-                                .insert({
-                                    id_finca: fincaId,
-                                    usuario_id: userResp.data.user?.id,
-                                    tipo: 'pesajes',
-                                    nombre_archivo: file.name,
-                                    total_registros: recordsInsert.length,
-                                    fecha_carga: getLocalIsoDate(),
-                                    estado: 'activa'
-                                })
-                                .select('id')
-                                .single();
-                            if (!errCarga && cargaReg) {
-                                idCargaMasiva = cargaReg.id;
-                            }
-                        } catch (eCarga) {
-                            console.warn("No se pudo registrar en cargas_masivas:", eCarga);
-                        }
-
-                        if (idCargaMasiva) {
-                            recordsInsert.forEach((r: any) => {
-                                r.id_carga_masiva = idCargaMasiva;
-                            });
-                        }
-
-                        for (let i = 0; i < recordsInsert.length; i += 200) {
-                            const batch = recordsInsert.slice(i, i + 200);
-                            const { error: insertError } = await supabase.from('registros_pesaje').insert(batch);
-                            if (insertError) throw insertError;
-                            pesajesInsertados += batch.length;
-                            setImportProgress({ current: i + batch.length, total: recordsInsert.length });
-                        }
-
-                        // Recalcular en cascada las ganancias para los animales pesados (Ultra rápido en PostgreSQL)
-                        const animalesPesados = Array.from(new Set(recordsInsert.map((r: any) => r.id_animal).filter(Boolean))) as string[];
-                        if (animalesPesados.length > 0) {
-                            const { error: rpcErr } = await supabase.rpc('recalcular_historial_pesajes_animales', { p_id_animales: animalesPesados });
-                            if (rpcErr) {
-                                for (const aId of animalesPesados) {
-                                    await recalcularHistorialPesajesAnimal(aId, supabase);
-                                }
-                            }
-                        }
-
-                        await fetchCargasMasivasHoy();
-                    }
-
-                    // 6. Mensaje de éxito detallado
-                    let msg = `¡Carga estricta completada!`;
-                    const resultados = [];
-                    if (pesajesInsertados > 0) resultados.push(`se registraron ${pesajesInsertados} pesajes`);
-                    if (omitidosDuplicados > 0) resultados.push(`se omitieron ${omitidosDuplicados} duplicados`);
-                    if (omitidosNoExistentes.length > 0) resultados.push(`se ignoraron registros de ${omitidosNoExistentes.length} animales que no existen`);
-                    
-                    if (resultados.length > 0) {
-                        msg += ` Resultados: ${resultados.join(', ')}.`;
-                    }
-                    if (animalesIngresoActualizados > 0) {
-                        msg += ` Además, se recalibró el ingreso de ${animalesIngresoActualizados} animales.`;
-                    }
-
-                    // Reporte detallado para pesajes
-                    setReporteCarga({
-                        tipo: 'pesajes',
-                        creados: pesajesInsertados,
-                        actualizados: animalesIngresoActualizados,
-                        omitidos: omitidosDuplicados + omitidosNoExistentes.length,
-                        omitidosList: omitidosNoExistentes // Mostramos los animales que faltan en el inventario
-                    });
-
-                    if (errores.length > 0) {
-                        await showAlert(`Inconsistencias omitidas:\n${errores.join('\n')}`, {
-                            title: 'Inconsistencias omitidas',
-                            variant: 'warning',
-                            confirmLabel: 'Continuar',
-                        });
-                    }
-                    setExitoModalMessage(msg);
-                } catch (err: any) {
-                    await showAlert(err.message || 'Error procesando el archivo CSV.', {
-                        title: 'Error en la Carga',
-                        variant: 'error',
-                        confirmLabel: 'Corregir Archivo',
-                    });
-                } finally {
-                    setLoading(false);
-                    e.target.value = '';
-                }
-            }
-        });
-    };
-
-    const handleBulkRotacionesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !fincaId) return;
-
-        setLoading(true);
-        setInlineStatus(null);
-
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: async (results: any) => {
-                try {
-                    const headers = results.meta.fields || [];
-                    const required = ['nombre_rotacion', 'nombre_potrero', 'area_hectareas'];
-                    const isInventoryFile = headers.includes('peso_ingreso') || headers.includes('numero_chapeta');
-                    const isWeighingFile = headers.includes('peso') && !headers.includes('area_hectareas');
-
-                    if (isInventoryFile) {
-                        throw new Error('¡Atención! Parece que está intentando subir un archivo de INVENTARIO en la sección de ROTACIONES.');
-                    }
-                    if (isWeighingFile) {
-                        throw new Error('¡Atención! Parece que está intentando subir un archivo de PESAJES en la sección de ROTACIONES.');
-                    }
-
-                    const missing = required.filter(h => !headers.includes(h));
-                    if (missing.length > 0) {
-                        throw new Error(`El archivo no corresponde a la plantilla de Rotaciones y Potreros. Faltan columnas: ${missing.join(', ')}`);
-                    }
-
-                    // 1. Obtener datos existentes
-                    const { data: exRot } = await supabase.from('rotaciones').select('id, nombre').eq('id_finca', fincaId);
-                    const { data: exPot } = await supabase.from('potreros').select('id, nombre, id_rotacion').eq('id_finca', fincaId);
-
-                    const mapRotaciones = new Map(exRot?.map((r: any) => [r.nombre.toLowerCase().trim(), r.id]));
-                    const mapPotreros = new Map<string, { id: string; id_rotacion: string | null }>(exPot?.map((p: any) => [p.nombre.toLowerCase().trim(), { id: p.id, id_rotacion: p.id_rotacion }]));
-
-                    // 2. Identificar rotaciones nuevas
-                    const rotacionesNuevas = new Map<string, string>(); // nombre_lower -> original
-                    (results.data as any[]).forEach((row: any) => {
-                        const rotName = row.nombre_rotacion?.toString().trim();
-                        if (rotName && !mapRotaciones.has(rotName.toLowerCase())) {
-                            rotacionesNuevas.set(rotName.toLowerCase(), rotName);
-                        }
-                    });
-
-                    if (rotacionesNuevas.size > 0) {
-                        const inserts = Array.from(rotacionesNuevas.values()).map(nombre => ({
-                            id_finca: fincaId,
-                            nombre: nombre
-                        }));
-                        const { data: creadas, error: rotErr } = await supabase.from('rotaciones').insert(inserts).select();
-                        if (rotErr) throw rotErr;
-                        creadas?.forEach((r: any) => mapRotaciones.set(r.nombre.toLowerCase().trim(), r.id));
-                    }
-
-                    // 3. Procesar potreros
-                    const recordsPotreros: any[] = [];
-                    let updatesPotrerosCnt = 0;
-
-                    for (const row of results.data as any[]) {
-                        const potName = row.nombre_potrero?.toString().trim();
-                        const rotName = row.nombre_rotacion?.toString().trim();
-                        const area = parseDecimalInput(row.area_hectareas) || 0;
-                        const diasBase = parseInt(row.dias_ocupacion_base) || 1;
-                        const rotId = rotName ? mapRotaciones.get(rotName.toLowerCase()) : null;
-
-                        if (!potName) continue;
-
-                        const existingPot = mapPotreros.get(potName.toLowerCase());
-                        if (existingPot) {
-                            // Si el potrero ya existe, actualizamos su área. 
-                            // Y solo cambiamos la rotación si se proporcionó una nueva.
-                            const updateData: any = { area_hectareas: area, dias_ocupacion_base: diasBase };
-                            if (rotId) {
-                                updateData.id_rotacion = rotId;
-                            }
-                            
-                            const { error: potUpdErr } = await supabase
-                                .from('potreros')
-                                .update(updateData)
-                                .eq('id', existingPot.id);
-                            if (potUpdErr) throw potUpdErr;
-                            updatesPotrerosCnt++;
-                        } else {
-                            recordsPotreros.push({
-                                id_finca: fincaId,
-                                nombre: potName,
-                                area_hectareas: area,
-                                id_rotacion: rotId,
-                                dias_ocupacion_base: diasBase
-                            });
-                        }
-                    }
-
-                    if (recordsPotreros.length > 0) {
-                        const { error: potInsErr } = await supabase.from('potreros').insert(recordsPotreros);
-                        if (potInsErr) throw potInsErr;
-                    }
-
-                    await showAlert(
-                        `¡Carga exitosa! Se crearon ${recordsPotreros.length} potreros nuevos y se actualizaron ${updatesPotrerosCnt} existentes.`,
-                        { title: '¡Importación Finalizada!', variant: 'success', confirmLabel: 'Aceptar' }
-                    );
-                } catch (err: any) {
-                    await showAlert(err.message || 'Error procesando el archivo CSV.', {
-                        title: 'Error en la Carga',
-                        variant: 'error',
-                        confirmLabel: 'Corregir Archivo',
-                    });
-                } finally {
-                    setLoading(false);
-                    if (e.target) e.target.value = '';
-                }
-            }
-        });
     };
 
     const sectionCards = [
@@ -1707,7 +342,7 @@ export default function Settings() {
                     {reporteCarga && (
                         <div style={{ textAlign: 'left', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid var(--border-subtle)' }}>
                             <h3 style={{ color: 'var(--primary-light)', marginTop: 0, marginBottom: '14px', fontSize: '0.88rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Resumen de Operación</h3>
-                            
+
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ color: 'var(--text-main)', fontSize: '1.35rem', fontWeight: 'bold' }}>{reporteCarga.creados}</div>
@@ -1728,12 +363,12 @@ export default function Settings() {
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '8px' }}>
                                         Chapetas omitidas (por duplicidad):
                                     </div>
-                                    <div style={{ 
+                                    <div style={{
                                         backgroundColor: 'var(--error-soft-bg)',
                                         border: '1px solid var(--error-soft-border)',
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
-                                        fontSize: '0.85rem', 
+                                        padding: '10px',
+                                        borderRadius: '8px',
+                                        fontSize: '0.85rem',
                                         color: 'var(--error)',
                                         maxHeight: '100px',
                                         overflowY: 'auto',
@@ -1834,7 +469,6 @@ export default function Settings() {
 
                 {/* Contenido de las Secciones */}
                 <div ref={sectionPanelRef} className="settings-section-anchor" style={{ position: 'relative' }}>
-                    {/* Seguridad (Disponible para todos los roles) */}
                     {isSeguridadOpen && (
                         <section id="settings-panel-seguridad" aria-labelledby="settings-heading-seguridad" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
                             <h2 id="settings-heading-seguridad" className="settings-section-heading">
@@ -1910,8 +544,6 @@ export default function Settings() {
 
                     {canManageFarm && (
                         <>
-
-                            {/* Datos Técnicos y Parámetros */}
                             {!collapsed.datosTecnicos && (
                                 <section id="settings-panel-datosTecnicos" aria-labelledby="settings-heading-parametros" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
                                     <h2 id="settings-heading-parametros" className="settings-section-heading">
@@ -1974,8 +606,8 @@ export default function Settings() {
                                                             type="text"
                                                             inputMode="numeric"
                                                             enterKeyHint="next"
-                                                            value={formatNumber(farmInfo.precio_compra_promedio)}
-                                                            onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: unformatNumber(e.target.value) })}
+                                                            value={formatMilesNumber(farmInfo.precio_compra_promedio)}
+                                                            onChange={e => setFarmInfo({ ...farmInfo, precio_compra_promedio: unformatMilesNumber(e.target.value) })}
                                                             style={{ paddingLeft: '32px' }}
                                                         />
                                                     </div>
@@ -1990,8 +622,8 @@ export default function Settings() {
                                                             type="text"
                                                             inputMode="numeric"
                                                             enterKeyHint="next"
-                                                            value={formatNumber(farmInfo.precio_venta_promedio)}
-                                                            onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: unformatNumber(e.target.value) })}
+                                                            value={formatMilesNumber(farmInfo.precio_venta_promedio)}
+                                                            onChange={e => setFarmInfo({ ...farmInfo, precio_venta_promedio: unformatMilesNumber(e.target.value) })}
                                                             style={{ paddingLeft: '32px' }}
                                                         />
                                                     </div>
@@ -2006,8 +638,8 @@ export default function Settings() {
                                                             type="text"
                                                             inputMode="numeric"
                                                             enterKeyHint="next"
-                                                            value={formatNumber(farmInfo.costo_mensual_animal)}
-                                                            onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: unformatNumber(e.target.value) })}
+                                                            value={formatMilesNumber(farmInfo.costo_mensual_animal)}
+                                                            onChange={e => setFarmInfo({ ...farmInfo, costo_mensual_animal: unformatMilesNumber(e.target.value) })}
                                                             style={{ paddingLeft: '32px' }}
                                                         />
                                                     </div>
@@ -2015,7 +647,6 @@ export default function Settings() {
                                             </div>
                                         </fieldset>
 
-                                        {/* % Participación de utilidad — dos campos simples en grilla */}
                                         <fieldset className="settings-fieldset">
                                             <legend className="settings-legend">Participación de Utilidad</legend>
                                             <div className="settings-form-grid">
@@ -2055,12 +686,11 @@ export default function Settings() {
                                             </div>
                                         </fieldset>
 
-                                        {/* KPI Dinámico de Punto de Equilibrio */}
-                                        <div style={{ 
-                                            background: 'var(--primary-soft-bg)', 
-                                            border: '1px solid var(--primary-soft-border)', 
-                                            borderRadius: '12px', 
-                                            padding: '18px', 
+                                        <div style={{
+                                            background: 'var(--primary-soft-bg)',
+                                            border: '1px solid var(--primary-soft-border)',
+                                            borderRadius: '12px',
+                                            padding: '18px',
                                             marginBottom: '24px',
                                             display: 'flex',
                                             flexDirection: 'column',
@@ -2090,7 +720,6 @@ export default function Settings() {
                                             </p>
                                         </div>
 
-                                        {/* Rangos de Peso para Dashboard y Despachos */}
                                         <fieldset className="settings-subcard" style={{ borderStyle: 'solid' }}>
                                             <legend className="settings-legend" style={{ marginBottom: '8px', paddingInline: '6px' }}>Rangos de Peso (Dashboard y Despachos)</legend>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
@@ -2099,7 +728,7 @@ export default function Settings() {
                                                     Cortes de Peso de la Finca
                                                 </h3>
                                             </div>
-                                            
+
                                             <p className="settings-helper-text" style={{ marginTop: 0, marginBottom: '16px' }}>
                                                 Selecciona el modelo productivo o personaliza los cortes de peso. La tabla del Dashboard y las alertas de despacho se ajustarán automáticamente.
                                             </p>
@@ -2152,10 +781,10 @@ export default function Settings() {
                                                         value={farmInfo.corte_peso_1}
                                                         onChange={(e) => {
                                                             const val = e.target.value;
-                                                            const p = PRESETS_RANGOS_PESO.find(item => 
+                                                            const p = PRESETS_RANGOS_PESO.find(item =>
                                                                 item.id !== 'personalizado' &&
-                                                                item.corte1.toString() === val && 
-                                                                item.corte2.toString() === farmInfo.corte_peso_2 && 
+                                                                item.corte1.toString() === val &&
+                                                                item.corte2.toString() === farmInfo.corte_peso_2 &&
                                                                 item.corte3.toString() === farmInfo.corte_peso_3
                                                             );
                                                             setFarmInfo({
@@ -2180,10 +809,10 @@ export default function Settings() {
                                                         value={farmInfo.corte_peso_2}
                                                         onChange={(e) => {
                                                             const val = e.target.value;
-                                                            const p = PRESETS_RANGOS_PESO.find(item => 
+                                                            const p = PRESETS_RANGOS_PESO.find(item =>
                                                                 item.id !== 'personalizado' &&
-                                                                item.corte1.toString() === farmInfo.corte_peso_1 && 
-                                                                item.corte2.toString() === val && 
+                                                                item.corte1.toString() === farmInfo.corte_peso_1 &&
+                                                                item.corte2.toString() === val &&
                                                                 item.corte3.toString() === farmInfo.corte_peso_3
                                                             );
                                                             setFarmInfo({
@@ -2210,10 +839,10 @@ export default function Settings() {
                                                         value={farmInfo.corte_peso_3}
                                                         onChange={(e) => {
                                                             const val = e.target.value;
-                                                            const p = PRESETS_RANGOS_PESO.find(item => 
+                                                            const p = PRESETS_RANGOS_PESO.find(item =>
                                                                 item.id !== 'personalizado' &&
-                                                                item.corte1.toString() === farmInfo.corte_peso_1 && 
-                                                                item.corte2.toString() === farmInfo.corte_peso_2 && 
+                                                                item.corte1.toString() === farmInfo.corte_peso_1 &&
+                                                                item.corte2.toString() === farmInfo.corte_peso_2 &&
                                                                 item.corte3.toString() === val
                                                             );
                                                             setFarmInfo({
@@ -2227,7 +856,6 @@ export default function Settings() {
                                                 </div>
                                             </div>
 
-                                            {/* Vista previa de cómo se verá la tabla */}
                                             <div style={{ background: 'var(--surface-inset)', borderRadius: '8px', padding: '12px', border: '1px solid var(--border-subtle)' }}>
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                                     Vista Previa en Dashboard:
@@ -2256,7 +884,6 @@ export default function Settings() {
                                         <fieldset className="settings-fieldset" style={{ marginBottom: 0 }}>
                                             <legend className="settings-legend">Umbrales (Semáforo {getModoLabel(modoLocal)})</legend>
 
-                                            {/* Toggle GDP / GMP */}
                                             <div className="settings-unidad-row">
                                                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Unidad de ganancia:</span>
                                                 <div className="settings-unidad-toggle" role="group" aria-label="Unidad de ganancia">
@@ -2303,390 +930,47 @@ export default function Settings() {
                                         </div>
                                     </form>
 
-                                    {/* Estaciones / Pluviómetros de la Finca */}
-                                    <div className="settings-pluv-section">
-                                        {renderInlineStatus('pluviometros')}
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                                            <h3 style={{ color: 'var(--text-main)', margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <CloudRain size={18} color="var(--info)" aria-hidden="true" />
-                                                Pluviómetros de la Finca
-                                            </h3>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--info)', background: 'var(--info-soft-bg)', padding: '3px 10px', borderRadius: '12px', border: '1px solid var(--info-soft-border)' }}>
-                                                {pluviometros.filter(p => p.activo).length <= 1
-                                                    ? 'Modo Estándar (1 pluviómetro)'
-                                                    : `Multi-pluviómetro (${pluviometros.filter(p => p.activo).length} activos · Promedio Finca)`}
-                                            </span>
-                                        </div>
-                                        <p className="settings-helper-text" style={{ marginBottom: '16px' }}>
-                                            Cada cambio aquí se guarda al instante (es independiente de Guardar Información). Si manejas 2 o más pluviómetros, agrégalos abajo y la app calculará el <strong style={{ color: 'var(--text-main)' }}>promedio diario de la finca</strong> sin alterar registros anteriores.
-                                        </p>
-
-                                        <form onSubmit={handleAddPluviometro} className="settings-pluv-form">
-                                            <div className="settings-field">
-                                                <label htmlFor="settings-pluv-nombre" style={{ fontSize: '0.8rem' }}>Nombre del Pluviómetro</label>
-                                                <input
-                                                    id="settings-pluv-nombre"
-                                                    name="pluv_nombre"
-                                                    type="text"
-                                                    enterKeyHint="done"
-                                                    placeholder="Ej: Casa Principal o Potrero Alto"
-                                                    value={nuevoPluvNombre}
-                                                    onChange={e => setNuevoPluvNombre(e.target.value)}
-                                                    style={{ marginBottom: 0 }}
-                                                    required
-                                                />
-                                            </div>
-                                            <div className="settings-field">
-                                                <label htmlFor="settings-pluv-modo" style={{ fontSize: '0.8rem' }}>Tipo de Medición</label>
-                                                <select
-                                                    id="settings-pluv-modo"
-                                                    name="pluv_modo"
-                                                    value={nuevoPluvModo}
-                                                    onChange={e => setNuevoPluvModo(e.target.value as TipoMedicionPluviometro)}
-                                                    style={{ marginBottom: 0 }}
-                                                >
-                                                    <option value="diaria">💧 Diaria (Probeta / Manual)</option>
-                                                    <option value="acumulada">📟 Acumulada Digital</option>
-                                                </select>
-                                            </div>
-                                            <button
-                                                type="submit"
-                                                disabled={savingPluv || !nuevoPluvNombre.trim()}
-                                                className="settings-pluv-submit"
-                                            >
-                                                <Plus size={16} aria-hidden="true" /> Agregar
-                                            </button>
-                                        </form>
-
-                                        {pluviometros.length > 0 && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                {pluviometros.map(pluv => (
-                                                    <div
-                                                        key={pluv.id}
-                                                        className="settings-pluv-row"
-                                                        style={{
-                                                            background: pluv.activo ? 'var(--surface)' : 'var(--surface-inset)',
-                                                            opacity: pluv.activo ? 1 : 0.72,
-                                                        }}
-                                                    >
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 180px', minWidth: 0 }}>
-                                                            <span style={{ fontWeight: 600, color: 'var(--text-main)', overflowWrap: 'break-word' }}>📍 {pluv.nombre}</span>
-                                                            {!pluv.activo && (
-                                                                <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
-                                                                    Inactivo
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="settings-pluv-actions">
-                                                            <select
-                                                                aria-label={`Tipo de medición para ${pluv.nombre}`}
-                                                                value={pluv.tipo_medicion}
-                                                                disabled={savingPluv}
-                                                                onChange={e => handleUpdatePluviometro(pluv.id, { tipo_medicion: e.target.value as TipoMedicionPluviometro })}
-                                                                style={{ width: 'auto', marginBottom: 0, padding: '8px 10px', fontSize: '0.82rem' }}
-                                                            >
-                                                                <option value="diaria">💧 Diaria (Manual)</option>
-                                                                <option value="acumulada">📟 Acumulada Digital</option>
-                                                            </select>
-                                                            <button
-                                                                type="button"
-                                                                disabled={savingPluv}
-                                                                aria-pressed={pluv.activo}
-                                                                onClick={() => handleUpdatePluviometro(pluv.id, { activo: !pluv.activo })}
-                                                                className="settings-pluv-status-btn"
-                                                                style={{
-                                                                    background: pluv.activo ? 'var(--success-soft-bg)' : 'var(--surface-subtle)',
-                                                                    border: `1px solid ${pluv.activo ? 'var(--success-soft-border)' : 'var(--border-strong)'}`,
-                                                                    color: pluv.activo ? 'var(--success)' : 'var(--text-muted)',
-                                                                }}
-                                                            >
-                                                                {pluv.activo ? 'Activo' : 'Activar'}
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                disabled={savingPluv}
-                                                                onClick={() => handleRemovePluviometro(pluv)}
-                                                                aria-label={`Eliminar o desactivar pluviómetro ${pluv.nombre}`}
-                                                                className="settings-icon-danger-btn"
-                                                            >
-                                                                <Trash2 size={18} aria-hidden="true" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                    <SettingsPluviometrosSection
+                                        fincaId={fincaId}
+                                        renderInlineStatus={renderInlineStatus}
+                                        onFeedback={showSectionFeedback}
+                                        onClearInlineStatus={() => setInlineStatus(null)}
+                                    />
                                 </section>
                             )}
 
-                            {/* Gestión de Personal */}
                             {!collapsed.usuarios && (
-                                <section id="settings-panel-usuarios" aria-labelledby="settings-heading-usuarios" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h2 id="settings-heading-usuarios" className="settings-section-heading">
-                                        <Users size={20} color="var(--primary)" aria-hidden="true" /> Gestión de Personal
-                                    </h2>
-                                    <form onSubmit={handleCreateUser} aria-labelledby="settings-heading-usuarios">
-                                        <div className="settings-form-grid-wide" style={{ marginBottom: '20px' }}>
-                                            <div className="settings-field" style={{ gridColumn: '1 / -1' }}>
-                                                <label htmlFor="settings-new-user-email">Correo Electrónico</label>
-                                                <input id="settings-new-user-email" name="new_user_email" type="email" autoComplete="email" autoCorrect="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" placeholder="trabajador@finca.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} required />
-                                            </div>
-                                            <div className="settings-field">
-                                                <label htmlFor="settings-new-user-nombre">Nombre</label>
-                                                <input id="settings-new-user-nombre" name="new_user_nombre" type="text" autoComplete="given-name" enterKeyHint="next" placeholder="Ej: Juan" value={newUserNombre} onChange={(e) => setNewUserNombre(e.target.value)} required />
-                                            </div>
-                                            <div className="settings-field">
-                                                <label htmlFor="settings-new-user-apellido">Apellido</label>
-                                                <input id="settings-new-user-apellido" name="new_user_apellido" type="text" autoComplete="family-name" enterKeyHint="next" placeholder="Ej: Pérez" value={newUserApellido} onChange={(e) => setNewUserApellido(e.target.value)} required />
-                                            </div>
-                                            <div className="settings-field">
-                                                <label htmlFor="settings-new-user-pass">Contraseña Temporal</label>
-                                                <input id="settings-new-user-pass" name="new_user_pass" type="text" autoCorrect="off" autoCapitalize="none" spellCheck={false} enterKeyHint="next" aria-describedby="settings-user-pass-hint" value={newUserPass} onChange={(e) => setNewUserPass(e.target.value)} required />
-                                                <span id="settings-user-pass-hint" style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginTop: '-12px', marginBottom: '8px' }}>
-                                                    ✉️ Se enviará automáticamente al correo junto con la guía de instalación.
-                                                </span>
-                                            </div>
-                                            <div className="settings-field">
-                                                <label htmlFor="settings-new-user-role">Perfil / Rol</label>
-                                                <select id="settings-new-user-role" name="new_user_role" value={newUserRole} onChange={(e) => setNewUserRole(e.target.value as 'vaquero' | 'observador')}>
-                                                    <option value="vaquero">Trabajador / Vaquero</option>
-                                                    <option value="observador">Visualizador / Observador</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <fieldset className="settings-fieldset" style={{ marginBottom: '20px' }}>
-                                            <legend className="settings-legend" style={{ marginBottom: '10px' }}>Asignar a Fincas:</legend>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 180px), 1fr))', gap: '10px', padding: '14px', backgroundColor: 'var(--surface-inset)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
-                                                {fincasAdmin.map((f: any) => {
-                                                    const isSelected = selectedFincas.includes(f.id_finca);
-                                                    return (
-                                                        <button
-                                                            key={f.id_finca}
-                                                            type="button"
-                                                            aria-pressed={isSelected}
-                                                            onClick={() => toggleFincaSelection(f.id_finca)}
-                                                            className="settings-finca-option"
-                                                            style={{
-                                                                backgroundColor: isSelected ? 'var(--primary-soft-bg)' : 'var(--surface)',
-                                                                color: 'var(--text-main)',
-                                                                border: '1px solid',
-                                                                borderColor: isSelected ? 'var(--primary)' : 'var(--border-subtle)'
-                                                            }}
-                                                        >
-                                                            {isSelected ? <CheckSquare size={18} color="var(--primary)" aria-hidden="true" /> : <Square size={18} color="var(--text-muted)" aria-hidden="true" />}
-                                                            <span style={{ fontSize: '0.88rem' }}>{f.nombre_finca}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </fieldset>
-                                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)', opacity: loading ? 0.65 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
-                                            <UserPlus size={18} aria-hidden="true" /> {loading ? 'Creando Usuario...' : 'Crear Usuario'}
-                                        </button>
-                                        {userFormMsg && (
-                                            <div role={userFormMsg.type === 'error' ? 'alert' : 'status'} style={{
-                                                marginTop: '16px',
-                                                padding: '14px 16px',
-                                                borderRadius: '10px',
-                                                fontSize: '0.9rem',
-                                                fontWeight: 600,
-                                                backgroundColor: userFormMsg.type === 'success' ? 'var(--success-soft-bg)' : 'var(--error-soft-bg)',
-                                                border: `1px solid ${userFormMsg.type === 'success' ? 'var(--success-soft-border)' : 'var(--error-soft-border)'}`,
-                                                color: userFormMsg.type === 'success' ? 'var(--success)' : 'var(--error)'
-                                            }}>
-                                                {userFormMsg.text}
-                                            </div>
-                                        )}
-                                    </form>
-                                </section>
+                                <SettingsUsersSection
+                                    fincaId={fincaId}
+                                    fincasAdmin={fincasAdmin}
+                                    loading={loading}
+                                    onSetLoading={setLoading}
+                                />
                             )}
 
-                            {/* Contactos de Negocio */}
                             {!collapsed.contactosNegocio && (
-                                <section id="settings-panel-contactosNegocio" aria-labelledby="settings-heading-negocios" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h2 id="settings-heading-negocios" className="settings-section-heading">
-                                        <Briefcase size={20} color="var(--primary)" aria-hidden="true" /> Contactos de Negocios
-                                    </h2>
-                                    {renderInlineStatus('contactosNegocio')}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-                                        <div>
-                                            <h3 style={{ color: 'var(--primary-light)', marginTop: 0, marginBottom: '12px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={16} aria-hidden="true" /> Propietarios</h3>
-                                            <form onSubmit={handleAddPropietario} className="settings-inline-add-form">
-                                                <label htmlFor="settings-nuevo-propietario" className="settings-visually-hidden">Nombre de nuevo propietario</label>
-                                                <input id="settings-nuevo-propietario" name="nuevo_propietario" type="text" enterKeyHint="done" placeholder="Nuevo Propietario" value={nuevoPropietario} onChange={e => setNuevoPropietario(e.target.value)} />
-                                                <button type="submit" className="settings-inline-add-btn" disabled={loading} aria-label="Agregar propietario">
-                                                    <Plus size={20} aria-hidden="true" />
-                                                </button>
-                                            </form>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 210px), 1fr))', gap: '10px' }}>
-                                                {propietarios.map(p => (
-                                                    <div key={p.id} className="settings-contact-chip">
-                                                        <span className="settings-contact-name">{p.nombre}</span>
-                                                        <button
-                                                            type="button"
-                                                            className="settings-icon-danger-btn"
-                                                            onClick={() => removePropietario(p.id, p.nombre)}
-                                                            aria-label={`Eliminar propietario ${p.nombre}`}
-                                                        >
-                                                            <Trash2 size={18} aria-hidden="true" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div className="settings-form-grid-wide" style={{ gap: '24px' }}>
-                                            <div>
-                                                <h3 style={{ color: 'var(--primary-light)', marginTop: 0, marginBottom: '12px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><Truck size={16} aria-hidden="true" /> Proveedores</h3>
-                                                <form onSubmit={handleAddProveedor} className="settings-inline-add-form">
-                                                    <label htmlFor="settings-nuevo-proveedor" className="settings-visually-hidden">Nombre de nuevo proveedor</label>
-                                                    <input id="settings-nuevo-proveedor" name="nuevo_proveedor" type="text" enterKeyHint="done" placeholder="Nuevo Proveedor" value={nuevoProveedor} onChange={e => setNuevoProveedor(e.target.value)} />
-                                                    <button type="submit" className="settings-inline-add-btn" disabled={loading} aria-label="Agregar proveedor">
-                                                        <Plus size={20} aria-hidden="true" />
-                                                    </button>
-                                                </form>
-                                                {proveedores.map(p => (
-                                                    <div key={p.id} className="settings-contact-list-row">
-                                                        <span className="settings-contact-name">{p.nombre}</span>
-                                                        <button
-                                                            type="button"
-                                                            className="settings-icon-danger-btn"
-                                                            onClick={() => removeProveedor(p.id, p.nombre)}
-                                                            aria-label={`Eliminar proveedor ${p.nombre}`}
-                                                        >
-                                                            <Trash2 size={18} aria-hidden="true" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div>
-                                                <h3 style={{ color: 'var(--primary-light)', marginTop: 0, marginBottom: '12px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><ShoppingCart size={16} aria-hidden="true" /> Compradores</h3>
-                                                <form onSubmit={handleAddComprador} className="settings-inline-add-form">
-                                                    <label htmlFor="settings-nuevo-comprador" className="settings-visually-hidden">Nombre de nuevo comprador</label>
-                                                    <input id="settings-nuevo-comprador" name="nuevo_comprador" type="text" enterKeyHint="done" placeholder="Nuevo Comprador" value={nuevoComprador} onChange={e => setNuevoComprador(e.target.value)} />
-                                                    <button type="submit" className="settings-inline-add-btn" disabled={loading} aria-label="Agregar comprador">
-                                                        <Plus size={20} aria-hidden="true" />
-                                                    </button>
-                                                </form>
-                                                {compradores.map(c => (
-                                                    <div key={c.id} className="settings-contact-list-row">
-                                                        <span className="settings-contact-name">{c.nombre}</span>
-                                                        <button
-                                                            type="button"
-                                                            className="settings-icon-danger-btn"
-                                                            onClick={() => removeComprador(c.id, c.nombre)}
-                                                            aria-label={`Eliminar comprador ${c.nombre}`}
-                                                        >
-                                                            <Trash2 size={18} aria-hidden="true" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
+                                <SettingsBusinessListsSection
+                                    fincaId={fincaId}
+                                    loading={loading}
+                                    onSetLoading={setLoading}
+                                    renderInlineStatus={renderInlineStatus}
+                                    onFeedback={showSectionFeedback}
+                                    onClearInlineStatus={() => setInlineStatus(null)}
+                                />
                             )}
 
-                            {/* Cargas Masivas */}
                             {!collapsed.cargasMasivas && (
-                                <section id="settings-panel-cargasMasivas" aria-labelledby="settings-heading-cargas" className="card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                                    <h2 id="settings-heading-cargas" className="settings-section-heading">
-                                        <Upload size={20} color="var(--primary)" aria-hidden="true" /> Carga Masiva (CSV)
-                                    </h2>
-                                    <div className="settings-form-grid">
-                                        <div style={{ padding: '18px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-                                            <FileText size={24} color="var(--primary)" aria-hidden="true" />
-                                            <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Inventario</h3>
-                                            <button type="button" onClick={() => document.getElementById('bulkAnimalSettings')?.click()} style={{ width: '100%' }}>Subir CSV</button>
-                                            <a href="/plantilla_animales.csv" download className="settings-plantilla-link">Descargar Plantilla</a>
-                                            <input type="file" id="bulkAnimalSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkAnimalUpload} />
-                                        </div>
-                                        <div style={{ padding: '18px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-                                            <Maximize size={24} color="var(--primary)" aria-hidden="true" />
-                                            <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Pesajes</h3>
-                                            <button type="button" onClick={() => document.getElementById('bulkPesajeSettings')?.click()} style={{ width: '100%' }}>Subir CSV</button>
-                                            <a href="/plantilla_pesajes.csv" download className="settings-plantilla-link">Descargar Plantilla</a>
-                                            <input type="file" id="bulkPesajeSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkPesajeUpload} />
-                                        </div>
-                                        <div style={{ padding: '18px', backgroundColor: 'var(--surface-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-                                            <Upload size={24} color="var(--primary)" aria-hidden="true" />
-                                            <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Rotaciones</h3>
-                                            <button type="button" onClick={() => document.getElementById('bulkRotacionSettings')?.click()} style={{ width: '100%' }}>Subir CSV</button>
-                                            <a href="/plantilla_rotaciones_potreros.csv" download className="settings-plantilla-link">Descargar Plantilla</a>
-                                            <input type="file" id="bulkRotacionSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkRotacionesUpload} />
-                                        </div>
-                                    </div>
-
-                                    {/* Tabla de Cargas Masivas de Hoy */}
-                                    <div style={{ marginTop: '28px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                            <h3 id="cargas-hoy-heading" style={{ fontSize: '1rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                                                <span>Cargas Masivas Realizadas Hoy</span>
-                                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
-                                                    {cargasMasivasHoy.length}
-                                                </span>
-                                            </h3>
-                                        </div>
-                                        <p className="settings-helper-text" style={{ marginBottom: '14px' }}>
-                                            Si cometiste un error al cargar datos hoy, puedes revertir la carga. Esta opción está disponible únicamente durante el día de la carga (a medianoche se cierra por seguridad).
-                                        </p>
-                                        {cargasMasivasHoy.length === 0 ? (
-                                            <div style={{ padding: '18px', textAlign: 'center', backgroundColor: 'var(--surface-inset)', borderRadius: '8px', border: '1px dashed var(--border-strong)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                                No se han realizado cargas masivas el día de hoy.
-                                            </div>
-                                        ) : (
-                                            <div tabIndex={0} role="region" aria-labelledby="cargas-hoy-heading" className="settings-table-wrapper">
-                                                <table>
-                                                    <thead>
-                                                        <tr>
-                                                            <th scope="col">Tipo</th>
-                                                            <th scope="col">Archivo</th>
-                                                            <th scope="col">Registros</th>
-                                                            <th scope="col">Hora</th>
-                                                            <th scope="col" style={{ textAlign: 'right' }}>Deshacer</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {cargasMasivasHoy.map(c => (
-                                                            <tr key={c.id}>
-                                                                <td data-label="Tipo">
-                                                                    <span style={{
-                                                                        padding: '3px 8px',
-                                                                        borderRadius: '6px',
-                                                                        fontSize: '0.75rem',
-                                                                        fontWeight: 'bold',
-                                                                        backgroundColor: c.tipo === 'animales' ? 'var(--success-soft-bg)' : 'var(--info-soft-bg)',
-                                                                        color: c.tipo === 'animales' ? 'var(--success)' : 'var(--info)',
-                                                                        border: `1px solid ${c.tipo === 'animales' ? 'var(--success-soft-border)' : 'var(--info-soft-border)'}`
-                                                                    }}>
-                                                                        {c.tipo === 'animales' ? 'Inventario' : 'Pesajes'}
-                                                                    </span>
-                                                                </td>
-                                                                <td data-label="Archivo" style={{ fontWeight: '500', overflowWrap: 'anywhere' }}>{c.nombre_archivo || 'Archivo CSV'}</td>
-                                                                <td data-label="Registros">{c.total_registros}</td>
-                                                                <td data-label="Hora" style={{ color: 'var(--text-muted)' }}>
-                                                                    {new Date(c.creado_en).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                </td>
-                                                                <td className="settings-table-actions" style={{ textAlign: 'right' }}>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleRevertirCargaMasiva(c)}
-                                                                        aria-label={`Deshacer carga masiva ${c.nombre_archivo || 'Archivo CSV'}`}
-                                                                        className="settings-revert-btn"
-                                                                    >
-                                                                        <Trash2 size={16} aria-hidden="true" />
-                                                                        <span>Deshacer</span>
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </div>
-                                </section>
+                                <SettingsBulkUploadSection
+                                    fincaId={fincaId}
+                                    onSetLoading={setLoading}
+                                    onSetImportProgress={setImportProgress}
+                                    onClearInlineStatus={() => setInlineStatus(null)}
+                                    onShowReporte={(msg, reporte) => {
+                                        setReporteCarga(reporte);
+                                        setExitoModalMessage(msg);
+                                    }}
+                                    refreshLicencia={refreshLicencia}
+                                />
                             )}
                         </>
                     )}
@@ -2702,10 +986,10 @@ export default function Settings() {
                         </div>
                         <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>Procesando...</h3>
                         <p className="mb-6" style={{ color: 'var(--text-muted)' }}>Por favor espera un momento mientras guardamos los datos.</p>
-                        
+
                         {importProgress && (
                             <div className="w-full rounded-full h-3 mb-2 overflow-hidden" style={{ backgroundColor: 'var(--border-subtle)' }}>
-                                <div 
+                                <div
                                     className="h-full transition-all duration-300 ease-out"
                                     style={{ width: `${(importProgress.current / importProgress.total) * 100}%`, backgroundColor: 'var(--primary)' }}
                                 ></div>
