@@ -11,7 +11,6 @@ import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, 
 import { format, differenceInDays } from 'date-fns';
 import { toDisplayValue, getUnidadLabel, getModoLabel, getGmpColor, resolverResumenUltimoPesaje } from '../utils/ganancia';
 import { localDB } from '../lib/db';
-import { guardarPesajeOffline } from '../lib/offlineService';
 import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Weighing.css';
@@ -260,6 +259,15 @@ export default function Weighing() {
     useEffect(() => {
         fetchPesajesHoy();
     }, [fetchPesajesHoy]);
+
+    useEffect(() => {
+        const onSyncCompleted = () => {
+            void cargarHatoEnRam();
+            void fetchPesajesHoy();
+        };
+        window.addEventListener('offline-sync-completed', onSyncCompleted);
+        return () => window.removeEventListener('offline-sync-completed', onSyncCompleted);
+    }, [cargarHatoEnRam, fetchPesajesHoy]);
 
     const buscarAnimal = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -557,85 +565,33 @@ export default function Weighing() {
         setFechaPesaje(hoyIso);
         setTimeout(() => chapetaInputRef.current?.focus(), 20);
 
-        // ── PERSISTENCIA EN SEGUNDO PLANO (INDEXEDDB + SUPABASE) ──
+        // ── PERSISTENCIA EN SEGUNDO PLANO (VÍA ÚNICA HTTP + INDEXEDDB) ──
         void (async () => {
             try {
-                // 1. Actualizar caché local de animales en el teléfono
-                const cached = await localDB.animalesCache.get(animalSnapshot.id);
-                if (cached) {
-                    const nuevosPesajes = [
-                        { peso: pesoFloat, fecha: fechaSnapshot, etapa: animalSnapshot.etapa, gdp_calculada: gdpCalculada, gmp_calculada: gdpCalculada * 30 },
-                        ...(cached.registros_pesaje || [])
-                    ];
-                    await localDB.animalesCache.update(animalSnapshot.id, {
-                        ...updateAnimalData,
-                        ultimo_peso: pesoFloat,
-                        fecha_ultimo_pesaje: fechaSnapshot,
-                        registros_pesaje: nuevosPesajes
-                    });
-                }
-
-                // 2. Si está en Modo Campo o sin señal, guardar en cola local dedicada
-                if (modoCampo || !isOnline) {
-                    if (Object.keys(updateAnimalData).length > 0) {
-                        await supabase.from('animales').update(updateAnimalData).eq('id', animalSnapshot.id);
-                    }
-                    await guardarPesajeOffline({
-                        id_finca: fincaId,
-                        id_animal: animalSnapshot.id,
-                        chapeta_ref: animalSnapshot.numero_chapeta,
-                        peso: pesoFloat,
-                        fecha: fechaSnapshot,
-                        etapa: animalSnapshot.etapa,
-                        gdp_calculada: gdpCalculada,
-                        gmp_calculada: gdpCalculada * 30
-                    });
-                    return;
-                }
-
-                // 3. Si hay señal, enviar en paralelo (no en serie) a Supabase
-                const promesas: PromiseLike<any>[] = [
-                    supabase.from('registros_pesaje').insert({
-                        id: pesajeId,
-                        id_animal: animalSnapshot.id,
-                        peso: pesoFloat,
-                        fecha: fechaSnapshot,
-                        etapa: animalSnapshot.etapa,
-                        gdp_calculada: gdpCalculada
-                    })
-                ];
-                if (Object.keys(updateAnimalData).length > 0) {
-                    promesas.push(
-                        supabase.from('animales').update(updateAnimalData).eq('id', animalSnapshot.id)
-                    );
-                }
-
-                const [{ error }] = await Promise.all(promesas);
+                const { error } = await supabase.from('registros_pesaje').insert({
+                    id: pesajeId,
+                    id_animal: animalSnapshot.id,
+                    peso: pesoFloat,
+                    fecha: fechaSnapshot,
+                    etapa: animalSnapshot.etapa,
+                    gdp_calculada: gdpCalculada,
+                    gmp_calculada: gdpCalculada * 30
+                });
                 if (error) {
-                    await guardarPesajeOffline({
-                        id_finca: fincaId,
-                        id_animal: animalSnapshot.id,
-                        chapeta_ref: animalSnapshot.numero_chapeta,
-                        peso: pesoFloat,
-                        fecha: fechaSnapshot,
-                        etapa: animalSnapshot.etapa,
-                        gdp_calculada: gdpCalculada,
-                        gmp_calculada: gdpCalculada * 30
-                    });
+                    console.warn('[Weighing] Error al guardar pesaje:', error);
                 }
-            } catch {
-                try {
-                    await guardarPesajeOffline({
-                        id_finca: fincaId,
-                        id_animal: animalSnapshot.id,
-                        chapeta_ref: animalSnapshot.numero_chapeta,
-                        peso: pesoFloat,
-                        fecha: fechaSnapshot,
-                        etapa: animalSnapshot.etapa,
-                        gdp_calculada: gdpCalculada,
-                        gmp_calculada: gdpCalculada * 30
-                    });
-                } catch { /* noop */ }
+
+                if (Object.keys(updateAnimalData).length > 0) {
+                    const { error: errAnimal } = await supabase
+                        .from('animales')
+                        .update(updateAnimalData)
+                        .eq('id', animalSnapshot.id);
+                    if (errAnimal) {
+                        console.warn('[Weighing] Error actualizando animal tras pesaje:', errAnimal);
+                    }
+                }
+            } catch (err) {
+                console.warn('[Weighing] Error inesperado guardando pesaje:', err);
             }
         })();
     };
@@ -650,7 +606,9 @@ export default function Weighing() {
         try {
             const { error } = await supabase.from('registros_pesaje').delete().eq('id', pesaje.id);
             if (error) throw error;
-            fetchPesajesHoy();
+            setPesajesHoy(prev => prev.filter(p => p.id !== pesaje.id));
+            void cargarHatoEnRam();
+            void fetchPesajesHoy();
             toast('Pesaje eliminado.', 'success');
         } catch (err: any) {
             toast('Error al eliminar: ' + err.message, 'error');
@@ -675,7 +633,9 @@ export default function Weighing() {
             if (error) throw error;
             setEditingPesajeId(null);
             setEditPeso('');
-            fetchPesajesHoy();
+            setPesajesHoy(prev => prev.map(p => (p.id === pesaje.id ? { ...p, peso: nuevoPesoFloat } : p)));
+            void cargarHatoEnRam();
+            void fetchPesajesHoy();
             toast('Pesaje actualizado.', 'success');
         } catch (err: any) {
             toast('Error al editar: ' + err.message, 'error');

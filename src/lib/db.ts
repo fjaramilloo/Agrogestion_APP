@@ -140,11 +140,35 @@ export interface HttpWriteQueueItem {
   headers: Record<string, string>;
   body: string | null;
   filas: number;
+  status?: 'pending' | 'failed';
+  error_msg?: string;
+}
+
+/** Lote de compra guardado sin conexión, pendiente de creación de potreradas + animales. */
+export interface CompraOfflineQueueItem {
+  id: string;
+  id_finca: string;
+  fechaIngreso: string;
+  animales: Array<{
+    numero_chapeta: string;
+    peso_ingreso: string;
+    propietario: string;
+  }>;
+  selectedProveedor: string;
+  observaciones: string;
+  incluirPesoCompra: boolean;
+  pesoCompraTotal: string;
+  selectedPotrerada: string;
+  creado_en: string;
+  ts: number;
+  status_sync: 'pending' | 'syncing' | 'failed';
+  error_msg?: string;
 }
 
 export class AgrogestionDB extends Dexie {
   httpReadCache!: Table<HttpReadCacheItem, string>;
   httpWriteQueue!: Table<HttpWriteQueueItem, string>;
+  comprasOfflineQueue!: Table<CompraOfflineQueueItem, string>;
   animalesCache!: Table<AnimalCacheItem, string>;
   potrerosCache!: Table<PotreroCacheItem, string>;
   potreradasCache!: Table<PotreradaCacheItem, string>;
@@ -217,6 +241,31 @@ export class AgrogestionDB extends Dexie {
       httpReadCache: 'key, tabla, ts',
       httpWriteQueue: 'id, ts'
     });
+
+    // Esquema v6: estado en cola HTTP + tabla dedicada de compras offline por finca
+    this.version(6)
+      .stores({
+        animalesCache: 'id, id_finca, numero_chapeta, etapa',
+        potrerosCache: 'id, id_finca, nombre',
+        potreradasCache: 'id, id_finca, nombre',
+        rotacionesCache: 'id, id_finca, nombre',
+        pesajesOfflineQueue: 'id, id_finca, id_animal, status_sync, fecha',
+        aforosOfflineQueue: 'id, id_finca, id_potrero, status_sync, fecha',
+        comprasOfflineQueue: 'id, id_finca, status_sync, ts',
+        mapasFincaCache: 'id_finca',
+        mapaSnapshotCache: 'id_finca',
+        mercadoCache: 'id',
+        httpReadCache: 'key, tabla, ts',
+        httpWriteQueue: 'id, ts, status'
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('httpWriteQueue')
+          .toCollection()
+          .modify((item: HttpWriteQueueItem) => {
+            if (!item.status) item.status = 'pending';
+          });
+      });
   }
 }
 

@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
-import { isConexionDegradada, isModoCampoActivo } from './httpOffline';
+import { isConexionDegradada, isModoCampoActivo, registrarNetworkFirstSignal } from './httpOffline';
+import { contarEscriturasPendientes } from './syncService';
 import { calcularMetricasMapaPotreradas } from '../utils/ganancia';
+import { parseDecimalInput } from '../utils/decimalInput';
 import {
   localDB,
   type AnimalCacheItem,
@@ -8,19 +10,38 @@ import {
   type PotreradaCacheItem,
   type RotacionCacheItem,
   type PesajeOfflineQueueItem,
-  type AforoOfflineQueueItem
+  type AforoOfflineQueueItem,
+  type CompraOfflineQueueItem
 } from './db';
+
+async function contarPendientesParaPrecache(fincaId?: string): Promise<number> {
+  let total = await contarEscriturasPendientes();
+  const filtarFinca = <T extends { status_sync: string; id_finca: string }>(item: T) =>
+    (item.status_sync === 'pending' || item.status_sync === 'syncing') &&
+    (!fincaId || item.id_finca === fincaId);
+
+  total += await localDB.pesajesOfflineQueue.filter(filtarFinca).count();
+  total += await localDB.aforosOfflineQueue.filter(filtarFinca).count();
+  total += await localDB.comprasOfflineQueue.filter(filtarFinca).count();
+  return total;
+}
 
 /**
  * 1. Sincroniza la caché local del teléfono/navegador con los animales y potreros de la finca.
- * Se ejecuta con límite de 2 peticiones simultáneas para NUNCA saturar las 6 conexiones del navegador
- * y se detiene de inmediato si detecta señal débil de potrero.
+ * Usa Network-First explícito para no dejar que respuestas de caché de 350ms sobrescriban
+ * las tablas locales, y respeta cualquier escritura local pendiente por subir.
  */
 export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
   if (!fincaId) return;
 
   // Si el usuario tiene activo el Modo Campo forzado o el navegador está offline, no consultar red
   if (isModoCampoActivo() || !navigator.onLine || isConexionDegradada()) return;
+
+  // Nunca descargar sobre cambios locales pendientes sin subir
+  if ((await contarPendientesParaPrecache(fincaId)) > 0) return;
+
+  const syncCtrl = new AbortController();
+  registrarNetworkFirstSignal(syncCtrl.signal);
 
   // Semáforo de máximo 2 consultas en paralelo: deja siempre 4 canales libres para el uso interactivo (Pesaje, Inventario, etc.)
   let enVuelo = 0;
@@ -70,7 +91,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
       potreradasTodasRes,
       rotacionesRotationsRes,
       rotacionesMovementsRes,
-      , // movimientosRes
+      movimientosRes,
       , // lluviasDashboardRes
       , // lluviasPluvioRes
       , // resumenFincaDashboardRes
@@ -102,7 +123,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .eq('estado', 'activo')
           .or('is_deleted.is.null,is_deleted.eq.false')
           .order('fecha', { foreignTable: 'registros_pesaje', ascending: false })
-          .limit(20000),
+          .limit(20000)
+          .abortSignal(syncCtrl.signal),
         'animales_activos'
       ),
 
@@ -121,7 +143,9 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             )
           `)
           .eq('id_finca', fincaId)
-          .limit(10000),
+          .or('is_deleted.is.null,is_deleted.eq.false')
+          .limit(10000)
+          .abortSignal(syncCtrl.signal),
         'animales_dashboard'
       ),
 
@@ -156,7 +180,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           `)
           .eq('id_finca', fincaId)
           .eq('estado', 'vendido')
-          .order('fecha_venta', { ascending: false }),
+          .order('fecha_venta', { ascending: false })
+          .abortSignal(syncCtrl.signal),
         'animales_vendidos'
       ),
 
@@ -172,7 +197,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .eq('id_finca', fincaId)
           .eq('estado', 'vendido')
           .not('id_potrerada', 'is', null)
-          .limit(10000),
+          .limit(10000)
+          .abortSignal(syncCtrl.signal),
         'animales_vendidos_lotes'
       ),
 
@@ -199,7 +225,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           `)
           .eq('id_finca', fincaId)
           .not('proveedor_compra', 'is', null)
-          .order('fecha_ingreso', { ascending: false }),
+          .order('fecha_ingreso', { ascending: false })
+          .abortSignal(syncCtrl.signal),
         'animales_compras'
       ),
 
@@ -209,7 +236,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('potreros')
           .select('id, nombre, area_hectareas, id_rotacion')
           .eq('id_finca', fincaId)
-          .order('nombre'),
+          .order('nombre')
+          .abortSignal(syncCtrl.signal),
         'potreros_rotaciones'
       ),
 
@@ -220,7 +248,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .select('id, nombre, area_hectareas, id_rotacion, geojson_geometry, color_mapa, kml_name')
           .eq('id_finca', fincaId)
           .order('nombre')
-          .limit(10000),
+          .limit(10000)
+          .abortSignal(syncCtrl.signal),
         'potreros_mapa'
       ),
 
@@ -230,7 +259,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('potreradas')
           .select('id, nombre, id_rotacion')
           .eq('id_finca', fincaId)
-          .order('nombre'),
+          .order('nombre')
+          .abortSignal(syncCtrl.signal),
         'potreradas_movements'
       ),
 
@@ -241,7 +271,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .select('*')
           .eq('id_finca', fincaId)
           .order('nombre', { ascending: true })
-          .limit(10000),
+          .limit(10000)
+          .abortSignal(syncCtrl.signal),
         'potreradas_todas'
       ),
 
@@ -251,7 +282,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('rotaciones')
           .select('id, nombre')
           .eq('id_finca', fincaId)
-          .order('nombre'),
+          .order('nombre')
+          .abortSignal(syncCtrl.signal),
         'rotaciones_basicas'
       ),
 
@@ -265,7 +297,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             potreros (id, nombre)
           `)
           .eq('id_finca', fincaId)
-          .order('nombre'),
+          .order('nombre')
+          .abortSignal(syncCtrl.signal),
         'rotaciones_con_potreros'
       ),
 
@@ -280,7 +313,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           `)
           .eq('id_finca', fincaId)
           .is('fecha_salida', null)
-          .order('fecha_entrada', { ascending: false }),
+          .order('fecha_entrada', { ascending: false })
+          .abortSignal(syncCtrl.signal),
         'movimientos_potreros'
       ),
 
@@ -291,7 +325,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .select('fecha, milimetros, id_pluviometro')
           .eq('id_finca', fincaId)
           .order('fecha', { ascending: true })
-          .limit(50000),
+          .limit(50000)
+          .abortSignal(syncCtrl.signal),
         'lluvias_dashboard'
       ),
 
@@ -302,7 +337,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .select('*')
           .eq('id_finca', fincaId)
           .order('orden', { ascending: true })
-          .order('creado_en', { ascending: true }),
+          .order('creado_en', { ascending: true })
+          .abortSignal(syncCtrl.signal),
         'pluviometros_finca'
       ),
       safe(
@@ -311,7 +347,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .select('*')
           .eq('id_finca', fincaId)
           .order('fecha', { ascending: false })
-          .limit(10000),
+          .limit(10000)
+          .abortSignal(syncCtrl.signal),
         'lluvias_pluvio'
       ),
 
@@ -321,6 +358,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('resumen_finca')
           .select('*')
           .eq('id_finca', fincaId)
+          .abortSignal(syncCtrl.signal)
           .single(),
         'resumen_finca_single'
       ),
@@ -331,6 +369,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('fincas')
           .select('nombre, proposito, area_aprovechable, ubicacion, municipio')
           .eq('id', fincaId)
+          .abortSignal(syncCtrl.signal)
           .single(),
         'finca_dashboard'
       ),
@@ -341,6 +380,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('fincas')
           .select('id, nombre, ubicacion, municipio, proposito, area_aprovechable')
           .eq('id', fincaId)
+          .abortSignal(syncCtrl.signal)
           .single(),
         'finca_basica'
       ),
@@ -351,6 +391,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('configuracion_kpi')
           .select('precio_venta_promedio, costo_mensual_animal, umbral_alto_gmp, umbral_medio_gmp, participacion_utilidad, corte_peso_1, corte_peso_2, corte_peso_3, preset_peso')
           .eq('id_finca', fincaId)
+          .abortSignal(syncCtrl.signal)
           .single(),
         'config_kpi_dashboard'
       ),
@@ -361,6 +402,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('configuracion_kpi')
           .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio, costo_mensual_animal, participacion_utilidad')
           .eq('id_finca', fincaId)
+          .abortSignal(syncCtrl.signal)
           .single(),
         'config_kpi_ventas'
       ),
@@ -371,6 +413,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('configuracion_kpi')
           .select('umbral_alto_gmp, umbral_medio_gmp')
           .eq('id_finca', fincaId)
+          .abortSignal(syncCtrl.signal)
           .single(),
         'config_kpi_compras'
       ),
@@ -381,7 +424,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('compradores')
           .select('id, nombre')
           .eq('id_finca', fincaId)
-          .order('nombre'),
+          .order('nombre')
+          .abortSignal(syncCtrl.signal),
         'compradores'
       ),
 
@@ -391,7 +435,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('proveedores')
           .select('id, nombre')
           .eq('id_finca', fincaId)
-          .order('nombre'),
+          .order('nombre')
+          .abortSignal(syncCtrl.signal),
         'proveedores'
       ),
 
@@ -401,7 +446,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('propietarios')
           .select('id, nombre')
           .eq('id_finca', fincaId)
-          .order('nombre'),
+          .order('nombre')
+          .abortSignal(syncCtrl.signal),
         'propietarios'
       ),
 
@@ -413,6 +459,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .eq('id_finca', fincaId)
           .order('fecha_analisis', { ascending: false })
           .limit(1)
+          .abortSignal(syncCtrl.signal)
           .maybeSingle(),
         'diagnostico_climatico'
       ),
@@ -423,6 +470,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           .from('mapas_finca')
           .select('*')
           .eq('id_finca', fincaId)
+          .abortSignal(syncCtrl.signal)
           .maybeSingle(),
         'mapas_finca'
       ),
@@ -432,10 +480,14 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         supabase
           .from('vista_precios_mercado')
           .select('*')
-          .order('fecha_boletin', { ascending: true }),
+          .order('fecha_boletin', { ascending: true })
+          .abortSignal(syncCtrl.signal),
         'precios_mercado'
       )
     ]);
+
+    // Si mientras descargábamos entraron escrituras offline pendientes, no pisar lo local
+    if ((await contarPendientesParaPrecache(fincaId)) > 0) return;
 
     // Guardar diagnóstico climático en localStorage para visualización instantánea 0ms
     if (diagRes?.data) {
@@ -446,11 +498,11 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
 
     // ── GUARDADO BLINDADO EN DEXIE ──
 
-    // 1. ANIMALES (Activos + Vendidos)
-    const mapaAnimales = new Map<string, AnimalCacheItem>();
-    const ahora = new Date().toISOString();
+    // 1. ANIMALES (Activos + Vendidos) — solo si la consulta principal de activos respondió sin error
+    if (animalesRes && !animalesRes.error && Array.isArray(animalesRes.data)) {
+      const mapaAnimales = new Map<string, AnimalCacheItem>();
+      const ahora = new Date().toISOString();
 
-    if (animalesRes?.data && animalesRes.data.length > 0) {
       animalesRes.data.forEach((a: any) => {
         const pesajesActivos = (a.registros_pesaje || []).filter((r: any) => !r.is_deleted);
         const ultP = [...pesajesActivos].sort((x: any, y: any) => new Date(y.fecha || 0).getTime() - new Date(x.fecha || 0).getTime())[0];
@@ -475,75 +527,79 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           updated_at: ahora
         });
       });
-    }
 
-    if (animalesVendidosRes?.data && animalesVendidosRes.data.length > 0) {
-      animalesVendidosRes.data.forEach((a: any) => {
-        const prev = mapaAnimales.get(a.id);
-        const pesajesActivos = (a.registros_pesaje || []).filter((r: any) => !r.is_deleted);
-        mapaAnimales.set(a.id, {
-          id: a.id,
-          id_finca: fincaId,
-          numero_chapeta: a.numero_chapeta,
-          nombre_propietario: a.nombre_propietario,
-          etapa: a.etapa,
-          estado: 'vendido',
-          peso_ingreso: a.peso_ingreso,
-          peso_compra: a.peso_compra,
-          fecha_ingreso: a.fecha_ingreso,
-          fecha_ingreso_ceba: a.fecha_ingreso_ceba,
-          peso_ingreso_ceba: a.peso_ingreso_ceba,
-          id_potrerada: prev?.id_potrerada,
-          potrero_nombre: a.potreros?.nombre || prev?.potrero_nombre || '',
-          potrerada_nombre: prev?.potrerada_nombre || '',
-          peso_venta: a.peso_venta,
-          fecha_venta: a.fecha_venta,
-          comprador_venta: a.comprador_venta,
-          observaciones_venta: a.observaciones_venta,
-          precio_venta: a.precio_venta,
-          registros_pesaje: pesajesActivos,
-          updated_at: ahora
+      if (animalesVendidosRes && !animalesVendidosRes.error && Array.isArray(animalesVendidosRes.data)) {
+        animalesVendidosRes.data.forEach((a: any) => {
+          const prev = mapaAnimales.get(a.id);
+          const pesajesActivos = (a.registros_pesaje || []).filter((r: any) => !r.is_deleted);
+          mapaAnimales.set(a.id, {
+            id: a.id,
+            id_finca: fincaId,
+            numero_chapeta: a.numero_chapeta,
+            nombre_propietario: a.nombre_propietario,
+            etapa: a.etapa,
+            estado: 'vendido',
+            peso_ingreso: a.peso_ingreso,
+            peso_compra: a.peso_compra,
+            fecha_ingreso: a.fecha_ingreso,
+            fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+            peso_ingreso_ceba: a.peso_ingreso_ceba,
+            id_potrerada: prev?.id_potrerada,
+            potrero_nombre: a.potreros?.nombre || prev?.potrero_nombre || '',
+            potrerada_nombre: prev?.potrerada_nombre || '',
+            peso_venta: a.peso_venta,
+            fecha_venta: a.fecha_venta,
+            comprador_venta: a.comprador_venta,
+            observaciones_venta: a.observaciones_venta,
+            precio_venta: a.precio_venta,
+            registros_pesaje: pesajesActivos,
+            updated_at: ahora
+          });
         });
-      });
-    }
+      }
 
-    if (animalesComprasRes?.data && animalesComprasRes.data.length > 0) {
-      animalesComprasRes.data.forEach((a: any) => {
-        const prev = mapaAnimales.get(a.id);
-        const pesajesActivos = (a.registros_pesaje || []).filter((r: any) => !r.is_deleted);
-        mapaAnimales.set(a.id, {
-          ...(prev || {}),
-          id: a.id,
-          id_finca: fincaId,
-          numero_chapeta: a.numero_chapeta,
-          nombre_propietario: a.nombre_propietario || prev?.nombre_propietario,
-          etapa: a.etapa || prev?.etapa || 'ceba',
-          estado: prev?.estado || 'activo',
-          peso_ingreso: a.peso_ingreso ?? prev?.peso_ingreso,
-          peso_compra: a.peso_compra ?? prev?.peso_compra,
-          fecha_ingreso: a.fecha_ingreso || prev?.fecha_ingreso,
-          proveedor_compra: a.proveedor_compra,
-          potrero_nombre: a.potreros?.nombre || prev?.potrero_nombre || '',
-          registros_pesaje: pesajesActivos.length > 0 ? pesajesActivos : (prev?.registros_pesaje || []),
-          updated_at: ahora
+      if (animalesComprasRes && !animalesComprasRes.error && Array.isArray(animalesComprasRes.data)) {
+        animalesComprasRes.data.forEach((a: any) => {
+          const prev = mapaAnimales.get(a.id);
+          const pesajesActivos = (a.registros_pesaje || []).filter((r: any) => !r.is_deleted);
+          mapaAnimales.set(a.id, {
+            ...(prev || {}),
+            id: a.id,
+            id_finca: fincaId,
+            numero_chapeta: a.numero_chapeta,
+            nombre_propietario: a.nombre_propietario || prev?.nombre_propietario,
+            etapa: a.etapa || prev?.etapa || 'ceba',
+            estado: prev?.estado || 'activo',
+            peso_ingreso: a.peso_ingreso ?? prev?.peso_ingreso,
+            peso_compra: a.peso_compra ?? prev?.peso_compra,
+            fecha_ingreso: a.fecha_ingreso || prev?.fecha_ingreso,
+            proveedor_compra: a.proveedor_compra,
+            potrero_nombre: a.potreros?.nombre || prev?.potrero_nombre || '',
+            registros_pesaje: pesajesActivos.length > 0 ? pesajesActivos : (prev?.registros_pesaje || []),
+            updated_at: ahora
+          });
         });
-      });
-    }
+      }
 
-    if (mapaAnimales.size > 0) {
       try {
         await localDB.animalesCache.where('id_finca').equals(fincaId).delete();
-        await localDB.animalesCache.bulkPut(Array.from(mapaAnimales.values()));
+        if (mapaAnimales.size > 0) {
+          await localDB.animalesCache.bulkPut(Array.from(mapaAnimales.values()));
+        }
       } catch (e) {
         console.warn('[OfflineService] Error guardando animalesCache:', e);
       }
     }
 
     // 2. POTREROS (Con id_rotacion y geometrías)
-    const potsRaw = potrerosMapaRes?.data || potrerosRotationsRes?.data;
-    if (potsRaw && potsRaw.length > 0) {
+    const potsFuente = (potrerosMapaRes && !potrerosMapaRes.error && Array.isArray(potrerosMapaRes.data))
+      ? potrerosMapaRes.data
+      : (potrerosRotationsRes && !potrerosRotationsRes.error && Array.isArray(potrerosRotationsRes.data))
+        ? potrerosRotationsRes.data
+        : null;
+    if (potsFuente !== null) {
       try {
-        const potrerosCache: PotreroCacheItem[] = potsRaw.map((p: any) => ({
+        const potrerosCache: PotreroCacheItem[] = potsFuente.map((p: any) => ({
           id: p.id,
           id_finca: fincaId,
           nombre: p.nombre,
@@ -556,17 +612,23 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         }));
 
         await localDB.potrerosCache.where('id_finca').equals(fincaId).delete();
-        await localDB.potrerosCache.bulkPut(potrerosCache);
+        if (potrerosCache.length > 0) {
+          await localDB.potrerosCache.bulkPut(potrerosCache);
+        }
       } catch (e) {
         console.warn('[OfflineService] Error guardando potrerosCache:', e);
       }
     }
 
     // 3. POTRERADAS / LOTES (Con id_rotacion)
-    const ptsRaw = potreradasMovementsRes?.data || potreradasTodasRes?.data;
-    if (ptsRaw && ptsRaw.length > 0) {
+    const ptsFuente = (potreradasMovementsRes && !potreradasMovementsRes.error && Array.isArray(potreradasMovementsRes.data))
+      ? potreradasMovementsRes.data
+      : (potreradasTodasRes && !potreradasTodasRes.error && Array.isArray(potreradasTodasRes.data))
+        ? potreradasTodasRes.data
+        : null;
+    if (ptsFuente !== null) {
       try {
-        const potreradasCache: PotreradaCacheItem[] = ptsRaw.map((p: any) => ({
+        const potreradasCache: PotreradaCacheItem[] = ptsFuente.map((p: any) => ({
           id: p.id,
           id_finca: fincaId,
           nombre: p.nombre,
@@ -574,24 +636,32 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         }));
 
         await localDB.potreradasCache.where('id_finca').equals(fincaId).delete();
-        await localDB.potreradasCache.bulkPut(potreradasCache);
+        if (potreradasCache.length > 0) {
+          await localDB.potreradasCache.bulkPut(potreradasCache);
+        }
       } catch (e) {
         console.warn('[OfflineService] Error guardando potreradasCache:', e);
       }
     }
 
     // 4. ROTACIONES
-    const rotsRaw = rotacionesRotationsRes?.data || rotacionesMovementsRes?.data;
-    if (rotsRaw && rotsRaw.length > 0) {
+    const rotsFuente = (rotacionesRotationsRes && !rotacionesRotationsRes.error && Array.isArray(rotacionesRotationsRes.data))
+      ? rotacionesRotationsRes.data
+      : (rotacionesMovementsRes && !rotacionesMovementsRes.error && Array.isArray(rotacionesMovementsRes.data))
+        ? rotacionesMovementsRes.data
+        : null;
+    if (rotsFuente !== null) {
       try {
-        const rotacionesCache: RotacionCacheItem[] = rotsRaw.map((r: any) => ({
+        const rotacionesCache: RotacionCacheItem[] = rotsFuente.map((r: any) => ({
           id: r.id,
           id_finca: fincaId,
           nombre: r.nombre
         }));
 
         await localDB.rotacionesCache.where('id_finca').equals(fincaId).delete();
-        await localDB.rotacionesCache.bulkPut(rotacionesCache);
+        if (rotacionesCache.length > 0) {
+          await localDB.rotacionesCache.bulkPut(rotacionesCache);
+        }
       } catch (e) {
         console.warn('[OfflineService] Error guardando rotacionesCache:', e);
       }
@@ -627,8 +697,14 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
       }
     }
 
-    // 7. SNAPSHOT DEL MAPA FINCA
-    await guardarSnapshotMapa(fincaId, mapRes?.data);
+    // 7. SNAPSHOT DEL MAPA FINCA (reutilizando los datos ya descargados para no duplicar peticiones)
+    await guardarSnapshotMapa(
+      fincaId,
+      mapRes?.data,
+      potrerosMapaRes && !potrerosMapaRes.error ? potrerosMapaRes.data : null,
+      movimientosRes && !movimientosRes.error ? movimientosRes.data : null,
+      animalesRes && !animalesRes.error ? animalesRes.data : null
+    );
   } catch (error) {
     console.warn('[OfflineService] Error inesperado en sincronizarCacheFinca:', error);
   }
@@ -636,30 +712,57 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
 
 /**
  * Construye y guarda el snapshot que usa el módulo Mapa Finca offline.
- * Antes solo se guardaba al abrir el mapa con internet, por eso "Descargar información" lo dejaba desactualizado.
+ * Reutiliza los arrays ya descargados por sincronizarCacheFinca cuando están disponibles.
  */
-async function guardarSnapshotMapa(fincaId: string, mapData: any): Promise<void> {
+async function guardarSnapshotMapa(
+  fincaId: string,
+  mapData: any,
+  potsPrefetch: any[] | null = null,
+  movsPrefetch: any[] | null = null,
+  animalesPrefetch: any[] | null = null
+): Promise<void> {
   try {
-    const [potsRes, movsRes, animalesRes] = await Promise.all([
-      supabase
-        .from('potreros')
-        .select('id, nombre, area_hectareas, geojson_geometry, color_mapa, id_rotacion')
-        .eq('id_finca', fincaId),
-      supabase
-        .from('movimientos_potreros')
-        .select('id_potrero, id_potrerada, fecha_entrada, potreradas(nombre)')
-        .eq('id_finca', fincaId)
-        .is('fecha_salida', null),
-      supabase
-        .from('animales')
-        .select('id, id_potrerada, nombre_propietario, etapa, peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba, registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted)')
-        .eq('id_finca', fincaId)
-        .eq('estado', 'activo')
-        .or('is_deleted.is.null,is_deleted.eq.false')
-    ]);
+    let potsData = potsPrefetch;
+    let movsData = movsPrefetch;
+    let animalesData = animalesPrefetch;
 
-    // No sobrescribir un snapshot bueno con una respuesta fallida o vacía
-    if (potsRes.error || !potsRes.data || potsRes.data.length === 0) return;
+    if (!potsData || !movsData || !animalesData) {
+      const ctrl = new AbortController();
+      registrarNetworkFirstSignal(ctrl.signal);
+      const [potsRes, movsRes, animalesRes] = await Promise.all([
+        potsData
+          ? Promise.resolve({ data: potsData, error: null })
+          : supabase
+              .from('potreros')
+              .select('id, nombre, area_hectareas, geojson_geometry, color_mapa, id_rotacion')
+              .eq('id_finca', fincaId)
+              .abortSignal(ctrl.signal),
+        movsData
+          ? Promise.resolve({ data: movsData, error: null })
+          : supabase
+              .from('movimientos_potreros')
+              .select('id_potrero, id_potrerada, fecha_entrada, potreradas(nombre)')
+              .eq('id_finca', fincaId)
+              .is('fecha_salida', null)
+              .abortSignal(ctrl.signal),
+        animalesData
+          ? Promise.resolve({ data: animalesData, error: null })
+          : supabase
+              .from('animales')
+              .select('id, id_potrerada, nombre_propietario, etapa, peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba, registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted)')
+              .eq('id_finca', fincaId)
+              .eq('estado', 'activo')
+              .or('is_deleted.is.null,is_deleted.eq.false')
+              .abortSignal(ctrl.signal)
+      ]);
+      if (potsRes.error || !potsRes.data || potsRes.data.length === 0) return;
+      potsData = potsRes.data;
+      movsData = movsRes.data || [];
+      animalesData = animalesRes.data || [];
+    }
+
+    // No sobrescribir un snapshot bueno con una respuesta vacía
+    if (!potsData || potsData.length === 0) return;
 
     const diasDesde = (s: string) => {
       if (!s) return 0;
@@ -669,10 +772,10 @@ async function guardarSnapshotMapa(fincaId: string, mapData: any): Promise<void>
       return Math.max(0, Math.floor((hoy.getTime() - t.getTime()) / 86400000));
     };
 
-    const metricas = calcularMetricasMapaPotreradas(animalesRes.data || []);
+    const metricas = calcularMetricasMapaPotreradas(animalesData || []);
 
     const asignacion = new Map<string, any>();
-    (movsRes.data || []).forEach((m: any) => {
+    (movsData || []).forEach((m: any) => {
       if (!m.id_potrero || !m.id_potrerada) return;
       const met = metricas.get(m.id_potrerada) || {
         total_animales: 0,
@@ -692,7 +795,7 @@ async function guardarSnapshotMapa(fincaId: string, mapData: any): Promise<void>
       });
     });
 
-    const potreros = potsRes.data.map((p: any) => ({
+    const potreros = potsData.map((p: any) => ({
       ...p,
       potrerada_actual: asignacion.get(p.id) || null
     }));
@@ -715,57 +818,270 @@ export function notificarCambioColaOffline() {
   }
 }
 
+export interface CompraOfflineAnimalInput {
+  numero_chapeta: string;
+  peso_ingreso: string;
+  propietario: string;
+}
+
+const LEGACY_COMPRAS_KEY = 'agrogestion_compras_offline';
+const LEGACY_AFOROS_KEY = 'agrogestion_aforos_offline';
+const LEGACY_VENTAS_KEY = 'agrogestion_ventas_offline';
+
+function esConflictoPkDuplicado(err: any): boolean {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || '');
+  const details = String(err?.details || '');
+  return code === '23505' && (msg.includes('_pkey') || details.includes('Key (id)='));
+}
+
 /**
- * 2. Guarda un pesaje en la cola offline de IndexedDB cuando no hay conexión.
+ * Migra lotes de compra antiguos guardados en localStorage hacia Dexie scoped por id_finca.
  */
-export async function guardarPesajeOffline(pesaje: {
+export async function migrarComprasLegacyLocalStorage(fincaId: string): Promise<void> {
+  if (typeof window === 'undefined' || !fincaId) return;
+  try {
+    const raw = localStorage.getItem(LEGACY_COMPRAS_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const ahora = new Date().toISOString();
+      const baseTs = Date.now();
+      const items: CompraOfflineQueueItem[] = parsed.map((p: any, idx: number) => ({
+        id: String(p.id || crypto.randomUUID()),
+        id_finca: String(p.id_finca || fincaId),
+        fechaIngreso: String(p.fechaIngreso || ''),
+        animales: Array.isArray(p.animales) ? p.animales : [],
+        selectedProveedor: String(p.selectedProveedor || ''),
+        observaciones: String(p.observaciones || ''),
+        incluirPesoCompra: Boolean(p.incluirPesoCompra),
+        pesoCompraTotal: String(p.pesoCompraTotal || ''),
+        selectedPotrerada: String(p.selectedPotrerada || ''),
+        creado_en: String(p.creado_en || ahora),
+        ts: Number(p.ts) || baseTs + idx,
+        status_sync: 'pending'
+      }));
+      await localDB.comprasOfflineQueue.bulkPut(items);
+    }
+    localStorage.removeItem(LEGACY_COMPRAS_KEY);
+    notificarCambioColaOffline();
+  } catch (e) {
+    console.warn('[OfflineService] Error migrando compras legacy de localStorage:', e);
+  }
+}
+
+export async function listarComprasOffline(fincaId: string): Promise<CompraOfflineQueueItem[]> {
+  if (!fincaId) return [];
+  await migrarComprasLegacyLocalStorage(fincaId);
+  return localDB.comprasOfflineQueue.where('id_finca').equals(fincaId).sortBy('ts');
+}
+
+export async function guardarCompraOffline(payload: {
   id_finca: string;
-  id_animal: string;
-  chapeta_ref?: string;
-  peso: number;
-  fecha: string;
-  etapa: string;
-  gdp_calculada?: number;
-  gmp_calculada?: number;
-}): Promise<PesajeOfflineQueueItem> {
-  const item: PesajeOfflineQueueItem = {
+  fechaIngreso: string;
+  animales: CompraOfflineAnimalInput[];
+  selectedProveedor: string;
+  observaciones: string;
+  incluirPesoCompra: boolean;
+  pesoCompraTotal: string;
+  selectedPotrerada: string;
+  potreradaNombreRef?: string;
+}): Promise<CompraOfflineQueueItem> {
+  const ahora = new Date().toISOString();
+  const item: CompraOfflineQueueItem = {
     id: crypto.randomUUID(),
-    ...pesaje,
-    creado_en: new Date().toISOString(),
+    id_finca: payload.id_finca,
+    fechaIngreso: payload.fechaIngreso,
+    animales: payload.animales.map(a => ({
+      numero_chapeta: a.numero_chapeta,
+      peso_ingreso: a.peso_ingreso,
+      propietario: a.propietario
+    })),
+    selectedProveedor: payload.selectedProveedor,
+    observaciones: payload.observaciones,
+    incluirPesoCompra: payload.incluirPesoCompra,
+    pesoCompraTotal: payload.pesoCompraTotal,
+    selectedPotrerada: payload.selectedPotrerada,
+    creado_en: ahora,
+    ts: Date.now(),
     status_sync: 'pending'
   };
 
-  await localDB.pesajesOfflineQueue.put(item);
+  await localDB.comprasOfflineQueue.put(item);
+
+  // Reflejar optimísticamente los animales en animalesCache para chapetas duplicadas e inventario offline
+  try {
+    const pesoTotalRaw = payload.incluirPesoCompra ? parseDecimalInput(payload.pesoCompraTotal) : 0;
+    const pesoTotalNum = Number.isFinite(pesoTotalRaw) && pesoTotalRaw > 0 ? pesoTotalRaw : 0;
+    const totalPesoIngreso = payload.animales.reduce((acc, a) => {
+      const p = parseDecimalInput(a.peso_ingreso);
+      return acc + (Number.isFinite(p) && p > 0 ? p : 0);
+    }, 0);
+    const ratio = payload.incluirPesoCompra && pesoTotalNum > 0 && totalPesoIngreso > 0
+      ? pesoTotalNum / totalPesoIngreso
+      : 1;
+
+    const optimisticAnimals: AnimalCacheItem[] = payload.animales.map((a, idx) => {
+      const parsedPeso = parseDecimalInput(a.peso_ingreso);
+      const pesoNum = Number.isFinite(parsedPeso) ? Math.round(parsedPeso) : 0;
+      const chapeta = String(a.numero_chapeta || '').trim().toUpperCase();
+      const prop = String(a.propietario || '').trim();
+      return {
+        id: `offline_compra_${item.id}_${idx}`,
+        id_finca: payload.id_finca,
+        numero_chapeta: chapeta,
+        nombre_propietario: prop,
+        etapa: 'levante',
+        estado: 'activo',
+        peso_ingreso: pesoNum,
+        peso_compra: payload.incluirPesoCompra ? Math.round(pesoNum * ratio) : undefined,
+        fecha_ingreso: payload.fechaIngreso,
+        proveedor_compra: payload.selectedProveedor,
+        ultimo_peso: pesoNum,
+        fecha_ultimo_pesaje: payload.fechaIngreso,
+        id_potrerada: payload.selectedPotrerada || null,
+        potrero_nombre: '',
+        potrerada_nombre: payload.potreradaNombreRef || (prop ? `Levante ${prop}` : ''),
+        registros_pesaje: [],
+        updated_at: ahora
+      };
+    });
+    if (optimisticAnimals.length > 0) {
+      await localDB.animalesCache.bulkPut(optimisticAnimals);
+    }
+  } catch (e) {
+    console.warn('[OfflineService] Error reflejando compra en animalesCache:', e);
+  }
+
   notificarCambioColaOffline();
   return item;
 }
 
-/**
- * 3. Guarda un aforo en la cola offline de IndexedDB cuando no hay conexión.
- */
-export async function guardarAforoOffline(aforo: {
-  id_finca: string;
-  id_potrero: string;
-  potrero_nombre_ref?: string;
-  fecha: string;
-  metodo: string;
-  gramos_m2: number;
-  muesca_promedio?: number;
-}): Promise<AforoOfflineQueueItem> {
-  const item: AforoOfflineQueueItem = {
-    id: crypto.randomUUID(),
-    ...aforo,
-    creado_en: new Date().toISOString(),
-    status_sync: 'pending'
-  };
-
-  await localDB.aforosOfflineQueue.put(item);
+export async function limpiarComprasOffline(fincaId: string): Promise<number> {
+  if (!fincaId) return 0;
+  const items = await localDB.comprasOfflineQueue.where('id_finca').equals(fincaId).toArray();
+  const ids = items.map(i => i.id);
+  if (ids.length > 0) {
+    await localDB.comprasOfflineQueue.bulkDelete(ids);
+    const prefixos = ids.map(id => `offline_compra_${id}_`);
+    try {
+      await localDB.animalesCache
+        .where('id_finca')
+        .equals(fincaId)
+        .filter(a => prefixos.some(p => a.id.startsWith(p)))
+        .delete();
+    } catch { /* noop */ }
+  }
+  try { localStorage.removeItem(LEGACY_COMPRAS_KEY); } catch { /* noop */ }
   notificarCambioColaOffline();
-  return item;
+  return ids.length;
 }
 
 /**
- * 4. Procesa la cola de sincronización offline enviando los datos a Supabase en lotes (batch upsert).
+ * Resetea elementos que quedaron atrapados en 'syncing' si la app se cerró a mitad de una subida.
+ */
+export async function normalizarColasAtascadas(): Promise<void> {
+  const fix = async (tabla: typeof localDB.pesajesOfflineQueue | typeof localDB.aforosOfflineQueue | typeof localDB.comprasOfflineQueue) => {
+    const stuck = await (tabla as any).where('status_sync').equals('syncing').toArray();
+    for (const item of stuck) {
+      await (tabla as any).update(item.id, { status_sync: 'pending' });
+    }
+  };
+  await Promise.all([
+    fix(localDB.pesajesOfflineQueue),
+    fix(localDB.aforosOfflineQueue),
+    fix(localDB.comprasOfflineQueue)
+  ]);
+}
+
+function leerArrayLegacyCount(key: string): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function contarColasOfflineDedicadas(): Promise<{ pending: number; failed: number }> {
+  const contar = async (tabla: typeof localDB.pesajesOfflineQueue | typeof localDB.aforosOfflineQueue | typeof localDB.comprasOfflineQueue) => {
+    const [pending, failed] = await Promise.all([
+      (tabla as any).filter((x: any) => x.status_sync === 'pending' || x.status_sync === 'syncing').count(),
+      (tabla as any).where('status_sync').equals('failed').count()
+    ]);
+    return { pending, failed };
+  };
+
+  const [p, a, c] = await Promise.all([
+    contar(localDB.pesajesOfflineQueue),
+    contar(localDB.aforosOfflineQueue),
+    contar(localDB.comprasOfflineQueue)
+  ]);
+
+  const legacyPending =
+    leerArrayLegacyCount(LEGACY_COMPRAS_KEY) +
+    leerArrayLegacyCount(LEGACY_VENTAS_KEY) +
+    leerArrayLegacyCount(LEGACY_AFOROS_KEY);
+
+  return {
+    pending: p.pending + a.pending + c.pending + legacyPending,
+    failed: p.failed + a.failed + c.failed
+  };
+}
+
+export async function reintentarColasOfflineFallidas(fincaId?: string): Promise<number> {
+  let total = 0;
+  const reset = async (tabla: typeof localDB.pesajesOfflineQueue | typeof localDB.aforosOfflineQueue | typeof localDB.comprasOfflineQueue) => {
+    const fallidos = await (tabla as any)
+      .filter((x: any) => x.status_sync === 'failed' && (!fincaId || x.id_finca === fincaId))
+      .toArray();
+    for (const item of fallidos) {
+      await (tabla as any).update(item.id, { status_sync: 'pending', error_msg: undefined });
+      total++;
+    }
+  };
+  await Promise.all([
+    reset(localDB.pesajesOfflineQueue),
+    reset(localDB.aforosOfflineQueue),
+    reset(localDB.comprasOfflineQueue)
+  ]);
+  if (total > 0) notificarCambioColaOffline();
+  return total;
+}
+
+export async function descartarColasOfflineFallidas(fincaId?: string): Promise<number> {
+  let total = 0;
+  const limpiar = async (tabla: typeof localDB.pesajesOfflineQueue | typeof localDB.aforosOfflineQueue | typeof localDB.comprasOfflineQueue, cleanupCache = false) => {
+    const fallidos = await (tabla as any)
+      .filter((x: any) => x.status_sync === 'failed' && (!fincaId || x.id_finca === fincaId))
+      .toArray();
+    for (const item of fallidos) {
+      await (tabla as any).delete(item.id);
+      if (cleanupCache) {
+        try {
+          await localDB.animalesCache
+            .filter(a => a.id.startsWith(`offline_compra_${item.id}_`))
+            .delete();
+        } catch { /* noop */ }
+      }
+      total++;
+    }
+  };
+  await Promise.all([
+    limpiar(localDB.pesajesOfflineQueue),
+    limpiar(localDB.aforosOfflineQueue),
+    limpiar(localDB.comprasOfflineQueue, true)
+  ]);
+  if (total > 0) notificarCambioColaOffline();
+  return total;
+}
+
+/**
+ * 2. Procesa las colas dedicadas offline pendientes ('pending'), dejando intactas las fallidas ('failed')
+ * para que el usuario decida si reintentar o descartar desde la UI (sin ciclos infinitos cada 30s).
  */
 export async function procesarSincronizacionOffline(fincaId: string): Promise<{
   procesados: number;
@@ -774,11 +1090,14 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
   aforos: number;
   compras: number;
   ventas: number;
+  mensajesError: string[];
 }> {
-  const isModoCampo = typeof window !== 'undefined' && localStorage.getItem('agrogestion_modo_campo') === 'true';
-  if (!fincaId || !navigator.onLine || isModoCampo) {
-    return { procesados: 0, errores: 0, pesajes: 0, aforos: 0, compras: 0, ventas: 0 };
+  if (!fincaId || !navigator.onLine || isModoCampoActivo() || isConexionDegradada()) {
+    return { procesados: 0, errores: 0, pesajes: 0, aforos: 0, compras: 0, ventas: 0, mensajesError: [] };
   }
+
+  await normalizarColasAtascadas();
+  await migrarComprasLegacyLocalStorage(fincaId);
 
   let procesados = 0;
   let errores = 0;
@@ -786,12 +1105,13 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
   let aforosOk = 0;
   let comprasOk = 0;
   let ventasOk = 0;
+  const mensajesError: string[] = [];
 
-  // --- Sincronizar Pesajes ---
+  // --- Sincronizar Pesajes pendientes (legacy / transición) ---
   const pesajesPendientes = await localDB.pesajesOfflineQueue
     .where('id_finca')
     .equals(fincaId)
-    .and((item: PesajeOfflineQueueItem) => item.status_sync === 'pending' || item.status_sync === 'failed')
+    .and((item: PesajeOfflineQueueItem) => item.status_sync === 'pending')
     .toArray();
 
   for (const p of pesajesPendientes) {
@@ -799,6 +1119,7 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
       await localDB.pesajesOfflineQueue.update(p.id, { status_sync: 'syncing' });
 
       const { error } = await supabase.from('registros_pesaje').insert({
+        id: p.id,
         id_animal: p.id_animal,
         peso: p.peso,
         fecha: p.fecha,
@@ -807,61 +1128,179 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
         gmp_calculada: p.gmp_calculada
       });
 
-      if (error) throw error;
+      if (error && !esConflictoPkDuplicado(error)) throw error;
 
-      // Al insertarse con éxito en Supabase, se elimina de la cola local
       await localDB.pesajesOfflineQueue.delete(p.id);
       procesados++;
       pesajesOk++;
     } catch (err: any) {
+      const msg = err?.message || 'Error desconocido';
       console.error(`[OfflineSync] Error al sincronizar pesaje ${p.id}:`, err);
       await localDB.pesajesOfflineQueue.update(p.id, {
         status_sync: 'failed',
-        error_msg: err.message || 'Error desconocido'
+        error_msg: msg
       });
       errores++;
+      mensajesError.push(`Pesaje ${p.chapeta_ref || ''}: ${msg}`.trim());
     }
   }
 
-  // --- Sincronizar Aforos ---
+  // --- Sincronizar Aforos pendientes (legacy / transición) ---
   const aforosPendientes = await localDB.aforosOfflineQueue
     .where('id_finca')
     .equals(fincaId)
-    .and((item: AforoOfflineQueueItem) => item.status_sync === 'pending' || item.status_sync === 'failed')
+    .and((item: AforoOfflineQueueItem) => item.status_sync === 'pending')
     .toArray();
 
   for (const a of aforosPendientes) {
     try {
       await localDB.aforosOfflineQueue.update(a.id, { status_sync: 'syncing' });
 
+      const kgM2 = Number(((a.gramos_m2 || 0) / 1000).toFixed(3));
       const { error } = await supabase.from('registros_aforo').insert({
+        id: a.id,
         id_finca: a.id_finca,
         id_potrero: a.id_potrero,
         fecha: a.fecha,
-        metodo: a.metodo,
-        gramos_m2: a.gramos_m2,
-        muesca_promedio: a.muesca_promedio
+        muestras: [kgM2],
+        promedio_muestras_kg: kgM2,
+        viabilidad: 100,
+        aforo_real_kg: kgM2
       });
 
-      if (error) throw error;
+      if (error && !esConflictoPkDuplicado(error)) throw error;
 
       await localDB.aforosOfflineQueue.delete(a.id);
       procesados++;
       aforosOk++;
     } catch (err: any) {
+      const msg = err?.message || 'Error desconocido';
       console.error(`[OfflineSync] Error al sincronizar aforo ${a.id}:`, err);
       await localDB.aforosOfflineQueue.update(a.id, {
         status_sync: 'failed',
-        error_msg: err.message || 'Error desconocido'
+        error_msg: msg
       });
       errores++;
+      mensajesError.push(`Aforo ${a.potrero_nombre_ref || ''}: ${msg}`.trim());
     }
   }
 
-  // --- Sincronizar Aforos en localStorage (agrogestion_aforos_offline) ---
+  // --- Sincronizar Compras en Dexie scoped por id_finca ---
+  const comprasPendientes = await localDB.comprasOfflineQueue
+    .where('id_finca')
+    .equals(fincaId)
+    .and((item: CompraOfflineQueueItem) => item.status_sync === 'pending')
+    .sortBy('ts');
+
+  for (const payload of comprasPendientes) {
+    try {
+      await localDB.comprasOfflineQueue.update(payload.id, { status_sync: 'syncing' });
+
+      const chapetas = (payload.animales || []).map(a => String(a.numero_chapeta || '').trim().toUpperCase());
+      if (chapetas.length === 0) {
+        throw new Error(`El lote de compra del ${payload.fechaIngreso} no tiene animales.`);
+      }
+      if (new Set(chapetas).size !== chapetas.length) {
+        throw new Error(`Chapetas duplicadas en lote de compra del ${payload.fechaIngreso}.`);
+      }
+
+      const { data: existentes, error: existErr } = await supabase
+        .from('animales')
+        .select('numero_chapeta')
+        .eq('id_finca', fincaId)
+        .in('numero_chapeta', chapetas);
+
+      if (existErr) throw existErr;
+
+      if (existentes && existentes.length > 0) {
+        throw new Error(`Chapetas ya existentes: ${existentes.map((e: any) => e.numero_chapeta).join(', ')}`);
+      }
+
+      const uniquePropietarios = Array.from(new Set((payload.animales || []).map(a => String(a.propietario || '').trim()).filter(Boolean)));
+      const potreradasPayload = uniquePropietarios.map(prop => ({
+        id_finca: fincaId,
+        nombre: `Levante ${prop}`,
+        etapa: 'levante'
+      }));
+
+      const potreradaIdPorPropietario = new Map<string, string>();
+      if (potreradasPayload.length > 0 && !payload.selectedPotrerada) {
+        const { data: potreradasCreadas, error: potError } = await supabase
+          .from('potreradas')
+          .upsert(potreradasPayload, { onConflict: 'id_finca,nombre' })
+          .select('id, nombre');
+        if (potError) throw potError;
+
+        (potreradasCreadas || []).forEach((p: any) => {
+          const propMatch = uniquePropietarios.find(prop => p.nombre === `Levante ${prop}`);
+          if (propMatch) potreradaIdPorPropietario.set(propMatch, p.id);
+        });
+      }
+
+      const pesoTotalRaw = payload.incluirPesoCompra ? parseDecimalInput(payload.pesoCompraTotal) : 0;
+      const pesoCompTotalNum = Number.isFinite(pesoTotalRaw) && pesoTotalRaw > 0 ? pesoTotalRaw : 0;
+      const totalPesoIngresoLote = (payload.animales || []).reduce((acc, a) => {
+        const p = parseDecimalInput(a.peso_ingreso);
+        return acc + (Number.isFinite(p) && p > 0 ? p : 0);
+      }, 0);
+      const ratioPesoCompra = (payload.incluirPesoCompra && pesoCompTotalNum > 0 && totalPesoIngresoLote > 0)
+        ? (pesoCompTotalNum / totalPesoIngresoLote)
+        : 1;
+
+      const records = (payload.animales || []).map(a => {
+        const propTrim = String(a.propietario || '').trim();
+        const pesoParsed = parseDecimalInput(a.peso_ingreso);
+        if (!Number.isFinite(pesoParsed) || pesoParsed <= 0) {
+          throw new Error(`Peso inválido para chapeta ${a.numero_chapeta}`);
+        }
+        const pesoRedondeado = Math.round(pesoParsed);
+        return {
+          id_finca: fincaId,
+          numero_chapeta: String(a.numero_chapeta || '').trim().toUpperCase(),
+          nombre_propietario: propTrim,
+          id_potrerada: payload.selectedPotrerada ? payload.selectedPotrerada : (potreradaIdPorPropietario.get(propTrim) || null),
+          peso_ingreso: pesoRedondeado,
+          peso_compra: payload.incluirPesoCompra ? Math.round(pesoParsed * ratioPesoCompra) : null,
+          fecha_ingreso: payload.fechaIngreso,
+          proveedor_compra: payload.selectedProveedor,
+          observaciones_compra: payload.observaciones,
+          etapa: 'levante',
+          especie: 'bovino',
+          sexo: 'M',
+          estado: 'activo'
+        };
+      });
+
+      const { error: insErr } = await supabase.from('animales').insert(records);
+      if (insErr) throw insErr;
+
+      await localDB.comprasOfflineQueue.delete(payload.id);
+      try {
+        await localDB.animalesCache
+          .where('id_finca')
+          .equals(fincaId)
+          .filter(a => a.id.startsWith(`offline_compra_${payload.id}_`))
+          .delete();
+      } catch { /* noop */ }
+
+      procesados++;
+      comprasOk++;
+    } catch (err: any) {
+      const msg = err?.message || 'Error desconocido';
+      console.error(`[OfflineSync] Error al sincronizar compra ${payload.id}:`, err);
+      await localDB.comprasOfflineQueue.update(payload.id, {
+        status_sync: 'failed',
+        error_msg: msg
+      });
+      errores++;
+      mensajesError.push(`Compra (${payload.fechaIngreso}): ${msg}`);
+    }
+  }
+
+  // --- Drenar colas legacy si aún existieran en localStorage ---
   if (typeof window !== 'undefined') {
     try {
-      const aforosRaw = localStorage.getItem('agrogestion_aforos_offline');
+      const aforosRaw = localStorage.getItem(LEGACY_AFOROS_KEY);
       if (aforosRaw) {
         const aforosQueue: any[] = JSON.parse(aforosRaw);
         if (Array.isArray(aforosQueue) && aforosQueue.length > 0) {
@@ -876,107 +1315,27 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
               remainingAforos = remainingAforos.filter(item => item.id_temp !== payload.id_temp);
               procesados++;
               aforosOk++;
-            } catch (err) {
+            } catch (err: any) {
               console.error('[OfflineSync] Error al sincronizar aforo de localStorage:', err);
               errores++;
+              mensajesError.push(`Aforo legacy: ${err?.message || 'Error al subir'}`);
             }
           }
-          localStorage.setItem('agrogestion_aforos_offline', JSON.stringify(remainingAforos));
+          if (remainingAforos.length === 0) {
+            localStorage.removeItem(LEGACY_AFOROS_KEY);
+          } else {
+            localStorage.setItem(LEGACY_AFOROS_KEY, JSON.stringify(remainingAforos));
+          }
+        } else {
+          localStorage.removeItem(LEGACY_AFOROS_KEY);
         }
       }
     } catch (e) {
       console.warn('[OfflineSync] Error leyendo agrogestion_aforos_offline:', e);
     }
 
-    // --- Sincronizar Compras en localStorage (agrogestion_compras_offline) ---
     try {
-      const comprasRaw = localStorage.getItem('agrogestion_compras_offline');
-      if (comprasRaw) {
-        const comprasQueue: any[] = JSON.parse(comprasRaw);
-        if (Array.isArray(comprasQueue) && comprasQueue.length > 0) {
-          let remainingCompras = [...comprasQueue];
-          for (const payload of comprasQueue) {
-            try {
-              const chapetas = (payload.animales || []).map((a: any) => String(a.numero_chapeta || '').trim().toUpperCase());
-              if (new Set(chapetas).size !== chapetas.length) {
-                throw new Error(`Chapetas duplicadas en lote de compra del ${payload.fechaIngreso}`);
-              }
-
-              const { data: existentes } = await supabase
-                .from('animales')
-                .select('numero_chapeta')
-                .eq('id_finca', fincaId)
-                .in('numero_chapeta', chapetas);
-
-              if (existentes && existentes.length > 0) {
-                throw new Error(`Chapetas ya existentes: ${existentes.map((e: any) => e.numero_chapeta).join(', ')}`);
-              }
-
-              const uniquePropietarios = Array.from(new Set((payload.animales || []).map((a: any) => String(a.propietario || '').trim())));
-              const potreradasPayload = uniquePropietarios.map(prop => ({
-                id_finca: fincaId,
-                nombre: `Levante ${prop}`,
-                etapa: 'levante'
-              }));
-
-              const { data: potreradasCreadas, error: potError } = await supabase
-                .from('potreradas')
-                .upsert(potreradasPayload, { onConflict: 'id_finca,nombre' })
-                .select('id, nombre');
-              if (potError) throw potError;
-
-              const potreradaIdPorPropietario = new Map();
-              (potreradasCreadas || []).forEach((p: any) => {
-                const propMatch = uniquePropietarios.find(prop => p.nombre === `Levante ${prop}`);
-                if (propMatch) potreradaIdPorPropietario.set(propMatch, p.id);
-              });
-
-              const pesoCompTotalNum = payload.incluirPesoCompra ? parseFloat(payload.pesoCompraTotal) : 0;
-              const totalPesoIngresoLote = (payload.animales || []).reduce((acc: number, a: any) => acc + (parseFloat(a.peso_ingreso) || 0), 0);
-              const ratioPesoCompra = (payload.incluirPesoCompra && pesoCompTotalNum > 0 && totalPesoIngresoLote > 0)
-                ? (pesoCompTotalNum / totalPesoIngresoLote)
-                : 1;
-
-              const records = (payload.animales || []).map((a: any) => {
-                const propTrim = String(a.propietario || '').trim();
-                return {
-                  id_finca: fincaId,
-                  numero_chapeta: String(a.numero_chapeta || '').trim().toUpperCase(),
-                  nombre_propietario: propTrim,
-                  id_potrerada: payload.selectedPotrerada ? payload.selectedPotrerada : (potreradaIdPorPropietario.get(propTrim) || null),
-                  peso_ingreso: parseFloat(a.peso_ingreso),
-                  peso_compra: payload.incluirPesoCompra ? Math.round(parseFloat(a.peso_ingreso) * ratioPesoCompra) : null,
-                  fecha_ingreso: payload.fechaIngreso,
-                  proveedor_compra: payload.selectedProveedor,
-                  observaciones_compra: payload.observaciones,
-                  etapa: 'levante',
-                  especie: 'bovino',
-                  sexo: 'M',
-                  estado: 'activo'
-                };
-              });
-
-              const { error: insErr } = await supabase.from('animales').insert(records);
-              if (insErr) throw insErr;
-
-              remainingCompras = remainingCompras.filter(q => q.id !== payload.id);
-              procesados++;
-              comprasOk++;
-            } catch (err) {
-              console.error('[OfflineSync] Error al sincronizar compra de localStorage:', err);
-              errores++;
-            }
-          }
-          localStorage.setItem('agrogestion_compras_offline', JSON.stringify(remainingCompras));
-        }
-      }
-    } catch (e) {
-      console.warn('[OfflineSync] Error leyendo agrogestion_compras_offline:', e);
-    }
-
-    // --- Sincronizar Ventas en localStorage (agrogestion_ventas_offline) ---
-    try {
-      const ventasRaw = localStorage.getItem('agrogestion_ventas_offline');
+      const ventasRaw = localStorage.getItem(LEGACY_VENTAS_KEY);
       if (ventasRaw) {
         const ventasQueue: any[] = JSON.parse(ventasRaw);
         if (Array.isArray(ventasQueue) && ventasQueue.length > 0) {
@@ -997,7 +1356,9 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
                   throw new Error(`Animal ${a.numero_chapeta} en venta del ${payload.fechaVenta} no encontrado o inactivo.`);
                 }
 
-                const pesoSalidaNum = parseFloat(a.peso_salida);
+                const pesoSalidaParsed = parseDecimalInput(a.peso_salida);
+                const pesoSalidaNum = Number.isFinite(pesoSalidaParsed) ? pesoSalidaParsed : 0;
+                const precioVentaParsed = a.precio_venta ? parseDecimalInput(a.precio_venta) : NaN;
                 registrosInsert.push({
                   id_animal: data.id,
                   peso: pesoSalidaNum,
@@ -1014,7 +1375,7 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
                     peso_venta: pesoSalidaNum,
                     observaciones_venta: payload.observaciones,
                     es_emergencia: String(payload.selectedComprador || '').toLowerCase().includes('carnicero'),
-                    precio_venta: a.precio_venta ? parseFloat(a.precio_venta) : null
+                    precio_venta: Number.isFinite(precioVentaParsed) ? precioVentaParsed : null
                   })
                   .eq('id', data.id);
 
@@ -1033,12 +1394,19 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
               remainingVentas = remainingVentas.filter(q => q.id !== payload.id);
               procesados++;
               ventasOk++;
-            } catch (err) {
+            } catch (err: any) {
               console.error('[OfflineSync] Error al sincronizar venta de localStorage:', err);
               errores++;
+              mensajesError.push(`Venta legacy: ${err?.message || 'Error al subir'}`);
             }
           }
-          localStorage.setItem('agrogestion_ventas_offline', JSON.stringify(remainingVentas));
+          if (remainingVentas.length === 0) {
+            localStorage.removeItem(LEGACY_VENTAS_KEY);
+          } else {
+            localStorage.setItem(LEGACY_VENTAS_KEY, JSON.stringify(remainingVentas));
+          }
+        } else {
+          localStorage.removeItem(LEGACY_VENTAS_KEY);
         }
       }
     } catch (e) {
@@ -1047,6 +1415,6 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
   }
 
   notificarCambioColaOffline();
-  return { procesados, errores, pesajes: pesajesOk, aforos: aforosOk, compras: comprasOk, ventas: ventasOk };
+  return { procesados, errores, pesajes: pesajesOk, aforos: aforosOk, compras: comprasOk, ventas: ventasOk, mensajesError };
 }
 

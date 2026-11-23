@@ -169,6 +169,12 @@
     cursor: default;
 }
 
+.topbar-btn-sync.has-errors {
+    background: var(--error-soft-bg);
+    color: var(--error);
+    border: 1px solid var(--error-soft-border);
+}
+
 .topbar-sync-badge {
     background: var(--surface-subtle-hover);
     padding: 1px 6px;

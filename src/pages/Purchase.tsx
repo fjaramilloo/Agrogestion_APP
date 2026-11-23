@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { localDB, type CompraOfflineQueueItem } from '../lib/db';
+import { listarComprasOffline, guardarCompraOffline, limpiarComprasOffline } from '../lib/offlineService';
 import ModalUpsell from '../components/ModalUpsell';
 import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
 import { getLicenseBlockState } from '../utils/licenseUtils';
@@ -14,17 +16,6 @@ import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/d
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './TradeOperations.css';
-
-interface OfflinePurchasePayload {
-    id: string;
-    fechaIngreso: string;
-    animales: AnimalCompra[];
-    selectedProveedor: string;
-    observaciones: string;
-    incluirPesoCompra: boolean;
-    pesoCompraTotal: string;
-    selectedPotrerada: string;
-}
 
 interface AnimalCompra {
     numero_chapeta: string;
@@ -39,7 +30,7 @@ interface AnimalCompra {
 
 export default function Purchase() {
     const { fincaId, role, userFincas, licenciaInfo, refreshLicencia } = useAuth();
-    const { modoCampo, toggleModoCampo, isOnline } = useConnection();
+    const { modoCampo, toggleModoCampo, isOnline, syncing, sincronizarTodo } = useConnection();
     const { confirmAction } = useFeedback();
     const isMobile = useIsMobile();
     const { isBloqueado } = getLicenseBlockState(licenciaInfo, true);
@@ -61,9 +52,8 @@ export default function Purchase() {
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
 
-    // Offline / Sync State
-    const [offlineQueue, setOfflineQueue] = useState<OfflinePurchasePayload[]>([]);
-    const [syncing, setSyncing] = useState(false);
+    // Offline / Sync State (Dexie scoped por id_finca)
+    const [offlineQueue, setOfflineQueue] = useState<CompraOfflineQueueItem[]>([]);
 
     // Reporte
     const [showReport, setShowReport] = useState(false);
@@ -82,19 +72,75 @@ export default function Purchase() {
     const [showQuickReport, setShowQuickReport] = useState(false);
     const [quickReportData, setQuickReportData] = useState<{ proveedor: string; fecha: string; animales: { numero_chapeta: string; peso_ingreso: number }[]; pesoCompraTotal: number } | null>(null);
 
+    const loadOfflineQueue = useCallback(async () => {
+        if (!fincaId) {
+            setOfflineQueue([]);
+            return;
+        }
+        const items = await listarComprasOffline(fincaId);
+        setOfflineQueue(items);
+    }, [fincaId]);
+
     useEffect(() => {
-        const loadQueue = () => {
-            const saved = localStorage.getItem('agrogestion_compras_offline');
-            if (saved) {
-                try { setOfflineQueue(JSON.parse(saved)); } catch {}
-            } else {
-                setOfflineQueue([]);
-            }
-        };
-        loadQueue();
-        window.addEventListener('offline-queue-changed', loadQueue);
-        return () => window.removeEventListener('offline-queue-changed', loadQueue);
-    }, []);
+        void loadOfflineQueue();
+        const handleQueueChange = () => { void loadOfflineQueue(); };
+        window.addEventListener('offline-queue-changed', handleQueueChange);
+        return () => window.removeEventListener('offline-queue-changed', handleQueueChange);
+    }, [loadOfflineQueue]);
+
+    const fetchLastTags = useCallback(async () => {
+        if (!fincaId) return;
+        const tagSet = new Set<string>();
+
+        try {
+            const cachedAnimales = await localDB.animalesCache.where('id_finca').equals(fincaId).toArray();
+            cachedAnimales.forEach(a => {
+                if (a.numero_chapeta) tagSet.add(a.numero_chapeta.trim().toUpperCase());
+            });
+        } catch { /* noop */ }
+
+        const { data, error } = await supabase
+            .from('animales')
+            .select('numero_chapeta, nombre_propietario, fecha_ingreso')
+            .eq('id_finca', fincaId)
+            .eq('estado', 'activo');
+
+        if (!error && data) {
+            const owners = Array.from(new Set(data.map(a => a.nombre_propietario)));
+
+            const latest = owners.map(owner => {
+                const ownerAnimals = data.filter(d => d.nombre_propietario === owner);
+                if (ownerAnimals.length === 0) return { owner: owner || 'Sin dueño', tag: 'N/A' };
+
+                const maxDateStr = ownerAnimals.reduce((max, curr) => {
+                    const fCurr = curr.fecha_ingreso || '';
+                    return fCurr > max ? fCurr : max;
+                }, '');
+
+                const latestBatch = ownerAnimals.filter(d => (d.fecha_ingreso || '') === maxDateStr);
+
+                const extractNum = (str: string) => {
+                    const match = str.match(/\d+/);
+                    return match ? parseInt(match[0], 10) : 0;
+                };
+
+                const topAnimal = latestBatch.reduce((maxAnimal, currAnimal) => {
+                    const maxNum = extractNum(maxAnimal.numero_chapeta || '');
+                    const currNum = extractNum(currAnimal.numero_chapeta || '');
+                    return currNum > maxNum ? currAnimal : maxAnimal;
+                }, latestBatch[0]);
+
+                return { owner: owner || 'Sin dueño', tag: topAnimal.numero_chapeta || 'N/A' };
+            });
+
+            setLastTags(latest);
+            data.forEach(a => {
+                if (a.numero_chapeta) tagSet.add(a.numero_chapeta.trim().toUpperCase());
+            });
+        }
+
+        setExistingTags(tagSet);
+    }, [fincaId]);
 
     useEffect(() => {
         if (!fincaId) return;
@@ -120,55 +166,17 @@ export default function Purchase() {
                 .order('nombre');
             if (potData) setPotreradas(potData);
 
-            // Fetch last tags logic
             await fetchLastTags();
         };
-        fetchPropietarios();
-    }, [fincaId]);
+        void fetchPropietarios();
 
-    const fetchLastTags = async () => {
-        if (!fincaId) return;
-        const { data, error } = await supabase
-            .from('animales')
-            .select('numero_chapeta, nombre_propietario, fecha_ingreso')
-            .eq('id_finca', fincaId)
-            .eq('estado', 'activo');
-
-        if (error || !data) return;
-
-        const owners = Array.from(new Set(data.map(a => a.nombre_propietario)));
-        
-        const latest = owners.map(owner => {
-            const ownerAnimals = data.filter(d => d.nombre_propietario === owner);
-            if (ownerAnimals.length === 0) return { owner: owner || 'Sin dueño', tag: 'N/A' };
-
-            // 1. Encontrar la fecha de ingreso más reciente para este propietario
-            const maxDateStr = ownerAnimals.reduce((max, curr) => {
-                const fCurr = curr.fecha_ingreso || '';
-                return fCurr > max ? fCurr : max;
-            }, '');
-
-            // 2. Filtrar solo los animales que entraron en esa última fecha
-            const latestBatch = ownerAnimals.filter(d => (d.fecha_ingreso || '') === maxDateStr);
-
-            // 3. Extraer el primer número que aparezca en la chapeta y encontrar el mayor
-            const extractNum = (str: string) => {
-                const match = str.match(/\d+/);
-                return match ? parseInt(match[0], 10) : 0;
-            };
-
-            const topAnimal = latestBatch.reduce((maxAnimal, currAnimal) => {
-                const maxNum = extractNum(maxAnimal.numero_chapeta || '');
-                const currNum = extractNum(currAnimal.numero_chapeta || '');
-                return currNum > maxNum ? currAnimal : maxAnimal;
-            }, latestBatch[0]);
-
-            return { owner: owner || 'Sin dueño', tag: topAnimal.numero_chapeta || 'N/A' };
-        });
-
-        setLastTags(latest);
-        setExistingTags(new Set(data.map(a => a.numero_chapeta?.trim().toUpperCase() || '')));
-    };
+        const onSyncCompleted = () => {
+            void loadOfflineQueue();
+            void fetchPropietarios();
+        };
+        window.addEventListener('offline-sync-completed', onSyncCompleted);
+        return () => window.removeEventListener('offline-sync-completed', onSyncCompleted);
+    }, [fincaId, fetchLastTags, loadOfflineQueue]);
 
     const generarFilas = (e: React.FormEvent) => {
         e.preventDefault();
@@ -238,7 +246,7 @@ export default function Purchase() {
                 if (!a.propietario) throw new Error(`Falta propietario para ${a.numero_chapeta}`);
             });
 
-            // Registro de chapetas existentes en la base de datos (sólo si hay conexión efectiva)
+            // Validar chapetas existentes en servidor o caché local según estado de conexión
             if (effectiveOnline) {
                 const { data: existentes, error: checkError } = await supabase
                     .from('animales')
@@ -251,6 +259,11 @@ export default function Purchase() {
                 if (existentes && existentes.length > 0) {
                     const caps = existentes.map(e => e.numero_chapeta).join(', ');
                     throw new Error(`Las siguientes chapetas ya están registradas en esta finca: ${caps}`);
+                }
+            } else {
+                const dupLocal = chapetas.filter(c => existingTags.has(c));
+                if (dupLocal.length > 0) {
+                    throw new Error(`Chapetas ya existentes en esta finca o pendientes en cola local: ${Array.from(new Set(dupLocal)).join(', ')}`);
                 }
             }
 
@@ -268,34 +281,30 @@ export default function Purchase() {
         setMsjExito('');
         setShowConfirm(false);
 
-        // Validación de conexión efectiva
         const effectiveOnline = isOnline;
-
-        console.log("Iniciando proceso de guardado en base de datos. Estado:", effectiveOnline ? "Online" : "Offline / Modo Campo");
 
         try {
             if (!fincaId) throw new Error("No se pudo identificar la finca activa.");
             if (animales.length === 0) throw new Error("La lista de animales está vacía.");
 
             if (!effectiveOnline) {
-                console.log("Modo offline detectado. Guardando en cola local.");
-                const newPayload: OfflinePurchasePayload = {
-                    id: Date.now().toString(),
+                const cantidadLote = animales.length;
+                await guardarCompraOffline({
+                    id_finca: fincaId,
                     fechaIngreso,
                     animales: [...animales],
                     selectedProveedor,
                     observaciones,
                     incluirPesoCompra,
                     pesoCompraTotal,
-                    selectedPotrerada
-                };
-                const newQueue = [...offlineQueue, newPayload];
-                setOfflineQueue(newQueue);
-                localStorage.setItem('agrogestion_compras_offline', JSON.stringify(newQueue));
-                window.dispatchEvent(new CustomEvent('offline-queue-changed'));
-                
-                setMsjExito(`¡Guardado localmente! Lote de ${animales.length} animales guardado en la cola offline.`);
+                    selectedPotrerada,
+                    potreradaNombreRef: potreradas.find(p => p.id === selectedPotrerada)?.nombre
+                });
+
                 handleReset();
+                setMsjExito(`📱 ¡Guardado localmente! Lote de ${cantidadLote} animales guardado en la cola offline.`);
+                void fetchLastTags();
+                void loadOfflineQueue();
                 setLoading(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
@@ -404,101 +413,17 @@ export default function Purchase() {
         return <div className="page-container text-center">Acceso denegado.</div>;
     }
 
-    const syncOfflineQueue = async () => {
-        if (!fincaId || offlineQueue.length === 0 || !isOnline) return;
-        setSyncing(true);
+    const handleSyncOfflineQueue = async () => {
+        if (!fincaId || offlineQueue.length === 0 || !isOnline || syncing) return;
         setMsjError('');
         setMsjExito('');
-        let syncedCount = 0;
-        let newQueue = [...offlineQueue];
-
-        try {
-            for (const payload of offlineQueue) {
-                const chapetas = payload.animales.map(a => a.numero_chapeta.trim().toUpperCase());
-                
-                // Validar duplicados internos en el lote offline
-                if (new Set(chapetas).size !== chapetas.length) {
-                    const duplicados = chapetas.filter((item, index) => chapetas.indexOf(item) !== index);
-                    throw new Error(`Lote offline del ${payload.fechaIngreso}: Tiene chapetas duplicadas internamente (${Array.from(new Set(duplicados)).join(', ')}).`);
-                }
-
-                const { data: existentes } = await supabase
-                    .from('animales')
-                    .select('numero_chapeta')
-                    .eq('id_finca', fincaId)
-                    .in('numero_chapeta', chapetas);
-                
-                if (existentes && existentes.length > 0) {
-                    throw new Error(`Lote offline del ${payload.fechaIngreso}: Estas chapetas ya existen en la base de datos (${existentes.map(e => e.numero_chapeta).join(', ')}).`);
-                }
-
-                const uniquePropietarios = Array.from(new Set(payload.animales.map(a => a.propietario)));
-                
-                const potreradasPayload = uniquePropietarios.map(prop => ({
-                    id_finca: fincaId,
-                    nombre: `Levante ${prop}`,
-                    etapa: 'levante'
-                }));
-                
-                const { data: potreradasCreadas, error: potError } = await supabase
-                    .from('potreradas')
-                    .upsert(potreradasPayload, { onConflict: 'id_finca,nombre' })
-                    .select('id, nombre');
-                if (potError) throw potError;
-                
-                const potreradaIdPorPropietario = new Map();
-                if (potreradasCreadas) {
-                    potreradasCreadas.forEach((p: any) => {
-                        const propMatch = uniquePropietarios.find(prop => p.nombre === `Levante ${prop}`);
-                        if (propMatch) potreradaIdPorPropietario.set(propMatch, p.id);
-                    });
-                }
-
-                const parsedPesoCompraTotal = parseDecimalInput(payload.pesoCompraTotal);
-                const pesoCompTotalNum = payload.incluirPesoCompra && !isNaN(parsedPesoCompraTotal) ? parsedPesoCompraTotal : 0;
-                const totalPesoIngresoLote = payload.animales.reduce((acc, a) => acc + (parseDecimalInput(a.peso_ingreso) || 0), 0);
-                const ratioPesoCompra = (payload.incluirPesoCompra && pesoCompTotalNum > 0 && totalPesoIngresoLote > 0) 
-                    ? (pesoCompTotalNum / totalPesoIngresoLote) 
-                    : 1;
-
-                const records = payload.animales.map(a => {
-                    const pesoIngresoNum = parseDecimalInput(a.peso_ingreso);
-                    return {
-                        id_finca: fincaId,
-                        numero_chapeta: a.numero_chapeta.trim().toUpperCase(),
-                        nombre_propietario: a.propietario,
-                        id_potrerada: payload.selectedPotrerada ? payload.selectedPotrerada : (potreradaIdPorPropietario.get(a.propietario) || null),
-                        peso_ingreso: Math.round(pesoIngresoNum),
-                        peso_compra: payload.incluirPesoCompra ? Math.round(pesoIngresoNum * ratioPesoCompra) : null,
-                        fecha_ingreso: payload.fechaIngreso,
-                        proveedor_compra: payload.selectedProveedor,
-                        observaciones_compra: payload.observaciones,
-                        etapa: 'levante',
-                        especie: 'bovino',
-                        sexo: 'M',
-                        estado: 'activo'
-                    };
-                });
-
-                const { error } = await supabase.from('animales').insert(records);
-                if (error) throw error;
-
-                syncedCount++;
-                newQueue = newQueue.filter(q => q.id !== payload.id);
-            }
-
-            if (syncedCount > 0) {
-                setOfflineQueue(newQueue);
-                localStorage.setItem('agrogestion_compras_offline', JSON.stringify(newQueue));
-                setMsjExito(`¡Sincronización completa! Se subieron ${syncedCount} lotes.`);
-            }
-
-        } catch (err: any) {
-            setOfflineQueue(newQueue);
-            localStorage.setItem('agrogestion_compras_offline', JSON.stringify(newQueue));
-            setMsjError('Error al sincronizar cola: ' + err.message);
-        } finally {
-            setSyncing(false);
+        const res = await sincronizarTodo(fincaId);
+        await loadOfflineQueue();
+        await fetchLastTags();
+        if (res.procesados > 0 && res.errores === 0) {
+            setMsjExito('¡Sincronización completa! Lotes subidos correctamente.');
+        } else if (res.errores > 0) {
+            setMsjError('Algunos lotes tuvieron conflictos al sincronizar. Revisa el detalle en el resumen.');
         }
     };
 
@@ -581,7 +506,7 @@ export default function Purchase() {
                         <div className="trade-queue-actions">
                             <button
                                 type="button"
-                                onClick={syncOfflineQueue}
+                                onClick={handleSyncOfflineQueue}
                                 disabled={syncing}
                                 className="trade-sync-btn trade-sync-btn--primary"
                             >
@@ -595,9 +520,10 @@ export default function Purchase() {
                                         confirmLabel: 'Sí, limpiar',
                                         destructive: true,
                                     });
-                                    if (confirmed) {
+                                    if (confirmed && fincaId) {
+                                        await limpiarComprasOffline(fincaId);
                                         setOfflineQueue([]);
-                                        localStorage.removeItem('agrogestion_compras_offline');
+                                        void fetchLastTags();
                                         setMsjExito('Cola de pendientes limpiada correctamente.');
                                     }
                                 }}

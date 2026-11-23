@@ -248,14 +248,16 @@ export default function Dashboard() {
                                 observaciones_venta: a.observaciones_venta,
                                 potreros: a.potrero_nombre ? { nombre: a.potrero_nombre } : null,
                                 potreradas: a.potrerada_nombre ? { nombre: a.potrerada_nombre } : null,
-                                registros_pesaje: a.ultimo_peso ? [{
-                                    id_animal: a.id,
-                                    peso: a.ultimo_peso,
-                                    fecha: a.fecha_ultimo_pesaje || a.fecha_ingreso,
-                                    etapa: a.etapa,
-                                    gmp_calculada: null,
-                                    gdp_calculada: null
-                                }] : []
+                                registros_pesaje: Array.isArray(a.registros_pesaje) && a.registros_pesaje.length > 0
+                                    ? a.registros_pesaje
+                                    : (a.ultimo_peso ? [{
+                                        id_animal: a.id,
+                                        peso: a.ultimo_peso,
+                                        fecha: a.fecha_ultimo_pesaje || a.fecha_ingreso,
+                                        etapa: a.etapa,
+                                        gmp_calculada: null,
+                                        gdp_calculada: null
+                                    }] : [])
                             }));
                         }
                     } catch (e) {

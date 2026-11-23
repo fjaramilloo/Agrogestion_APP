@@ -1,8 +1,9 @@
-import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, WifiOff, RefreshCw, Sun, Moon } from 'lucide-react';
+import { Leaf, User, Menu, ShieldCheck, UserCog, Eye, Crown, WifiOff, RefreshCw, Sun, Moon, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useTheme } from '../contexts/ThemeContext';
 import NotificationCenter from './NotificationCenter';
+import { OPEN_SYNC_ERRORS_EVENT } from './SyncSummaryModal';
 import './Topbar.css';
 
 interface TopbarProps {
@@ -17,6 +18,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         isOnline,
         syncing,
         conteoPendienteTotal,
+        conteoFallidosTotal,
         sincronizarTodo
     } = useConnection();
     const { isSunMode, toggleTheme } = useTheme();
@@ -88,16 +90,32 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                 {/* Badge y botón para sincronizar registros pendientes */}
                 {conteoPendienteTotal > 0 && (
                     <button
+                        type="button"
                         onClick={handleSync}
                         disabled={syncing || !isOnline}
                         className={`topbar-btn-action topbar-btn-sync ${isOnline ? 'can-sync' : 'cannot-sync'}`}
                         title={isOnline ? 'Clic para subir todos los registros acumulados' : 'Se sincronizarán automáticamente al recuperar la señal'}
                     >
-                        <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+                        <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} aria-hidden="true" />
                         <span className="topbar-sync-badge">{conteoPendienteTotal}</span>
                         <span className="topbar-btn-label">
                             {syncing ? 'Subiendo...' : isOnline ? 'Sincronizar' : 'en celular'}
                         </span>
+                    </button>
+                )}
+
+                {/* Alerta cuando hay registros que fallaron al sincronizar (para reintentar o descartar sin bucle infinito) */}
+                {conteoFallidosTotal > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_SYNC_ERRORS_EVENT))}
+                        className="topbar-btn-action topbar-btn-sync has-errors"
+                        title="Hay registros offline que no pudieron subir. Toca para ver el detalle y reintentar."
+                        aria-label={`Ver ${conteoFallidosTotal} errores de sincronización`}
+                    >
+                        <AlertTriangle size={14} aria-hidden="true" />
+                        <span className="topbar-sync-badge">{conteoFallidosTotal}</span>
+                        <span className="topbar-btn-label">Error sync</span>
                     </button>
                 )}
 

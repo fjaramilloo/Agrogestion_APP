@@ -204,9 +204,10 @@ export default function Sales() {
 
             let animalEncontrado = data;
             if (!animalEncontrado) {
+                const targetTag = a.numero_chapeta.trim().toLowerCase();
                 const cached = await localDB.animalesCache
                     .where('id_finca').equals(fincaId)
-                    .filter(an => an.numero_chapeta === a.numero_chapeta.trim())
+                    .filter(an => (!an.estado || an.estado === 'activo') && an.numero_chapeta?.trim().toLowerCase() === targetTag)
                     .first();
                 if (cached) {
                     animalEncontrado = {
@@ -220,7 +221,7 @@ export default function Sales() {
                         fecha_ingreso_ceba: cached.fecha_ingreso_ceba,
                         peso_ingreso_ceba: cached.peso_ingreso_ceba,
                         potreros: [{ nombre: cached.potrero_nombre }] as any,
-                        registros_pesaje: []
+                        registros_pesaje: cached.registros_pesaje || []
                     };
                 }
             }

@@ -23,13 +23,73 @@ export const isModoCampoActivo = (): boolean => {
 const MAX_BODY_CHARS = 6_000_000;
 const MAX_ENTRADAS_CACHE = 800;
 const TIMEOUT_LECTURA_MS = 2500; // Reducido de 15000 a 2500ms para no bloquear la pantalla en potrero
+const TIMEOUT_PRECACHE_MS = 12_000; // Timeout amplio para sincronización/precarga explícita de caché
 const TIMEOUT_ESCRITURA_MS = 3000; // Reducido de 20000 a 3000ms para asegurar escrituras en cola rápido
 const TIMEOUT_FUNCTIONS_MS = 60_000; // Edge Functions (Gemini AI AgroBot, invitaciones por correo, tareas de servidor)
 const TIMEOUT_STORAGE_MS = 60_000; // Subida y descarga de archivos e imágenes
 const TIMEOUT_AUTH_MS = 15_000; // Login manual con correo/contraseña
-const TIMEOUT_AUTH_REFRESH_MS = 2200; // Renovación automática de token: máximo 2.2s para no congelar el arranque en potrero
+const TIMEOUT_AUTH_REFRESH_MS = 2500; // Renovación automática de token: máximo 2.5s para no congelar el arranque en potrero
 const FAST_CACHE_RACE_MS = 350; // Si la red no responde en 350ms y tenemos caché, responde de inmediato con caché local
 const SESSION_BACKUP_KEY = 'agrogestion_cached_session_backup';
+
+const NETWORK_FIRST_SIGNALS = new WeakSet<AbortSignal>();
+
+/** Marca un AbortSignal como petición Network-First (omite la carrera de 350ms contra caché). */
+export function registrarNetworkFirstSignal(signal: AbortSignal) {
+  NETWORK_FIRST_SIGNALS.add(signal);
+}
+
+let refreshEnVuelo: Promise<string | null> | null = null;
+
+/**
+ * Intenta renovar el access_token con el refresh_token local sin disparar recursión en offlineAwareFetch.
+ * Se deduplica si varias peticiones reciben 401 al tiempo al volver a cobertura.
+ */
+async function refrescarTokenDirecto(): Promise<string | null> {
+  if (refreshEnVuelo) return refreshEnVuelo;
+  refreshEnVuelo = (async () => {
+    try {
+      const sesionLocal = leerSesionLocalSupabase();
+      const refreshToken = sesionLocal?.refresh_token;
+      const base = import.meta.env.VITE_SUPABASE_URL as string;
+      const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      if (!refreshToken || !base || !apikey) return null;
+
+      const res = await fetch(`${base}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey,
+          Authorization: `Bearer ${apikey}`
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+        signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(TIMEOUT_AUTH_REFRESH_MS) : undefined
+      });
+
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data?.access_token) return null;
+
+      // Actualizar almacenamiento local de Supabase y copia de respaldo
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) {
+            localStorage.setItem(k, JSON.stringify(data));
+          }
+        }
+        guardarBackupSesionLocal(data);
+      } catch { /* noop */ }
+
+      return String(data.access_token);
+    } catch {
+      return null;
+    } finally {
+      refreshEnVuelo = null;
+    }
+  })();
+  return refreshEnVuelo;
+}
 
 /**
  * Lee sincrónicamente la sesión de Supabase guardada en localStorage (o su copia de respaldo).
@@ -137,7 +197,11 @@ function parseRest(url: string) {
 }
 
 function conTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
-  if (!init.signal && typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+  const hasTimeout = typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal;
+  if (init.signal && hasTimeout && 'any' in AbortSignal) {
+    return fetch(url, { ...init, signal: AbortSignal.any([init.signal, AbortSignal.timeout(ms)]) });
+  }
+  if (!init.signal && hasTimeout) {
     return fetch(url, { ...init, signal: AbortSignal.timeout(ms) });
   }
   return fetch(url, init);
@@ -268,6 +332,7 @@ async function smartTableFallback(
 ): Promise<Response | null> {
   try {
     const pool = new Map<string, any>();
+    const idsEliminados = new Set<string>();
     const listSinId: any[] = [];
 
     // 1. Recoger todas las respuestas cacheadas de esta tabla
@@ -281,6 +346,7 @@ async function smartTableFallback(
           if (!row || typeof row !== 'object') continue;
           if (row.id !== undefined && row.id !== null) {
             const idStr = String(row.id);
+            if (row.is_deleted === true) idsEliminados.add(idStr);
             const prev = pool.get(idStr);
             if (!prev) {
               pool.set(idStr, { ...row });
@@ -298,7 +364,7 @@ async function smartTableFallback(
     if (tabla === 'potreros') {
       const pots = await localDB.potrerosCache.toArray();
       for (const p of pots) {
-        if (!pool.has(p.id)) {
+        if (!pool.has(p.id) && !idsEliminados.has(p.id)) {
           pool.set(p.id, {
             id: p.id,
             id_finca: p.id_finca,
@@ -314,7 +380,7 @@ async function smartTableFallback(
     } else if (tabla === 'potreradas') {
       const pts = await localDB.potreradasCache.toArray();
       for (const pt of pts) {
-        if (!pool.has(pt.id)) {
+        if (!pool.has(pt.id) && !idsEliminados.has(pt.id)) {
           pool.set(pt.id, {
             id: pt.id,
             id_finca: pt.id_finca,
@@ -326,7 +392,7 @@ async function smartTableFallback(
     } else if (tabla === 'rotaciones') {
       const rots = await localDB.rotacionesCache.toArray();
       for (const r of rots) {
-        if (!pool.has(r.id)) {
+        if (!pool.has(r.id) && !idsEliminados.has(r.id)) {
           pool.set(r.id, {
             id: r.id,
             id_finca: r.id_finca,
@@ -337,7 +403,7 @@ async function smartTableFallback(
     } else if (tabla === 'animales') {
       const anims = await localDB.animalesCache.toArray();
       for (const a of anims) {
-        if (!pool.has(a.id)) {
+        if (!pool.has(a.id) && !idsEliminados.has(a.id)) {
           pool.set(a.id, {
             id: a.id,
             id_finca: a.id_finca,
@@ -455,6 +521,12 @@ async function smartTableFallback(
 
 async function guardarCache(key: string, url: string, method: string, reqBody: string | null, reqHeaders: Headers, res: Response, tabla: string) {
   try {
+    // Proteger escrituras optimistas pendientes: no pisar la caché de una tabla con cambios aún sin subir
+    const hayPendientesTabla = await localDB.httpWriteQueue
+      .filter(op => op.status !== 'failed' && op.tabla === tabla)
+      .count();
+    if (hayPendientesTabla > 0) return;
+
     const body = await res.text();
     if (body.length > MAX_BODY_CHARS) return;
     const item: HttpReadCacheItem = {
@@ -518,6 +590,226 @@ function ordenar(lista: any[], params: URLSearchParams) {
   });
 }
 
+async function sincronizarTablasEspecializadas(
+  tabla: string,
+  method: string,
+  filtrosReq: Filtro[],
+  cuerpo: any
+): Promise<void> {
+  try {
+    const ahora = new Date().toISOString();
+
+    if (tabla === 'animales') {
+      if (method === 'POST' && cuerpo) {
+        const filas = Array.isArray(cuerpo) ? cuerpo : [cuerpo];
+        const items: any[] = [];
+        for (const r of filas) {
+          if (!r?.id || !r?.id_finca) continue;
+          let potNombre = '';
+          if (r.id_potrerada) {
+            const pt = await localDB.potreradasCache.get(r.id_potrerada);
+            if (pt) potNombre = pt.nombre;
+          }
+          items.push({
+            id: r.id,
+            id_finca: r.id_finca,
+            numero_chapeta: r.numero_chapeta || '',
+            nombre_propietario: r.nombre_propietario,
+            etapa: r.etapa || 'levante',
+            estado: r.estado || 'activo',
+            peso_ingreso: r.peso_ingreso,
+            peso_compra: r.peso_compra,
+            fecha_ingreso: r.fecha_ingreso || ahora.slice(0, 10),
+            fecha_ingreso_ceba: r.fecha_ingreso_ceba,
+            peso_ingreso_ceba: r.peso_ingreso_ceba,
+            id_potrerada: r.id_potrerada,
+            potrero_nombre: '',
+            potrerada_nombre: potNombre,
+            ultimo_peso: r.peso_ingreso ?? r.peso_compra,
+            fecha_ultimo_pesaje: r.fecha_ingreso,
+            registros_pesaje: [],
+            updated_at: ahora
+          });
+        }
+        if (items.length) await localDB.animalesCache.bulkPut(items);
+      } else if ((method === 'PATCH' || method === 'PUT') && cuerpo) {
+        const todos = await localDB.animalesCache.toArray();
+        const actualizados: any[] = [];
+        const eliminarIds: string[] = [];
+        let potNombreNuevo: string | undefined;
+        if (cuerpo.id_potrero_actual) {
+          const pot = await localDB.potrerosCache.get(cuerpo.id_potrero_actual);
+          if (pot) potNombreNuevo = pot.nombre;
+        }
+        let lotNombreNuevo: string | undefined;
+        if (cuerpo.id_potrerada) {
+          const pt = await localDB.potreradasCache.get(cuerpo.id_potrerada);
+          if (pt) lotNombreNuevo = pt.nombre;
+        }
+        for (const row of todos) {
+          if (!cumple(row, filtrosReq, true)) continue;
+          if (cuerpo.is_deleted === true) {
+            eliminarIds.push(row.id);
+          } else {
+            actualizados.push({
+              ...row,
+              ...cuerpo,
+              ...(potNombreNuevo !== undefined ? { potrero_nombre: potNombreNuevo } : {}),
+              ...(lotNombreNuevo !== undefined ? { potrerada_nombre: lotNombreNuevo } : {}),
+              updated_at: ahora
+            });
+          }
+        }
+        if (eliminarIds.length) await localDB.animalesCache.bulkDelete(eliminarIds);
+        if (actualizados.length) await localDB.animalesCache.bulkPut(actualizados);
+      } else if (method === 'DELETE') {
+        const todos = await localDB.animalesCache.toArray();
+        const eliminarIds = todos.filter(r => cumple(r, filtrosReq, true)).map(r => r.id);
+        if (eliminarIds.length) await localDB.animalesCache.bulkDelete(eliminarIds);
+      }
+      return;
+    }
+
+    if (tabla === 'registros_pesaje') {
+      if (method === 'POST' && cuerpo) {
+        const filas = Array.isArray(cuerpo) ? cuerpo : [cuerpo];
+        for (const p of filas) {
+          if (!p?.id_animal) continue;
+          const cached = await localDB.animalesCache.get(p.id_animal);
+          if (!cached) continue;
+          const prevPesajes = (cached.registros_pesaje || []).filter(
+            (x: any) => !x.is_deleted && !(p.id && x.id === p.id)
+          );
+          const nuevo = {
+            id: p.id,
+            id_animal: p.id_animal,
+            peso: Number(p.peso),
+            fecha: p.fecha,
+            etapa: p.etapa || cached.etapa,
+            gdp_calculada: p.gdp_calculada ?? 0,
+            gmp_calculada: p.gmp_calculada ?? (p.gdp_calculada !== undefined ? Number(p.gdp_calculada) * 30 : undefined),
+            is_deleted: false
+          };
+          const ordenados = [nuevo, ...prevPesajes].sort(
+            (x: any, y: any) => String(y.fecha || '').localeCompare(String(x.fecha || ''))
+          );
+          const ult = ordenados[0];
+          await localDB.animalesCache.update(p.id_animal, {
+            registros_pesaje: ordenados,
+            ultimo_peso: ult ? Number(ult.peso) : cached.ultimo_peso,
+            fecha_ultimo_pesaje: ult ? ult.fecha : cached.fecha_ultimo_pesaje,
+            updated_at: ahora
+          });
+        }
+      } else if (method === 'PATCH' || method === 'PUT' || method === 'DELETE') {
+        const idFiltro = filtrosReq.find(f => f.col === 'id' && f.op === 'eq')?.val;
+        const animalFiltro = filtrosReq.find(f => f.col === 'id_animal' && f.op === 'eq')?.val;
+        if (!idFiltro && !animalFiltro) return;
+        const candidatos = animalFiltro
+          ? ([await localDB.animalesCache.get(animalFiltro)].filter(Boolean) as any[])
+          : await localDB.animalesCache.toArray();
+        for (const cached of candidatos) {
+          const lista = cached.registros_pesaje || [];
+          let modifico = false;
+          const actualizada = lista
+            .map((p: any) => {
+              const coincide = idFiltro ? p.id === idFiltro : true;
+              if (!coincide) return p;
+              modifico = true;
+              if (method === 'DELETE' || cuerpo?.is_deleted === true) return null;
+              return { ...p, ...cuerpo };
+            })
+            .filter(Boolean)
+            .sort((x: any, y: any) => String(y.fecha || '').localeCompare(String(x.fecha || '')));
+          if (!modifico) continue;
+          const ult = actualizada[0];
+          await localDB.animalesCache.update(cached.id, {
+            registros_pesaje: actualizada,
+            ultimo_peso: ult ? Number(ult.peso) : (cached.peso_ingreso ?? cached.peso_compra),
+            fecha_ultimo_pesaje: ult ? ult.fecha : cached.fecha_ingreso,
+            updated_at: ahora
+          });
+        }
+      }
+      return;
+    }
+
+    if (tabla === 'potreros') {
+      if (method === 'POST' && cuerpo) {
+        const filas = (Array.isArray(cuerpo) ? cuerpo : [cuerpo]).filter((r: any) => r?.id && r?.id_finca);
+        if (filas.length) {
+          await localDB.potrerosCache.bulkPut(
+            filas.map((p: any) => ({
+              id: p.id,
+              id_finca: p.id_finca,
+              nombre: p.nombre,
+              area_ha: p.area_hectareas,
+              id_rotacion: p.id_rotacion || null,
+              geojson_geometry: p.geojson_geometry,
+              color_mapa: p.color_mapa,
+              kml_name: p.kml_name
+            }))
+          );
+        }
+      } else if ((method === 'PATCH' || method === 'PUT') && cuerpo) {
+        const todos = await localDB.potrerosCache.toArray();
+        const mod = todos.filter(r => cumple(r, filtrosReq, true)).map(r => ({
+          ...r,
+          ...cuerpo,
+          ...(cuerpo.area_hectareas !== undefined ? { area_ha: cuerpo.area_hectareas } : {})
+        }));
+        if (mod.length) await localDB.potrerosCache.bulkPut(mod);
+      } else if (method === 'DELETE') {
+        const todos = await localDB.potrerosCache.toArray();
+        const delIds = todos.filter(r => cumple(r, filtrosReq, true)).map(r => r.id);
+        if (delIds.length) await localDB.potrerosCache.bulkDelete(delIds);
+      }
+      return;
+    }
+
+    if (tabla === 'potreradas') {
+      if (method === 'POST' && cuerpo) {
+        const filas = (Array.isArray(cuerpo) ? cuerpo : [cuerpo]).filter((r: any) => r?.id && r?.id_finca);
+        if (filas.length) {
+          await localDB.potreradasCache.bulkPut(
+            filas.map((p: any) => ({ id: p.id, id_finca: p.id_finca, nombre: p.nombre, id_rotacion: p.id_rotacion || null }))
+          );
+        }
+      } else if ((method === 'PATCH' || method === 'PUT') && cuerpo) {
+        const todos = await localDB.potreradasCache.toArray();
+        const mod = todos.filter(r => cumple(r, filtrosReq, true)).map(r => ({ ...r, ...cuerpo }));
+        if (mod.length) await localDB.potreradasCache.bulkPut(mod);
+      } else if (method === 'DELETE') {
+        const todos = await localDB.potreradasCache.toArray();
+        const delIds = todos.filter(r => cumple(r, filtrosReq, true)).map(r => r.id);
+        if (delIds.length) await localDB.potreradasCache.bulkDelete(delIds);
+      }
+      return;
+    }
+
+    if (tabla === 'rotaciones') {
+      if (method === 'POST' && cuerpo) {
+        const filas = (Array.isArray(cuerpo) ? cuerpo : [cuerpo]).filter((r: any) => r?.id && r?.id_finca);
+        if (filas.length) {
+          await localDB.rotacionesCache.bulkPut(
+            filas.map((r: any) => ({ id: r.id, id_finca: r.id_finca, nombre: r.nombre }))
+          );
+        }
+      } else if ((method === 'PATCH' || method === 'PUT') && cuerpo) {
+        const todos = await localDB.rotacionesCache.toArray();
+        const mod = todos.filter(r => cumple(r, filtrosReq, true)).map(r => ({ ...r, ...cuerpo }));
+        if (mod.length) await localDB.rotacionesCache.bulkPut(mod);
+      } else if (method === 'DELETE') {
+        const todos = await localDB.rotacionesCache.toArray();
+        const delIds = todos.filter(r => cumple(r, filtrosReq, true)).map(r => r.id);
+        if (delIds.length) await localDB.rotacionesCache.bulkDelete(delIds);
+      }
+    }
+  } catch (e) {
+    console.warn('[OfflineHTTP] No se pudo sincronizar caché especializada:', e);
+  }
+}
+
 /** Aplica la escritura sobre todas las respuestas guardadas de esa tabla. Devuelve las filas afectadas. */
 async function aplicarEscrituraEnCache(
   tabla: string,
@@ -527,6 +819,7 @@ async function aplicarEscrituraEnCache(
 ): Promise<any[]> {
   const afectadas = new Map<string, any>();
   try {
+    await sincronizarTablasEspecializadas(tabla, method, filtrosReq, cuerpo);
     const items = await localDB.httpReadCache.where('tabla').equals(tabla).toArray();
     const nuevas: any[] = method === 'POST' ? (Array.isArray(cuerpo) ? cuerpo : [cuerpo]) : [];
     const modificados: HttpReadCacheItem[] = [];
@@ -547,21 +840,42 @@ async function aplicarEscrituraEnCache(
       }
       return tablasRel.get(rel)!.find(x => x.id === id);
     };
-    const enriquecer = async (row: any, muestra: any, soloFk?: string[]) => {
-      for (const [k, v] of Object.entries(muestra)) {
-        if (Array.isArray(v)) {
-          if (row[k] === undefined) row[k] = [];
-          continue;
-        }
-        if (v && typeof v === 'object') {
-          const fk = candidatosFk(k).find(c => c in row && (!soloFk || soloFk.includes(c)));
-          if (!fk) continue;
-          const fila = await buscarRelacionada(k, row[fk]);
-          if (fila) {
-            const nuevo: any = {};
-            Object.keys(v as object).forEach(col => { if (col in fila) nuevo[col] = fila[col]; });
-            row[k] = nuevo;
+    const enriquecer = async (row: any, muestra: any, selectStr: string, soloFk?: string[]) => {
+      if (muestra) {
+        for (const [k, v] of Object.entries(muestra)) {
+          if (Array.isArray(v)) {
+            if (row[k] === undefined) row[k] = [];
+            continue;
           }
+          if (v && typeof v === 'object') {
+            const fk = candidatosFk(k).find(c => c in row && (!soloFk || soloFk.includes(c)));
+            if (!fk) continue;
+            const fila = await buscarRelacionada(k, row[fk]);
+            if (fila) {
+              const nuevo: any = {};
+              Object.keys(v as object).forEach(col => { if (col in fila) nuevo[col] = fila[col]; });
+              row[k] = nuevo;
+            }
+          }
+        }
+      }
+
+      // Enriquecer relaciones clave aunque la lista en caché estuviera vacía ([])
+      if (tabla === 'registros_pesaje' && row.id_animal && !row.animales && selectStr.includes('animales')) {
+        const anim = await localDB.animalesCache.get(row.id_animal);
+        if (anim) {
+          row.animales = {
+            numero_chapeta: anim.numero_chapeta,
+            nombre_propietario: anim.nombre_propietario,
+            id_finca: anim.id_finca,
+            potreradas: anim.potrerada_nombre ? { nombre: anim.potrerada_nombre } : null
+          };
+        }
+      }
+      if (tabla === 'registros_aforo' && row.id_potrero && !row.potrero && selectStr.includes('potrero')) {
+        const pot = await localDB.potrerosCache.get(row.id_potrero);
+        if (pot) {
+          row.potrero = { nombre: pot.nombre };
         }
       }
     };
@@ -577,6 +891,7 @@ async function aplicarEscrituraEnCache(
       let cambio = false;
       const urlCache = new URL(item.url, location.href);
       const filtrosCache = parseFiltros(urlCache.searchParams);
+      const selectCache = urlCache.searchParams.get('select') || '';
       const muestra = lista.find(r => Object.values(r).some(v => v && typeof v === 'object')) || null;
 
       if (method === 'POST') {
@@ -584,7 +899,7 @@ async function aplicarEscrituraEnCache(
         for (const r of nuevas) {
           if (cumple(r, filtrosCache) && !lista.some(x => x.id !== undefined && x.id === r.id)) {
             const copia = { ...r };
-            if (muestra) await enriquecer(copia, muestra);
+            await enriquecer(copia, muestra, selectCache);
             lista.push(copia);
             cambio = true;
           }
@@ -595,7 +910,7 @@ async function aplicarEscrituraEnCache(
         for (const row of lista) {
           if (cumple(row, filtrosReq, true)) {
             Object.assign(row, cuerpo);
-            if (muestra) await enriquecer(row, muestra, Object.keys(cuerpo || {}));
+            await enriquecer(row, muestra, selectCache, Object.keys(cuerpo || {}));
             cambio = true;
             afectadas.set(String(row.id ?? Math.random()), { ...(afectadas.get(String(row.id)) || {}), ...row });
             // si tras el cambio ya no cumple los filtros de esta consulta, sale de la lista
@@ -662,7 +977,8 @@ async function encolarEscritura(
     id: crypto.randomUUID(),
     ts: siguienteTs(),
     method, url, tabla, body, filas,
-    headers: pick(headers, ['prefer', 'content-type', 'accept', 'content-profile', 'accept-profile'])
+    headers: pick(headers, ['prefer', 'content-type', 'accept', 'content-profile', 'accept-profile']),
+    status: 'pending'
   };
   await localDB.httpWriteQueue.put(item);
   window.dispatchEvent(new CustomEvent('offline-queue-changed'));
@@ -792,12 +1108,29 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
     return conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
   }
 
-  const headers = new Headers(init.headers);
+  const headers = new Headers(esRequest ? (input as Request).headers : undefined);
+  if (init.headers) {
+    new Headers(init.headers).forEach((v, k) => headers.set(k, v));
+  }
   const bodyStr = typeof init.body === 'string' ? init.body : null;
   const esLecturaRpc = info.isRpc && method === 'POST' && /^get_/.test(info.fn);
   const esLectura = method === 'GET' || method === 'HEAD' || esLecturaRpc;
+  const isNetworkFirst = Boolean(init.signal && NETWORK_FIRST_SIGNALS.has(init.signal));
 
-  // ── LECTURAS (CACHE-FIRST CON REVALIDACIÓN RÁPIDA) ──
+  const intentarConRefresh401 = async (reqInit: RequestInit, timeoutMs: number): Promise<Response> => {
+    let res = await conTimeout(url, reqInit, timeoutMs);
+    if (res.status === 401) {
+      const nuevoToken = await refrescarTokenDirecto();
+      if (nuevoToken) {
+        const retryHeaders = new Headers(headers);
+        retryHeaders.set('Authorization', `Bearer ${nuevoToken}`);
+        res = await conTimeout(url, { ...reqInit, headers: retryHeaders }, timeoutMs);
+      }
+    }
+    return res;
+  };
+
+  // ── LECTURAS (CACHE-FIRST CON REVALIDACIÓN RÁPIDA O NETWORK-FIRST PARA PRECARGA) ──
   if (esLectura) {
     const key = `${method} ${url}${esLecturaRpc ? ' ' + bodyStr : ''}`;
     const deCache = async () => {
@@ -863,13 +1196,48 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
       throw new TypeError('Failed to fetch (Sin conexión ni datos guardados)');
     }
 
+    // Caso B0: Petición explícita Network-First (precarga/sincronización: nunca responder caché vieja de 350ms)
+    if (isNetworkFirst) {
+      try {
+        const res = await intentarConRefresh401(init, TIMEOUT_PRECACHE_MS);
+        if (res.ok) {
+          setConexionDegradada(false);
+          await guardarCache(key, url, method, bodyStr, headers, res.clone(), info.tabla);
+          return res;
+        }
+        if (res.status >= 500) setConexionDegradada(true);
+        if (res.status === 401 && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('offline-jwt-expired'));
+        }
+        const r = await deCache();
+        if (r) return r;
+        return res;
+      } catch (e) {
+        if (esErrorDeRed(e)) setConexionDegradada(true);
+        const r = await deCache();
+        if (r) return r;
+        const fb = respuestaSeguraFallback();
+        if (fb) return fb;
+        throw e;
+      }
+    }
+
     // Caso B: En línea con red (Stale-While-Revalidate / Cache-First)
-    // 1. Verificamos si ya tenemos una copia guardada en caché local
     const cachedResp = await deCache();
 
     if (cachedResp) {
-      // Disparamos la petición a la red con timeout corto (2.5s)
-      const fetchRed = conTimeout(url, init, TIMEOUT_LECTURA_MS)
+      // Si la tabla tiene escrituras locales aún pendientes de subir, respetar el estado optimista local
+      try {
+        const hayPendientesTabla = await localDB.httpWriteQueue
+          .filter(op => op.status !== 'failed' && op.tabla === info.tabla)
+          .count();
+        if (hayPendientesTabla > 0) {
+          return cachedResp;
+        }
+      } catch { /* noop */ }
+
+      // Disparamos la petición a la red con timeout corto (2.5s) y renovación automática ante 401
+      const fetchRed = intentarConRefresh401(init, TIMEOUT_LECTURA_MS)
         .then(async (res) => {
           if (res.ok) {
             setConexionDegradada(false);
@@ -890,8 +1258,6 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
           return null;
         });
 
-      // Carrera: si la red responde súper rápido (<800ms, ej. Wi-Fi de alta velocidad), devolvemos la respuesta fresca.
-      // Si la red tarda más de 800ms (típico potrero con 1 rayita), devolvemos de INMEDIATO la caché local (0 ms de espera).
       const redRapida = await Promise.race([
         fetchRed,
         new Promise<null>((resolve) => setTimeout(() => resolve(null), FAST_CACHE_RACE_MS))
@@ -901,13 +1267,12 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
         return redRapida;
       }
 
-      // Devolver de inmediato los datos de la memoria local
       return cachedResp;
     }
 
     // Si aún no hay nada en caché para esta consulta:
     try {
-      const res = await conTimeout(url, init, TIMEOUT_LECTURA_MS);
+      const res = await intentarConRefresh401(init, TIMEOUT_LECTURA_MS);
       if (res.ok) {
         setConexionDegradada(false);
         void guardarCache(key, url, method, bodyStr, headers, res.clone(), info.tabla);
@@ -946,12 +1311,22 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
     // Solo los recálculos de historial se pueden diferir; el resto exige conexión
     if (!/^recalcular_/.test(info.fn)) {
       if (modoCampo) throw new TypeError('Failed to fetch (Modo Campo activo)');
-      return conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
+      return intentarConRefresh401(init, TIMEOUT_ESCRITURA_MS);
     }
     if (sinSenalEfectiva) return encolarEscritura(method, url, info.tabla, info.u, headers, bodyStr);
     try {
-      const res = await conTimeout(url, init, TIMEOUT_ESCRITURA_MS);
-      if (res.ok) setConexionDegradada(false);
+      const res = await intentarConRefresh401(init, TIMEOUT_ESCRITURA_MS);
+      if (res.ok) {
+        setConexionDegradada(false);
+        return res;
+      }
+      if (res.status === 401 || res.status >= 500) {
+        if (res.status >= 500) setConexionDegradada(true);
+        if (res.status === 401 && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('offline-jwt-expired'));
+        }
+        return encolarEscritura(method, url, info.tabla, info.u, headers, bodyStr);
+      }
       return res;
     } catch (e) {
       if (esErrorDeRed(e)) {
@@ -978,9 +1353,14 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
   if (sinSenalEfectiva) return encolarEscritura(method, url, info.tabla, info.u, headers, cuerpoFinal);
 
   try {
-    const res = await conTimeout(url, { ...init, body: cuerpoFinal ?? init.body }, TIMEOUT_ESCRITURA_MS);
+    const res = await intentarConRefresh401({ ...init, body: cuerpoFinal ?? init.body }, TIMEOUT_ESCRITURA_MS);
     if (res.ok) {
       setConexionDegradada(false);
+      // Reflejar inmediatamente el cambio en caché local para evitar ver datos de la carrera de 350ms al cambiar de vista
+      try {
+        const cuerpoObj = cuerpoFinal ? JSON.parse(cuerpoFinal) : null;
+        void aplicarEscrituraEnCache(info.tabla, method, parseFiltros(info.u.searchParams), cuerpoObj);
+      } catch { /* noop */ }
       return res;
     }
     if (res.status === 401 || res.status >= 500) {

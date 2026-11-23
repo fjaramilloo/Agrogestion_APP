@@ -473,9 +473,16 @@ export default function Inventory() {
 
             if (cachedAnimales && cachedAnimales.length > 0) {
                 const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+                const activosCache = cachedAnimales.filter((a: any) => !a.estado || a.estado === 'activo');
 
-                const dataProcesada = cachedAnimales.map((a: any) => {
-                    const fechaRef = a.fecha_ultimo_pesaje ? new Date(a.fecha_ultimo_pesaje) : new Date(a.fecha_ingreso);
+                const dataProcesada = activosCache.map((a: any) => {
+                    const pesajesActivos = Array.isArray(a.registros_pesaje)
+                        ? a.registros_pesaje
+                            .filter((r: any) => !r.is_deleted)
+                            .sort((x: any, y: any) => String(y.fecha || '').localeCompare(String(x.fecha || '')))
+                        : [];
+                    const fechaUltimo = pesajesActivos[0]?.fecha || a.fecha_ultimo_pesaje || a.fecha_ingreso;
+                    const fechaRef = new Date(fechaUltimo);
                     fechaRef.setHours(0, 0, 0, 0);
                     const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
 
@@ -484,7 +491,8 @@ export default function Inventory() {
                         numero_chapeta: a.numero_chapeta,
                         nombre_propietario: a.nombre_propietario || 'Sin Propietario',
                         especie: 'bovino',
-                        sexo: 'M',
+                        sexo: a.sexo || 'M',
+                        tipo_macho: a.tipo_macho,
                         etapa: a.etapa,
                         peso_ingreso: a.peso_ingreso || 0,
                         peso_compra: a.peso_compra,
@@ -495,13 +503,14 @@ export default function Inventory() {
                         id_potrerada: a.id_potrerada,
                         potreroNombre: a.potrero_nombre || 'Sin potrero',
                         potreradaNombre: a.potrerada_nombre || 'Sin potrerada',
-                        registros_pesaje: a.ultimo_peso ? [{ peso: a.ultimo_peso, fecha: a.fecha_ultimo_pesaje || a.updated_at, gdp_calculada: 0 }] : [],
+                        registros_pesaje: pesajesActivos.length > 0
+                            ? pesajesActivos
+                            : (a.ultimo_peso ? [{ peso: a.ultimo_peso, fecha: a.fecha_ultimo_pesaje || a.updated_at, gdp_calculada: 0 }] : []),
                         diasDesdeUltimoPesaje
                     };
                 });
 
                 setAnimales(dataProcesada);
-                // Si ya tenemos animales cargados localmente, apagamos la carga inicial de una vez
                 setLoading(false);
             }
         } catch (cacheErr) {
@@ -594,33 +603,42 @@ export default function Inventory() {
             if (potsRes.data && potsRes.data.length > 0) setPotreradasDisponibles(potsRes.data);
             if (propRes.data && propRes.data.length > 0) setPropietariosLista(propRes.data);
 
-            // Actualizar la caché local directamente con los datos ya descargados (0 peticiones extra a la red)
+            // Actualizar la caché local solo si no hay escrituras pendientes sin subir, preservando historiales completos
             if (!animalesRes.error && animalesRes.data && animalesRes.data.length > 0) {
-                const ahoraIso = new Date().toISOString();
-                const itemsCache = animalesRes.data.map((a: any) => {
-                    const ult = ultimosPesajesMap.get(a.id);
-                    return {
-                        id: a.id,
-                        id_finca: fincaId,
-                        numero_chapeta: a.numero_chapeta,
-                        nombre_propietario: a.nombre_propietario,
-                        etapa: a.etapa,
-                        estado: 'activo',
-                        peso_ingreso: a.peso_ingreso,
-                        peso_compra: a.peso_compra,
-                        fecha_ingreso: a.fecha_ingreso,
-                        fecha_ingreso_ceba: a.fecha_ingreso_ceba,
-                        peso_ingreso_ceba: a.peso_ingreso_ceba,
-                        ultimo_peso: ult ? ult.peso : (a.peso_ingreso ?? a.peso_compra),
-                        fecha_ultimo_pesaje: ult ? ult.fecha : a.fecha_ingreso,
-                        id_potrerada: a.id_potrerada,
-                        potrero_nombre: a.potreros?.nombre || '',
-                        potrerada_nombre: a.potreradas?.nombre || '',
-                        registros_pesaje: ult ? [ult] : [],
-                        updated_at: ahoraIso
-                    };
-                });
-                void localDB.animalesCache.bulkPut(itemsCache).catch(() => {});
+                const pendientes = await localDB.httpWriteQueue
+                    .filter(op => op.status !== 'failed' && (op.tabla === 'animales' || op.tabla === 'registros_pesaje'))
+                    .count();
+                if (pendientes === 0) {
+                    const prevRows = await localDB.animalesCache.where('id_finca').equals(fincaId).toArray();
+                    const prevMap = new Map(prevRows.map(r => [r.id, r]));
+                    const ahoraIso = new Date().toISOString();
+                    const itemsCache = animalesRes.data.map((a: any) => {
+                        const ult = ultimosPesajesMap.get(a.id);
+                        const prev = prevMap.get(a.id);
+                        const prevPesajes = Array.isArray(prev?.registros_pesaje) ? prev.registros_pesaje : [];
+                        return {
+                            id: a.id,
+                            id_finca: fincaId,
+                            numero_chapeta: a.numero_chapeta,
+                            nombre_propietario: a.nombre_propietario,
+                            etapa: a.etapa,
+                            estado: 'activo' as const,
+                            peso_ingreso: a.peso_ingreso,
+                            peso_compra: a.peso_compra,
+                            fecha_ingreso: a.fecha_ingreso,
+                            fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+                            peso_ingreso_ceba: a.peso_ingreso_ceba,
+                            ultimo_peso: ult ? ult.peso : (a.peso_ingreso ?? a.peso_compra),
+                            fecha_ultimo_pesaje: ult ? ult.fecha : a.fecha_ingreso,
+                            id_potrerada: a.id_potrerada,
+                            potrero_nombre: a.potreros?.nombre || '',
+                            potrerada_nombre: a.potreradas?.nombre || '',
+                            registros_pesaje: prevPesajes.length > 0 ? prevPesajes : (ult ? [ult] : []),
+                            updated_at: ahoraIso
+                        };
+                    });
+                    void localDB.animalesCache.bulkPut(itemsCache).catch(() => {});
+                }
             }
         } catch {
             console.warn('[Inventario] Revalidación en segundo plano falló por red. Manteniendo datos locales.');
@@ -640,6 +658,9 @@ export default function Inventory() {
 
     useEffect(() => {
         fetchAnimales();
+        const onSyncCompleted = () => { void fetchAnimales(); };
+        window.addEventListener('offline-sync-completed', onSyncCompleted);
+        return () => window.removeEventListener('offline-sync-completed', onSyncCompleted);
     }, [fincaId]);
 
     const handleReportarMuerte = async () => {

@@ -1,15 +1,21 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { localDB } from '../lib/db';
 import { setConexionDegradada } from '../lib/httpOffline';
 import {
   sincronizarCacheFinca,
-  procesarSincronizacionOffline
+  procesarSincronizacionOffline,
+  contarColasOfflineDedicadas,
+  reintentarColasOfflineFallidas,
+  descartarColasOfflineFallidas,
+  normalizarColasAtascadas,
+  migrarComprasLegacyLocalStorage
 } from '../lib/offlineService';
 import {
   sincronizarColaHttp,
   refrescarCacheLecturas,
-  contarEscriturasPendientes,
+  contarEscriturasConEstado,
+  reintentarColaHttpFallida,
+  descartarColaHttpFallida,
   anunciarResumenSync,
   type LineaResumenSync
 } from '../lib/syncService';
@@ -23,9 +29,12 @@ interface ConnectionContextType {
   isRealOnline: boolean;
   syncing: boolean;
   conteoPendienteTotal: number;
+  conteoFallidosTotal: number;
   checkRealOnline: () => Promise<boolean>;
   actualizarConteo: () => Promise<number>;
   sincronizarTodo: (fincaId: string) => Promise<{ procesados: number; errores: number }>;
+  reintentarFallidos: () => Promise<void>;
+  descartarFallidos: () => Promise<void>;
 }
 
 const ConnectionContext = createContext<ConnectionContextType>({
@@ -36,9 +45,12 @@ const ConnectionContext = createContext<ConnectionContextType>({
   isRealOnline: true,
   syncing: false,
   conteoPendienteTotal: 0,
+  conteoFallidosTotal: 0,
   checkRealOnline: async () => true,
   actualizarConteo: async () => 0,
   sincronizarTodo: async () => ({ procesados: 0, errores: 0 }),
+  reintentarFallidos: async () => {},
+  descartarFallidos: async () => {},
 });
 
 export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -58,9 +70,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Estado verificado por ping activo
   const [isRealOnline, setIsRealOnline] = useState<boolean>(navigator.onLine);
   const [conteoPendienteTotal, setConteoPendienteTotal] = useState<number>(0);
+  const [conteoFallidosTotal, setConteoFallidosTotal] = useState<number>(0);
   const [syncing, setSyncing] = useState<boolean>(false);
 
-  // 2. Ping ultrarrápido a Supabase para verificar si la red realmente transmite datos
+  // 2. Ping ultrarrápido a Supabase para verificar si la red realmente transmite datos (rechaza portales cautivos HTML)
   const checkRealOnline = useCallback(async (): Promise<boolean> => {
     if (localStorage.getItem('agrogestion_modo_campo') === 'true') {
       setIsRealOnline(false);
@@ -85,7 +98,8 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       clearTimeout(timeoutId);
 
-      const online = res.status < 500;
+      const contentType = (res.headers.get('content-type') || '').toLowerCase();
+      const online = res.ok && !contentType.includes('text/html');
       setIsRealOnline(online);
       setConexionDegradada(!online);
       return online;
@@ -174,67 +188,42 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => clearInterval(interval);
   }, [modoCampo, isRealOnline, checkRealOnline]);
 
-  // 6. Conteo unificado de registros pendientes offline (Pesajes, Aforos, Compras, Ventas)
+  const { user, fincaId: fincaIdAuth } = useAuth();
+
+  // Normalizar colas atascadas en 'syncing' y migrar compras legacy al iniciar/cambiar finca
+  useEffect(() => {
+    normalizarColasAtascadas().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (fincaIdAuth) {
+      migrarComprasLegacyLocalStorage(fincaIdAuth).catch(() => {});
+    }
+  }, [fincaIdAuth]);
+
+  // 6. Conteo unificado separado en pendientes (reintentables) vs fallidos (requieren acción del usuario)
   const actualizarConteo = useCallback(async (): Promise<number> => {
-    let total = 0;
+    let pending = 0;
+    let failed = 0;
     try {
-      // Pesajes y aforos de Dexie
-      const pesajesCount = await localDB.pesajesOfflineQueue
-        .where('status_sync')
-        .equals('pending')
-        .or('status_sync')
-        .equals('failed')
-        .count();
-
-      const aforosCount = await localDB.aforosOfflineQueue
-        .where('status_sync')
-        .equals('pending')
-        .or('status_sync')
-        .equals('failed')
-        .count();
-
-      total += pesajesCount + aforosCount;
-
-      // Cambios genéricos hechos sin conexión (rotaciones, lotes, etc.)
-      total += await contarEscriturasPendientes();
-
-      // Compras de localStorage
-      const comprasRaw = localStorage.getItem('agrogestion_compras_offline');
-      if (comprasRaw) {
-        try {
-          const compras = JSON.parse(comprasRaw);
-          if (Array.isArray(compras)) total += compras.length;
-        } catch {}
-      }
-
-      // Ventas de localStorage
-      const ventasRaw = localStorage.getItem('agrogestion_ventas_offline');
-      if (ventasRaw) {
-        try {
-          const ventas = JSON.parse(ventasRaw);
-          if (Array.isArray(ventas)) total += ventas.length;
-        } catch {}
-      }
-
-      // Aforos legacy en localStorage
-      const aforosRaw = localStorage.getItem('agrogestion_aforos_offline');
-      if (aforosRaw) {
-        try {
-          const aforos = JSON.parse(aforosRaw);
-          if (Array.isArray(aforos)) total += aforos.length;
-        } catch {}
-      }
+      const [httpCounts, dedicatedCounts] = await Promise.all([
+        contarEscriturasConEstado(),
+        contarColasOfflineDedicadas()
+      ]);
+      pending = httpCounts.pending + dedicatedCounts.pending;
+      failed = httpCounts.failed + dedicatedCounts.failed;
     } catch (e) {
       console.warn('Error al calcular conteo pendiente offline:', e);
     }
 
-    setConteoPendienteTotal(total);
-    return total;
+    setConteoPendienteTotal(pending);
+    setConteoFallidosTotal(failed);
+    return pending;
   }, []);
 
   useEffect(() => {
     actualizarConteo();
-    const handleQueueChange = () => actualizarConteo();
+    const handleQueueChange = () => { actualizarConteo(); };
     window.addEventListener('offline-queue-changed', handleQueueChange);
     const interval = setInterval(actualizarConteo, 20000);
 
@@ -244,9 +233,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   }, [actualizarConteo]);
 
-  // 7. Sincronizar todas las colas pendientes (Pesajes, Aforos y cualquier cambio hecho sin conexión)
-  const { user, fincaId: fincaIdAuth } = useAuth();
+  // 7. Sincronizar todas las colas pendientes con mutex coalescente
   const syncingRef = useRef(false);
+  const syncInFlightRef = useRef<Promise<{ procesados: number; errores: number }> | null>(null);
+  const resyncRequestedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -255,68 +245,128 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [user]);
 
-  const sincronizarTodo = async (fincaId: string): Promise<{ procesados: number; errores: number }> => {
-    if (!isOnline || syncingRef.current) {
+  const ejecutarSincronizacion = useCallback(async (fincaId: string): Promise<{ procesados: number; errores: number }> => {
+    const modoCampoActual = (() => {
+      try { return localStorage.getItem('agrogestion_modo_campo') === 'true'; } catch { return false; }
+    })();
+    if (!navigator.onLine || modoCampoActual || !isRealOnline) {
       return { procesados: 0, errores: 0 };
     }
 
-    syncingRef.current = true;
-    setSyncing(true);
-    try {
-      const lineas: LineaResumenSync[] = [];
-      const mensajesError: string[] = [];
-      let procesados = 0;
-      let errores = 0;
-
-      // a) Pesajes, aforos, compras y ventas guardados en colas dedicadas
-      if (fincaId) {
-        const r1 = await procesarSincronizacionOffline(fincaId);
-        procesados += r1.procesados;
-        errores += r1.errores;
-        if (r1.pesajes) lineas.push({ etiqueta: 'Creados · pesajes', cantidad: r1.pesajes, ok: true });
-        if (r1.aforos) lineas.push({ etiqueta: 'Creados · aforos', cantidad: r1.aforos, ok: true });
-        if (r1.compras) lineas.push({ etiqueta: 'Creados · lotes de compra', cantidad: r1.compras, ok: true });
-        if (r1.ventas) lineas.push({ etiqueta: 'Procesadas · ventas', cantidad: r1.ventas, ok: true });
-        if (r1.errores) lineas.push({ etiqueta: 'Registros offline con error', cantidad: r1.errores, ok: false });
-      }
-
-      // b) Todo lo demás (rotaciones, movimientos de lotes, animales, etc.)
-      const r2 = await sincronizarColaHttp();
-      procesados += r2.procesados;
-      errores += r2.errores;
-      lineas.push(...r2.lineas);
-      mensajesError.push(...r2.mensajesError);
-
-      // c) Dejar la memoria local al día con lo que ya quedó en la nube (lote ligero sin saturar red)
-      if (procesados > 0) {
-        if (fincaId) await sincronizarCacheFinca(fincaId);
-        await refrescarCacheLecturas(30);
-      }
-      await actualizarConteo();
-
-      if (procesados > 0 || errores > 0) {
-        anunciarResumenSync({
-          fecha: new Date().toISOString(),
-          lineas,
-          exitosos: procesados,
-          fallidos: errores,
-          errores: mensajesError
-        });
-      }
-      return { procesados, errores };
-    } catch (e) {
-      console.error('Error al sincronizar todo:', e);
-      return { procesados: 0, errores: 1 };
-    } finally {
-      syncingRef.current = false;
-      setSyncing(false);
+    if (syncInFlightRef.current) {
+      resyncRequestedRef.current = fincaId;
+      return syncInFlightRef.current;
     }
-  };
 
-  // Sincronización automática: al recuperar la conexión (o salir de Modo Campo) y mientras queden pendientes
+    const promesa = (async () => {
+      syncingRef.current = true;
+      setSyncing(true);
+      let totalProcesados = 0;
+      let totalErrores = 0;
+
+      try {
+        const lineas: LineaResumenSync[] = [];
+        const mensajesError: string[] = [];
+
+        // a) Colas dedicadas (compras y registros legacy pendientes)
+        if (fincaId) {
+          const r1 = await procesarSincronizacionOffline(fincaId);
+          totalProcesados += r1.procesados;
+          totalErrores += r1.errores;
+          if (r1.pesajes) lineas.push({ etiqueta: 'Creados · pesajes', cantidad: r1.pesajes, ok: true });
+          if (r1.aforos) lineas.push({ etiqueta: 'Creados · aforos', cantidad: r1.aforos, ok: true });
+          if (r1.compras) lineas.push({ etiqueta: 'Creados · lotes de compra', cantidad: r1.compras, ok: true });
+          if (r1.ventas) lineas.push({ etiqueta: 'Procesadas · ventas', cantidad: r1.ventas, ok: true });
+          if (r1.errores) lineas.push({ etiqueta: 'Registros offline con error', cantidad: r1.errores, ok: false });
+          if (r1.mensajesError?.length) mensajesError.push(...r1.mensajesError);
+        }
+
+        // b) Cola HTTP unificada (pesajes, aforos, rotaciones, movimientos, ventas, inventario, etc.)
+        const r2 = await sincronizarColaHttp();
+        totalProcesados += r2.procesados;
+        totalErrores += r2.errores;
+        lineas.push(...r2.lineas);
+        mensajesError.push(...r2.mensajesError);
+
+        // c) Solo refrescar caché de la nube cuando ya no queden pendientes locales por subir
+        const pendientesRestantes = await actualizarConteo();
+        if (totalProcesados > 0) {
+          if (pendientesRestantes === 0) {
+            if (fincaId) await sincronizarCacheFinca(fincaId);
+            await refrescarCacheLecturas(30);
+          }
+          window.dispatchEvent(new CustomEvent('offline-sync-completed', {
+            detail: { fincaId, procesados: totalProcesados, errores: totalErrores }
+          }));
+        }
+
+        if (totalProcesados > 0 || totalErrores > 0) {
+          anunciarResumenSync({
+            fecha: new Date().toISOString(),
+            lineas,
+            exitosos: totalProcesados,
+            fallidos: totalErrores,
+            errores: mensajesError
+          });
+        }
+        return { procesados: totalProcesados, errores: totalErrores };
+      } catch (e) {
+        console.error('Error al sincronizar todo:', e);
+        return { procesados: totalProcesados, errores: Math.max(1, totalErrores) };
+      } finally {
+        syncingRef.current = false;
+        setSyncing(false);
+        syncInFlightRef.current = null;
+      }
+    })();
+
+    syncInFlightRef.current = promesa;
+    const resultado = await promesa;
+
+    // Si durante el vuelo se pidió otra pasada (p.ej. usuario guardó algo o pulsó sincronizar), ejecutar una pasada limpia
+    const pendingFinca = resyncRequestedRef.current;
+    if (pendingFinca !== null) {
+      resyncRequestedRef.current = null;
+      const pend = await actualizarConteo();
+      if (pend > 0) {
+        await ejecutarSincronizacion(pendingFinca);
+      }
+    }
+
+    return resultado;
+  }, [isRealOnline, actualizarConteo]);
+
+  const sincronizarTodo = ejecutarSincronizacion;
+
   const sincronizarRef = useRef(sincronizarTodo);
   sincronizarRef.current = sincronizarTodo;
 
+  const reintentarFallidos = useCallback(async () => {
+    await Promise.all([
+      reintentarColaHttpFallida(),
+      reintentarColasOfflineFallidas(fincaIdAuth || undefined)
+    ]);
+    await actualizarConteo();
+    const modoCampoActual = (() => {
+      try { return localStorage.getItem('agrogestion_modo_campo') === 'true'; } catch { return false; }
+    })();
+    if (!modoCampoActual && navigator.onLine) {
+      const ok = isRealOnline || await checkRealOnline();
+      if (ok) {
+        await sincronizarRef.current(fincaIdAuth || '');
+      }
+    }
+  }, [fincaIdAuth, actualizarConteo, isRealOnline, checkRealOnline]);
+
+  const descartarFallidos = useCallback(async () => {
+    await Promise.all([
+      descartarColaHttpFallida(),
+      descartarColasOfflineFallidas(fincaIdAuth || undefined)
+    ]);
+    await actualizarConteo();
+  }, [fincaIdAuth, actualizarConteo]);
+
+  // Sincronización automática: al recuperar la conexión (o salir de Modo Campo) y solo mientras haya pendientes reintentables
   useEffect(() => {
     if (!isOnline) return;
 
@@ -338,11 +388,11 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       clearTimeout(t);
       clearInterval(interval);
     };
-  }, [isOnline, fincaIdAuth]);
+  }, [isOnline, fincaIdAuth, actualizarConteo]);
 
   // 8. Auto-precarga silenciosa en segundo plano:
   // Se ejecuta con pausa de 8s para dejar libre la red a la pantalla actual y guarda marca de tiempo
-  // en localStorage (máximo cada 30 min) para no saturar la antena del celular en el corral.
+  // en localStorage (máximo cada 30 min) solo si no hay pendientes sin subir.
   const precargandoRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -353,7 +403,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (Date.now() - ultimo < 30 * 60 * 1000) return;
 
     const timer = setTimeout(async () => {
-      if (precargandoRef.current || !isOnline || localStorage.getItem('agrogestion_modo_campo') === 'true') return;
+      if (precargandoRef.current || syncingRef.current || !isOnline || localStorage.getItem('agrogestion_modo_campo') === 'true') return;
+      const pend = await actualizarConteo();
+      if (pend > 0) return;
+
       precargandoRef.current = true;
       try {
         await sincronizarCacheFinca(fincaIdAuth);
@@ -363,10 +416,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       } finally {
         precargandoRef.current = false;
       }
-    }, 8000); // 8 segundos después de montar para dar prioridad total al trabajo del usuario
+    }, 8000);
 
     return () => clearTimeout(timer);
-  }, [user, fincaIdAuth, isOnline]);
+  }, [user, fincaIdAuth, isOnline, actualizarConteo]);
 
   return (
     <ConnectionContext.Provider
@@ -378,9 +431,12 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isRealOnline,
         syncing: Boolean(syncing),
         conteoPendienteTotal,
+        conteoFallidosTotal,
         checkRealOnline,
         actualizarConteo,
-        sincronizarTodo
+        sincronizarTodo,
+        reintentarFallidos,
+        descartarFallidos
       }}
     >
       {children}

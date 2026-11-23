@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, TrendingUp, Calendar, Activity } from 'lucide-react';
-import { guardarAforoOffline } from '../lib/offlineService';
 import { localDB } from '../lib/db';
 import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
@@ -59,39 +58,108 @@ export default function Aforos() {
     const [calcAnimales, setCalcAnimales] = useState('0');
     const [calcDias, setCalcDias] = useState('0');
 
-    useEffect(() => {
+    const fetchPotreros = useCallback(async () => {
         if (!fincaId) return;
+        const cached = await localDB.potrerosCache.where('id_finca').equals(fincaId).toArray();
+        if (cached && cached.length > 0) {
+            setPotreros(cached.map(p => ({
+                id: p.id,
+                nombre: p.nombre,
+                area_hectareas: p.area_ha || 0
+            })));
+        } else {
+            const legacy = localStorage.getItem(`agrogestion_potreros_aforo_${fincaId}`);
+            if (legacy) {
+                try { setPotreros(JSON.parse(legacy)); } catch {}
+            }
+        }
 
-        const fetchConfig = async () => {
-            if (isOnline) {
-                // Config KPI
-                const { data } = await supabase.from('configuracion_kpi').select('consumo_dia_potrero').eq('id_finca', fincaId).single();
-                if (data && data.consumo_dia_potrero) {
-                    setConsumoBase(data.consumo_dia_potrero);
-                    localStorage.setItem(`agrogestion_config_aforo_${fincaId}`, data.consumo_dia_potrero.toString());
-                }
+        try {
+            const { data } = await supabase
+                .from('potreros')
+                .select('id, nombre, area_hectareas')
+                .eq('id_finca', fincaId)
+                .order('nombre');
+            if (data && data.length > 0) {
+                setPotreros(data);
+                localStorage.setItem(`agrogestion_potreros_aforo_${fincaId}`, JSON.stringify(data));
+            }
+        } catch {}
+    }, [fincaId]);
 
-                // Total Animales Activos de la Finca
-                const { count } = await supabase
-                    .from('animales')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('id_finca', fincaId)
-                    .eq('estado', 'activo');
-                setTotalAnimalesFinca(count || 0);
-                localStorage.setItem(`agrogestion_total_animales_${fincaId}`, (count || 0).toString());
+    const fetchHistorial = useCallback(async () => {
+        if (!fincaId) return;
+        const cached = localStorage.getItem(`agrogestion_aforos_hist_${fincaId}`);
+        if (cached) {
+            try { setHistorial(JSON.parse(cached)); } catch {}
+        }
+
+        try {
+            const { data } = await supabase
+                .from('registros_aforo')
+                .select(`
+                    id, fecha, promedio_muestras_kg, viabilidad, aforo_real_kg, animales_presentes, id_potrero,
+                    potrero:potreros(nombre)
+                `)
+                .eq('id_finca', fincaId)
+                .order('fecha', { ascending: false })
+                .limit(50);
+            if (data) {
+                setHistorial(data as any);
+                localStorage.setItem(`agrogestion_aforos_hist_${fincaId}`, JSON.stringify(data));
+            }
+        } catch {}
+    }, [fincaId]);
+
+    const fetchConfig = useCallback(async () => {
+        if (!fincaId) return;
+        try {
+            const { data } = await supabase.from('configuracion_kpi').select('consumo_dia_potrero').eq('id_finca', fincaId).single();
+            if (data?.consumo_dia_potrero) {
+                setConsumoBase(data.consumo_dia_potrero);
+                localStorage.setItem(`agrogestion_config_aforo_${fincaId}`, data.consumo_dia_potrero.toString());
             } else {
                 const cached = localStorage.getItem(`agrogestion_config_aforo_${fincaId}`);
                 if (cached) setConsumoBase(parseFloat(cached));
-
-                const cachedAnimales = localStorage.getItem(`agrogestion_total_animales_${fincaId}`);
-                if (cachedAnimales) setTotalAnimalesFinca(parseInt(cachedAnimales));
             }
-        };
+        } catch {
+            const cached = localStorage.getItem(`agrogestion_config_aforo_${fincaId}`);
+            if (cached) setConsumoBase(parseFloat(cached));
+        }
 
-        fetchConfig();
-        fetchPotreros();
-        fetchHistorial();
-    }, [fincaId, isOnline]);
+        try {
+            const { count } = await supabase
+                .from('animales')
+                .select('id', { count: 'exact', head: true })
+                .eq('id_finca', fincaId)
+                .eq('estado', 'activo');
+            if (typeof count === 'number') {
+                setTotalAnimalesFinca(count);
+                localStorage.setItem(`agrogestion_total_animales_${fincaId}`, count.toString());
+            } else {
+                const cachedAnimales = localStorage.getItem(`agrogestion_total_animales_${fincaId}`);
+                if (cachedAnimales) setTotalAnimalesFinca(parseInt(cachedAnimales, 10));
+            }
+        } catch {
+            const cachedAnimales = localStorage.getItem(`agrogestion_total_animales_${fincaId}`);
+            if (cachedAnimales) setTotalAnimalesFinca(parseInt(cachedAnimales, 10));
+        }
+    }, [fincaId]);
+
+    useEffect(() => {
+        if (!fincaId) return;
+        void fetchConfig();
+        void fetchPotreros();
+        void fetchHistorial();
+
+        const onSyncCompleted = () => {
+            void fetchConfig();
+            void fetchPotreros();
+            void fetchHistorial();
+        };
+        window.addEventListener('offline-sync-completed', onSyncCompleted);
+        return () => window.removeEventListener('offline-sync-completed', onSyncCompleted);
+    }, [fincaId, isOnline, fetchConfig, fetchPotreros, fetchHistorial]);
 
     useEffect(() => {
         if (!selectedPotreroId) {
@@ -104,9 +172,7 @@ export default function Aforos() {
         const potrero = potreros.find(p => p.id === selectedPotreroId);
         if (potrero) setAreaInfo(potrero.area_hectareas || 0);
 
-        // Fetch potrerada and animals count logic (Cache-First)
         const fetchContext = async () => {
-            // 1. Cargar caché inmediatamente
             const cached = localStorage.getItem(`ctx_aforo_${selectedPotreroId}`);
             if (cached) {
                 try {
@@ -116,98 +182,38 @@ export default function Aforos() {
                 } catch {}
             }
 
-            // 2. Si hay conexión efectiva, actualizar en segundo plano sin borrar si falla
-            if (isOnline) {
-                try {
-                    const { data: mov, error: movErr } = await supabase
-                        .from('movimientos_potreros')
-                        .select(`
-                            id_potrerada,
-                            potreradas (id, nombre)
-                        `)
-                        .eq('id_potrero', selectedPotreroId)
-                        .is('fecha_salida', null)
-                        .limit(1)
-                        .single();
+            try {
+                const { data: mov, error: movErr } = await supabase
+                    .from('movimientos_potreros')
+                    .select(`
+                        id_potrerada,
+                        potreradas (id, nombre)
+                    `)
+                    .eq('id_potrero', selectedPotreroId)
+                    .is('fecha_salida', null)
+                    .limit(1)
+                    .maybeSingle();
 
-                    if (!movErr && mov && mov.potreradas) {
-                        setPotreradaInfo(mov.potreradas as any);
-                        const { count } = await supabase
-                            .from('animales')
-                            .select('id', { count: 'exact', head: true })
-                            .eq('id_potrerada', mov.id_potrerada)
-                            .eq('estado', 'activo');
-                        setAnimalCount(count || 0);
-                        localStorage.setItem(`ctx_aforo_${selectedPotreroId}`, JSON.stringify({ potreradaInfo: mov.potreradas, animalCount: count }));
-                    } else if (!movErr && !mov) {
-                        setPotreradaInfo(null);
-                        setAnimalCount(0);
-                        localStorage.removeItem(`ctx_aforo_${selectedPotreroId}`);
-                    }
-                } catch {
-                    // Fallo de red: preservar caché
+                if (!movErr && mov && mov.potreradas) {
+                    setPotreradaInfo(mov.potreradas as any);
+                    const { count } = await supabase
+                        .from('animales')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('id_potrerada', mov.id_potrerada)
+                        .eq('estado', 'activo');
+                    setAnimalCount(count || 0);
+                    localStorage.setItem(`ctx_aforo_${selectedPotreroId}`, JSON.stringify({ potreradaInfo: mov.potreradas, animalCount: count }));
+                } else if (!movErr && !mov) {
+                    setPotreradaInfo(null);
+                    setAnimalCount(0);
+                    localStorage.removeItem(`ctx_aforo_${selectedPotreroId}`);
                 }
+            } catch {
+                // Preservar caché local si falla la consulta
             }
         };
-        fetchContext();
+        void fetchContext();
     }, [selectedPotreroId, potreros]);
-
-    const fetchPotreros = async () => {
-        // 1. Cargar primero de IndexedDB o caché local
-        const cached = await localDB.potrerosCache.where('id_finca').equals(fincaId || '').toArray();
-        if (cached && cached.length > 0) {
-            setPotreros(cached.map(p => ({
-                id: p.id,
-                nombre: p.nombre,
-                area_hectareas: p.area_ha || 0
-            })));
-        } else {
-            const legacy = localStorage.getItem(`agrogestion_potreros_aforo_${fincaId}`);
-            if (legacy) setPotreros(JSON.parse(legacy));
-        }
-
-        // 2. Si hay conexión, actualizar en segundo plano
-        if (isOnline) {
-            try {
-                const { data } = await supabase
-                    .from('potreros')
-                    .select('id, nombre, area_hectareas')
-                    .eq('id_finca', fincaId)
-                    .order('nombre');
-                if (data && data.length > 0) {
-                    setPotreros(data);
-                    localStorage.setItem(`agrogestion_potreros_aforo_${fincaId}`, JSON.stringify(data));
-                }
-            } catch {}
-        }
-    };
-
-    const fetchHistorial = async () => {
-        // 1. Cargar caché inmediatamente (0 ms)
-        const cached = localStorage.getItem(`agrogestion_aforos_hist_${fincaId}`);
-        if (cached) {
-            try { setHistorial(JSON.parse(cached)); } catch {}
-        }
-
-        // 2. Si hay conexión efectiva, actualizar en segundo plano
-        if (isOnline) {
-            try {
-                const { data } = await supabase
-                    .from('registros_aforo')
-                    .select(`
-                        id, fecha, promedio_muestras_kg, viabilidad, aforo_real_kg, animales_presentes, id_potrero,
-                        potrero:potreros(nombre)
-                    `)
-                    .eq('id_finca', fincaId)
-                    .order('fecha', { ascending: false })
-                    .limit(50);
-                if (data && data.length > 0) {
-                    setHistorial(data as any);
-                    localStorage.setItem(`agrogestion_aforos_hist_${fincaId}`, JSON.stringify(data));
-                }
-            } catch {}
-        }
-    };
 
     const updateMuestra = (index: number, val: string) => {
         const cleanVal = sanitizeDecimalInput(val);
@@ -257,60 +263,56 @@ export default function Aforos() {
             return;
         }
 
-        // Validar conexión efectiva (respeta Modo Campo global)
-        if (isOnline) {
-            setLoading(true);
-            try {
-                const { error } = await supabase.from('registros_aforo').insert({
-                    id_finca: fincaId,
-                    id_potrero: selectedPotreroId,
-                    fecha: fecha,
-                    muestras: nums, // jsonb
-                    promedio_muestras_kg: avgMuestra,
-                    viabilidad: viaValue,
-                    aforo_real_kg: aforoReal,
-                    id_potrerada: potreradaInfo?.id || null,
-                    animales_presentes: animalCount
-                });
-                if (error) throw error;
-                
-                setMsjExito('Aforo guardado exitosamente.');
-                setMuestras(Array(8).fill(''));
-                setSelectedPotreroId('');
-                setViabilidad('70');
-                fetchHistorial();
-            } catch {
-                // Si falla la red durante la inserción
-                const pNombre = potreros.find(p => p.id === selectedPotreroId)?.nombre || 'Desconocido';
-                await guardarAforoOffline({
-                    id_finca: fincaId || '',
-                    id_potrero: selectedPotreroId,
-                    potrero_nombre_ref: pNombre,
-                    fecha: fecha,
-                    metodo: 'cuadrom2',
-                    gramos_m2: avgMuestra * 1000
-                });
-                window.dispatchEvent(new CustomEvent('offline-queue-changed'));
-                setMsjExito('📱 Aforo guardado localmente por falla de red. Se sincronizará al conectar.');
-                setMuestras(Array(8).fill(''));
-                setSelectedPotreroId('');
-            } finally {
-                setLoading(false);
-            }
-        } else {
-            const pNombre = potreros.find(p => p.id === selectedPotreroId)?.nombre || 'Desconocido';
-            await guardarAforoOffline({
-                id_finca: fincaId || '',
+        const aforoId = crypto.randomUUID();
+        const pNombre = potreros.find(p => p.id === selectedPotreroId)?.nombre || 'Potrero';
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('registros_aforo').insert({
+                id: aforoId,
+                id_finca: fincaId,
                 id_potrero: selectedPotreroId,
-                potrero_nombre_ref: pNombre,
-                fecha: fecha,
-                metodo: 'cuadrom2',
-                gramos_m2: avgMuestra * 1000
+                fecha,
+                muestras: nums,
+                promedio_muestras_kg: avgMuestra,
+                viabilidad: viaValue,
+                aforo_real_kg: aforoReal,
+                id_potrerada: potreradaInfo?.id || null,
+                animales_presentes: animalCount
             });
-            window.dispatchEvent(new CustomEvent('offline-queue-changed'));
-            setMsjExito('📱 Aforo guardado en la memoria del teléfono (Modo Offline).');
+            if (error) throw error;
+
+            const nuevoRegistro: RegistroAforo = {
+                id: aforoId,
+                fecha,
+                promedio_muestras_kg: avgMuestra,
+                viabilidad: viaValue,
+                aforo_real_kg: aforoReal,
+                potrero: { nombre: pNombre },
+                animales_presentes: animalCount,
+                id_potrero: selectedPotreroId
+            };
+            setHistorial(prev => {
+                const next = [nuevoRegistro, ...prev.filter(item => item.id !== aforoId)];
+                try {
+                    localStorage.setItem(`agrogestion_aforos_hist_${fincaId}`, JSON.stringify(next));
+                } catch {}
+                return next;
+            });
+
+            setMsjExito(
+                modoCampo || !isOnline
+                    ? '📱 Aforo guardado localmente en el celular. Se sincronizará automáticamente al recuperar señal.'
+                    : 'Aforo guardado exitosamente.'
+            );
             setMuestras(Array(8).fill(''));
             setSelectedPotreroId('');
+            setPotreroSearch('');
+            setViabilidad('70');
+            void fetchHistorial();
+        } catch (err: any) {
+            setMsjError(err?.message || 'Ocurrió un error al guardar el aforo.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -324,29 +326,30 @@ export default function Aforos() {
         setCalcAnimales(animales.toString());
         setCalcDias(dias.toFixed(1));
 
-        if (isOnline) {
-            // Calcular días reales actuales de ocupación basándonos en el movimiento activo
+        try {
             const { data: mov } = await supabase
                 .from('movimientos_potreros')
-                .select(`fecha_ingreso`)
+                .select('fecha_entrada')
                 .eq('id_potrero', aforo.id_potrero)
                 .is('fecha_salida', null)
-                .order('fecha_ingreso', { ascending: false })
+                .order('fecha_entrada', { ascending: false })
                 .limit(1)
-                .single();
+                .maybeSingle();
 
-            let diasStr = 'Ninguno';
-            if (mov && mov.fecha_ingreso) {
-                const ms = new Date().getTime() - new Date(mov.fecha_ingreso).getTime();
+            if (mov && mov.fecha_entrada) {
+                const ms = new Date().getTime() - new Date(mov.fecha_entrada).getTime();
                 const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-                diasStr = `${Math.max(0, days)} días`;
+                const diasStr = `${Math.max(0, days)} días`;
+                setModalCalcOpen(prev => ({ ...prev, diasLleva: diasStr }));
+                localStorage.setItem(`agrogestion_calc_dias_${aforo.id_potrero}`, diasStr);
+            } else {
+                const diasStr = 'Ninguno';
+                setModalCalcOpen(prev => ({ ...prev, diasLleva: diasStr }));
+                localStorage.setItem(`agrogestion_calc_dias_${aforo.id_potrero}`, diasStr);
             }
-
-            setModalCalcOpen(prev => ({ ...prev, diasLleva: diasStr }));
-            localStorage.setItem(`agrogestion_calc_dias_${aforo.id_potrero}`, diasStr);
-        } else {
+        } catch {
             const cached = localStorage.getItem(`agrogestion_calc_dias_${aforo.id_potrero}`);
-            setModalCalcOpen(prev => ({ ...prev, diasLleva: cached || 'Desconocido (Offline)' }));
+            setModalCalcOpen(prev => ({ ...prev, diasLleva: cached || 'Sin conexión' }));
         }
     };
 
