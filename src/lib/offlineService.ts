@@ -939,7 +939,7 @@ export async function guardarCompraOffline(payload: {
         proveedor_compra: payload.selectedProveedor,
         ultimo_peso: pesoNum,
         fecha_ultimo_pesaje: payload.fechaIngreso,
-        id_potrerada: payload.selectedPotrerada || null,
+        id_potrerada: payload.selectedPotrerada || undefined,
         potrero_nombre: '',
         potrerada_nombre: payload.potreradaNombreRef || (prop ? `Levante ${prop}` : ''),
         registros_pesaje: [],
