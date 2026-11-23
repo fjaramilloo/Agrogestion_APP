@@ -17,6 +17,7 @@ import {
   normalizarPesajesDesc,
   esPesajePosteriorAIngreso
 } from '../utils/ganancia';
+import { deliverFileBlob, deliverPdfDocument } from '../utils/exportPdf';
 
 interface Props {
   onClose: () => void;
@@ -244,7 +245,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
     fetchData();
   }, [fincaId]);
 
-  const descargarExcel = () => {
+  const descargarExcel = async () => {
     if (!reportData || reportData.length === 0) return;
     const ws = XLSX.utils.json_to_sheet(reportData);
     const cols = Object.keys(reportData[0]).map(key => ({ wch: Math.max(key.length + 2, 14) }));
@@ -252,10 +253,13 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Inventario por Potreros");
     const stamp = format(new Date(), "yyyy-MM-dd");
-    XLSX.writeFile(wb, `Inventario_por_potreros_${stamp}.xlsx`);
+    const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const blob = new Blob([out], { type: mime });
+    await deliverFileBlob(blob, `Inventario_por_potreros_${stamp}.xlsx`, mime);
   };
 
-  const descargarPDF = () => {
+  const descargarPDF = async () => {
     if (!reportData || reportData.length === 0) return;
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
@@ -332,7 +336,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
     }
 
     const stamp = format(new Date(), "yyyy-MM-dd");
-    doc.save(`Inventario_por_potreros_${stamp}.pdf`);
+    await deliverPdfDocument(doc, `Inventario_por_potreros_${stamp}.pdf`);
   };
 
   const isTotal = (row: any) => row['Rotación'] === 'TOTAL';

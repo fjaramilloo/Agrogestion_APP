@@ -9,6 +9,8 @@ import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import VersionNotifier from './components/VersionNotifier';
 import SyncSummaryModal from './components/SyncSummaryModal';
+import PdfActionModal from './components/PdfActionModal';
+import { useIsMobile } from './hooks/useIsMobile';
 import { syncExistingPushSubscription } from './lib/pushNotifications';
 import { lazyWithRetry, prefetchWhenIdle } from './utils/lazyWithRetry';
 
@@ -93,18 +95,17 @@ const PantallaCargando = ({ fullScreen = false }: { fullScreen?: boolean }) => {
 
 const ProtectedRoute = ({ children, allowedRoles, requireSuperAdmin }: { children: React.ReactNode; allowedRoles?: string[]; requireSuperAdmin?: boolean }) => {
   const { user, role, isSuperAdmin, loading } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = React.useState(window.innerWidth > 1200);
+  const isCompactViewport = useIsMobile(1024);
+  const [sidebarOpen, setSidebarOpen] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth > 1200 : false
+  );
 
   React.useEffect(() => {
-    const handleResize = () => {
-      // Si la pantalla es muy pequeña, cerramos el sidebar automáticamente
-      if (window.innerWidth <= 1024 && sidebarOpen) {
-        setSidebarOpen(false);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [sidebarOpen]);
+    // Si cambia a viewport compacto, cerramos el sidebar automáticamente
+    if (isCompactViewport) {
+      setSidebarOpen(false);
+    }
+  }, [isCompactViewport]);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -336,6 +337,7 @@ function App() {
               </Suspense>
               <VersionNotifier />
               <SyncSummaryModal />
+              <PdfActionModal />
               <Suspense fallback={null}>
                 <AgroBotConSesion />
               </Suspense>

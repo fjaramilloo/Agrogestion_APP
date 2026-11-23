@@ -3,6 +3,7 @@ import { getDateRange, DATE_RANGE_LABELS, DATE_RANGE_OPTIONS, type DateRangeOpti
 import { supabase } from '../lib/supabase';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
+import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './HistoryPages.css';
 import { Search, Tag, Calendar, Users, FileText, X, Info, TrendingUp, Download, Loader2, Filter } from 'lucide-react';
@@ -59,6 +60,7 @@ interface VentaGrupo {
 
 export default function HistorialVentas() {
     const { fincaId, userFincas, modoGanancia } = useAuth();
+    const { showAlert } = useFeedback();
     const [ventas, setVentas] = useState<VentaGrupo[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -423,13 +425,18 @@ export default function HistorialVentas() {
             await exportElementToPdf(printRef.current, {
                 filename,
                 backgroundColor: surfaceColor,
-                windowWidth: 1200,
+                windowWidth: 1000,
                 delayMs: 100,
                 format: 'JPEG',
-                quality: 0.95,
+                quality: 0.94,
+                multiPage: true,
             });
         } catch (error) {
             console.error('Error al exportar PDF:', error);
+            await showAlert('No se pudo generar el documento PDF. Intenta nuevamente.', {
+                title: 'Error al exportar',
+                variant: 'error',
+            });
         } finally {
             setExportingDetallePdf(false);
         }

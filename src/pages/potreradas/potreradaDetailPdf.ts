@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase';
-import { captureElementCanvas } from '../../utils/exportPdf';
+import { captureElementCanvas, deliverPdfDocument } from '../../utils/exportPdf';
 import {
     toDisplayValue,
     getUnidadLabel,
@@ -299,5 +299,5 @@ export async function exportarDetallePotreradaPdf({
     doc.setTextColor(150);
     doc.text('Agrogestión v3.0 - Página 1', 260, finalY, { align: 'right' });
 
-    doc.save(`Informe_Lote_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+    await deliverPdfDocument(doc, `Informe_Lote_${p.nombre.replace(/\s+/g, '_')}_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
 }

@@ -29,9 +29,12 @@ export default function PurchaseReportSimple({ fincaNombre, fechaCompra, animale
         a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true, sensitivity: 'base' })
     );
     const { itemsPerCol, columnData } = splitIntoColumns(sortedAnimales, 3);
+    const nombreProveedor = (proveedor || 'Compra').trim();
+    const fechaDoc = (fechaCompra || '').trim().replace(/\//g, '-');
+    const reportTitle = `Compra-${nombreProveedor}-${fechaDoc}`.replace(/[\\/:*?"<>|]/g, '-');
 
     return (
-        <ReportPrintShell variant="compact" pageMargin="0.5cm" printLabel="Imprimir (Carta)" onClose={onClose}>
+        <ReportPrintShell variant="compact" pageMargin="0.5cm" printLabel="Imprimir (Carta)" documentTitle={reportTitle} onClose={onClose}>
             <style>{`
                 .rs-header {
                     text-align: center;
