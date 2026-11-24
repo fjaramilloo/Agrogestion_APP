@@ -665,7 +665,7 @@ export default function Potreradas() {
         if (!confirmed) return;
         setLoading(true);
         try {
-            await supabase.from('animales').update({ id_potrerada: null }).eq('id_potrerada', id);
+            await supabase.from('animales').update({ id_potrerada: null, id_potrero_actual: null }).eq('id_potrerada', id);
             await supabase.from('animales').update({ ultima_potrerada_id: null }).eq('ultima_potrerada_id', id);
 
             const { error } = await supabase.from('potreradas').delete().eq('id', id);

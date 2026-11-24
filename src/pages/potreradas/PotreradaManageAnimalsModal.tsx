@@ -3,6 +3,7 @@ import { Users, Search, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useFeedback } from '../../contexts/UiFeedbackContext';
 import { getLocalIsoDate } from '../../utils/dateUtils';
+import { getActivePotreroIdForPotrerada } from '../../utils/potreroHelpers';
 import type { AnimalPotrero, Potrerada } from './types';
 
 interface PotreradaManageAnimalsModalProps {
@@ -52,9 +53,11 @@ export default function PotreradaManageAnimalsModal({
         setUpdatingAnimal(animalId);
         try {
             const animalObj = animalesFinca.find(a => a.id === animalId);
+            const targetPotreroId = await getActivePotreroIdForPotrerada(supabase, managingPotrerada.id);
             const etapaLote = managingPotrerada.etapa === 'cría' ? 'cria' : managingPotrerada.etapa;
             const updatePayload: any = {
                 id_potrerada: managingPotrerada.id,
+                id_potrero_actual: targetPotreroId,
                 etapa: etapaLote,
                 ok_ceba: false
             };
@@ -90,7 +93,7 @@ export default function PotreradaManageAnimalsModal({
         try {
             const { error } = await supabase
                 .from('animales')
-                .update({ id_potrerada: null })
+                .update({ id_potrerada: null, id_potrero_actual: null })
                 .eq('id', animalId);
 
             if (error) throw error;

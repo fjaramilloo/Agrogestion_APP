@@ -5,6 +5,7 @@ import { useFeedback } from '../../contexts/UiFeedbackContext';
 import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../../utils/decimalInput';
 import { recalcularHistorialPesajesAnimal } from '../../utils/gananciaRecalculator';
+import { getActivePotreroIdForPotrerada } from '../../utils/potreroHelpers';
 import type { PotreradaOption, PropietarioOption } from './types';
 
 interface InventoryCreateAnimalModalProps {
@@ -104,6 +105,10 @@ export default function InventoryCreateAnimalModal({
 
             if (exist) throw new Error(`El animal con chapeta #${chapetaTrim} ya existe en esta finca.`);
 
+            const activePotreroId = nuevoAnimal.id_potrerada
+                ? await getActivePotreroIdForPotrerada(supabase, nuevoAnimal.id_potrerada)
+                : null;
+
             const { data: animalInsertado, error: errAnimal } = await supabase
                 .from('animales')
                 .insert([{
@@ -116,6 +121,7 @@ export default function InventoryCreateAnimalModal({
                     peso_ingreso: pesoIngresoNum,
                     fecha_ingreso: nuevoAnimal.fecha_ingreso,
                     id_potrerada: nuevoAnimal.id_potrerada || null,
+                    id_potrero_actual: activePotreroId,
                     tipo_macho: nuevoAnimal.sexo === 'M' ? nuevoAnimal.tipo_macho.toLowerCase() : null,
                     estado: 'activo'
                 }])

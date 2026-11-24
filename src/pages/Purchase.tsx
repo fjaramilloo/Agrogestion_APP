@@ -15,6 +15,7 @@ import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
+import { getActivePotrerosMapForPotreradas } from '../utils/potreroHelpers';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './TradeOperations.css';
 
@@ -359,14 +360,21 @@ export default function Purchase() {
                 ? (pesoCompTotalNum / totalPesoIngresoLote) 
                 : 1;
 
+            const targetLotIds = selectedPotrerada
+                ? [selectedPotrerada]
+                : [...potreradaIdPorPropietario.values()];
+            const activePotrerosMap = await getActivePotrerosMapForPotreradas(supabase, targetLotIds);
+
             const records = animales.map(a => {
                 const propTrim = a.propietario.trim();
                 const pesoIngresoNum = parseDecimalInput(a.peso_ingreso);
+                const assignedLotId = selectedPotrerada ? selectedPotrerada : (potreradaIdPorPropietario.get(propTrim) || null);
                 return {
                     id_finca: fincaId,
                     numero_chapeta: a.numero_chapeta.trim().toUpperCase(),
                     nombre_propietario: propTrim,
-                    id_potrerada: selectedPotrerada ? selectedPotrerada : (potreradaIdPorPropietario.get(propTrim) || null),
+                    id_potrerada: assignedLotId,
+                    id_potrero_actual: assignedLotId ? (activePotrerosMap.get(assignedLotId) ?? null) : null,
                     peso_ingreso: Math.round(pesoIngresoNum),
                     peso_compra: incluirPesoCompra ? Math.round(pesoIngresoNum * ratioPesoCompra) : null,
                     fecha_ingreso: fechaIngreso,
