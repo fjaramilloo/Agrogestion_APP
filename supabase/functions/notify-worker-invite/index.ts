@@ -51,7 +51,19 @@ serve(async (req: Request) => {
         const token = authHeader.replace(/^Bearer\s+/i, "").trim();
         const { data: userData, error: authError } = await authClient.auth.getUser(token);
         if (!authError && userData?.user) {
-          isAuthorized = true;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+          if (serviceKey) {
+            const adminClient = createClient(supabaseUrl, serviceKey);
+            const uid = userData.user.id;
+            const [{ data: sa }, { data: org }, { data: adminPerm }] = await Promise.all([
+              adminClient.from("superadmins").select("id_usuario").eq("id_usuario", uid).maybeSingle(),
+              adminClient.from("organizaciones").select("id").eq("id_dueño", uid).limit(1).maybeSingle(),
+              adminClient.from("permisos_finca").select("id").eq("id_usuario", uid).eq("rol", "administrador").limit(1).maybeSingle(),
+            ]);
+            if (sa || org || adminPerm) {
+              isAuthorized = true;
+            }
+          }
         }
       }
     }

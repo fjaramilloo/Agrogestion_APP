@@ -168,8 +168,8 @@ export default function PotreradaDetailModal({
                                                     </span>
                                                 )}
                                             </div>
-                                            {(() => {
-                                                const productivity = (detailData.animales.length * detailData.potrerada.gmpPromedio) / (detailData.areaTotalSistema || 1);
+                                            {detailData.areaTotalSistema && detailData.areaTotalSistema > 0 && (() => {
+                                                const productivity = (detailData.animales.length * detailData.potrerada.gmpPromedio) / detailData.areaTotalSistema;
                                                 return (
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                                                         <Activity size={14} color="var(--primary-light)" aria-hidden="true" /> <span className="mobile-hide">Prod:</span> <strong style={{ color: 'var(--primary-light)' }}>{productivity.toFixed(1)} kg/Ha/Mes</strong>

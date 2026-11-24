@@ -11,16 +11,16 @@ import PropietarioDashboardModal from '../components/PropietarioDashboardModal';
 import ModalUpsell from '../components/ModalUpsell';
 import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
 import { getLicenseBlockState } from '../utils/licenseUtils';
-import { format, differenceInDays } from 'date-fns';
-import { es } from 'date-fns/locale';
 import {
     toDisplayValue,
     getUnidadLabel,
     getModoLabel,
     calcularGmpUltimoPeriodo,
     calcularGmpAcumulado,
-    esPesajePosteriorAIngreso
+    esPesajePosteriorAIngreso,
+    calcularDiasEntreFechas
 } from '../utils/ganancia';
+import { formatLocalDate, getLocalIsoDate } from '../utils/dateUtils';
 import { localDB } from '../lib/db';
 import InventoryDetailModal from './inventory/InventoryDetailModal';
 import InventoryCreateAnimalModal from './inventory/InventoryCreateAnimalModal';
@@ -104,7 +104,7 @@ export default function Inventory() {
             }
 
             if (cachedAnimales && cachedAnimales.length > 0) {
-                const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+                const hoyIso = getLocalIsoDate();
                 const activosCache = cachedAnimales.filter((a: any) => !a.estado || a.estado === 'activo');
 
                 const dataProcesada = activosCache.map((a: any) => {
@@ -114,9 +114,7 @@ export default function Inventory() {
                             .sort((x: any, y: any) => String(y.fecha || '').localeCompare(String(x.fecha || '')))
                         : [];
                     const fechaUltimo = pesajesActivos[0]?.fecha || a.fecha_ultimo_pesaje || a.fecha_ingreso;
-                    const fechaRef = new Date(fechaUltimo);
-                    fechaRef.setHours(0, 0, 0, 0);
-                    const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
+                    const diasDesdeUltimoPesaje = calcularDiasEntreFechas(fechaUltimo, hoyIso);
 
                     return {
                         id: a.id,
@@ -167,7 +165,7 @@ export default function Inventory() {
                     const q = supabase
                         .from('animales')
                         .select(`
-                            id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
+                            id, numero_chapeta, nombre_propietario, especie, sexo, tipo_macho, etapa,
                             peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
                             peso_ingreso_ceba, estado, id_potrerada, creado_en,
                             potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
@@ -223,13 +221,12 @@ export default function Inventory() {
 
             // BLINDAJE: Solo actualizar estado si la nube entregó animales válidos
             if (!animalesRes.error && animalesRes.data && animalesRes.data.length > 0) {
-                const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+                const hoyIso = getLocalIsoDate();
 
                 const dataProcesada = animalesRes.data.map((a: any) => {
                     const ultimoP = ultimosPesajesMap.get(a.id) || null;
-                    const fechaRef = ultimoP ? new Date(ultimoP.fecha) : new Date(a.fecha_ingreso);
-                    fechaRef.setHours(0, 0, 0, 0);
-                    const diasDesdeUltimoPesaje = differenceInDays(hoy, fechaRef);
+                    const fechaRefStr = ultimoP ? ultimoP.fecha : a.fecha_ingreso;
+                    const diasDesdeUltimoPesaje = calcularDiasEntreFechas(fechaRefStr, hoyIso);
 
                     return {
                         ...a,
@@ -356,6 +353,10 @@ export default function Inventory() {
                     const registros = a.registros_pesaje || [];
                     if (registros.length >= 2) {
                         return Number(registros[0].peso) < Number(registros[1].peso);
+                    }
+                    if (registros.length === 1) {
+                        const r = registros[0];
+                        return Number(r.gdp_calculada ?? 0) < 0 || Number(r.gmp_calculada ?? 0) < 0;
                     }
                     return false;
                 })() : true;
@@ -649,7 +650,7 @@ export default function Inventory() {
                                 const fechaInicio = animal.fecha_ingreso;
 
                                 const tienePesajePosterior = Boolean(ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, fechaInicio));
-                                const fechaU = tienePesajePosterior && ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : 'Sin pesajes';
+                                const fechaU = tienePesajePosterior && ultimoP ? formatLocalDate(ultimoP.fecha) : 'Sin pesajes';
                                 const pesoU = tienePesajePosterior && ultimoP ? `${Math.round(ultimoP.peso)} kg` : `${Math.round(pesoBase)} kg*`;
 
                                 const gananciaTotal = tienePesajePosterior && ultimoP ? (ultimoP.peso - pesoBase) : 0;
@@ -697,7 +698,7 @@ export default function Inventory() {
                                             }}>
                                                 Hace {animal.diasDesdeUltimoPesaje} {animal.diasDesdeUltimoPesaje === 1 ? 'día' : 'días'}
                                             </div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tienePesajePosterior ? fechaU : 'Ingreso: ' + format(new Date(animal.fecha_ingreso), 'dd/MM/yyyy')}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tienePesajePosterior ? fechaU : 'Ingreso: ' + formatLocalDate(animal.fecha_ingreso)}</div>
                                         </td>
                                         <td className="inventory-col-peso" style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: 'bold', fontSize: '1.05rem' }}>{pesoU}</div>
@@ -753,7 +754,10 @@ export default function Inventory() {
                 <InventoryDeathReportModal
                     fincaId={fincaId}
                     onClose={() => setShowMuerteModal(false)}
-                    onReported={() => { void fetchAnimales(); }}
+                    onReported={() => {
+                        if (refreshLicencia) void refreshLicencia();
+                        void fetchAnimales();
+                    }}
                 />
             )}
 

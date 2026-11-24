@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { ReportPrintShell } from './ReportPrintShell';
 import { splitIntoColumns } from '../utils/exportPdf';
+import { parseDecimalInput } from '../utils/decimalInput';
 
 interface AnimalReport {
     numero_chapeta: string;
@@ -18,7 +19,7 @@ interface PurchaseReportProps {
 
 export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pesoCompraTotal, onClose }: PurchaseReportProps) {
     // Cálculos
-    const totalKilos = animales.reduce((sum, a) => sum + parseFloat(a.peso_ingreso.toString()), 0);
+    const totalKilos = animales.reduce((sum, a) => sum + (parseDecimalInput(a.peso_ingreso) || 0), 0);
     const totalAnimales = animales.length;
 
     // Agrupación por propietario (Marca)
@@ -28,7 +29,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
             acc[marca] = { count: 0, kilos: 0 };
         }
         acc[marca].count += 1;
-        acc[marca].kilos += parseFloat(a.peso_ingreso.toString());
+        acc[marca].kilos += (parseDecimalInput(a.peso_ingreso) || 0);
         return acc;
     }, {});
 

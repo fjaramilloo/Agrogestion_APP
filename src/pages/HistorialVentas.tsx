@@ -1,19 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { getDateRange, DATE_RANGE_LABELS, DATE_RANGE_OPTIONS, type DateRangeOption } from '../utils/dateRanges';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './HistoryPages.css';
 import { Search, Tag, Calendar, Users, FileText, X, Info, TrendingUp, Download, Loader2, Filter } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SalesReport from '../components/SalesReport';
 import SalesReportSimple from '../components/SalesReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { exportElementToPdf } from '../utils/exportPdf';
-import { toDisplayValue, getUnidadLabel, getModoLabel, esPesajePosteriorAIngreso } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, esPesajePosteriorAIngreso, calcularDiasEntreFechas } from '../utils/ganancia';
+import { formatLocalDate } from '../utils/dateUtils';
 
 interface AnimalVentaParaReporte {
     numero_chapeta: string;
@@ -38,6 +40,8 @@ interface AnimalVentaDetalle {
     peso_ingreso: number;
     peso_compra?: number | null;
     fecha_ingreso: string;
+    fecha_ingreso_ceba?: string | null;
+    peso_ingreso_ceba?: number | null;
     peso_venta: number;
     gmp: number;
     pesajesFiltrados: Record<string, number>;
@@ -135,39 +139,45 @@ export default function HistorialVentas() {
                     }
                 }
 
-                // Consultar todas las ventas de la finca (coincide exactamente con la caché offline)
+                // Consultar todas las ventas de la finca paginado >1000 filas (coincide con caché offline)
                 let data: any[] = [];
                 try {
-                    const res = await supabase
-                        .from('animales')
-                        .select(`
-                            id, 
-                            numero_chapeta, 
-                            nombre_propietario,
-                            comprador_venta,
-                            fecha_venta,
-                            peso_venta,
-                            peso_ingreso,
-                            peso_compra,
-                            fecha_ingreso,
-                            etapa,
-                            fecha_ingreso_ceba,
-                            peso_ingreso_ceba,
-                            es_emergencia,
-                            precio_venta,
-                            observaciones_venta,
-                            potreros (nombre),
-                            registros_pesaje (
-                                peso,
-                                fecha,
+                    const res = await fetchAllSupabasePages((from, to, signal) => {
+                        const q = supabase
+                            .from('animales')
+                            .select(`
+                                id, 
+                                numero_chapeta, 
+                                nombre_propietario,
+                                comprador_venta,
+                                fecha_venta,
+                                peso_venta,
+                                peso_ingreso,
+                                peso_compra,
+                                fecha_ingreso,
                                 etapa,
-                                gdp_calculada,
-                                is_deleted
-                            )
-                        `)
-                        .eq('id_finca', fincaId)
-                        .eq('estado', 'vendido')
-                        .order('fecha_venta', { ascending: false });
+                                fecha_ingreso_ceba,
+                                peso_ingreso_ceba,
+                                es_emergencia,
+                                precio_venta,
+                                observaciones_venta,
+                                potreros (nombre),
+                                registros_pesaje (
+                                    peso,
+                                    fecha,
+                                    etapa,
+                                    gdp_calculada,
+                                    is_deleted
+                                )
+                            `)
+                            .eq('id_finca', fincaId)
+                            .eq('estado', 'vendido')
+                            .or('is_deleted.is.null,is_deleted.eq.false')
+                            .order('fecha_venta', { ascending: false })
+                            .order('id', { ascending: true })
+                            .range(from, to);
+                        return signal ? q.abortSignal(signal) : q;
+                    });
                     if (res?.data && res.data.length > 0) {
                         data = res.data;
                     }
@@ -299,6 +309,8 @@ export default function HistorialVentas() {
                         peso_ingreso: animal.peso_ingreso ?? animal.peso_compra,
                         peso_compra: animal.peso_compra,
                         fecha_ingreso: animal.fecha_ingreso,
+                        fecha_ingreso_ceba: fechaInicioCeba,
+                        peso_ingreso_ceba: pesoInicioCeba,
                         peso_venta: animal.peso_venta || ultimoP?.peso || 0,
                         gmp: gmp,
                         pesajesFiltrados: pesajesMap,
@@ -657,13 +669,19 @@ export default function HistorialVentas() {
                     // pero NO debe aportar GMP a la gráfica (no hay ganancia todavía)
                     const anchorFecha = a.fecha_ingreso ? a.fecha_ingreso.split('T')[0] : null;
                     const anchorPeso = Number(a.peso_ingreso || 0);
+                    const cebaAnchorFecha = a.fecha_ingreso_ceba ? String(a.fecha_ingreso_ceba).split('T')[0] : null;
+                    const cebaAnchorPeso = Number(a.peso_ingreso_ceba || 0);
 
                     if (showFullHistory) {
                         if (anchorFecha && anchorPeso) {
                             allWeighings.push({ fecha: anchorFecha, peso: anchorPeso, gdp: 0, isAnchor: true });
                         }
                     } else {
-                        if (anchorFecha && anchorPeso && a.etapa !== 'ceba') {
+                        if (a.etapa === 'ceba') {
+                            if (cebaAnchorFecha && cebaAnchorPeso > 0) {
+                                allWeighings.push({ fecha: cebaAnchorFecha, peso: cebaAnchorPeso, gdp: 0, isAnchor: true });
+                            }
+                        } else if (anchorFecha && anchorPeso) {
                             allWeighings.push({ fecha: anchorFecha, peso: anchorPeso, gdp: 0, isAnchor: true });
                         }
                     }
@@ -672,14 +690,19 @@ export default function HistorialVentas() {
                         ? (a.registros_pesaje || [])
                         : (a.registros_pesaje || []).filter(r => r.etapa === a.etapa)
                     )
-                        .filter(r => esPesajePosteriorAIngreso(r.fecha, anchorFecha))
+                        .filter(r => esPesajePosteriorAIngreso(r.fecha, (!showFullHistory && a.etapa === 'ceba' && cebaAnchorFecha) ? cebaAnchorFecha : anchorFecha))
                         .slice()
                         .sort((x, y) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
 
-                    // Siempre calculamos GDP secuencialmente usando el ingreso como punto de arranque.
-                    // Esto cubre casos donde gdp_calculada es null en la BD (ej: primer pesaje de ceba).
-                    let prevFechaChart: Date | null = anchorFecha ? new Date(anchorFecha + 'T12:00:00') : null;
-                    let prevPesoChart: number | null = anchorPeso > 0 ? anchorPeso : null;
+                    // Siempre calculamos GDP secuencialmente usando la fecha/peso base de la vista actual.
+                    const effectiveAnchorFecha = (!showFullHistory && a.etapa === 'ceba' && cebaAnchorFecha)
+                        ? cebaAnchorFecha
+                        : anchorFecha;
+                    const effectiveAnchorPeso = (!showFullHistory && a.etapa === 'ceba' && cebaAnchorPeso > 0)
+                        ? cebaAnchorPeso
+                        : anchorPeso;
+                    let prevFechaChart: Date | null = effectiveAnchorFecha ? new Date(effectiveAnchorFecha + 'T12:00:00') : null;
+                    let prevPesoChart: number | null = effectiveAnchorPeso > 0 ? effectiveAnchorPeso : null;
 
                     registrosAUsar.forEach(r => {
                         const fecha = r.fecha.split('T')[0];
@@ -1015,15 +1038,15 @@ export default function HistorialVentas() {
                     .sort((x, y) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime());
                 const ultimoP = registrosOrdenados[0];
                 const fechaU = ultimoP
-                    ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es })
-                    : format(new Date(a.fecha_ingreso), 'dd/MM/yyyy', { locale: es });
+                    ? formatLocalDate(ultimoP.fecha, 'dd/MM/yyyy', { locale: es })
+                    : formatLocalDate(a.fecha_ingreso, 'dd/MM/yyyy', { locale: es });
 
                 // Timeline: ingreso + todos los pesajes posteriores (de más nuevo a más viejo para la tabla)
                 const baseWeight = a.peso_ingreso ?? a.peso_compra ?? 0;
                 const timeline = [
                     ...registrosOrdenados.map((p, i, arr) => {
                         const siguiente = arr[i + 1] || { peso: baseWeight, fecha: a.fecha_ingreso };
-                        const d = differenceInDays(new Date(p.fecha), new Date(siguiente.fecha)) || 1;
+                        const d = Math.max(1, calcularDiasEntreFechas(siguiente.fecha, p.fecha));
                         const ganancia = p.peso - siguiente.peso;
                         const gmp = (ganancia / d) * 30;
                         return { fecha: p.fecha, peso: p.peso, gmp, gdp: p.gdp_calculada ?? (ganancia / d), esIngreso: false };
@@ -1032,7 +1055,7 @@ export default function HistorialVentas() {
                 ];
 
                 const chartData = [...timeline].reverse().map(item => ({
-                    fechaStr: format(new Date(item.fecha), 'dd/MMM', { locale: es }),
+                    fechaStr: formatLocalDate(item.fecha, 'dd/MMM', { locale: es }),
                     peso: item.peso
                 }));
 
@@ -1116,7 +1139,7 @@ export default function HistorialVentas() {
                                         {timeline.map((item, index) => (
                                             <tr key={index} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                                 <td style={{ padding: '12px 16px' }}>
-                                                    <div style={{ fontWeight: '500' }}>{format(new Date(item.fecha), 'dd/MM/yyyy')}</div>
+                                                    <div style={{ fontWeight: '500' }}>{formatLocalDate(item.fecha)}</div>
                                                     {item.esIngreso && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 'bold' }}>INGRESO</div>}
                                                 </td>
                                                 <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>{item.peso}</td>

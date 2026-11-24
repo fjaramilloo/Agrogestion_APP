@@ -65,26 +65,26 @@ export default function Rotations() {
     const fetchData = async () => {
         if (!fincaId) return;
         try {
-            const { data: rotData } = await supabase
+            const { data: rotData, error: rotErr } = await supabase
                 .from('rotaciones')
                 .select('id, nombre')
                 .eq('id_finca', fincaId)
                 .order('nombre');
 
-            const { data: potData } = await supabase
+            const { data: potData, error: potErr } = await supabase
                 .from('potreros')
                 .select('id, nombre, area_hectareas, id_rotacion')
                 .eq('id_finca', fincaId)
                 .order('nombre');
 
-            if (rotData && rotData.length > 0) {
+            if (!rotErr && rotData) {
                 setRotaciones(rotData);
             } else {
                 const rots = await localDB.rotacionesCache.where('id_finca').equals(fincaId).toArray();
                 if (rots.length > 0) setRotaciones(rots.map(r => ({ id: r.id, nombre: r.nombre })));
             }
 
-            if (potData && potData.length > 0) {
+            if (!potErr && potData) {
                 setPotreros(potData);
             } else {
                 const pots = await localDB.potrerosCache.where('id_finca').equals(fincaId).toArray();
@@ -241,10 +241,15 @@ export default function Rotations() {
         });
         if (!confirmed) return;
         try {
-            await supabase.from('potreros').delete().eq('id', id);
+            const { error } = await supabase.from('potreros').delete().eq('id', id);
+            if (error) throw error;
             fetchData();
             toast('Potrero eliminado.', 'success');
-        } catch (err: any) { console.error(err); }
+        } catch (err: any) {
+            console.error(err);
+            setMsjError(err?.message || 'Error al eliminar potrero');
+            toast(err?.message || 'Error al eliminar potrero', 'error');
+        }
     };
 
     const deleteRotacion = async (id: string) => {
@@ -256,7 +261,8 @@ export default function Rotations() {
         });
         if (!confirmed) return;
         try {
-            await supabase.from('rotaciones').delete().eq('id', id);
+            const { error } = await supabase.from('rotaciones').delete().eq('id', id);
+            if (error) throw error;
             fetchData();
             toast('Rotación eliminada.', 'success');
         } catch (err: any) { console.error(err); }

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { useAuth } from '../contexts/AuthContext';
 import { X, Download, Loader2, FileSpreadsheet, FileText } from 'lucide-react';
-import { differenceInDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
 import {
   toDisplayValue,
@@ -15,7 +15,8 @@ import {
   calcularFallbackGmpPorEtapa,
   calcularPesoEstimadoHoy,
   normalizarPesajesDesc,
-  esPesajePosteriorAIngreso
+  esPesajePosteriorAIngreso,
+  calcularDiasEntreFechas
 } from '../utils/ganancia';
 import { deliverFileBlob, deliverPdfDocument } from '../utils/exportPdf';
 
@@ -60,18 +61,23 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           }
         });
 
-        // 1. Obtener animales activos CON su potrero y la rotación del potrero
-        const { data: animalesData, error: anErr } = await supabase
-          .from('animales')
-          .select(`
-            id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra, fecha_ingreso,
-            fecha_ingreso_ceba, peso_ingreso_ceba, etapa, id_potrero_actual,
-            potreros ( nombre, id_rotacion, rotaciones ( nombre ) ),
-            registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
-          `)
-          .eq('estado', 'activo')
-          .or('is_deleted.is.null,is_deleted.eq.false')
-          .eq('id_finca', fincaId);
+        // 1. Obtener animales activos CON su potrero y la rotación del potrero (paginado >1000)
+        const { data: animalesData, error: anErr } = await fetchAllSupabasePages((from, to, signal) => {
+          const q = supabase
+            .from('animales')
+            .select(`
+              id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra, fecha_ingreso,
+              fecha_ingreso_ceba, peso_ingreso_ceba, etapa, id_potrero_actual,
+              potreros ( nombre, id_rotacion, rotaciones ( nombre ) ),
+              registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
+            `)
+            .eq('estado', 'activo')
+            .or('is_deleted.is.null,is_deleted.eq.false')
+            .eq('id_finca', fincaId)
+            .order('id', { ascending: true })
+            .range(from, to);
+          return signal ? q.abortSignal(signal) : q;
+        });
 
         if (anErr) {
           console.error('Error fetching animales:', anErr);
@@ -108,7 +114,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           );
 
           // GMP Total del animal: Acumulado desde ingreso a la finca (peso_ingreso)
-          let gmpTotalAnimal = 0;
+          let gmpTotalAnimal: number | null = null;
           if (ultimoP && esPesajePosteriorAIngreso(ultimoP.fecha, a.fecha_ingreso)) {
               const fechaIngresoEtapa = a.fecha_ingreso;
               const pesoIngresoEtapa = pesoBaseFinca;
@@ -116,11 +122,8 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
               if (fechaIngresoEtapa && pesoIngresoEtapa) {
                   const startWeight = Number(pesoIngresoEtapa);
                   const endWeight = Number(ultimoP.peso);
-                  const startDate = new Date(fechaIngresoEtapa + 'T12:00:00');
-                  const endDate = new Date(ultimoP.fecha + 'T12:00:00');
-                  
                   const totalGain = endWeight - startWeight;
-                  const totalDays = differenceInDays(endDate, startDate);
+                  const totalDays = calcularDiasEntreFechas(fechaIngresoEtapa, ultimoP.fecha);
 
                   if (totalDays > 0) {
                       gmpTotalAnimal = (totalGain / totalDays) * 30;
@@ -146,7 +149,7 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
           }
           group[rotacionName][potreroName].marcasCounts[marca] += 1;
 
-          if (gmpTotalAnimal !== 0) {
+          if (gmpTotalAnimal !== null) {
               group[rotacionName][potreroName].gmpSum += gmpTotalAnimal;
               group[rotacionName][potreroName].gmpCount += 1;
           }
@@ -247,8 +250,22 @@ export default function ReporteInventarioExcel({ onClose }: Props) {
 
   const descargarExcel = async () => {
     if (!reportData || reportData.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(reportData);
-    const cols = Object.keys(reportData[0]).map(key => ({ wch: Math.max(key.length + 2, 14) }));
+    const gainHeader = `${getModoLabel(modoGanancia)} Total (${getUnidadLabel(modoGanancia)})`;
+    const excelRows = reportData.map(row => {
+      const copy: Record<string, any> = {};
+      for (const [key, val] of Object.entries(row)) {
+        if (key === 'GMP Total') {
+          copy[gainHeader] = val !== null && val !== undefined
+            ? Number(toDisplayValue(Number(val), modoGanancia).toFixed(modoGanancia === 'GDP' ? 0 : 1))
+            : null;
+        } else {
+          copy[key] = val;
+        }
+      }
+      return copy;
+    });
+    const ws = XLSX.utils.json_to_sheet(excelRows);
+    const cols = Object.keys(excelRows[0]).map(key => ({ wch: Math.max(key.length + 2, 14) }));
     ws['!cols'] = cols;
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Inventario por Potreros");

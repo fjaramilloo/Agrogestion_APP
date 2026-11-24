@@ -349,6 +349,7 @@ export default function SettingsBulkUploadSection({
 
                             if (errPesajesInit) {
                                 console.error('Error al crear pesajes iniciales para animales nuevos:', errPesajesInit);
+                                throw new Error('Los animales se crearon, pero falló el registro de sus pesajes iniciales: ' + errPesajesInit.message);
                             }
                         }
 
@@ -579,6 +580,7 @@ export default function SettingsBulkUploadSection({
                             const errs = resUpd.filter(r => r.error);
                             if (errs.length > 0) {
                                 console.error('Error al actualizar animales durante la recalibración:', errs);
+                                errores.push(`${errs.length} animal(es) no pudieron recalibrar su fecha/peso de ingreso.`);
                             }
                             onSetImportProgress({ current: i + batchIds.length, total: allIds.length });
                         }

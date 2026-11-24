@@ -10,7 +10,7 @@ import {
 import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, SlidersHorizontal, ArrowLeftRight, Leaf, CloudRain, Users, ListChecks, ChevronRight } from 'lucide-react';
 import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
 import { getLicenseBlockState } from '../utils/licenseUtils';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
     toDisplayValue,
@@ -21,8 +21,10 @@ import {
     calcularFallbackGmpPorEtapa,
     calcularPesoEstimadoHoy,
     evaluarLotesParaDespacho,
+    calcularDiasEntreFechas,
     type LoteDespachoEvaluado
 } from '../utils/ganancia';
+import { getLocalIsoDate } from '../utils/dateUtils';
 import { consolidarLluviasPorFecha } from '../utils/rainfallUtils';
 import { useNavigate, Link } from 'react-router-dom';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -286,9 +288,10 @@ export default function Dashboard() {
                 let totalDiasCeba = 0;
                 let countCeba = 0;
 
+                const hoyLocalIso = getLocalIsoDate();
                 animales.forEach((animal: any) => {
                     if (animal.fecha_ingreso) {
-                        const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso)) || 0;
+                        const diffHoy = Math.max(0, calcularDiasEntreFechas(animal.fecha_ingreso, hoyLocalIso));
                         if (animal.etapa === 'levante') {
                             totalDiasLevante += diffHoy;
                             countLevante++;

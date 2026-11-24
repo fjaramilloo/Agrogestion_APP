@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Users, Search, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useFeedback } from '../../contexts/UiFeedbackContext';
+import { getLocalIsoDate } from '../../utils/dateUtils';
 import type { AnimalPotrero, Potrerada } from './types';
 
 interface PotreradaManageAnimalsModalProps {
@@ -50,10 +51,21 @@ export default function PotreradaManageAnimalsModal({
         }
         setUpdatingAnimal(animalId);
         try {
-            const updatePayload: any = { id_potrerada: managingPotrerada.id };
-            if (managingPotrerada.etapa === 'ceba') {
-                updatePayload.etapa = 'ceba';
-                updatePayload.ok_ceba = false;
+            const animalObj = animalesFinca.find(a => a.id === animalId);
+            const etapaLote = managingPotrerada.etapa === 'cría' ? 'cria' : managingPotrerada.etapa;
+            const updatePayload: any = {
+                id_potrerada: managingPotrerada.id,
+                etapa: etapaLote,
+                ok_ceba: false
+            };
+            if (etapaLote === 'ceba') {
+                updatePayload.fecha_ingreso_ceba = getLocalIsoDate();
+                if (animalObj?.pesoActual && animalObj.pesoActual > 0) {
+                    updatePayload.peso_ingreso_ceba = Math.round(animalObj.pesoActual);
+                }
+            } else {
+                updatePayload.fecha_ingreso_ceba = null;
+                updatePayload.peso_ingreso_ceba = null;
             }
             const { error } = await supabase
                 .from('animales')

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -114,12 +115,25 @@ export default function MercadoGanado() {
 
             // Si hay animales en memoria local, recuperar su peso para el cálculo patrimonial
             if (fincaId) {
-                const animsCached = await localDB.animalesCache.where('id_finca').equals(fincaId).toArray();
-                if (animsCached && animsCached.length > 0) {
+                const animsCached = (await localDB.animalesCache.where('id_finca').equals(fincaId).toArray())
+                    .filter((a: any) => (!a.estado || a.estado === 'activo') && !a.is_deleted);
+                if (animsCached.length > 0) {
                     const processed: AnimalCategorizado[] = animsCached.map((a: any) => {
                         const weight = Number(a.ultimo_peso ?? (a.peso_ingreso ?? a.peso_compra ?? 0));
                         let category = 'ML';
-                        if (a.etapa === 'levante' || a.etapa === 'cria') {
+                        if (a.sexo === 'H') {
+                            if (a.etapa === 'levante' || a.etapa === 'cria') {
+                                category = 'HL';
+                            } else if (weight < 320) {
+                                category = 'HL';
+                            } else if (weight < 400) {
+                                category = 'HV';
+                            } else if (weight < 450) {
+                                category = 'VH';
+                            } else {
+                                category = 'VP';
+                            }
+                        } else if (a.etapa === 'levante' || a.etapa === 'cria') {
                             category = 'ML';
                         } else {
                             category = weight >= 440 ? 'MG' : 'MC';
@@ -146,26 +160,37 @@ export default function MercadoGanado() {
         }
 
         try {
-            // 1. Fetch precios de mercado
-            const { data: preciosData, error: errPrecios } = await supabase
-                .from('vista_precios_mercado')
-                .select('*')
-                .order('fecha_boletin', { ascending: true });
+            // 1. Fetch precios de mercado (paginado >1000 filas)
+            const { data: preciosData, error: errPrecios } = await fetchAllSupabasePages((from, to, signal) => {
+                const q = supabase
+                    .from('vista_precios_mercado')
+                    .select('*')
+                    .order('fecha_boletin', { ascending: true })
+                    .order('id', { ascending: true })
+                    .range(from, to);
+                return signal ? q.abortSignal(signal) : q;
+            });
 
             if (errPrecios) throw errPrecios;
             if (preciosData) setPrecios(preciosData);
 
-            // 2. Fetch animales para valoración patrimonial (si es premium)
+            // 2. Fetch animales para valoración patrimonial (si es premium, paginado >1000 filas)
             let processedAnimals: AnimalCategorizado[] = [];
             if (fincaId) {
-                const { data: animData } = await supabase
-                    .from('animales')
-                    .select(`
-                        id, sexo, etapa, peso_ingreso, peso_compra,
-                        registros_pesaje (peso, fecha, is_deleted)
-                    `)
-                    .eq('id_finca', fincaId)
-                    .eq('estado', 'activo');
+                const { data: animData } = await fetchAllSupabasePages((from, to, signal) => {
+                    const q = supabase
+                        .from('animales')
+                        .select(`
+                            id, sexo, etapa, peso_ingreso, peso_compra,
+                            registros_pesaje (peso, fecha, is_deleted)
+                        `)
+                        .eq('id_finca', fincaId)
+                        .eq('estado', 'activo')
+                        .or('is_deleted.is.null,is_deleted.eq.false')
+                        .order('id', { ascending: true })
+                        .range(from, to);
+                    return signal ? q.abortSignal(signal) : q;
+                });
 
                 if (animData) {
                     processedAnimals = animData.map((a: any) => {

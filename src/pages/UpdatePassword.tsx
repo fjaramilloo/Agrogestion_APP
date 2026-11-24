@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { isStrongPassword, PASSWORD_POLICY_ERROR } from '../utils/passwordUtils';
 import { useNavigate } from 'react-router-dom';
 import { Leaf } from 'lucide-react';
 
@@ -41,8 +42,8 @@ export default function UpdatePassword() {
             return;
         }
 
-        if (password.length < 6) {
-            setError("La contraseña debe tener al menos 6 caracteres");
+        if (!isStrongPassword(password)) {
+            setError(PASSWORD_POLICY_ERROR);
             setLoading(false);
             return;
         }

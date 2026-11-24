@@ -10,7 +10,7 @@ import {
     evaluarLotesParaDespacho,
     normalizarPesajesDesc
 } from '../utils/ganancia';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, formatLocalDate } from '../utils/dateUtils';
 import './NotificationCenter.css';
 
 interface Notification {
@@ -349,7 +349,7 @@ export default function NotificationCenter() {
                     const numPotrerosEnRotacion = rotacion?.potreros?.length || 0;
                     if (numPotrerosEnRotacion <= 1) continue;
 
-                    const diasEnPotrero = differenceInDays(hoy, new Date(p.fecha_entrada));
+                    const diasEnPotrero = Math.max(0, calcularDiasEntreFechas(p.fecha_entrada, getLocalIsoDate()));
                     const aforo = aforosMap[p.id_potrero];
 
                     // Obtener días base del potrero específico
@@ -360,7 +360,7 @@ export default function NotificationCenter() {
 
                     if (aforo) {
                         limiteDias = Math.floor(Number(aforo.dias_pastoreo_estimados) || diasBase);
-                        fuente = `aforo reciente (${format(new Date(aforo.fecha), 'dd/MM')})`;
+                        fuente = `aforo reciente (${formatLocalDate(aforo.fecha, 'dd/MM')})`;
                     }
 
                     if (diasEnPotrero >= limiteDias) {

@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { captureElementCanvas, deliverPdfDocument } from '../../utils/exportPdf';
 import {
     toDisplayValue,
+    toStorageValue,
     getUnidadLabel,
     getModoLabel,
     getGmpRgb,
@@ -135,10 +136,11 @@ export async function exportarDetallePotreradaPdf({
 
     const numAnimales = detailData.animales.length;
     const avgGmp = ultimoGmpLote;
-    const areaSistema = detailData.areaTotalSistema || 1;
-    const kilosHaMes = (numAnimales * avgGmp) / areaSistema;
-    const cargaGlobalStr = (numAnimales / areaSistema).toFixed(2);
-    drawBox(xPos, currentY, 'PRODUCTIVIDAD', `${kilosHaMes.toFixed(1)} kg/Ha/Mes`, `Carga: ${cargaGlobalStr} Cab/Ha`, [40, 40, 40]);
+    const hasArea = Boolean(detailData.areaTotalSistema && detailData.areaTotalSistema > 0);
+    const areaSistema = hasArea ? detailData.areaTotalSistema! : 1;
+    const kilosHaMes = hasArea ? (numAnimales * avgGmp) / areaSistema : 0;
+    const cargaGlobalStr = hasArea ? (numAnimales / areaSistema).toFixed(2) : '-';
+    drawBox(xPos, currentY, 'PRODUCTIVIDAD', hasArea ? `${kilosHaMes.toFixed(1)} kg/Ha/Mes` : 'N/A', hasArea ? `Carga: ${cargaGlobalStr} Cab/Ha` : 'Sin área asignada', [40, 40, 40]);
 
     currentY += boxHeight + rowGap;
 
@@ -283,8 +285,9 @@ export async function exportarDetallePotreradaPdf({
             if (data.section === 'body' && data.column.index === tableHead[0].length - 1) {
                 const val = parseFloat(data.cell.raw as string);
                 if (!isNaN(val)) {
+                    const gmpEquivalente = toStorageValue(val, modoGanancia);
                     data.cell.styles.fontStyle = 'bold';
-                    data.cell.styles.textColor = getGmpRgb(val, umbralMedio, umbralAlto);
+                    data.cell.styles.textColor = getGmpRgb(gmpEquivalente, umbralMedio, umbralAlto);
                 }
             }
             if (data.section === 'foot' && data.row.index === 1) {

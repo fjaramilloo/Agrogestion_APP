@@ -19,6 +19,7 @@ interface AnimalVenta {
     peso_salida: string;
     propietario: string;
     id_animal?: string;
+    etapa?: string;
     validado: boolean;
     error?: string;
     advertencia_fecha?: string;
@@ -36,7 +37,7 @@ interface AnimalVenta {
 }
 
 export default function Sales() {
-    const { fincaId, role, userFincas, modoGanancia, licenciaInfo } = useAuth();
+    const { fincaId, role, userFincas, modoGanancia, licenciaInfo, refreshLicencia } = useAuth();
     const { modoCampo, toggleModoCampo, isOnline } = useConnection();
     const { isBloqueado } = getLicenseBlockState(licenciaInfo);
     const [showUpsellModal, setShowUpsellModal] = useState(false);
@@ -200,6 +201,7 @@ export default function Sales() {
                 .eq('id_finca', fincaId)
                 .eq('numero_chapeta', a.numero_chapeta.trim())
                 .eq('estado', 'activo')
+                .or('is_deleted.is.null,is_deleted.eq.false')
                 .maybeSingle();
 
             let animalEncontrado = data;
@@ -207,7 +209,7 @@ export default function Sales() {
                 const targetTag = a.numero_chapeta.trim().toLowerCase();
                 const cached = await localDB.animalesCache
                     .where('id_finca').equals(fincaId)
-                    .filter(an => (!an.estado || an.estado === 'activo') && an.numero_chapeta?.trim().toLowerCase() === targetTag)
+                    .filter(an => (!an.estado || an.estado === 'activo') && !(an as any).is_deleted && an.numero_chapeta?.trim().toLowerCase() === targetTag)
                     .first();
                 if (cached) {
                     animalEncontrado = {
@@ -248,8 +250,8 @@ export default function Sales() {
                     .filter((r: any) => r.etapa === 'ceba')
                     .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
                 
-                let fechaInicioCeba = animalEncontrado.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (animalEncontrado.etapa === 'ceba' ? animalEncontrado.fecha_ingreso : null));
-                let pesoInicioCeba = animalEncontrado.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (animalEncontrado.etapa === 'ceba' ? pesoBaseIngreso : null));
+                const fechaInicioCeba = animalEncontrado.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (animalEncontrado.etapa === 'ceba' ? animalEncontrado.fecha_ingreso : null));
+                const pesoInicioCeba = animalEncontrado.peso_ingreso_ceba || (registroCeba ? registroCeba.peso : (animalEncontrado.etapa === 'ceba' ? pesoBaseIngreso : null));
 
                 const gmp = a.peso_salida ? calculateGMP(a.peso_salida, pesoBaseIngreso, animalEncontrado.fecha_ingreso, fechaVenta) : 0;
 
@@ -270,7 +272,8 @@ export default function Sales() {
                     validado: true, 
                     error: undefined, 
                     advertencia_fecha: advertenciaFecha,
-                    id_animal: animalEncontrado.id, 
+                    id_animal: animalEncontrado.id,
+                    etapa: animalEncontrado.etapa,
                     propietario: animalEncontrado.nombre_propietario,
                     ultimo_peso: ultimoPeso,
                     ultima_fecha: ultimaFecha,
@@ -349,12 +352,18 @@ export default function Sales() {
         setShowConfirm(false);
 
         try {
-            const registrosInsert = animales.filter(a => a.id_animal).map(a => ({
-                id_animal: a.id_animal,
-                peso: Math.round(parseDecimalInput(a.peso_salida)),
-                fecha: fechaVenta,
-                etapa: 'ceba'
-            }));
+            const registrosInsert = animales.filter(a => a.id_animal).map(a => {
+                const pesoSalida = Math.round(parseDecimalInput(a.peso_salida));
+                if (isNaN(pesoSalida) || pesoSalida <= 0) {
+                    throw new Error(`Peso de salida inválido para chapeta #${a.numero_chapeta}`);
+                }
+                return {
+                    id_animal: a.id_animal,
+                    peso: pesoSalida,
+                    fecha: fechaVenta,
+                    etapa: a.etapa || 'ceba'
+                };
+            });
 
             if (registrosInsert.length > 0) {
                 const { error: errorPesaje } = await supabase
@@ -367,17 +376,18 @@ export default function Sales() {
                 if (!a.id_animal) continue;
                 const pesoNum = Math.round(parseDecimalInput(a.peso_salida));
                 
-                // 2. Marcar animal como vendido y guardar datos de venta
+                // 2. Marcar animal como vendido, guardar datos de venta y liberarlo del potrero actual
                 const { error: errorAnimal } = await supabase
                     .from('animales')
                     .update({ 
                         estado: 'vendido',
+                        id_potrero_actual: null,
                         comprador_venta: selectedComprador,
                         fecha_venta: fechaVenta,
                         peso_venta: isNaN(pesoNum) ? null : pesoNum,
                         observaciones_venta: observaciones,
                         es_emergencia: isCarnicero,
-                        precio_venta: a.precio_venta ? parseFloat(a.precio_venta) : null
+                        precio_venta: a.precio_venta ? parseDecimalInput(a.precio_venta) || null : null
                     })
                     .eq('id', a.id_animal);
 
@@ -388,6 +398,8 @@ export default function Sales() {
                     await localDB.animalesCache.delete(a.id_animal);
                 } catch { /* noop */ }
             }
+
+            if (refreshLicencia) void refreshLicencia();
 
             const mensaje = (!isOnline || modoCampo)
                 ? `📱 ¡Venta guardada localmente! Se marcaron ${animales.length} animales como vendidos y se sincronizarán al volver la señal.`

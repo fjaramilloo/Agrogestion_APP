@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { evaluatePasswordRequirements, isStrongPassword, PASSWORD_POLICY_ERROR } from '../utils/passwordUtils';
 import { Leaf, Check, X, Eye, EyeOff, Sparkles, ArrowLeft, Mail, RefreshCw, ExternalLink } from 'lucide-react';
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'awaiting_confirmation';
@@ -40,18 +41,8 @@ export default function Login() {
     }
 
     // Reglas de validación de contraseña
-    const passwordRequirements = {
-        minLength: password.length >= 8,
-        hasUpper: /[A-Z]/.test(password),
-        hasLower: /[a-z]/.test(password),
-        hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
-    };
-
-    const isPasswordValid = 
-        passwordRequirements.minLength &&
-        passwordRequirements.hasUpper &&
-        passwordRequirements.hasLower &&
-        passwordRequirements.hasSpecial;
+    const passwordRequirements = evaluatePasswordRequirements(password);
+    const isPasswordValid = isStrongPassword(password);
 
     const resetFormStatus = () => {
         setError(null);
@@ -133,7 +124,7 @@ export default function Login() {
         }
 
         if (!isPasswordValid) {
-            setError('La contraseña debe tener mínimo 8 caracteres, al menos una mayúscula, una minúscula y un carácter especial.');
+            setError(PASSWORD_POLICY_ERROR);
             return;
         }
 

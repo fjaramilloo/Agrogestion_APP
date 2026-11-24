@@ -115,6 +115,18 @@ serve(async (req: Request) => {
       payload.generationConfig = generationConfig;
     }
 
+    // Lista blanca de modelos permitidos (evita inyección en URL o abuso de modelos no autorizados)
+    const ALLOWED_MODELS = new Set([
+      "gemini-3.5-flash-lite",
+      "gemini-3.6-flash",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.0-flash"
+    ]);
+    const requestedModel = typeof model === "string" && ALLOWED_MODELS.has(model)
+      ? model
+      : "gemini-3.5-flash-lite";
+
     // Función interna para llamar a Gemini con modelo específico
     async function callGemini(selectedModel: string) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
@@ -127,10 +139,10 @@ serve(async (req: Request) => {
     }
 
     // Intentar con el modelo solicitado, con fallback automático a gemini-3.6-flash si hay saturación
-    let geminiRes = await callGemini(model);
+    let geminiRes = await callGemini(requestedModel);
 
     if (!geminiRes.ok && (geminiRes.status === 503 || geminiRes.status === 429)) {
-      console.warn(`[gemini-ai] Modelo ${model} devolvió ${geminiRes.status}. Intentando fallback a gemini-3.6-flash...`);
+      console.warn(`[gemini-ai] Modelo ${requestedModel} devolvió ${geminiRes.status}. Intentando fallback a gemini-3.6-flash...`);
       geminiRes = await callGemini("gemini-3.6-flash");
     }
 

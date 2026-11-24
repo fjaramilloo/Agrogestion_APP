@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { useAuth } from '../contexts/AuthContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -81,18 +82,36 @@ export default function Potreradas() {
         try {
             const fetchAllAnimals = async () => {
                 const [activosRes, vendidosRes] = await Promise.all([
-                    supabase.from('animales').select(`
-                        id, numero_chapeta, nombre_propietario, id_potrerada,
-                        peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
-                        fecha_ingreso_ceba, peso_ingreso_ceba,
-                        potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                        registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
-                    `).eq('id_finca', fincaId).eq('estado', 'activo').or('is_deleted.is.null,is_deleted.eq.false').order('fecha', { foreignTable: 'registros_pesaje', ascending: false }),
-                    supabase.from('animales').select(`
-                        id, numero_chapeta, nombre_propietario, id_potrerada,
-                        peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
-                        potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
-                    `).eq('id_finca', fincaId).eq('estado', 'vendido').not('id_potrerada', 'is', null)
+                    fetchAllSupabasePages((from, to, signal) => {
+                        const q = supabase.from('animales').select(`
+                            id, numero_chapeta, nombre_propietario, id_potrerada,
+                            peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
+                            fecha_ingreso_ceba, peso_ingreso_ceba,
+                            potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+                            registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
+                        `)
+                            .eq('id_finca', fincaId)
+                            .eq('estado', 'activo')
+                            .or('is_deleted.is.null,is_deleted.eq.false')
+                            .order('id', { ascending: true })
+                            .order('fecha', { foreignTable: 'registros_pesaje', ascending: false })
+                            .range(from, to);
+                        return signal ? q.abortSignal(signal) : q;
+                    }),
+                    fetchAllSupabasePages((from, to, signal) => {
+                        const q = supabase.from('animales').select(`
+                            id, numero_chapeta, nombre_propietario, id_potrerada,
+                            peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
+                            potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
+                        `)
+                            .eq('id_finca', fincaId)
+                            .eq('estado', 'vendido')
+                            .or('is_deleted.is.null,is_deleted.eq.false')
+                            .not('id_potrerada', 'is', null)
+                            .order('id', { ascending: true })
+                            .range(from, to);
+                        return signal ? q.abortSignal(signal) : q;
+                    })
                 ]);
 
                 if (activosRes.error) throw activosRes.error;
@@ -275,23 +294,33 @@ export default function Potreradas() {
         setDetailLoading(true);
         try {
             const isSinPotrerada = p.id === 'sin-potrerada';
-            const queryAnimales = supabase.from('animales').select(`
-                id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra,
-                fecha_ingreso, etapa, estado, fecha_ingreso_ceba, peso_ingreso_ceba,
-                id_potrero_actual, potreros (nombre, area_hectareas),
-                registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted)
-            `);
+            const animResPromise = fetchAllSupabasePages((from, to, signal) => {
+                const queryAnimales = supabase.from('animales').select(`
+                    id, numero_chapeta, nombre_propietario, peso_ingreso, peso_compra,
+                    fecha_ingreso, etapa, estado, fecha_ingreso_ceba, peso_ingreso_ceba,
+                    id_potrero_actual, potreros (nombre, area_hectareas),
+                    registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted)
+                `)
+                    .eq('id_finca', fincaId!)
+                    .eq('estado', 'activo')
+                    .or('is_deleted.is.null,is_deleted.eq.false')
+                    .order('id', { ascending: true })
+                    .range(from, to);
 
-            if (isSinPotrerada) {
-                queryAnimales.is('id_potrerada', null).eq('estado', 'activo').or('is_deleted.is.null,is_deleted.eq.false');
-            } else {
-                queryAnimales.eq('id_potrerada', p.id).in('estado', ['activo', 'vendido']).or('is_deleted.is.null,is_deleted.eq.false');
-            }
+                if (isSinPotrerada) {
+                    queryAnimales.is('id_potrerada', null);
+                } else {
+                    queryAnimales.eq('id_potrerada', p.id);
+                }
+                return signal ? queryAnimales.abortSignal(signal) : queryAnimales;
+            });
 
             const [animRes, fincaRes, movsRes] = await Promise.all([
-                queryAnimales,
+                animResPromise,
                 supabase.from('fincas').select('nombre').eq('id', fincaId).single(),
-                isSinPotrerada ? Promise.resolve({ data: null }) : supabase.from('movimientos_potreros').select('fecha_entrada').eq('id_potrerada', p.id).is('fecha_salida', null).maybeSingle()
+                isSinPotrerada
+                    ? Promise.resolve({ data: null })
+                    : supabase.from('movimientos_potreros').select('fecha_entrada').eq('id_potrerada', p.id).is('fecha_salida', null).order('fecha_entrada', { ascending: false }).limit(1).maybeSingle()
             ]);
 
             if (animRes.error) throw animRes.error;
@@ -599,7 +628,7 @@ export default function Potreradas() {
             if (error) throw error;
 
             if (newEtapa !== editingPotrerada.etapa) {
-                const animalsInPotrerada = animalesFinca.filter(a => a.id_potrerada === editingPotrerada.id);
+                const animalsInPotrerada = animalesFinca.filter(a => a.id_potrerada === editingPotrerada.id && a.estado === 'activo');
                 if (animalsInPotrerada.length > 0) {
                     const updatePromises = animalsInPotrerada.map(a => {
                         const animalData: any = { etapa: newEtapa, ok_ceba: false };
@@ -613,7 +642,9 @@ export default function Potreradas() {
                         return supabase.from('animales').update(animalData).eq('id', a.id);
                     });
 
-                    await Promise.all(updatePromises);
+                    const updateResults = await Promise.all(updatePromises);
+                    const failedUpdate = updateResults.find(r => r.error);
+                    if (failedUpdate?.error) throw failedUpdate.error;
                 }
             }
 
@@ -1010,7 +1041,10 @@ export default function Potreradas() {
                     onClose={() => setShowWeighingForm(false)}
                     onSaved={async () => {
                         setShowWeighingForm(false);
-                        await handleOpenDetail(detailData.potrerada);
+                        await Promise.all([
+                            fetchPotreradasData(),
+                            handleOpenDetail(detailData.potrerada)
+                        ]);
                     }}
                 />
             )}
@@ -1115,7 +1149,7 @@ export default function Potreradas() {
                                     value={newEtapa}
                                     onChange={e => setNewEtapa(e.target.value)}
                                 >
-                                    <option value="cría">Cría</option>
+                                    <option value="cria">Cría</option>
                                     <option value="levante">Levante</option>
                                     <option value="ceba">Ceba</option>
                                 </select>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
@@ -99,17 +100,23 @@ export default function Purchase() {
             });
         } catch { /* noop */ }
 
-        const { data, error } = await supabase
-            .from('animales')
-            .select('numero_chapeta, nombre_propietario, fecha_ingreso')
-            .eq('id_finca', fincaId)
-            .eq('estado', 'activo');
+        const { data, error } = await fetchAllSupabasePages((from, to, signal) => {
+            const q = supabase
+                .from('animales')
+                .select('numero_chapeta, nombre_propietario, fecha_ingreso, estado')
+                .eq('id_finca', fincaId)
+                .or('is_deleted.is.null,is_deleted.eq.false')
+                .order('id', { ascending: true })
+                .range(from, to);
+            return signal ? q.abortSignal(signal) : q;
+        });
 
         if (!error && data) {
-            const owners = Array.from(new Set(data.map(a => a.nombre_propietario)));
+            const activosData = data.filter((a: any) => a.estado === 'activo');
+            const owners = Array.from(new Set(activosData.map((a: any) => a.nombre_propietario)));
 
             const latest = owners.map(owner => {
-                const ownerAnimals = data.filter(d => d.nombre_propietario === owner);
+                const ownerAnimals = activosData.filter((d: any) => d.nombre_propietario === owner);
                 if (ownerAnimals.length === 0) return { owner: owner || 'Sin dueño', tag: 'N/A' };
 
                 const maxDateStr = ownerAnimals.reduce((max, curr) => {
@@ -246,6 +253,13 @@ export default function Purchase() {
                 if (!a.propietario) throw new Error(`Falta propietario para ${a.numero_chapeta}`);
             });
 
+            if (incluirPesoCompra) {
+                const pcTotal = parseDecimalInput(pesoCompraTotal);
+                if (isNaN(pcTotal) || pcTotal <= 0) {
+                    throw new Error('Ingresa el peso total de compra en báscula de salida (mayor a 0).');
+                }
+            }
+
             // Validar chapetas existentes en servidor o caché local según estado de conexión
             if (effectiveOnline) {
                 const { data: existentes, error: checkError } = await supabase
@@ -312,29 +326,30 @@ export default function Purchase() {
 
             // Sanitización de propietarios (trim)
             const uniquePropietarios = Array.from(new Set(animales.map(a => a.propietario.trim())));
-            
-            const potreradasPayload = uniquePropietarios.map(prop => ({
-                id_finca: fincaId,
-                nombre: `Levante ${prop}`,
-                etapa: 'levante'
-            }));
-            
-            console.log("Creando/Actualizando potreradas...", potreradasPayload);
-            const { data: potreradasCreadas, error: potError } = await supabase
-                .from('potreradas')
-                .upsert(potreradasPayload, { onConflict: 'id_finca,nombre' })
-                .select('id, nombre');
-                
-            if (potError) throw potError;
-            
             const potreradaIdPorPropietario = new Map();
-            if (potreradasCreadas) {
-                potreradasCreadas.forEach((p: any) => {
-                    const propMatch = uniquePropietarios.find(prop => p.nombre === `Levante ${prop}`);
-                    if (propMatch) {
-                        potreradaIdPorPropietario.set(propMatch, p.id);
-                    }
-                });
+
+            if (!selectedPotrerada) {
+                const potreradasPayload = uniquePropietarios.map(prop => ({
+                    id_finca: fincaId,
+                    nombre: `Levante ${prop}`,
+                    etapa: 'levante'
+                }));
+
+                const { data: potreradasCreadas, error: potError } = await supabase
+                    .from('potreradas')
+                    .upsert(potreradasPayload, { onConflict: 'id_finca,nombre' })
+                    .select('id, nombre');
+
+                if (potError) throw potError;
+
+                if (potreradasCreadas) {
+                    potreradasCreadas.forEach((p: any) => {
+                        const propMatch = uniquePropietarios.find(prop => p.nombre === `Levante ${prop}`);
+                        if (propMatch) {
+                            potreradaIdPorPropietario.set(propMatch, p.id);
+                        }
+                    });
+                }
             }
 
             const parsedPesoCompraTotal = parseDecimalInput(pesoCompraTotal);

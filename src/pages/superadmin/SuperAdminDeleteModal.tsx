@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { fetchAllSupabasePages } from '../../lib/supabasePagination';
 import { useFeedback } from '../../contexts/UiFeedbackContext';
 import type { ConfirmDeleteTarget } from './types';
 
@@ -17,14 +18,33 @@ export default function SuperAdminDeleteModal({ target, onClose, onDeleted }: Su
     const handleDeleteFinca = async (fincaId: string) => {
         setDeletingId(fincaId);
         try {
-            await supabase.from('registros_pesaje').delete().in('id_animal',
-                (await supabase.from('animales').select('id').eq('id_finca', fincaId)).data?.map((a: any) => a.id) || []
+            const { data: animRows, error: errFetch } = await fetchAllSupabasePages((from, to) =>
+                supabase.from('animales').select('id').eq('id_finca', fincaId).order('id', { ascending: true }).range(from, to)
             );
-            await supabase.from('animales').delete().eq('id_finca', fincaId);
-            await supabase.from('potreradas').delete().eq('id_finca', fincaId);
-            await supabase.from('potreros').delete().eq('id_finca', fincaId);
-            await supabase.from('permisos_finca').delete().eq('id_finca', fincaId);
-            await supabase.from('configuracion_kpi').delete().eq('id_finca', fincaId);
+            if (errFetch) throw errFetch;
+
+            const animalIds = (animRows || []).map((a: any) => a.id).filter(Boolean);
+            for (let i = 0; i < animalIds.length; i += 100) {
+                const { error: errPes } = await supabase
+                    .from('registros_pesaje')
+                    .delete()
+                    .in('id_animal', animalIds.slice(i, i + 100));
+                if (errPes) throw errPes;
+            }
+
+            const orderedDeletes = [
+                'movimientos_potreros',
+                'animales',
+                'potreradas',
+                'potreros',
+                'permisos_finca',
+                'configuracion_kpi'
+            ];
+            for (const table of orderedDeletes) {
+                const { error: delErr } = await supabase.from(table).delete().eq('id_finca', fincaId);
+                if (delErr) throw delErr;
+            }
+
             const { error } = await supabase.from('fincas').delete().eq('id', fincaId);
             if (error) throw error;
             onClose();

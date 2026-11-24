@@ -38,6 +38,7 @@ export default function InventoryDeathReportModal({
                 .eq('id_finca', fincaId)
                 .eq('numero_chapeta', chapetaMuerte.trim())
                 .eq('estado', 'activo')
+                .or('is_deleted.is.null,is_deleted.eq.false')
                 .single();
 
             if (searchError || !animal) {
@@ -48,7 +49,8 @@ export default function InventoryDeathReportModal({
                 .from('animales')
                 .update({
                     estado: 'muerto',
-                    fecha_muerte: fechaMuerte
+                    fecha_muerte: fechaMuerte,
+                    id_potrero_actual: null
                 })
                 .eq('id', animal.id);
 

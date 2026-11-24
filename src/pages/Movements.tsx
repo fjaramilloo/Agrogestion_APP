@@ -25,7 +25,6 @@ export default function Movements() {
     
     // Formulary state
     const [selectedPotreradaId, setSelectedPotreradaId] = useState('');
-    const [currentMovementId, setCurrentMovementId] = useState<string | null>(null);
     const [currentPotrero, setCurrentPotrero] = useState<{ id: string, nombre: string, id_rotacion: string | null } | null>(null);
     
     const [selectedTargetRotacionId, setSelectedTargetRotacionId] = useState('');
@@ -167,14 +166,13 @@ export default function Movements() {
             .is('fecha_salida', null)
             .order('fecha_entrada', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
         const pObj = potreradas.find(p => p.id === potreradaId);
         const currentRots = rotacionesRef.current;
 
         if (data && data.potreros) {
             const potreroData = data.potreros as any;
-            setCurrentMovementId(data.id);
             setCurrentPotrero({
                 id: data.id_potrero,
                 nombre: potreroData.nombre,
@@ -191,7 +189,6 @@ export default function Movements() {
                 setRotacionMode('cambiar');
             }
         } else {
-            setCurrentMovementId(null);
             const fallbackPot = options?.fallbackPotrero || null;
             setCurrentPotrero(fallbackPot);
 
@@ -215,7 +212,6 @@ export default function Movements() {
     // Cuando se selecciona una potrerada, buscar su último movimiento abierto
     useEffect(() => {
         if (!selectedPotreradaId || !fincaId) {
-            setCurrentMovementId(null);
             setCurrentPotrero(null);
             setSelectedTargetRotacionId('');
             setSelectedTargetPotreroId('');
@@ -258,15 +254,14 @@ export default function Movements() {
 
         setLoading(true);
         try {
-            // 1. Si hay un movimiento actual (fecha_salida is null), actualizarlo con la fecha actual como fecha de salida.
-            if (currentMovementId) {
-                const { error: errUpdate } = await supabase
-                    .from('movimientos_potreros')
-                    .update({ fecha_salida: fechaMovimiento })
-                    .eq('id', currentMovementId);
-                
-                if (errUpdate) throw errUpdate;
-            }
+            // 1. Cerrar todos los movimientos activos previos de esta potrerada (evita dobles ocupaciones abiertas)
+            const closeQuery = supabase
+                .from('movimientos_potreros')
+                .update({ fecha_salida: fechaMovimiento })
+                .eq('id_potrerada', selectedPotreradaId)
+                .is('fecha_salida', null);
+            const { error: errUpdate } = await closeQuery;
+            if (errUpdate) throw errUpdate;
 
             // 2. Insertar nuevo movimiento
             const { error: errInsert } = await supabase
@@ -280,11 +275,12 @@ export default function Movements() {
             
             if (errInsert) throw errInsert;
 
-            // 3. Actualizar el id_potrero_actual de los animales que pertenecen a esta potrerada
+            // 3. Actualizar el id_potrero_actual solo de animales ACTIVOS de esta potrerada
             const { error: errAnimals } = await supabase
                 .from('animales')
                 .update({ id_potrero_actual: selectedTargetPotreroId })
-                .eq('id_potrerada', selectedPotreradaId);
+                .eq('id_potrerada', selectedPotreradaId)
+                .eq('estado', 'activo');
             
             if (errAnimals) throw errAnimals;
 

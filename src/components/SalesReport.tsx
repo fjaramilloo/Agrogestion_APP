@@ -9,6 +9,7 @@ import {
 } from '../utils/ganancia';
 import { ReportPrintShell } from './ReportPrintShell';
 import { splitIntoColumns } from '../utils/exportPdf';
+import { parseDecimalInput } from '../utils/decimalInput';
 
 interface AnimalReport {
     numero_chapeta: string;
@@ -38,7 +39,7 @@ interface SalesReportProps {
 
 export default function SalesReport({ fincaNombre, fechaVenta, animales, comprador, observaciones, umbralAlto = 20, umbralMedio = 10, modoGanancia = 'GMP', onClose }: SalesReportProps) {
     // Cálculos
-    const totalKilos = animales.reduce((sum, a) => sum + parseFloat(a.peso_salida.toString()), 0);
+    const totalKilos = animales.reduce((sum, a) => sum + (parseDecimalInput(a.peso_salida) || 0), 0);
     const totalAnimales = animales.length;
     const totalValor = animales.reduce((sum, a) => {
         const val = String(a.precio_venta || '0').replace(/\D/g, '');
@@ -59,7 +60,7 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
     let sumDiasFinca = 0;
 
     animales.forEach(a => {
-        const pesoSalida = parseFloat(a.peso_salida.toString());
+        const pesoSalida = parseDecimalInput(a.peso_salida) || 0;
         const fSalida = fechaVenta;
         const fIngreso = a.fecha_ingreso;
         const fInicioCeba = a.fecha_inicio_ceba;
@@ -106,13 +107,14 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
             acc[marca] = { count: 0, kilos: 0, gmpSum: 0, gmpCount: 0 };
         }
         acc[marca].count += 1;
-        acc[marca].kilos += parseFloat(a.peso_salida.toString());
+        const pesoSalidaMarca = parseDecimalInput(a.peso_salida) || 0;
+        acc[marca].kilos += pesoSalidaMarca;
         
         // Usamos el GMP total para el desglose por marcas para simplificar
         if (a.fecha_ingreso && a.peso_ingreso) {
             const dias = calcularDias(a.fecha_ingreso, fechaVenta);
             if (dias > 0) {
-                acc[marca].gmpSum += ((parseFloat(a.peso_salida.toString()) - a.peso_ingreso) / dias) * 30;
+                acc[marca].gmpSum += ((pesoSalidaMarca - a.peso_ingreso) / dias) * 30;
                 acc[marca].gmpCount += 1;
             }
         }

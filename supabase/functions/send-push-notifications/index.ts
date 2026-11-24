@@ -628,6 +628,27 @@ async function handleProcessQueue(adminClient: any, vapid: VapidConfig): Promise
   return jsonResponse({ processed: totalEvents, sent: totalSent });
 }
 
+async function fetchAllActiveAnimalsForDigest(adminClient: any, fincaIds: string[]): Promise<any[]> {
+  const allRows: any[] = [];
+  const PAGE_SIZE = 1000;
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await adminClient
+      .from("animales")
+      .select("id, id_finca, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, id_potrerada, registros_pesaje(peso, fecha, gdp_calculada, gmp_calculada, is_deleted)")
+      .in("id_finca", fincaIds)
+      .eq("estado", "activo")
+      .or("is_deleted.is.null,is_deleted.eq.false")
+      .order("id", { ascending: true })
+      .order("fecha", { foreignTable: "registros_pesaje", ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+  }
+  return allRows;
+}
+
 async function handleDailyDigest(adminClient: any, vapid: VapidConfig): Promise<Response> {
   const hoyBogota = getBogotaDateStr(0);
   const ayerBogota = getBogotaDateStr(-1);
@@ -689,19 +710,13 @@ async function handleDailyDigest(adminClient: any, vapid: VapidConfig): Promise<
 
   const [
     { data: configs },
-    { data: animals },
+    animals,
     { data: movimientosActivos },
     { data: lluviasAyer },
     { data: climasRecientes },
   ] = await Promise.all([
     adminClient.from("configuracion_kpi").select("id_finca, corte_peso_3, preset_peso").in("id_finca", fincaIds),
-    adminClient
-      .from("animales")
-      .select("id, id_finca, etapa, fecha_ingreso, peso_ingreso, peso_compra, fecha_ingreso_ceba, peso_ingreso_ceba, id_potrerada, registros_pesaje(peso, fecha, gdp_calculada, gmp_calculada, is_deleted)")
-      .in("id_finca", fincaIds)
-      .eq("estado", "activo")
-      .or("is_deleted.is.null,is_deleted.eq.false")
-      .order("fecha", { foreignTable: "registros_pesaje", ascending: false }),
+    fetchAllActiveAnimalsForDigest(adminClient, fincaIds),
     adminClient
       .from("movimientos_potreros")
       .select("id, id_potrero, id_potrerada, id_finca, fecha_entrada, potreradas(id, nombre), potreros(nombre, dias_ocupacion_base, id_rotacion, rotaciones(nombre, potreros(id)))")

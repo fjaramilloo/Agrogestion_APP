@@ -115,6 +115,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             .from('animales')
             .select(`
               id, numero_chapeta, nombre_propietario, etapa, estado,
+              ok_ceba, sexo, tipo_macho, fecha_castracion,
               peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba,
               id_potrerada, id_potrero_actual,
               potreros ( nombre ),
@@ -537,6 +538,10 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
           nombre_propietario: a.nombre_propietario,
           etapa: a.etapa,
           estado: 'activo',
+          ok_ceba: Boolean(a.ok_ceba),
+          sexo: a.sexo,
+          tipo_macho: a.tipo_macho,
+          fecha_castracion: a.fecha_castracion,
           peso_ingreso: a.peso_ingreso,
           peso_compra: a.peso_compra,
           fecha_ingreso: a.fecha_ingreso,
@@ -556,6 +561,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         animalesVendidosRes.data.forEach((a: any) => {
           const prev = mapaAnimales.get(a.id);
           const pesajesActivos = (a.registros_pesaje || []).filter((r: any) => !r.is_deleted);
+          const ultP = [...pesajesActivos].sort((x: any, y: any) => new Date(y.fecha || 0).getTime() - new Date(x.fecha || 0).getTime())[0];
           mapaAnimales.set(a.id, {
             id: a.id,
             id_finca: fincaId,
@@ -571,6 +577,8 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             id_potrerada: prev?.id_potrerada,
             potrero_nombre: a.potreros?.nombre || prev?.potrero_nombre || '',
             potrerada_nombre: prev?.potrerada_nombre || '',
+            ultimo_peso: ultP ? ultP.peso : prev?.ultimo_peso,
+            fecha_ultimo_pesaje: ultP ? ultP.fecha : prev?.fecha_ultimo_pesaje,
             peso_venta: a.peso_venta,
             fecha_venta: a.fecha_venta,
             comprador_venta: a.comprador_venta,

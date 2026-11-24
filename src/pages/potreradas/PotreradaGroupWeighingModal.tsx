@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { differenceInDays } from 'date-fns';
 import { Scale, Save, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useFeedback } from '../../contexts/UiFeedbackContext';
 import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../../utils/decimalInput';
+import { calcularDiasEntreFechas } from '../../utils/ganancia';
+import { recalcularHistorialPesajesAnimal } from '../../utils/gananciaRecalculator';
 import type { PotreradaDetailData } from './types';
 
 interface PotreradaGroupWeighingModalProps {
@@ -41,27 +42,47 @@ export default function PotreradaGroupWeighingModal({
             await showAlert(dateError, { title: 'Dato inválido', variant: 'warning' });
             return;
         }
-        const etapa = detailData.potrerada.etapa;
+        const etapa = detailData.potrerada.etapa === 'cría' ? 'cria' : detailData.potrerada.etapa;
         const idsOkCeba: string[] = [];
+        const backdatedIds: string[] = [];
+        const duplicatedTags: string[] = [];
 
-        const registros = detailData.animales
+        const activosLote = detailData.animales.filter(a => !a.estado || a.estado === 'activo');
+        for (const a of activosLote) {
+            const val = parseDecimalInput(weighingData[a.id]);
+            if (!isNaN(val) && val > 0 && a.fechaUltimoPesaje) {
+                const fUlt = a.fechaUltimoPesaje.split('T')[0];
+                if (fUlt === weighingDate) {
+                    duplicatedTags.push(`#${a.numero_chapeta}`);
+                }
+            }
+        }
+        if (duplicatedTags.length > 0) {
+            await showAlert(
+                `Ya existe un pesaje registrado en la fecha ${weighingDate} para: ${duplicatedTags.join(', ')}.`,
+                { title: 'Pesaje duplicado', variant: 'warning' }
+            );
+            return;
+        }
+
+        const registros = activosLote
             .filter(a => {
                 const val = parseDecimalInput(weighingData[a.id]);
                 return !isNaN(val) && val > 0;
             })
             .map(a => {
-                const newPeso = parseDecimalInput(weighingData[a.id]);
+                const newPeso = Math.round(parseDecimalInput(weighingData[a.id]));
                 let gdp: number | null = null;
                 let gmp: number | null = null;
 
                 if (a.pesoActual && a.fechaUltimoPesaje) {
-                    const prevDate = new Date(a.fechaUltimoPesaje + 'T12:00:00');
-                    const currDate = new Date(weighingDate + 'T12:00:00');
-                    const days = differenceInDays(currDate, prevDate);
+                    const days = calcularDiasEntreFechas(a.fechaUltimoPesaje, weighingDate);
 
                     if (days > 0) {
                         gdp = (newPeso - a.pesoActual) / days;
                         gmp = gdp * 30;
+                    } else if (days < 0) {
+                        backdatedIds.push(a.id);
                     }
                 }
 
@@ -99,10 +120,17 @@ export default function PotreradaGroupWeighingModal({
             if (error) throw error;
 
             if (idsOkCeba.length > 0) {
-                await supabase
+                const { error: errCeba } = await supabase
                     .from('animales')
                     .update({ ok_ceba: true })
                     .in('id', idsOkCeba);
+                if (errCeba) throw errCeba;
+            }
+
+            if (backdatedIds.length > 0) {
+                for (const animId of backdatedIds) {
+                    await recalcularHistorialPesajesAnimal(animId, supabase);
+                }
             }
 
             await onSaved();
@@ -167,6 +195,7 @@ export default function PotreradaGroupWeighingModal({
                             </thead>
                             <tbody>
                                 {detailData.animales
+                                    .filter(a => !a.estado || a.estado === 'activo')
                                     .slice()
                                     .sort((a, b) => a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true, sensitivity: 'base' }))
                                     .map((a, idx) => {

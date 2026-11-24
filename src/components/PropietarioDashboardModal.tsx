@@ -5,9 +5,10 @@ import {
     PieChart, Pie, Cell, 
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { exportElementToPdf } from '../utils/exportPdf';
+import { formatLocalDate, getLocalIsoDate } from '../utils/dateUtils';
 import {
     toDisplayValue,
     getUnidadLabel,
@@ -17,7 +18,8 @@ import {
     calcularGmpAcumulado,
     esPesajePosteriorAIngreso,
     calcularFallbackGmpPorEtapa,
-    calcularPesoEstimadoHoy
+    calcularPesoEstimadoHoy,
+    calcularDiasEntreFechas
 } from '../utils/ganancia';
 
 interface Pesaje {
@@ -145,7 +147,7 @@ export default function PropietarioDashboardModal({
             if (gmpHistoricoVal !== null) { ubiData.sumGmpHistorico += gmpHistorico; ubiData.countGmpHistorico++; }
 
             if (tienePesajePosterior && ultimoP && gmpUltimoVal !== null) {
-                const mesAnio = format(new Date(ultimoP.fecha), 'MMM yyyy', { locale: es });
+                const mesAnio = formatLocalDate(ultimoP.fecha, 'MMM yyyy', { locale: es });
                 if (!mesesGmpMap.has(mesAnio)) mesesGmpMap.set(mesAnio, { sum: 0, count: 0 });
                 mesesGmpMap.get(mesAnio)!.sum += gmpUltimoVal;
                 mesesGmpMap.get(mesAnio)!.count++;
@@ -169,7 +171,7 @@ export default function PropietarioDashboardModal({
                 utilidadSocioTotal += utilidadSocio;
 
                 // PASO 8 & 9: Rentabilidad mensual del animal
-                const diasEnFinca = Math.max(1, differenceInDays(new Date(), new Date(a.fecha_ingreso)));
+                const diasEnFinca = Math.max(1, calcularDiasEntreFechas(a.fecha_ingreso, getLocalIsoDate()));
 
                 // PASO 10 (Gemini): Ganancia diaria de este animal para el portafolio
                 const gananciaDiariaAnimal = utilidadSocio / diasEnFinca;

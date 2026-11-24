@@ -1,18 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getDateRange, DATE_RANGE_LABELS, DATE_RANGE_OPTIONS, type DateRangeOption } from '../utils/dateRanges';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './HistoryPages.css';
 import { Search, ShoppingCart, Calendar, Users, FileText, X, Info, TrendingUp, Filter } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import PurchaseReport from '../components/PurchaseReport';
 import PurchaseReportSimple from '../components/PurchaseReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { toDisplayValue, getUnidadLabel, getModoLabel, esPesajePosteriorAIngreso } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, esPesajePosteriorAIngreso, calcularDiasEntreFechas } from '../utils/ganancia';
+import { formatLocalDate } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 
 interface AnimalCompraParaReporte {
@@ -122,28 +124,34 @@ export default function HistorialCompras() {
 
             let queryData: any[] = [];
             try {
-                const { data, error } = await supabase
-                    .from('animales')
-                    .select(`
-                        id, 
-                        numero_chapeta, 
-                        nombre_propietario,
-                        potreros(nombre),
-                        proveedor_compra,
-                        fecha_ingreso,
-                        peso_ingreso,
-                        peso_compra,
-                        etapa,
-                        registros_pesaje (
-                            peso,
-                            fecha,
-                            gdp_calculada,
-                            is_deleted
-                        )
-                    `)
-                    .eq('id_finca', fincaId)
-                    .not('proveedor_compra', 'is', null)
-                    .order('fecha_ingreso', { ascending: false });
+                const { data, error } = await fetchAllSupabasePages((from, to, signal) => {
+                    const q = supabase
+                        .from('animales')
+                        .select(`
+                            id, 
+                            numero_chapeta, 
+                            nombre_propietario,
+                            potreros(nombre),
+                            proveedor_compra,
+                            fecha_ingreso,
+                            peso_ingreso,
+                            peso_compra,
+                            etapa,
+                            registros_pesaje (
+                                peso,
+                                fecha,
+                                gdp_calculada,
+                                is_deleted
+                            )
+                        `)
+                        .eq('id_finca', fincaId)
+                        .not('proveedor_compra', 'is', null)
+                        .or('is_deleted.is.null,is_deleted.eq.false')
+                        .order('fecha_ingreso', { ascending: false })
+                        .order('id', { ascending: true })
+                        .range(from, to);
+                    return signal ? q.abortSignal(signal) : q;
+                });
 
                 if (!error && data && data.length > 0) {
                     queryData = data;
@@ -199,14 +207,10 @@ export default function HistorialCompras() {
                 
                 let gmp: number | null = null;
                 if (ultimoP && animal.peso_ingreso && animal.fecha_ingreso) {
-                    const d1 = new Date(String(ultimoP.fecha).split('T')[0] + 'T12:00:00');
-                    const d2 = new Date(String(animal.fecha_ingreso).split('T')[0] + 'T12:00:00');
-                    if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
-                        const dias = differenceInDays(d1, d2);
-                        if (dias > 0) {
-                            const gananciaTotal = ultimoP.peso - animal.peso_ingreso;
-                            gmp = (gananciaTotal / dias) * 30;
-                        }
+                    const dias = calcularDiasEntreFechas(animal.fecha_ingreso, ultimoP.fecha);
+                    if (dias > 0) {
+                        const gananciaTotal = ultimoP.peso - animal.peso_ingreso;
+                        gmp = (gananciaTotal / dias) * 30;
                     }
                 }
 
@@ -325,9 +329,11 @@ export default function HistorialCompras() {
             // Actualizar en lotes de 50 para no sobrecargar
             for (let i = 0; i < updates.length; i += 50) {
                 const chunk = updates.slice(i, i + 50);
-                await Promise.all(chunk.map(u => 
+                const results = await Promise.all(chunk.map(u => 
                     supabase.from('animales').update({ peso_compra: u.peso_compra }).eq('id', u.id)
                 ));
+                const failed = results.find(r => r.error);
+                if (failed?.error) throw failed.error;
             }
 
             setIsEditingPesoCompra(false);
@@ -999,14 +1005,14 @@ export default function HistorialCompras() {
                     .sort((x, y) => new Date(y.fecha).getTime() - new Date(x.fecha).getTime());
                 const ultimoP = registrosOrdenados[0];
                 const fechaU = ultimoP
-                    ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es })
-                    : format(new Date(a.fecha_ingreso), 'dd/MM/yyyy', { locale: es });
+                    ? formatLocalDate(ultimoP.fecha, 'dd/MM/yyyy', { locale: es })
+                    : formatLocalDate(a.fecha_ingreso, 'dd/MM/yyyy', { locale: es });
 
                 const pesoBase = a.peso_ingreso;
                 const timeline = [
                     ...registrosOrdenados.map((p, i, arr) => {
                         const siguiente = arr[i + 1] || { peso: pesoBase, fecha: a.fecha_ingreso };
-                        const d = differenceInDays(new Date(p.fecha), new Date(siguiente.fecha)) || 1;
+                        const d = Math.max(1, calcularDiasEntreFechas(siguiente.fecha, p.fecha));
                         const ganancia = p.peso - siguiente.peso;
                         const gmp = (ganancia / d) * 30;
                         return { fecha: p.fecha, peso: p.peso, gmp, gdp: p.gdp_calculada ?? (ganancia / d), esIngreso: false };
@@ -1015,7 +1021,7 @@ export default function HistorialCompras() {
                 ];
 
                 const chartData = [...timeline].reverse().map(item => ({
-                    fechaStr: format(new Date(item.fecha), 'dd/MMM', { locale: es }),
+                    fechaStr: formatLocalDate(item.fecha, 'dd/MMM', { locale: es }),
                     peso: item.peso
                 }));
 

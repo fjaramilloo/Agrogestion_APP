@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useFeedback } from '../../contexts/UiFeedbackContext';
 import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../../utils/decimalInput';
+import { recalcularHistorialPesajesAnimal } from '../../utils/gananciaRecalculator';
 import type { PotreradaOption, PropietarioOption } from './types';
 
 interface InventoryCreateAnimalModalProps {
@@ -23,7 +24,7 @@ const createInitialAnimalState = () => ({
     peso_ingreso: '',
     fecha_ingreso: getLocalIsoDate(),
     id_potrerada: '',
-    tipo_macho: 'Toro'
+    tipo_macho: 'toro'
 });
 
 export default function InventoryCreateAnimalModal({
@@ -43,7 +44,8 @@ export default function InventoryCreateAnimalModal({
 
     useEffect(() => {
         const checkChapeta = async () => {
-            if (!nuevoAnimal.numero_chapeta || !fincaId) {
+            const chapetaTrim = nuevoAnimal.numero_chapeta.trim();
+            if (!chapetaTrim || !fincaId) {
                 setIsChapetaTaken(false);
                 return;
             }
@@ -52,8 +54,7 @@ export default function InventoryCreateAnimalModal({
                 .from('animales')
                 .select('id')
                 .eq('id_finca', fincaId)
-                .eq('numero_chapeta', nuevoAnimal.numero_chapeta)
-                .eq('estado', 'activo')
+                .eq('numero_chapeta', chapetaTrim)
                 .or('is_deleted.is.null,is_deleted.eq.false')
                 .maybeSingle();
 
@@ -66,7 +67,8 @@ export default function InventoryCreateAnimalModal({
     }, [nuevoAnimal.numero_chapeta, fincaId]);
 
     const handleCrearAnimal = async () => {
-        const isFormValid = nuevoAnimal.numero_chapeta && nuevoAnimal.peso_ingreso && nuevoAnimal.nombre_propietario && nuevoAnimal.especie && nuevoAnimal.sexo && nuevoAnimal.etapa && nuevoAnimal.fecha_ingreso && !isChapetaTaken;
+        const chapetaTrim = nuevoAnimal.numero_chapeta.trim();
+        const isFormValid = chapetaTrim && nuevoAnimal.peso_ingreso && nuevoAnimal.nombre_propietario && nuevoAnimal.especie && nuevoAnimal.sexo && nuevoAnimal.etapa && nuevoAnimal.fecha_ingreso && !isChapetaTaken;
         if (!fincaId || !isFormValid) return;
         setSaving(true);
         setMsjErrorCrear('');
@@ -80,10 +82,14 @@ export default function InventoryCreateAnimalModal({
                 if (nuevosPesajes[i].peso) {
                     const pFechaErr = getGanadoDateError(nuevosPesajes[i].fecha, `La fecha del pesaje adicional #${i + 1}`);
                     if (pFechaErr) throw new Error(pFechaErr);
+                    const pNum = parseDecimalInput(nuevosPesajes[i].peso);
+                    if (isNaN(pNum) || pNum <= 0) {
+                        throw new Error(`El peso del pesaje adicional #${i + 1} debe ser mayor a cero.`);
+                    }
                 }
             }
 
-            const pesoIngresoNum = parseDecimalInput(nuevoAnimal.peso_ingreso);
+            const pesoIngresoNum = Math.round(parseDecimalInput(nuevoAnimal.peso_ingreso));
             if (isNaN(pesoIngresoNum) || pesoIngresoNum <= 0) {
                 throw new Error('Por favor ingrese un peso de ingreso numérico válido mayor a cero.');
             }
@@ -92,17 +98,17 @@ export default function InventoryCreateAnimalModal({
                 .from('animales')
                 .select('id')
                 .eq('id_finca', fincaId)
-                .eq('numero_chapeta', nuevoAnimal.numero_chapeta)
-                .eq('estado', 'activo')
+                .eq('numero_chapeta', chapetaTrim)
+                .or('is_deleted.is.null,is_deleted.eq.false')
                 .maybeSingle();
 
-            if (exist) throw new Error(`El animal con chapeta #${nuevoAnimal.numero_chapeta} ya existe y está activo.`);
+            if (exist) throw new Error(`El animal con chapeta #${chapetaTrim} ya existe en esta finca.`);
 
             const { data: animalInsertado, error: errAnimal } = await supabase
                 .from('animales')
                 .insert([{
                     id_finca: fincaId,
-                    numero_chapeta: nuevoAnimal.numero_chapeta,
+                    numero_chapeta: chapetaTrim,
                     nombre_propietario: nuevoAnimal.nombre_propietario || 'Finca',
                     especie: nuevoAnimal.especie,
                     sexo: nuevoAnimal.sexo,
@@ -110,7 +116,7 @@ export default function InventoryCreateAnimalModal({
                     peso_ingreso: pesoIngresoNum,
                     fecha_ingreso: nuevoAnimal.fecha_ingreso,
                     id_potrerada: nuevoAnimal.id_potrerada || null,
-                    tipo_macho: nuevoAnimal.sexo === 'M' ? nuevoAnimal.tipo_macho : null,
+                    tipo_macho: nuevoAnimal.sexo === 'M' ? nuevoAnimal.tipo_macho.toLowerCase() : null,
                     estado: 'activo'
                 }])
                 .select()
@@ -120,11 +126,11 @@ export default function InventoryCreateAnimalModal({
 
             if (animalInsertado && nuevosPesajes.length > 0) {
                 const pesajesData = nuevosPesajes
-                    .filter(p => p.fecha && p.peso && !isNaN(parseDecimalInput(p.peso)))
+                    .filter(p => p.fecha && p.peso && parseDecimalInput(p.peso) > 0)
                     .map(p => ({
                         id_animal: animalInsertado.id,
                         fecha: p.fecha,
-                        peso: parseDecimalInput(p.peso),
+                        peso: Math.round(parseDecimalInput(p.peso)),
                         etapa: p.etapa,
                         gdp_calculada: 0
                     }));
@@ -134,6 +140,7 @@ export default function InventoryCreateAnimalModal({
                         .from('registros_pesaje')
                         .insert(pesajesData);
                     if (errPesajes) throw errPesajes;
+                    await recalcularHistorialPesajesAnimal(animalInsertado.id, supabase);
                 }
             }
 
@@ -202,8 +209,8 @@ export default function InventoryCreateAnimalModal({
                         <div>
                             <label htmlFor="inv-new-tipo-macho">Tipo Macho*</label>
                             <select id="inv-new-tipo-macho" value={nuevoAnimal.tipo_macho} onChange={e => setNuevoAnimal({ ...nuevoAnimal, tipo_macho: e.target.value })}>
-                                <option value="Toro">Toro</option>
-                                <option value="Novillo">Novillo</option>
+                                <option value="toro">Toro</option>
+                                <option value="novillo">Novillo</option>
                             </select>
                         </div>
                     )}

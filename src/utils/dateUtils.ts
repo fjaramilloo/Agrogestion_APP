@@ -1,4 +1,35 @@
+import { format, type Locale } from 'date-fns';
+
 export const MIN_GANADO_DATE = '2000-01-01';
+
+/**
+ * Extrae YYYY-MM-DD de una fecha o timestamp y construye un Date al mediodía local (12:00:00)
+ * para evitar desplazamientos de -1 día en zonas horarias negativas como Colombia (UTC-5).
+ */
+export function parseLocalDate(fecha?: string | null): Date | null {
+    if (!fecha) return null;
+    const normalized = String(fecha).split('T')[0].trim();
+    if (!normalized) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+        const d = new Date(`${normalized}T12:00:00`);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    const fallback = new Date(fecha);
+    return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+/**
+ * Formatea una fecha calendario (YYYY-MM-DD o timestamp) sin desplazamiento UTC.
+ */
+export function formatLocalDate(
+    fecha?: string | null,
+    pattern = 'dd/MM/yyyy',
+    options?: { locale?: Locale; fallback?: string }
+): string {
+    const parsed = parseLocalDate(fecha);
+    if (!parsed) return options?.fallback ?? '-';
+    return options?.locale ? format(parsed, pattern, { locale: options.locale }) : format(parsed, pattern);
+}
 
 /**
  * Retorna la fecha local actual en formato YYYY-MM-DD.

@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { X, Trash2, Pencil, Check, MapPin } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../lib/supabase';
 import { localDB } from '../../lib/db';
 import { useFeedback } from '../../contexts/UiFeedbackContext';
 import { recalcularHistorialPesajesAnimal } from '../../utils/gananciaRecalculator';
-import { MIN_GANADO_DATE, getGanadoDateError } from '../../utils/dateUtils';
+import { MIN_GANADO_DATE, getGanadoDateError, formatLocalDate } from '../../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../../utils/decimalInput';
 import {
     toDisplayValue,
@@ -18,6 +17,7 @@ import {
     calcularGmpAcumulado,
     esPesajePosteriorAIngreso,
     calcularPesoEstimadoHoy,
+    calcularDiasEntreFechas,
     type ModoGanancia
 } from '../../utils/ganancia';
 import type { Animal, Pesaje } from './types';
@@ -391,7 +391,7 @@ export default function InventoryDetailModal({
     );
     const ultimoP = pesajesPosteriores[0];
     const penultimoP = pesajesPosteriores[1];
-    const fechaU = ultimoP ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es }) : format(new Date(fechaInicioModal), 'dd/MM/yyyy');
+    const fechaU = ultimoP ? formatLocalDate(ultimoP.fecha, 'dd/MM/yyyy', { locale: es }) : formatLocalDate(fechaInicioModal, 'dd/MM/yyyy', { locale: es });
     const pesoU = ultimoP ? ultimoP.peso : pesoBaseModal;
 
     const gmpUltimoModal = calcularGmpUltimoPeriodo(ultimoP, fechaInicioModal, pesoBaseModal, penultimoP);
@@ -405,7 +405,7 @@ export default function InventoryDetailModal({
     const timeline: TimelineItem[] = [
         ...pesajesPosteriores.map((p, i, arr) => {
             const ant = arr[i + 1] || { peso: pesoBaseModal, fecha: fechaInicioModal };
-            const d = Math.max(1, differenceInDays(new Date(p.fecha.split('T')[0] + 'T12:00:00'), new Date(ant.fecha.split('T')[0] + 'T12:00:00')));
+            const d = Math.max(1, calcularDiasEntreFechas(ant.fecha, p.fecha));
             const ganancia = p.peso - ant.peso;
             const gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined && p.gdp_calculada !== 0) ? Number(p.gdp_calculada) : (ganancia / d);
             const gmp = (p.gmp_calculada !== null && p.gmp_calculada !== undefined && p.gmp_calculada !== 0) ? Number(p.gmp_calculada) : (gdp * 30);
@@ -431,7 +431,7 @@ export default function InventoryDetailModal({
     ];
 
     const chartData = [...timeline].reverse().map(item => ({
-        fechaStr: format(new Date(item.fecha), 'dd/MMM', { locale: es }),
+        fechaStr: formatLocalDate(item.fecha, 'dd/MMM', { locale: es }),
         peso: item.peso
     }));
 
@@ -769,7 +769,7 @@ export default function InventoryDetailModal({
                                 return (
                                     <tr key={index} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                         <td className="inventory-hist-fecha" style={{ padding: '12px 16px' }}>
-                                            <div style={{ fontWeight: '500' }}>{format(new Date(item.fecha), 'dd/MM/yyyy')}</div>
+                                            <div style={{ fontWeight: '500' }}>{formatLocalDate(item.fecha)}</div>
                                             {item.esIngreso && <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 'bold' }}>INGRESO</div>}
                                         </td>
                                         <td className="inventory-hist-peso" style={{ padding: '12px 16px', fontWeight: 'bold' }}>
@@ -798,7 +798,7 @@ export default function InventoryDetailModal({
                                                             className="inventory-history-action-btn"
                                                             onClick={() => setEditingPesaje({ id: item.pesajeId!, fecha: item.fecha.split('T')[0], peso: item.peso.toString() })}
                                                             title="Editar este pesaje"
-                                                            aria-label={`Editar pesaje del ${format(new Date(item.fecha), 'dd/MM/yyyy')}`}
+                                                            aria-label={`Editar pesaje del ${formatLocalDate(item.fecha)}`}
                                                             style={{ backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border-strong)', color: 'var(--primary-light)' }}
                                                         >
                                                             <Pencil size={14} aria-hidden="true" />
@@ -806,9 +806,9 @@ export default function InventoryDetailModal({
                                                         <button
                                                             type="button"
                                                             className="inventory-history-action-btn"
-                                                            onClick={() => handleEliminarPesaje(item.pesajeId!, format(new Date(item.fecha), 'dd/MM/yyyy'))}
+                                                            onClick={() => handleEliminarPesaje(item.pesajeId!, formatLocalDate(item.fecha))}
                                                             title="Eliminar este pesaje"
-                                                            aria-label={`Eliminar pesaje del ${format(new Date(item.fecha), 'dd/MM/yyyy')}`}
+                                                            aria-label={`Eliminar pesaje del ${formatLocalDate(item.fecha)}`}
                                                             style={{ backgroundColor: 'var(--error-soft-bg)', border: '1px solid var(--error-soft-border)', color: 'var(--error)' }}
                                                         >
                                                             <Trash2 size={14} aria-hidden="true" />

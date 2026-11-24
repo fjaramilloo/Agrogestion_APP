@@ -7,6 +7,10 @@ export interface AnimalCacheItem {
   nombre_propietario?: string;
   etapa: string;
   estado?: string;
+  ok_ceba?: boolean;
+  sexo?: 'M' | 'H' | string;
+  tipo_macho?: string | null;
+  fecha_castracion?: string | null;
   peso_ingreso?: number;
   peso_compra?: number;
   fecha_ingreso: string;

@@ -43,9 +43,11 @@ export default function PotreradaMoveAnimalsModal({
     const handleSelectAllAnimals = () => {
         const term = searchMoveAnimals.toLowerCase().trim();
         const visibleAnimals = detailData.animales.filter(a =>
-            !term ||
-            a.numero_chapeta.toLowerCase().includes(term) ||
-            (a.nombre_propietario || '').toLowerCase().includes(term)
+            (!a.estado || a.estado === 'activo') && (
+                !term ||
+                a.numero_chapeta.toLowerCase().includes(term) ||
+                (a.nombre_propietario || '').toLowerCase().includes(term)
+            )
         );
         const allVisibleSelected = visibleAnimals.every(a => selectedAnimalsToMove.has(a.id));
         setSelectedAnimalsToMove(prev => {
@@ -263,6 +265,7 @@ export default function PotreradaMoveAnimalsModal({
                     ) : (() => {
                         const term = searchMoveAnimals.toLowerCase().trim();
                         const filtered = detailData.animales
+                            .filter(a => !a.estado || a.estado === 'activo')
                             .slice()
                             .sort((a, b) => a.numero_chapeta.localeCompare(b.numero_chapeta, undefined, { numeric: true }))
                             .filter(a =>

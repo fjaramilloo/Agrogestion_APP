@@ -9,10 +9,10 @@ import ModalUpsell from '../components/ModalUpsell';
 import { LicenseBlockedBanner } from '../components/LicenseBlockedBanner';
 import { getLicenseBlockState } from '../utils/licenseUtils';
 import { Search, Save, PlusCircle, CheckCircle2, AlertTriangle, Pencil, Trash2, X, Check } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
-import { toDisplayValue, getUnidadLabel, getModoLabel, getGmpColor, resolverResumenUltimoPesaje } from '../utils/ganancia';
+import { toDisplayValue, getUnidadLabel, getModoLabel, getGmpColor, resolverResumenUltimoPesaje, calcularDiasEntreFechas } from '../utils/ganancia';
+import { recalcularHistorialPesajesAnimal } from '../utils/gananciaRecalculator';
 import { localDB } from '../lib/db';
-import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
+import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError, formatLocalDate } from '../utils/dateUtils';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Weighing.css';
 
@@ -78,7 +78,7 @@ export default function Weighing() {
     const [umbralMedio, setUmbralMedio] = useState(10);
 
     // --- Pesajes de Hoy (Corrección) ---
-    const [pesajesHoy, setPesajesHoy] = useState<{ id: string; peso: number; fecha: string; numero_chapeta: string; nombre_propietario: string; potrerada_nombre: string }[]>([]);
+    const [pesajesHoy, setPesajesHoy] = useState<{ id: string; id_animal: string; peso: number; fecha: string; numero_chapeta: string; nombre_propietario: string; potrerada_nombre: string }[]>([]);
     const [editingPesajeId, setEditingPesajeId] = useState<string | null>(null);
     const [editPeso, setEditPeso] = useState('');
     const [sortColHoy, setSortColHoy] = useState<'chapeta' | 'marca' | 'potrerada' | 'peso'>('chapeta');
@@ -119,6 +119,10 @@ export default function Weighing() {
                     ultimo_peso: ultimoPeso,
                     fecha_ultimo_peso: fechaUltimoPeso,
                     gmp,
+                    ok_ceba: a.ok_ceba,
+                    sexo: a.sexo as any,
+                    tipo_macho: a.tipo_macho as any,
+                    fecha_castracion: a.fecha_castracion,
                     nombre_propietario: a.nombre_propietario,
                     potrerada_nombre: potNombre || undefined,
                     id_potrerada: a.id_potrerada
@@ -170,10 +174,7 @@ export default function Weighing() {
                         if (ult?.gmp_calculada != null) gmp = Number(ult.gmp_calculada);
                         else if (ult?.gdp_calculada != null) gmp = Number(ult.gdp_calculada) * 30;
                         else if (ultimoPeso && fechaUltimoPeso && fechaBase && fechaUltimoPeso !== fechaBase) {
-                            const d = differenceInDays(
-                                new Date(String(fechaUltimoPeso).split('T')[0] + 'T12:00:00'),
-                                new Date(String(fechaBase).split('T')[0] + 'T12:00:00')
-                            );
+                            const d = calcularDiasEntreFechas(fechaBase, fechaUltimoPeso);
                             if (d > 0) gmp = ((ultimoPeso - pesoBase) / d) * 30;
                         }
                         const potObj = Array.isArray(a.potreradas) ? a.potreradas[0] : a.potreradas;
@@ -233,22 +234,25 @@ export default function Weighing() {
     const fetchPesajesHoy = useCallback(async () => {
         if (!fincaId) return;
         const hoy = getLocalIsoDate();
-        const { data, error } = await supabase
-            .from('registros_pesaje')
-            .select(`
-                id, peso, fecha,
-                animales!inner(
-                    numero_chapeta,
-                    nombre_propietario,
-                    id_finca,
-                    potreradas:potreradas!animales_id_potrerada_fkey(nombre)
-                )
-            `)
-            .eq('animales.id_finca', fincaId)
-            .eq('fecha', hoy)
-            .or('is_deleted.is.null,is_deleted.eq.false')
-            .order('id', { ascending: false })
-            .limit(50);
+        const { data, error } = await fetchAllSupabasePages((from, to, signal) => {
+            const q = supabase
+                .from('registros_pesaje')
+                .select(`
+                    id, id_animal, peso, fecha,
+                    animales!inner(
+                        numero_chapeta,
+                        nombre_propietario,
+                        id_finca,
+                        potreradas:potreradas!animales_id_potrerada_fkey(nombre)
+                    )
+                `)
+                .eq('animales.id_finca', fincaId)
+                .eq('fecha', hoy)
+                .or('is_deleted.is.null,is_deleted.eq.false')
+                .order('id', { ascending: false })
+                .range(from, to);
+            return signal ? q.abortSignal(signal) : q;
+        });
 
         if (error) {
             console.error("Error fetching pesajes hoy:", error);
@@ -258,6 +262,7 @@ export default function Weighing() {
         if (data) {
             setPesajesHoy(data.map((p: any) => ({
                 id: p.id,
+                id_animal: p.id_animal,
                 peso: p.peso,
                 fecha: p.fecha,
                 numero_chapeta: p.animales?.numero_chapeta || '-',
@@ -336,6 +341,10 @@ export default function Weighing() {
                     ultimo_peso: ultimoPeso,
                     fecha_ultimo_peso: fechaUltimoPeso,
                     gmp,
+                    ok_ceba: cached.ok_ceba,
+                    sexo: cached.sexo as any,
+                    tipo_macho: cached.tipo_macho as any,
+                    fecha_castracion: cached.fecha_castracion,
                     nombre_propietario: cached.nombre_propietario,
                     potrerada_nombre: potNombre,
                     id_potrerada: cached.id_potrerada
@@ -454,6 +463,8 @@ export default function Weighing() {
                 ultimo_peso: data.peso_ingreso,
                 fecha_ultimo_peso: data.fecha_ingreso,
                 gmp: 0,
+                sexo: 'M',
+                tipo_macho: 'toro',
                 nombre_propietario: propietarioNuevo
             };
             animalesRamRef.current.set(String(data.numero_chapeta).trim().toLowerCase(), nuevoPreview);
@@ -500,15 +511,23 @@ export default function Weighing() {
         }
 
         let gdpCalculada = 0;
+        let isBackdated = false;
+        const keyChapetaCheck = animal.numero_chapeta.trim().toLowerCase();
+        if (pesajesHoy.some(p => p.fecha?.split('T')[0] === fechaPesaje && p.numero_chapeta.trim().toLowerCase() === keyChapetaCheck)) {
+            setMsjError(`Este animal ya tiene un pesaje registrado para la fecha ${fechaPesaje}.`);
+            return;
+        }
         if (animal.ultimo_peso && animal.fecha_ultimo_peso) {
             const fechaUltimo = animal.fecha_ultimo_peso.split('T')[0];
             if (fechaPesaje === fechaUltimo) {
                 setMsjError(`Este animal ya tiene un pesaje registrado para la fecha ${fechaPesaje}.`);
                 return;
             }
-            const diffDias = differenceInDays(new Date(fechaPesaje + 'T12:00:00'), new Date(fechaUltimo + 'T12:00:00'));
+            const diffDias = calcularDiasEntreFechas(fechaUltimo, fechaPesaje);
             if (diffDias > 0) {
                 gdpCalculada = (pesoFloat - animal.ultimo_peso) / diffDias;
+            } else if (diffDias < 0) {
+                isBackdated = true;
             }
         }
 
@@ -542,9 +561,11 @@ export default function Weighing() {
 
         animalesRamRef.current.set(keyChapeta, {
             ...animalSnapshot,
-            ultimo_peso: pesoFloat,
-            fecha_ultimo_peso: fechaSnapshot,
-            gmp: gdpCalculada * 30,
+            ...(!isBackdated ? {
+                ultimo_peso: pesoFloat,
+                fecha_ultimo_peso: fechaSnapshot,
+                gmp: gdpCalculada * 30,
+            } : {}),
             ...(marcaOkCeba ? { ok_ceba: true } : {}),
             ...(castrarHoy ? { tipo_macho: 'novillo', fecha_castracion: fechaSnapshot } : {})
         });
@@ -554,6 +575,7 @@ export default function Weighing() {
             setPesajesHoy(prev => [
                 {
                     id: pesajeId,
+                    id_animal: animalSnapshot.id,
                     peso: pesoFloat,
                     fecha: fechaSnapshot,
                     numero_chapeta: animalSnapshot.numero_chapeta,
@@ -576,7 +598,7 @@ export default function Weighing() {
         setFechaPesaje(hoyIso);
         setTimeout(() => chapetaInputRef.current?.focus(), 20);
 
-        // ── PERSISTENCIA EN SEGUNDO PLANO (VÍA ÚNICA HTTP + INDEXEDDB) ──
+        // ── PERSISTENCIA CONFIRMADA (CON REVERSIÓN Y AVISO ANTE ERROR) ──
         void (async () => {
             try {
                 const { error } = await supabase.from('registros_pesaje').insert({
@@ -588,21 +610,48 @@ export default function Weighing() {
                     gdp_calculada: gdpCalculada,
                     gmp_calculada: gdpCalculada * 30
                 });
-                if (error) {
-                    console.warn('[Weighing] Error al guardar pesaje:', error);
-                }
+                if (error) throw error;
 
                 if (Object.keys(updateAnimalData).length > 0) {
                     const { error: errAnimal } = await supabase
                         .from('animales')
                         .update(updateAnimalData)
                         .eq('id', animalSnapshot.id);
-                    if (errAnimal) {
-                        console.warn('[Weighing] Error actualizando animal tras pesaje:', errAnimal);
-                    }
+                    if (errAnimal) throw errAnimal;
                 }
-            } catch (err) {
-                console.warn('[Weighing] Error inesperado guardando pesaje:', err);
+
+                if (isBackdated) {
+                    await recalcularHistorialPesajesAnimal(animalSnapshot.id, supabase);
+                    void cargarHatoEnRam();
+                } else {
+                    try {
+                        const cached = await localDB.animalesCache.get(animalSnapshot.id);
+                        if (cached) {
+                            const regs = Array.isArray(cached.registros_pesaje) ? cached.registros_pesaje : [];
+                            await localDB.animalesCache.update(animalSnapshot.id, {
+                                ultimo_peso: pesoFloat,
+                                fecha_ultimo_pesaje: fechaSnapshot,
+                                registros_pesaje: [
+                                    { id: pesajeId, id_animal: animalSnapshot.id, peso: pesoFloat, fecha: fechaSnapshot, etapa: animalSnapshot.etapa, gdp_calculada: gdpCalculada, gmp_calculada: gdpCalculada * 30, is_deleted: false },
+                                    ...regs.filter((r: any) => r.id !== pesajeId)
+                                ],
+                                ...(marcaOkCeba ? { ok_ceba: true } : {}),
+                                ...(castrarHoy ? { tipo_macho: 'novillo', fecha_castracion: fechaSnapshot } : {}),
+                                updated_at: new Date().toISOString()
+                            }).catch(() => {});
+                        }
+                    } catch { /* non-blocking cache sync */ }
+                }
+            } catch (err: any) {
+                console.error('[Weighing] Error al guardar pesaje:', err);
+                animalesRamRef.current.set(keyChapeta, animalSnapshot);
+                if (fechaSnapshot === hoyIso) {
+                    setPesajesHoy(prev => prev.filter(p => p.id !== pesajeId));
+                }
+                const errText = `No se pudo guardar el pesaje de #${animalSnapshot.numero_chapeta} (${pesoFloat} kg): ${err?.message || 'error de conexión/permisos'}`;
+                setMsjExito('');
+                setMsjError(errText);
+                toast(errText, 'error');
             }
         })();
     };
@@ -617,6 +666,9 @@ export default function Weighing() {
         try {
             const { error } = await supabase.from('registros_pesaje').delete().eq('id', pesaje.id);
             if (error) throw error;
+            if (pesaje.id_animal) {
+                await recalcularHistorialPesajesAnimal(pesaje.id_animal, supabase);
+            }
             setPesajesHoy(prev => prev.filter(p => p.id !== pesaje.id));
             void cargarHatoEnRam();
             void fetchPesajesHoy();
@@ -629,7 +681,7 @@ export default function Weighing() {
     };
 
     const handleGuardarEdicion = async (pesaje: typeof pesajesHoy[0]) => {
-        const nuevoPesoFloat = parseDecimalInput(editPeso);
+        const nuevoPesoFloat = Math.round(parseDecimalInput(editPeso));
         if (isNaN(nuevoPesoFloat) || nuevoPesoFloat <= 0) {
             toast('Ingresa un peso válido mayor a 0.', 'error');
             return;
@@ -639,15 +691,21 @@ export default function Weighing() {
         try {
             const { error } = await supabase
                 .from('registros_pesaje')
-                .update({ peso: nuevoPesoFloat, peso_anterior: pesaje.peso, fecha_modificacion: new Date().toISOString() })
+                .update({ peso: nuevoPesoFloat, fecha_modificacion: new Date().toISOString() })
                 .eq('id', pesaje.id);
             if (error) throw error;
+            if (pesaje.id_animal) {
+                const recalc = await recalcularHistorialPesajesAnimal(pesaje.id_animal, supabase);
+                if (!recalc.success) {
+                    throw new Error(recalc.error || 'No se pudo recalcular la ganancia');
+                }
+            }
             setEditingPesajeId(null);
             setEditPeso('');
             setPesajesHoy(prev => prev.map(p => (p.id === pesaje.id ? { ...p, peso: nuevoPesoFloat } : p)));
             void cargarHatoEnRam();
             void fetchPesajesHoy();
-            toast('Pesaje actualizado.', 'success');
+            toast('Pesaje actualizado y ganancias recalculadas.', 'success');
         } catch (err: any) {
             toast('Error al editar: ' + err.message, 'error');
         } finally {
@@ -848,7 +906,7 @@ export default function Weighing() {
                             <div className="weighing-kpi-card">
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Último Pesaje</div>
                                 <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{animal.ultimo_peso} kg</div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{animal.fecha_ultimo_peso ? format(new Date(animal.fecha_ultimo_peso), 'dd/MM/yyyy') : '-'}</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{animal.fecha_ultimo_peso ? formatLocalDate(animal.fecha_ultimo_peso) : '-'}</div>
                             </div>
                             <div className="weighing-kpi-card">
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Etapa</div>
@@ -862,12 +920,12 @@ export default function Weighing() {
                         {/* Tarjeta de tipo de animal (solo machos) */}
                         {animal.sexo === 'M' && (
                             <div style={{ marginBottom: '14px' }}>
-                                {animal.tipo_macho === 'novillo' ? (
+                                {animal.tipo_macho?.toLowerCase() === 'novillo' ? (
                                     <div style={{ padding: '12px 16px', background: 'var(--info-soft-bg)', border: '1px solid var(--info-soft-border)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--info)', fontSize: '0.9rem' }}>
                                         <span style={{ fontSize: '1.2rem' }} aria-hidden="true">✂️</span>
                                         <div>
                                             <strong>Novillo</strong> (castrado)
-                                            {animal.fecha_castracion && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Castrado el {format(new Date(animal.fecha_castracion + 'T12:00:00'), 'dd/MM/yyyy')}</div>}
+                                            {animal.fecha_castracion && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Castrado el {formatLocalDate(animal.fecha_castracion)}</div>}
                                         </div>
                                     </div>
                                 ) : (

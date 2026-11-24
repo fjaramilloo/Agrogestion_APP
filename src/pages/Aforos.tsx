@@ -5,6 +5,7 @@ import { useConnection } from '../contexts/ConnectionContext';
 import { Layers, Plus, Save, Trash2, Info, X, Wifi, WifiOff, TrendingUp, Calendar, Activity } from 'lucide-react';
 import { localDB } from '../lib/db';
 import { getLocalIsoDate, MIN_GANADO_DATE, getGanadoDateError } from '../utils/dateUtils';
+import { calcularDiasEntreFechas } from '../utils/ganancia';
 import { sanitizeDecimalInput, parseDecimalInput } from '../utils/decimalInput';
 import './Aforos.css';
 
@@ -337,8 +338,7 @@ export default function Aforos() {
                 .maybeSingle();
 
             if (mov && mov.fecha_entrada) {
-                const ms = new Date().getTime() - new Date(mov.fecha_entrada).getTime();
-                const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+                const days = calcularDiasEntreFechas(mov.fecha_entrada, getLocalIsoDate());
                 const diasStr = `${Math.max(0, days)} días`;
                 setModalCalcOpen(prev => ({ ...prev, diasLleva: diasStr }));
                 localStorage.setItem(`agrogestion_calc_dias_${aforo.id_potrero}`, diasStr);
@@ -354,8 +354,7 @@ export default function Aforos() {
     };
 
     const obtenerDiasTranscurridos = (fechaAforo: string) => {
-        const diffMs = new Date().getTime() - new Date(fechaAforo).getTime();
-        return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        return Math.max(0, calcularDiasEntreFechas(fechaAforo, getLocalIsoDate()));
     };
 
     const clasificarAforo = (aforo: RegistroAforo) => {

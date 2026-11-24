@@ -5,8 +5,8 @@ import { useFeedback } from '../contexts/UiFeedbackContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useModalDialog } from '../hooks/useModalDialog';
 import { CheckCircle2, ArrowRight, AlertTriangle, RotateCcw, X, MapPin, ArrowUpDown } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
-import { getLocalIsoDate } from '../utils/dateUtils';
+import { getLocalIsoDate, formatLocalDate } from '../utils/dateUtils';
+import { calcularDiasEntreFechas } from '../utils/ganancia';
 import './MercadoPages.css';
 
 interface AnimalMercado {
@@ -87,7 +87,7 @@ export default function Mercado() {
         if (!fincaId) return;
         setLoading(true);
 
-        const { data: animData } = await supabase
+        const { data: animData, error: errAnim } = await supabase
             .from('animales')
             .select(`
                 id, numero_chapeta, nombre_propietario, etapa,
@@ -98,7 +98,12 @@ export default function Mercado() {
             .eq('id_finca', fincaId)
             .eq('ok_ceba', true)
             .eq('etapa', 'levante')
-            .eq('estado', 'activo');
+            .eq('estado', 'activo')
+            .or('is_deleted.is.null,is_deleted.eq.false');
+
+        if (errAnim) {
+            setMsjError('Error cargando animales de Mercado de Ceba: ' + errAnim.message);
+        }
 
         const { data: potData } = await supabase
             .from('potreros')
@@ -132,19 +137,17 @@ export default function Mercado() {
             setPotreradasCeba(potCebaConPotrero);
         }
 
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
+        const hoyIso = getLocalIsoDate();
 
         const processed = (animData || []).map((a: any) => {
             const registros = (a.registros_pesaje || [])
                 .filter((r: any) => !r.is_deleted)
                 .sort((x: any, y: any) =>
-                    new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
+                    String(y.fecha || '').localeCompare(String(x.fecha || ''))
                 );
             const last = registros[0];
             const pesoBase = a.peso_ingreso ?? a.peso_compra;
-            const fechaRef = last ? new Date(last.fecha) : new Date(a.fecha_ingreso);
-            fechaRef.setHours(0, 0, 0, 0);
+            const fechaRefStr = last ? last.fecha : a.fecha_ingreso;
             return {
                 id: a.id,
                 numero_chapeta: a.numero_chapeta,
@@ -157,7 +160,7 @@ export default function Mercado() {
                 nombre_potrero: a.potreros?.nombre || 'N/A',
                 ultimo_peso: last ? last.peso : pesoBase,
                 fecha_ultimo_peso: last ? last.fecha : a.fecha_ingreso,
-                diasUltimoPesaje: differenceInDays(hoy, fechaRef)
+                diasUltimoPesaje: calcularDiasEntreFechas(fechaRefStr, hoyIso)
             };
         });
 
@@ -234,12 +237,13 @@ export default function Mercado() {
 
                 // 3. Registrar un único movimiento de potrero para la nueva potrerada
                 const hoy = getLocalIsoDate();
-                await supabase.from('movimientos_potreros').insert({
+                const { error: errMov } = await supabase.from('movimientos_potreros').insert({
                     id_finca: fincaId,
                     id_potrerada: targetPotreradaId,
                     id_potrero: targetPotreroId,
                     fecha_entrada: hoy
                 });
+                if (errMov) throw new Error('Error al registrar movimiento: ' + errMov.message);
             } else {
                 targetPotreradaId = potreradaExistenteId;
                 const pceba = potreradasCeba.find(p => p.id === targetPotreradaId);
@@ -249,17 +253,20 @@ export default function Mercado() {
 
             const ids = Array.from(animalesSeleccionados);
 
-            // 2. Actualizar los animales: cambiar etapa a ceba, asignar potrerada, potrero y fecha_ingreso_ceba (el trigger en BD asigna peso_ingreso_ceba individualmente)
+            // 2. Actualizar los animales: cambiar etapa a ceba, asignar potrerada, potrero (si existe) y fecha_ingreso_ceba
             const hoyCeba = getLocalIsoDate();
+            const updatePayload: any = {
+                etapa: 'ceba',
+                id_potrerada: targetPotreradaId,
+                ok_ceba: false,
+                fecha_ingreso_ceba: hoyCeba
+            };
+            if (targetPotreroId) {
+                updatePayload.id_potrero_actual = targetPotreroId;
+            }
             const { error: errUpdate } = await supabase
                 .from('animales')
-                .update({
-                    etapa: 'ceba',
-                    id_potrerada: targetPotreradaId,
-                    id_potrero_actual: targetPotreroId || null,
-                    ok_ceba: false,
-                    fecha_ingreso_ceba: hoyCeba
-                })
+                .update(updatePayload)
                 .in('id', ids);
 
             if (errUpdate) throw new Error('Error al actualizar animales: ' + errUpdate.message);
@@ -283,14 +290,21 @@ export default function Mercado() {
         if (!confirmed) return;
 
         setLoading(true);
-        const ids = animales.map(a => a.id);
-        await supabase
-            .from('animales')
-            .update({ ok_ceba: false })
-            .in('id', ids);
-        await fetchData();
-        setMsjExito('Animales devueltos a levante correctamente.');
-        toast('Animales devueltos a levante correctamente.', 'success');
+        try {
+            const ids = animales.map(a => a.id);
+            const { error } = await supabase
+                .from('animales')
+                .update({ ok_ceba: false })
+                .in('id', ids);
+            if (error) throw error;
+            await fetchData();
+            setMsjExito('Animales devueltos a levante correctamente.');
+            toast('Animales devueltos a levante correctamente.', 'success');
+        } catch (err: any) {
+            setMsjError('Error devolviendo a levante: ' + err.message);
+            toast('Error devolviendo a levante: ' + err.message, 'error');
+            setLoading(false);
+        }
     };
 
     if (loading) {
@@ -388,7 +402,7 @@ export default function Mercado() {
                                             </td>
                                             <td data-label="Peso actual" style={{ padding: '16px', textAlign: 'right', fontWeight: 'bold' }}>{a.ultimo_peso} kg</td>
                                             <td data-label="Fecha pesaje" style={{ padding: '16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                                {format(new Date(a.fecha_ultimo_peso), 'dd/MM/yyyy')}
+                                                {formatLocalDate(a.fecha_ultimo_peso)}
                                             </td>
                                             <td data-label="Días sin pesar" style={{ padding: '16px', textAlign: 'right', color: a.diasUltimoPesaje > 30 ? 'var(--warning)' : 'var(--text-muted)' }}>
                                                 {a.diasUltimoPesaje}d
