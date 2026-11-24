@@ -17,16 +17,17 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         toggleModoCampo,
         isOnline,
         syncing,
+        authRequired,
         conteoPendienteTotal,
         conteoFallidosTotal,
         sincronizarTodo
     } = useConnection();
     const { isSunMode, toggleTheme } = useTheme();
 
-    // Disparar sincronización manual
+    // Disparar sincronización manual (o mostrar diagnóstico de lo pendiente si no puede subir)
     const handleSync = async () => {
-        if (!fincaId || syncing || !isOnline) return;
-        await sincronizarTodo(fincaId);
+        if (syncing) return;
+        await sincronizarTodo(fincaId || '', { manual: true });
     };
 
     const getUserDisplay = () => {
@@ -92,14 +93,22 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                     <button
                         type="button"
                         onClick={handleSync}
-                        disabled={syncing || !isOnline}
-                        className={`topbar-btn-action topbar-btn-sync ${isOnline ? 'can-sync' : 'cannot-sync'}`}
-                        title={isOnline ? 'Clic para subir todos los registros acumulados' : 'Se sincronizarán automáticamente al recuperar la señal'}
+                        disabled={syncing}
+                        className={`topbar-btn-action topbar-btn-sync ${
+                            authRequired ? 'has-errors' : isOnline ? 'can-sync' : 'cannot-sync'
+                        }`}
+                        title={
+                            authRequired
+                                ? 'Sesión expirada: toca para ver el detalle y reingresar sin perder datos'
+                                : isOnline
+                                ? 'Clic para subir todos los registros acumulados'
+                                : 'Toca para ver los registros guardados en el celular o reintentar conexión'
+                        }
                     >
                         <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} aria-hidden="true" />
                         <span className="topbar-sync-badge">{conteoPendienteTotal}</span>
                         <span className="topbar-btn-label">
-                            {syncing ? 'Subiendo...' : isOnline ? 'Sincronizar' : 'en celular'}
+                            {syncing ? 'Subiendo...' : authRequired ? 'Reingresar' : isOnline ? 'Sincronizar' : 'en celular'}
                         </span>
                     </button>
                 )}

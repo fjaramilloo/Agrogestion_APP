@@ -22,38 +22,65 @@ export const isModoCampoActivo = (): boolean => {
 
 const MAX_BODY_CHARS = 6_000_000;
 const MAX_ENTRADAS_CACHE = 800;
-const TIMEOUT_LECTURA_MS = 2500; // Reducido de 15000 a 2500ms para no bloquear la pantalla en potrero
-const TIMEOUT_PRECACHE_MS = 12_000; // Timeout amplio para sincronización/precarga explícita de caché
-const TIMEOUT_ESCRITURA_MS = 3000; // Reducido de 20000 a 3000ms para asegurar escrituras en cola rápido
+const TIMEOUT_LECTURA_MS = 8000; // Evita abortar consultas grandes (1000+ animales) en 4G/5G normal
+const TIMEOUT_PRECACHE_MS = 15_000; // Timeout amplio para sincronización/precarga explícita de caché
+const TIMEOUT_ESCRITURA_MS = 8000; // Evita falsos timeouts al guardar con señal móvil real
 const TIMEOUT_FUNCTIONS_MS = 60_000; // Edge Functions (Gemini AI AgroBot, invitaciones por correo, tareas de servidor)
 const TIMEOUT_STORAGE_MS = 60_000; // Subida y descarga de archivos e imágenes
 const TIMEOUT_AUTH_MS = 15_000; // Login manual con correo/contraseña
-const TIMEOUT_AUTH_REFRESH_MS = 2500; // Renovación automática de token: máximo 2.5s para no congelar el arranque en potrero
-const FAST_CACHE_RACE_MS = 350; // Si la red no responde en 350ms y tenemos caché, responde de inmediato con caché local
+const TIMEOUT_AUTH_REFRESH_MS = 6000; // Renovación de token en red móvil real sin bloquear indefinidamente
+const FAST_CACHE_RACE_MS = 1800; // Espera hasta 1.8s por datos frescos de la nube antes de usar caché local
 const SESSION_BACKUP_KEY = 'agrogestion_cached_session_backup';
 
 const NETWORK_FIRST_SIGNALS = new WeakSet<AbortSignal>();
 
-/** Marca un AbortSignal como petición Network-First (omite la carrera de 350ms contra caché). */
+/** Marca un AbortSignal como petición Network-First (omite la carrera contra caché). */
 export function registrarNetworkFirstSignal(signal: AbortSignal) {
   NETWORK_FIRST_SIGNALS.add(signal);
 }
 
-let refreshEnVuelo: Promise<string | null> | null = null;
+/**
+ * Decodifica el `exp` real del JWT (sin depender de `expires_at` del objeto de sesión,
+ * que puede haberse extendido localmente en Modo Campo).
+ */
+export function jwtEstaExpirado(token: string | null | undefined, margenSegundos = 30): boolean {
+  if (!token || typeof token !== 'string') return true;
+  const partes = token.split('.');
+  if (partes.length < 2) return true;
+  try {
+    const b64 = partes[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+    const payload = JSON.parse(atob(b64 + pad));
+    if (typeof payload?.exp !== 'number') return false;
+    return payload.exp <= Math.floor(Date.now() / 1000) + margenSegundos;
+  } catch {
+    return false;
+  }
+}
+
+export interface RefreshTokenResult {
+  token: string | null;
+  refreshToken?: string | null;
+  authInvalid: boolean;
+}
+
+let refreshEnVuelo: Promise<RefreshTokenResult> | null = null;
 
 /**
  * Intenta renovar el access_token con el refresh_token local sin disparar recursión en offlineAwareFetch.
- * Se deduplica si varias peticiones reciben 401 al tiempo al volver a cobertura.
+ * Se deduplica si varias peticiones necesitan renovar al tiempo al volver a cobertura.
  */
-async function refrescarTokenDirecto(): Promise<string | null> {
+export async function refrescarTokenEstado(): Promise<RefreshTokenResult> {
   if (refreshEnVuelo) return refreshEnVuelo;
-  refreshEnVuelo = (async () => {
+  refreshEnVuelo = (async (): Promise<RefreshTokenResult> => {
     try {
       const sesionLocal = leerSesionLocalSupabase();
       const refreshToken = sesionLocal?.refresh_token;
       const base = import.meta.env.VITE_SUPABASE_URL as string;
       const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-      if (!refreshToken || !base || !apikey) return null;
+      if (!refreshToken || !base || !apikey) {
+        return { token: null, authInvalid: false };
+      }
 
       const res = await fetch(`${base}/auth/v1/token?grant_type=refresh_token`, {
         method: 'POST',
@@ -66,9 +93,16 @@ async function refrescarTokenDirecto(): Promise<string | null> {
         signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(TIMEOUT_AUTH_REFRESH_MS) : undefined
       });
 
-      if (!res.ok) return null;
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('offline-auth-required'));
+        }
+        return { token: null, authInvalid: true };
+      }
+
+      if (!res.ok) return { token: null, authInvalid: false };
       const data = await res.json();
-      if (!data?.access_token) return null;
+      if (!data?.access_token) return { token: null, authInvalid: false };
 
       // Actualizar almacenamiento local de Supabase y copia de respaldo
       try {
@@ -81,14 +115,23 @@ async function refrescarTokenDirecto(): Promise<string | null> {
         guardarBackupSesionLocal(data);
       } catch { /* noop */ }
 
-      return String(data.access_token);
+      return {
+        token: String(data.access_token),
+        refreshToken: data.refresh_token ? String(data.refresh_token) : refreshToken,
+        authInvalid: false
+      };
     } catch {
-      return null;
+      return { token: null, authInvalid: false };
     } finally {
       refreshEnVuelo = null;
     }
   })();
   return refreshEnVuelo;
+}
+
+async function refrescarTokenDirecto(): Promise<string | null> {
+  const res = await refrescarTokenEstado();
+  return res.token;
 }
 
 /**
@@ -519,16 +562,26 @@ async function smartTableFallback(
 
 // ───────────────────────── caché de lecturas ─────────────────────────
 
-async function guardarCache(key: string, url: string, method: string, reqBody: string | null, reqHeaders: Headers, res: Response, tabla: string) {
+async function guardarCache(
+  key: string,
+  url: string,
+  method: string,
+  reqBody: string | null,
+  reqHeaders: Headers,
+  res: Response,
+  tabla: string
+): Promise<boolean> {
   try {
     // Proteger escrituras optimistas pendientes: no pisar la caché de una tabla con cambios aún sin subir
     const hayPendientesTabla = await localDB.httpWriteQueue
       .filter(op => op.status !== 'failed' && op.tabla === tabla)
       .count();
-    if (hayPendientesTabla > 0) return;
+    if (hayPendientesTabla > 0) return false;
 
     const body = await res.text();
-    if (body.length > MAX_BODY_CHARS) return;
+    if (body.length > MAX_BODY_CHARS) return false;
+    const prev = await localDB.httpReadCache.get(key);
+    const cambio = !prev || prev.body !== body;
     const item: HttpReadCacheItem = {
       key, tabla, url, method, reqBody,
       reqHeaders: pick(reqHeaders, ['accept', 'prefer', 'range', 'range-unit', 'accept-profile', 'content-profile', 'content-type']),
@@ -546,8 +599,10 @@ async function guardarCache(key: string, url: string, method: string, reqBody: s
         await localDB.httpReadCache.bulkDelete(sobrantes);
       }
     }
+    return cambio;
   } catch (e) {
     console.warn('[OfflineHTTP] No se pudo guardar caché:', e);
+    return false;
   }
 }
 
@@ -1008,8 +1063,8 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
           if (!sesionLocal) return null;
           const extendida = {
             ...sesionLocal,
-            expires_in: 3600,
-            expires_at: Math.floor(Date.now() / 1000) + 3600
+            expires_in: 300,
+            expires_at: Math.floor(Date.now() / 1000) + 300
           };
           return new Response(JSON.stringify(extendida), {
             status: 200,
@@ -1029,7 +1084,10 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
             res.clone().json().then(d => guardarBackupSesionLocal(d)).catch(() => {});
             return res;
           }
-          // Si falla el servidor o hay portal cautivo/error en campo, conservar sesión local
+          if ((res.status === 400 || res.status === 401 || res.status === 403) && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('offline-auth-required'));
+          }
+          // Si falla el servidor o hay portal cautivo/error en campo, conservar sesión local de lectura
           const localResp = responderRefreshLocal();
           if (localResp) return localResp;
           return res;
@@ -1118,7 +1176,21 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
   const isNetworkFirst = Boolean(init.signal && NETWORK_FIRST_SIGNALS.has(init.signal));
 
   const intentarConRefresh401 = async (reqInit: RequestInit, timeoutMs: number): Promise<Response> => {
-    let res = await conTimeout(url, reqInit, timeoutMs);
+    let effectiveInit = reqInit;
+    const authHeader = headers.get('authorization') || headers.get('Authorization');
+    if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+      const bearer = authHeader.slice(7).trim();
+      if (jwtEstaExpirado(bearer, 15)) {
+        const nuevoToken = await refrescarTokenDirecto();
+        if (nuevoToken) {
+          const preHeaders = new Headers(headers);
+          preHeaders.set('Authorization', `Bearer ${nuevoToken}`);
+          effectiveInit = { ...reqInit, headers: preHeaders };
+        }
+      }
+    }
+
+    let res = await conTimeout(url, effectiveInit, timeoutMs);
     if (res.status === 401) {
       const nuevoToken = await refrescarTokenDirecto();
       if (nuevoToken) {
@@ -1236,12 +1308,17 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
         }
       } catch { /* noop */ }
 
-      // Disparamos la petición a la red con timeout corto (2.5s) y renovación automática ante 401
+      let sirvioCache = false;
+
+      // Disparamos la petición a la red y renovamos JWT ante 401; si vence la carrera, revalidamos en segundo plano
       const fetchRed = intentarConRefresh401(init, TIMEOUT_LECTURA_MS)
         .then(async (res) => {
           if (res.ok) {
             setConexionDegradada(false);
-            void guardarCache(key, url, method, bodyStr, headers, res.clone(), info.tabla);
+            const cambio = await guardarCache(key, url, method, bodyStr, headers, res.clone(), info.tabla);
+            if (sirvioCache && cambio && typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('offline-cache-revalidated', { detail: { tabla: info.tabla, key } }));
+            }
             return res;
           }
           if (res.status >= 500) {
@@ -1267,6 +1344,7 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
         return redRapida;
       }
 
+      sirvioCache = true;
       return cachedResp;
     }
 

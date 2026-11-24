@@ -1,6 +1,11 @@
 import { supabase } from './supabase';
 import { localDB, type HttpWriteQueueItem } from './db';
-import { etiquetaOperacion } from './httpOffline';
+import {
+  etiquetaOperacion,
+  jwtEstaExpirado,
+  leerSesionLocalSupabase,
+  refrescarTokenEstado
+} from './httpOffline';
 
 export interface LineaResumenSync {
   etiqueta: string;
@@ -14,6 +19,10 @@ export interface ResumenSincronizacion {
   exitosos: number;
   fallidos: number;
   errores: string[];
+  pendientesLineas?: LineaResumenSync[];
+  pendientesTotal?: number;
+  bloqueoMotivo?: string;
+  authRequired?: boolean;
 }
 
 const SYNC_EVENT = 'agrogestion-sync-resumen';
@@ -25,13 +34,70 @@ export function anunciarResumenSync(resumen: ResumenSincronizacion) {
 }
 export const SYNC_EVENT_NAME = SYNC_EVENT;
 
-async function obtenerToken(): Promise<string | null> {
+async function obtenerTokenValido(): Promise<{ token: string | null; authInvalid: boolean }> {
   try {
     const { data } = await supabase.auth.getSession();
-    return data.session?.access_token || null;
-  } catch {
-    return null;
+    const sessionToken = data.session?.access_token;
+    if (sessionToken && !jwtEstaExpirado(sessionToken, 30)) {
+      return { token: sessionToken, authInvalid: false };
+    }
+  } catch { /* fallback below */ }
+
+  // Verificar si la copia local en localStorage tiene un token vigente
+  const sesionLocal = leerSesionLocalSupabase();
+  if (sesionLocal?.access_token && !jwtEstaExpirado(sesionLocal.access_token, 30)) {
+    return { token: String(sesionLocal.access_token), authInvalid: false };
   }
+
+  // El JWT expiró o falta: renovar directamente contra Supabase (sin respuesta falsa local)
+  const refreshed = await refrescarTokenEstado();
+  if (refreshed.token) {
+    if (refreshed.refreshToken) {
+      try {
+        await supabase.auth.setSession({
+          access_token: refreshed.token,
+          refresh_token: refreshed.refreshToken
+        });
+      } catch { /* localStorage ya quedó actualizado por refrescarTokenEstado */ }
+    }
+    return { token: refreshed.token, authInvalid: false };
+  }
+  return { token: null, authInvalid: refreshed.authInvalid };
+}
+
+export async function obtenerResumenPendientesLocales(): Promise<{
+  total: number;
+  lineas: LineaResumenSync[];
+}> {
+  const mapa = new Map<string, number>();
+  const sumar = (etiqueta: string, n: number) => {
+    if (n <= 0) return;
+    mapa.set(etiqueta, (mapa.get(etiqueta) || 0) + n);
+  };
+
+  try {
+    const [httpOps, pesajes, aforos, compras] = await Promise.all([
+      localDB.httpWriteQueue.filter(op => op.status !== 'failed').toArray(),
+      localDB.pesajesOfflineQueue.filter(x => x.status_sync === 'pending' || x.status_sync === 'syncing').count(),
+      localDB.aforosOfflineQueue.filter(x => x.status_sync === 'pending' || x.status_sync === 'syncing').count(),
+      localDB.comprasOfflineQueue.filter(x => x.status_sync === 'pending' || x.status_sync === 'syncing').count()
+    ]);
+
+    for (const op of httpOps) {
+      sumar(etiquetaOperacion(op.method, op.tabla), op.filas || 1);
+    }
+    sumar('Pendientes · pesajes', pesajes);
+    sumar('Pendientes · aforos', aforos);
+    sumar('Pendientes · lotes de compra', compras);
+  } catch { /* noop */ }
+
+  let total = 0;
+  const lineas: LineaResumenSync[] = [];
+  for (const [etiqueta, cantidad] of mapa.entries()) {
+    total += cantidad;
+    lineas.push({ etiqueta, cantidad, ok: true });
+  }
+  return { total, lineas };
 }
 
 export async function contarEscriturasPendientes(): Promise<number> {
@@ -94,11 +160,15 @@ export async function sincronizarColaHttp(): Promise<{
   errores: number;
   lineas: LineaResumenSync[];
   mensajesError: string[];
+  authRequired: boolean;
+  bloqueoMotivo?: string;
 }> {
   const lineasMap = new Map<string, LineaResumenSync>();
   const mensajesError: string[] = [];
   let procesados = 0;
   let errores = 0;
+  let authRequired = false;
+  let bloqueoMotivo: string | undefined;
 
   const sumar = (op: HttpWriteQueueItem, ok: boolean) => {
     const etiqueta = etiquetaOperacion(op.method, op.tabla);
@@ -111,11 +181,23 @@ export async function sincronizarColaHttp(): Promise<{
   const pendientes = (await localDB.httpWriteQueue.orderBy('ts').toArray()).filter(
     op => op.status !== 'failed'
   );
-  if (pendientes.length === 0) return { procesados: 0, errores: 0, lineas: [], mensajesError };
+  if (pendientes.length === 0) {
+    return { procesados: 0, errores: 0, lineas: [], mensajesError, authRequired: false };
+  }
 
-  let token = await obtenerToken();
+  const tokenState = await obtenerTokenValido();
+  let token = tokenState.token;
   const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-  if (!token) return { procesados: 0, errores: 0, lineas: [], mensajesError };
+  if (!token) {
+    authRequired = tokenState.authInvalid || Boolean(leerSesionLocalSupabase());
+    bloqueoMotivo = authRequired
+      ? 'Tu sesión expiró mientras trabajabas offline. Inicia sesión nuevamente para subir los registros pendientes (tus datos locales están a salvo).'
+      : 'No hay una sesión activa válida para subir los registros pendientes.';
+    if (authRequired && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('offline-auth-required'));
+    }
+    return { procesados: 0, errores: 0, lineas: [], mensajesError, authRequired, bloqueoMotivo };
+  }
   let yaRefrescoToken = false;
 
   for (const op of pendientes) {
@@ -127,21 +209,31 @@ export async function sincronizarColaHttp(): Promise<{
         signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(30000) : undefined
       });
 
-      // Si el JWT expiró mientras estábamos en potrero, renovarlo con el servidor real y reintentar
+      // Si el JWT expiró, renovarlo directamente contra Supabase (nunca usar respuesta offline falsa)
       if (res.status === 401 && !yaRefrescoToken) {
         yaRefrescoToken = true;
-        try {
-          const { data } = await supabase.auth.refreshSession();
-          if (data.session?.access_token) {
-            token = data.session.access_token;
-            res = await fetch(op.url, {
-              method: op.method,
-              headers: { ...op.headers, apikey, Authorization: `Bearer ${token}` },
-              body: op.body,
-              signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(30000) : undefined
-            });
+        const refreshed = await refrescarTokenEstado();
+        if (refreshed.token) {
+          token = refreshed.token;
+          if (refreshed.refreshToken) {
+            try {
+              await supabase.auth.setSession({
+                access_token: refreshed.token,
+                refresh_token: refreshed.refreshToken
+              });
+            } catch { /* noop */ }
           }
-        } catch { /* noop */ }
+          res = await fetch(op.url, {
+            method: op.method,
+            headers: { ...op.headers, apikey, Authorization: `Bearer ${token}` },
+            body: op.body,
+            signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(30000) : undefined
+          });
+        } else if (refreshed.authInvalid) {
+          authRequired = true;
+          bloqueoMotivo = 'Tu sesión expiró. Inicia sesión nuevamente para subir los registros pendientes (tus datos locales no se perderán).';
+          break;
+        }
       }
 
       if (res.ok) {
@@ -152,10 +244,18 @@ export async function sincronizarColaHttp(): Promise<{
       }
 
       // Sin sesión válida o servidor caído: se detiene preservando orden FIFO y se reintenta luego
-      if (res.status === 401 || res.status >= 500) {
-        if (res.status === 401 && typeof window !== 'undefined') {
+      if (res.status === 401) {
+        authRequired = true;
+        bloqueoMotivo = 'No se pudo validar la sesión con el servidor (401). Cierra sesión o vuelve a iniciar sesión para subir los registros pendientes.';
+        if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('offline-jwt-expired'));
+          window.dispatchEvent(new CustomEvent('offline-auth-required'));
         }
+        break;
+      }
+
+      if (res.status >= 500) {
+        bloqueoMotivo = `El servidor respondió con un error temporal (${res.status}). Se reintentará automáticamente.`;
         break;
       }
 
@@ -182,13 +282,14 @@ export async function sincronizarColaHttp(): Promise<{
       sumar(op, false);
       mensajesError.push(`${etiquetaOperacion(op.method, op.tabla)}: ${detalle}`);
     } catch {
-      // Sin red todavía: se conserva todo lo que falta
+      // Sin red todavía o timeout: se conserva todo lo que falta
+      bloqueoMotivo = 'La conexión con el servidor falló o expiró durante la subida. Tus datos siguen guardados en el celular.';
       break;
     }
   }
 
   window.dispatchEvent(new CustomEvent('offline-queue-changed'));
-  return { procesados, errores, lineas: Array.from(lineasMap.values()), mensajesError };
+  return { procesados, errores, lineas: Array.from(lineasMap.values()), mensajesError, authRequired, bloqueoMotivo };
 }
 
 /**
@@ -196,7 +297,7 @@ export async function sincronizarColaHttp(): Promise<{
  * para que los datos locales queden al día antes de salir al campo.
  */
 export async function refrescarCacheLecturas(maxItems = 300): Promise<number> {
-  const token = await obtenerToken();
+  const { token } = await obtenerTokenValido();
   if (!token) return 0;
   const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
@@ -162,21 +163,29 @@ export default function Inventory() {
                     .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio')
                     .eq('id_finca', fincaId)
                     .single(),
-                supabase
-                    .from('animales')
-                    .select(`
-                        id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
-                        peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
-                        peso_ingreso_ceba, estado, id_potrerada, creado_en,
-                        potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                        potreros ( nombre )
-                    `)
-                    .eq('id_finca', fincaId)
-                    .eq('estado', 'activo')
-                    .or('is_deleted.is.null,is_deleted.eq.false')
-                    .order('creado_en', { ascending: false })
-                    .limit(50000),
-                supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(50000),
+                fetchAllSupabasePages((from, to) =>
+                    supabase
+                        .from('animales')
+                        .select(`
+                            id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
+                            peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba,
+                            peso_ingreso_ceba, estado, id_potrerada, creado_en,
+                            potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+                            potreros ( nombre )
+                        `)
+                        .eq('id_finca', fincaId)
+                        .eq('estado', 'activo')
+                        .or('is_deleted.is.null,is_deleted.eq.false')
+                        .order('creado_en', { ascending: false })
+                        .order('id', { ascending: true })
+                        .range(from, to)
+                ),
+                fetchAllSupabasePages((from, to) =>
+                    supabase
+                        .rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId })
+                        .order('id_animal', { ascending: true })
+                        .range(from, to)
+                ),
                 supabase
                     .from('potreradas')
                     .select('id, nombre, etapa')
@@ -288,9 +297,23 @@ export default function Inventory() {
 
     useEffect(() => {
         fetchAnimales();
-        const onSyncCompleted = () => { void fetchAnimales(); };
-        window.addEventListener('offline-sync-completed', onSyncCompleted);
-        return () => window.removeEventListener('offline-sync-completed', onSyncCompleted);
+        const tablasInv = new Set(['animales', 'registros_pesaje', 'potreradas', 'potreros']);
+        let timerReval: ReturnType<typeof setTimeout> | null = null;
+        const refrescar = () => {
+            if (timerReval) clearTimeout(timerReval);
+            timerReval = setTimeout(() => { void fetchAnimales(); }, 250);
+        };
+        const onRevalidated = (e: Event) => {
+            const tabla = (e as CustomEvent<{ tabla?: string }>).detail?.tabla;
+            if (tabla && tablasInv.has(tabla)) refrescar();
+        };
+        window.addEventListener('offline-sync-completed', refrescar);
+        window.addEventListener('offline-cache-revalidated', onRevalidated);
+        return () => {
+            if (timerReval) clearTimeout(timerReval);
+            window.removeEventListener('offline-sync-completed', refrescar);
+            window.removeEventListener('offline-cache-revalidated', onRevalidated);
+        };
     }, [fincaId]);
 
     const handleSort = (field: string) => {

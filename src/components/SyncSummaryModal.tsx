@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { CloudUpload, CheckCircle2, AlertTriangle, RefreshCw, Trash2, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { CloudUpload, CheckCircle2, AlertTriangle, RefreshCw, Trash2, X, LogIn, Clock } from 'lucide-react';
 import { SYNC_EVENT_NAME, type ResumenSincronizacion } from '../lib/syncService';
 import { localDB } from '../lib/db';
 import { etiquetaOperacion } from '../lib/httpOffline';
+import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useModalDialog } from '../hooks/useModalDialog';
 import './SyncSummaryModal.css';
@@ -56,7 +58,9 @@ export default function SyncSummaryModal() {
   const [resumen, setResumen] = useState<ResumenSincronizacion | null>(null);
   const [procesandoAccion, setProcesandoAccion] = useState(false);
   const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
-  const { isOnline, conteoFallidosTotal, reintentarFallidos, descartarFallidos } = useConnection();
+  const navigate = useNavigate();
+  const { signOut, fincaId } = useAuth();
+  const { isOnline, conteoFallidosTotal, reintentarFallidos, descartarFallidos, sincronizarTodo } = useConnection();
 
   const cerrarModal = () => {
     if (procesandoAccion) return;
@@ -86,9 +90,11 @@ export default function SyncSummaryModal() {
     };
   }, []);
 
-  const hayErrores = Boolean(resumen && (resumen.fallidos > 0 || conteoFallidosTotal > 0));
+  const hayErrores = Boolean(resumen && (resumen.fallidos > 0 || conteoFallidosTotal > 0 || resumen.authRequired || resumen.bloqueoMotivo));
   const exitosas = resumen ? resumen.lineas.filter(l => l.ok) : [];
   const fallidas = resumen ? resumen.lineas.filter(l => !l.ok) : [];
+  const pendientesLineas = resumen?.pendientesLineas || [];
+  const pendientesTotal = resumen?.pendientesTotal || 0;
   const hora = resumen
     ? new Date(resumen.fecha).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
     : '';
@@ -98,7 +104,22 @@ export default function SyncSummaryModal() {
     setConfirmandoDescarte(false);
     setResumen(null);
     try {
-      await reintentarFallidos();
+      if (conteoFallidosTotal > 0) {
+        await reintentarFallidos();
+      } else {
+        await sincronizarTodo(fincaId || '', { manual: true });
+      }
+    } finally {
+      setProcesandoAccion(false);
+    }
+  };
+
+  const handleReingresar = async () => {
+    setProcesandoAccion(true);
+    try {
+      setResumen(null);
+      await signOut();
+      navigate('/login');
     } finally {
       setProcesandoAccion(false);
     }
@@ -165,6 +186,33 @@ export default function SyncSummaryModal() {
             </ul>
           )}
 
+          {pendientesLineas.length > 0 && (
+            <ul className="sync-summary-list">
+              {pendientesLineas.map((l, i) => (
+                <li key={`pend-${i}`} className="sync-summary-item">
+                  <Clock size={18} color="var(--warning)" aria-hidden="true" />
+                  <span className="sync-summary-item-label">Por subir: {l.etiqueta}</span>
+                  <b>{l.cantidad}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {(resumen.bloqueoMotivo || resumen.authRequired) && (
+            <div className="sync-summary-errors">
+              <div className="sync-summary-errors-title">
+                <AlertTriangle size={18} aria-hidden="true" />
+                <span>{resumen.authRequired ? 'Sesión vencida' : 'Sincronización pausada'}</span>
+              </div>
+              <p className="sync-summary-errors-hint" style={{ marginTop: '6px' }}>
+                {resumen.bloqueoMotivo || 'Inicia sesión nuevamente para subir los registros pendientes.'}
+              </p>
+              <p className="sync-summary-errors-hint" style={{ marginTop: '4px' }}>
+                Tus {pendientesTotal || 'registros'} pendientes siguen guardados de forma segura en este dispositivo y no se perderán.
+              </p>
+            </div>
+          )}
+
           {(fallidas.length > 0 || resumen.errores.length > 0) && (
             <div className="sync-summary-errors">
               <div className="sync-summary-errors-title">
@@ -182,26 +230,39 @@ export default function SyncSummaryModal() {
           )}
 
           <div className="sync-summary-actions">
-            {hayErrores && (
+            {resumen.authRequired && (
+              <button
+                type="button"
+                onClick={handleReingresar}
+                disabled={procesandoAccion}
+                className="sync-summary-btn sync-summary-btn--retry"
+              >
+                <LogIn size={16} aria-hidden="true" />
+                <span>Iniciar sesión para sincronizar</span>
+              </button>
+            )}
+            {(resumen.fallidos > 0 || conteoFallidosTotal > 0 || (!resumen.authRequired && pendientesTotal > 0)) && (
               <div className="sync-summary-error-actions">
                 <button
                   type="button"
                   onClick={handleReintentar}
-                  disabled={procesandoAccion || !isOnline}
+                  disabled={procesandoAccion || (!isOnline && conteoFallidosTotal > 0)}
                   className="sync-summary-btn sync-summary-btn--retry"
                 >
                   <RefreshCw size={16} aria-hidden="true" />
-                  <span>{isOnline ? 'Reintentar fallidos' : 'Sin señal para reintentar'}</span>
+                  <span>{isOnline ? 'Reintentar ahora' : 'Reintentar conexión'}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={handleDescartar}
-                  disabled={procesandoAccion}
-                  className={`sync-summary-btn ${confirmandoDescarte ? 'sync-summary-btn--discard-confirm' : 'sync-summary-btn--discard'}`}
-                >
-                  <Trash2 size={16} aria-hidden="true" />
-                  <span>{confirmandoDescarte ? 'Confirmar descarte' : 'Descartar errores'}</span>
-                </button>
+                {(resumen.fallidos > 0 || conteoFallidosTotal > 0) && (
+                  <button
+                    type="button"
+                    onClick={handleDescartar}
+                    disabled={procesandoAccion}
+                    className={`sync-summary-btn ${confirmandoDescarte ? 'sync-summary-btn--discard-confirm' : 'sync-summary-btn--discard'}`}
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    <span>{confirmandoDescarte ? 'Confirmar descarte' : 'Descartar errores'}</span>
+                  </button>
+                )}
               </div>
             )}
 

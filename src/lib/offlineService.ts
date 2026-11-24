@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { isConexionDegradada, isModoCampoActivo, registrarNetworkFirstSignal } from './httpOffline';
+import { fetchAllSupabasePages } from './supabasePagination';
 import { contarEscriturasPendientes } from './syncService';
 import { calcularMetricasMapaPotreradas } from '../utils/ganancia';
 import { parseDecimalInput } from '../utils/decimalInput';
@@ -109,124 +110,141 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
     ] = await Promise.all([
       // 1. Animales activos con pesajes completos (para Inventario, Potreradas, Pesajes)
       safe(
-        supabase
-          .from('animales')
-          .select(`
-            id, numero_chapeta, nombre_propietario, etapa, estado,
-            peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba,
-            id_potrerada, id_potrero_actual,
-            potreros ( nombre ),
-            potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-            registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
-          `)
-          .eq('id_finca', fincaId)
-          .eq('estado', 'activo')
-          .or('is_deleted.is.null,is_deleted.eq.false')
-          .order('fecha', { foreignTable: 'registros_pesaje', ascending: false })
-          .limit(20000)
-          .abortSignal(syncCtrl.signal),
+        fetchAllSupabasePages((from, to) =>
+          supabase
+            .from('animales')
+            .select(`
+              id, numero_chapeta, nombre_propietario, etapa, estado,
+              peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba,
+              id_potrerada, id_potrero_actual,
+              potreros ( nombre ),
+              potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+              registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
+            `)
+            .eq('id_finca', fincaId)
+            .eq('estado', 'activo')
+            .or('is_deleted.is.null,is_deleted.eq.false')
+            .order('id', { ascending: true })
+            .order('fecha', { foreignTable: 'registros_pesaje', ascending: false })
+            .range(from, to)
+            .abortSignal(syncCtrl.signal)
+        ),
         'animales_activos'
       ),
 
-      // 2. Animales completos para Dashboard.tsx (coincidencia exacta de URL)
+      // 2. Animales completos para Dashboard.tsx (coincidencia exacta de URL paginada)
       safe(
-        supabase
-          .from('animales')
-          .select(`
-            id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
-            fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
-            id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
-            potreros ( nombre ),
-            potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-            registros_pesaje (
-                id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted
-            )
-          `)
-          .eq('id_finca', fincaId)
-          .or('is_deleted.is.null,is_deleted.eq.false')
-          .limit(10000)
-          .abortSignal(syncCtrl.signal),
+        fetchAllSupabasePages((from, to) =>
+          supabase
+            .from('animales')
+            .select(`
+              id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
+              fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
+              id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
+              potreros ( nombre ),
+              potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+              registros_pesaje (
+                  id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted
+              )
+            `)
+            .eq('id_finca', fincaId)
+            .or('is_deleted.is.null,is_deleted.eq.false')
+            .order('id', { ascending: true })
+            .range(from, to)
+            .abortSignal(syncCtrl.signal)
+        ),
         'animales_dashboard'
       ),
 
       // 3. Animales vendidos completos (para Historial de Ventas)
       safe(
-        supabase
-          .from('animales')
-          .select(`
-            id, 
-            numero_chapeta, 
-            nombre_propietario,
-            comprador_venta,
-            fecha_venta,
-            peso_venta,
-            peso_ingreso,
-            peso_compra,
-            fecha_ingreso,
-            etapa,
-            fecha_ingreso_ceba,
-            peso_ingreso_ceba,
-            es_emergencia,
-            precio_venta,
-            observaciones_venta,
-            potreros (nombre),
-            registros_pesaje (
-                peso,
-                fecha,
-                etapa,
-                gdp_calculada,
-                is_deleted
-            )
-          `)
-          .eq('id_finca', fincaId)
-          .eq('estado', 'vendido')
-          .order('fecha_venta', { ascending: false })
-          .abortSignal(syncCtrl.signal),
+        fetchAllSupabasePages((from, to) =>
+          supabase
+            .from('animales')
+            .select(`
+              id, 
+              numero_chapeta, 
+              nombre_propietario,
+              comprador_venta,
+              fecha_venta,
+              peso_venta,
+              peso_ingreso,
+              peso_compra,
+              fecha_ingreso,
+              etapa,
+              fecha_ingreso_ceba,
+              peso_ingreso_ceba,
+              es_emergencia,
+              precio_venta,
+              observaciones_venta,
+              potreros (nombre),
+              registros_pesaje (
+                  peso,
+                  fecha,
+                  etapa,
+                  gdp_calculada,
+                  is_deleted
+              )
+            `)
+            .eq('id_finca', fincaId)
+            .eq('estado', 'vendido')
+            .order('fecha_venta', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to)
+            .abortSignal(syncCtrl.signal)
+        ),
         'animales_vendidos'
       ),
 
       // 4. Animales vendidos en lotes (para Gestión de Lotes)
       safe(
-        supabase
-          .from('animales')
-          .select(`
-            id, numero_chapeta, nombre_propietario, id_potrerada,
-            peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
-            potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
-          `)
-          .eq('id_finca', fincaId)
-          .eq('estado', 'vendido')
-          .not('id_potrerada', 'is', null)
-          .limit(10000)
-          .abortSignal(syncCtrl.signal),
+        fetchAllSupabasePages((from, to) =>
+          supabase
+            .from('animales')
+            .select(`
+              id, numero_chapeta, nombre_propietario, id_potrerada,
+              peso_ingreso, peso_compra, fecha_ingreso, etapa, estado,
+              potreradas:potreradas!animales_id_potrerada_fkey ( nombre )
+            `)
+            .eq('id_finca', fincaId)
+            .eq('estado', 'vendido')
+            .not('id_potrerada', 'is', null)
+            .order('id', { ascending: true })
+            .range(from, to)
+            .abortSignal(syncCtrl.signal)
+        ),
         'animales_vendidos_lotes'
       ),
 
       // 5. Animales comprados completos (para Historial de Compras)
       safe(
-        supabase
-          .from('animales')
-          .select(`
-            id, 
-            numero_chapeta, 
-            nombre_propietario,
-            potreros(nombre),
-            proveedor_compra,
-            fecha_ingreso,
-            peso_ingreso,
-            peso_compra,
-            etapa,
-            registros_pesaje (
-                peso,
-                fecha,
-                gdp_calculada,
-                is_deleted
-            )
-          `)
-          .eq('id_finca', fincaId)
-          .not('proveedor_compra', 'is', null)
-          .order('fecha_ingreso', { ascending: false })
-          .abortSignal(syncCtrl.signal),
+        fetchAllSupabasePages((from, to) =>
+          supabase
+            .from('animales')
+            .select(`
+              id, 
+              numero_chapeta, 
+              nombre_propietario,
+              potreros(nombre),
+              proveedor_compra,
+              fecha_ingreso,
+              peso_ingreso,
+              peso_compra,
+              etapa,
+              registros_pesaje (
+                  peso,
+                  fecha,
+                  gdp_calculada,
+                  is_deleted
+              )
+            `)
+            .eq('id_finca', fincaId)
+            .not('proveedor_compra', 'is', null)
+            .order('fecha_ingreso', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to)
+            .abortSignal(syncCtrl.signal)
+        ),
         'animales_compras'
       ),
 
@@ -318,15 +336,18 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         'movimientos_potreros'
       ),
 
-      // 13. Registros de lluvia (Dashboard.tsx exact query)
+      // 13. Registros de lluvia (Dashboard.tsx exact query paginada)
       safe(
-        supabase
-          .from('registros_lluvia')
-          .select('fecha, milimetros, id_pluviometro')
-          .eq('id_finca', fincaId)
-          .order('fecha', { ascending: true })
-          .limit(50000)
-          .abortSignal(syncCtrl.signal),
+        fetchAllSupabasePages((from, to) =>
+          supabase
+            .from('registros_lluvia')
+            .select('fecha, milimetros, id_pluviometro')
+            .eq('id_finca', fincaId)
+            .order('fecha', { ascending: true })
+            .order('id', { ascending: true })
+            .range(from, to)
+            .abortSignal(syncCtrl.signal)
+        ),
         'lluvias_dashboard'
       ),
 
@@ -342,13 +363,16 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
         'pluviometros_finca'
       ),
       safe(
-        supabase
-          .from('registros_lluvia')
-          .select('*')
-          .eq('id_finca', fincaId)
-          .order('fecha', { ascending: false })
-          .limit(10000)
-          .abortSignal(syncCtrl.signal),
+        fetchAllSupabasePages((from, to) =>
+          supabase
+            .from('registros_lluvia')
+            .select('*')
+            .eq('id_finca', fincaId)
+            .order('fecha', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to)
+            .abortSignal(syncCtrl.signal)
+        ),
         'lluvias_pluvio'
       ),
 
@@ -1079,6 +1103,20 @@ export async function descartarColasOfflineFallidas(fincaId?: string): Promise<n
   return total;
 }
 
+function esErrorTransitorioOAuth(err: any): { transitorio: boolean; auth: boolean } {
+  const status = Number(err?.status || err?.statusCode || 0);
+  const msg = String(err?.message || '').toLowerCase();
+  const auth = status === 401 || /jwt|expired|not authenticated|unauthorized|invalid claim/.test(msg);
+  const transitorio =
+    auth ||
+    status >= 500 ||
+    err instanceof TypeError ||
+    err?.name === 'TimeoutError' ||
+    err?.name === 'AbortError' ||
+    /failed to fetch|network|timeout|load failed/.test(msg);
+  return { transitorio, auth };
+}
+
 /**
  * 2. Procesa las colas dedicadas offline pendientes ('pending'), dejando intactas las fallidas ('failed')
  * para que el usuario decida si reintentar o descartar desde la UI (sin ciclos infinitos cada 30s).
@@ -1091,13 +1129,14 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
   compras: number;
   ventas: number;
   mensajesError: string[];
+  authRequired?: boolean;
 }> {
-  if (!fincaId || !navigator.onLine || isModoCampoActivo() || isConexionDegradada()) {
+  if (!navigator.onLine || isModoCampoActivo() || isConexionDegradada()) {
     return { procesados: 0, errores: 0, pesajes: 0, aforos: 0, compras: 0, ventas: 0, mensajesError: [] };
   }
 
   await normalizarColasAtascadas();
-  await migrarComprasLegacyLocalStorage(fincaId);
+  if (fincaId) await migrarComprasLegacyLocalStorage(fincaId);
 
   let procesados = 0;
   let errores = 0;
@@ -1105,14 +1144,20 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
   let aforosOk = 0;
   let comprasOk = 0;
   let ventasOk = 0;
+  let authRequired = false;
   const mensajesError: string[] = [];
 
+  const ordenarFincaActualPrimero = <T extends { id_finca: string }>(arr: T[]) =>
+    fincaId
+      ? [...arr].sort((a, b) => (a.id_finca === fincaId ? 0 : 1) - (b.id_finca === fincaId ? 0 : 1))
+      : arr;
+
   // --- Sincronizar Pesajes pendientes (legacy / transición) ---
-  const pesajesPendientes = await localDB.pesajesOfflineQueue
-    .where('id_finca')
-    .equals(fincaId)
-    .and((item: PesajeOfflineQueueItem) => item.status_sync === 'pending')
-    .toArray();
+  const pesajesPendientes = ordenarFincaActualPrimero(
+    await localDB.pesajesOfflineQueue
+      .filter((item: PesajeOfflineQueueItem) => item.status_sync === 'pending')
+      .toArray()
+  );
 
   for (const p of pesajesPendientes) {
     try {
@@ -1134,6 +1179,12 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
       procesados++;
       pesajesOk++;
     } catch (err: any) {
+      const { transitorio, auth } = esErrorTransitorioOAuth(err);
+      if (transitorio) {
+        if (auth) authRequired = true;
+        await localDB.pesajesOfflineQueue.update(p.id, { status_sync: 'pending' });
+        break;
+      }
       const msg = err?.message || 'Error desconocido';
       console.error(`[OfflineSync] Error al sincronizar pesaje ${p.id}:`, err);
       await localDB.pesajesOfflineQueue.update(p.id, {
@@ -1146,11 +1197,11 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
   }
 
   // --- Sincronizar Aforos pendientes (legacy / transición) ---
-  const aforosPendientes = await localDB.aforosOfflineQueue
-    .where('id_finca')
-    .equals(fincaId)
-    .and((item: AforoOfflineQueueItem) => item.status_sync === 'pending')
-    .toArray();
+  const aforosPendientes = ordenarFincaActualPrimero(
+    await localDB.aforosOfflineQueue
+      .filter((item: AforoOfflineQueueItem) => item.status_sync === 'pending')
+      .toArray()
+  );
 
   for (const a of aforosPendientes) {
     try {
@@ -1159,7 +1210,7 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
       const kgM2 = Number(((a.gramos_m2 || 0) / 1000).toFixed(3));
       const { error } = await supabase.from('registros_aforo').insert({
         id: a.id,
-        id_finca: a.id_finca,
+        id_finca: a.id_finca || fincaId,
         id_potrero: a.id_potrero,
         fecha: a.fecha,
         muestras: [kgM2],
@@ -1174,6 +1225,12 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
       procesados++;
       aforosOk++;
     } catch (err: any) {
+      const { transitorio, auth } = esErrorTransitorioOAuth(err);
+      if (transitorio) {
+        if (auth) authRequired = true;
+        await localDB.aforosOfflineQueue.update(a.id, { status_sync: 'pending' });
+        break;
+      }
       const msg = err?.message || 'Error desconocido';
       console.error(`[OfflineSync] Error al sincronizar aforo ${a.id}:`, err);
       await localDB.aforosOfflineQueue.update(a.id, {
@@ -1185,14 +1242,16 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
     }
   }
 
-  // --- Sincronizar Compras en Dexie scoped por id_finca ---
-  const comprasPendientes = await localDB.comprasOfflineQueue
-    .where('id_finca')
-    .equals(fincaId)
-    .and((item: CompraOfflineQueueItem) => item.status_sync === 'pending')
-    .sortBy('ts');
+  // --- Sincronizar Compras en Dexie (respetando el id_finca propio de cada compra) ---
+  const comprasPendientes = ordenarFincaActualPrimero(
+    await localDB.comprasOfflineQueue
+      .filter((item: CompraOfflineQueueItem) => item.status_sync === 'pending')
+      .sortBy('ts')
+  );
 
   for (const payload of comprasPendientes) {
+    const compraFincaId = payload.id_finca || fincaId;
+    if (!compraFincaId) continue;
     try {
       await localDB.comprasOfflineQueue.update(payload.id, { status_sync: 'syncing' });
 
@@ -1207,7 +1266,7 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
       const { data: existentes, error: existErr } = await supabase
         .from('animales')
         .select('numero_chapeta')
-        .eq('id_finca', fincaId)
+        .eq('id_finca', compraFincaId)
         .in('numero_chapeta', chapetas);
 
       if (existErr) throw existErr;
@@ -1218,7 +1277,7 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
 
       const uniquePropietarios = Array.from(new Set((payload.animales || []).map(a => String(a.propietario || '').trim()).filter(Boolean)));
       const potreradasPayload = uniquePropietarios.map(prop => ({
-        id_finca: fincaId,
+        id_finca: compraFincaId,
         nombre: `Levante ${prop}`,
         etapa: 'levante'
       }));
@@ -1255,7 +1314,7 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
         }
         const pesoRedondeado = Math.round(pesoParsed);
         return {
-          id_finca: fincaId,
+          id_finca: compraFincaId,
           numero_chapeta: String(a.numero_chapeta || '').trim().toUpperCase(),
           nombre_propietario: propTrim,
           id_potrerada: payload.selectedPotrerada ? payload.selectedPotrerada : (potreradaIdPorPropietario.get(propTrim) || null),
@@ -1278,7 +1337,7 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
       try {
         await localDB.animalesCache
           .where('id_finca')
-          .equals(fincaId)
+          .equals(compraFincaId)
           .filter(a => a.id.startsWith(`offline_compra_${payload.id}_`))
           .delete();
       } catch { /* noop */ }
@@ -1286,6 +1345,12 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
       procesados++;
       comprasOk++;
     } catch (err: any) {
+      const { transitorio, auth } = esErrorTransitorioOAuth(err);
+      if (transitorio) {
+        if (auth) authRequired = true;
+        await localDB.comprasOfflineQueue.update(payload.id, { status_sync: 'pending' });
+        break;
+      }
       const msg = err?.message || 'Error desconocido';
       console.error(`[OfflineSync] Error al sincronizar compra ${payload.id}:`, err);
       await localDB.comprasOfflineQueue.update(payload.id, {
@@ -1415,6 +1480,6 @@ export async function procesarSincronizacionOffline(fincaId: string): Promise<{
   }
 
   notificarCambioColaOffline();
-  return { procesados, errores, pesajes: pesajesOk, aforos: aforosOk, compras: comprasOk, ventas: ventasOk, mensajesError };
+  return { procesados, errores, pesajes: pesajesOk, aforos: aforosOk, compras: comprasOk, ventas: ventasOk, mensajesError, authRequired };
 }
 

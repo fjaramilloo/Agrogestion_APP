@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
@@ -177,7 +178,26 @@ export default function Rainfall() {
         };
     }, [registros, perfil]);
 
-    useEffect(() => { fetchTodo(); }, [fincaId]);
+    useEffect(() => {
+        void fetchTodo();
+        const tablasLluvia = new Set(['registros_lluvia', 'pluviometros_finca', 'fincas', 'analisis_climatico_finca']);
+        let timerReval: ReturnType<typeof setTimeout> | null = null;
+        const refrescar = () => {
+            if (timerReval) clearTimeout(timerReval);
+            timerReval = setTimeout(() => { void fetchTodo(); }, 250);
+        };
+        const onRevalidated = (e: Event) => {
+            const tabla = (e as CustomEvent<{ tabla?: string }>).detail?.tabla;
+            if (tabla && tablasLluvia.has(tabla)) refrescar();
+        };
+        window.addEventListener('offline-sync-completed', refrescar);
+        window.addEventListener('offline-cache-revalidated', onRevalidated);
+        return () => {
+            if (timerReval) clearTimeout(timerReval);
+            window.removeEventListener('offline-sync-completed', refrescar);
+            window.removeEventListener('offline-cache-revalidated', onRevalidated);
+        };
+    }, [fincaId]);
 
     const openRegistroModal = (fechaInicial?: string) => {
         setModalInitialFecha(fechaInicial);
@@ -215,11 +235,15 @@ export default function Rainfall() {
 
         try {
             const [lluviasRes, pluvRes, fincaRes, diagRes] = await Promise.all([
-                supabase
-                    .from('registros_lluvia')
-                    .select('*')
-                    .eq('id_finca', fincaId)
-                    .order('fecha', { ascending: false }),
+                fetchAllSupabasePages((from, to) =>
+                    supabase
+                        .from('registros_lluvia')
+                        .select('*')
+                        .eq('id_finca', fincaId)
+                        .order('fecha', { ascending: false })
+                        .order('id', { ascending: true })
+                        .range(from, to)
+                ),
                 supabase
                     .from('pluviometros_finca')
                     .select('*')
@@ -257,12 +281,16 @@ export default function Rainfall() {
     const recargarRegistrosYAnalizar = async () => {
         await fetchTodo();
         if (!fincaId) return;
-        const regsActualizados = await supabase
-            .from('registros_lluvia')
-            .select('fecha, milimetros, id_pluviometro')
-            .eq('id_finca', fincaId)
-            .order('fecha', { ascending: false });
-        if (regsActualizados.data) {
+        const regsActualizados = await fetchAllSupabasePages((from, to) =>
+            supabase
+                .from('registros_lluvia')
+                .select('fecha, milimetros, id_pluviometro')
+                .eq('id_finca', fincaId)
+                .order('fecha', { ascending: false })
+                .order('id', { ascending: true })
+                .range(from, to)
+        );
+        if (regsActualizados.data.length > 0) {
             dispararAnalisisIA(regsActualizados.data as any, ubicacionFinca, municipioFinca);
         }
     };

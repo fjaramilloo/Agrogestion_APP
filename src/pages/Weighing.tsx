@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { useAuth } from '../contexts/AuthContext';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useFeedback } from '../contexts/UiFeedbackContext';
@@ -129,18 +130,26 @@ export default function Weighing() {
             }
         } catch { /* noop */ }
 
-        // Si hay conexión, refrescar el diccionario en memoria en una sola consulta ligera en segundo plano
+        // Si hay conexión, refrescar el diccionario en memoria en paralelo paginado (>1000 animales)
         if (isOnline && !modoCampo) {
             try {
                 const [animRes, ultRes] = await Promise.all([
-                    supabase
-                        .from('animales')
-                        .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada, potreradas:potreradas!animales_id_potrerada_fkey(nombre, etapa)')
-                        .eq('id_finca', fincaId)
-                        .eq('estado', 'activo')
-                        .or('is_deleted.is.null,is_deleted.eq.false')
-                        .limit(10000),
-                    supabase.rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId }).limit(20000)
+                    fetchAllSupabasePages((from, to) =>
+                        supabase
+                            .from('animales')
+                            .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada, potreradas:potreradas!animales_id_potrerada_fkey(nombre, etapa)')
+                            .eq('id_finca', fincaId)
+                            .eq('estado', 'activo')
+                            .or('is_deleted.is.null,is_deleted.eq.false')
+                            .order('id', { ascending: true })
+                            .range(from, to)
+                    ),
+                    fetchAllSupabasePages((from, to) =>
+                        supabase
+                            .rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId })
+                            .order('id_animal', { ascending: true })
+                            .range(from, to)
+                    )
                 ]);
 
                 if (animRes.data && animRes.data.length > 0) {

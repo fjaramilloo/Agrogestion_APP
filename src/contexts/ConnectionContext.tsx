@@ -16,10 +16,15 @@ import {
   contarEscriturasConEstado,
   reintentarColaHttpFallida,
   descartarColaHttpFallida,
+  obtenerResumenPendientesLocales,
   anunciarResumenSync,
   type LineaResumenSync
 } from '../lib/syncService';
 import { useAuth } from './AuthContext';
+
+interface SyncOptions {
+  manual?: boolean;
+}
 
 interface ConnectionContextType {
   modoCampo: boolean;
@@ -28,11 +33,12 @@ interface ConnectionContextType {
   isOnline: boolean;
   isRealOnline: boolean;
   syncing: boolean;
+  authRequired: boolean;
   conteoPendienteTotal: number;
   conteoFallidosTotal: number;
   checkRealOnline: () => Promise<boolean>;
   actualizarConteo: () => Promise<number>;
-  sincronizarTodo: (fincaId: string) => Promise<{ procesados: number; errores: number }>;
+  sincronizarTodo: (fincaId: string, options?: SyncOptions) => Promise<{ procesados: number; errores: number }>;
   reintentarFallidos: () => Promise<void>;
   descartarFallidos: () => Promise<void>;
 }
@@ -44,6 +50,7 @@ const ConnectionContext = createContext<ConnectionContextType>({
   isOnline: true,
   isRealOnline: true,
   syncing: false,
+  authRequired: false,
   conteoPendienteTotal: 0,
   conteoFallidosTotal: 0,
   checkRealOnline: async () => true,
@@ -72,6 +79,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [conteoPendienteTotal, setConteoPendienteTotal] = useState<number>(0);
   const [conteoFallidosTotal, setConteoFallidosTotal] = useState<number>(0);
   const [syncing, setSyncing] = useState<boolean>(false);
+  const [authRequired, setAuthRequired] = useState<boolean>(false);
 
   // 2. Ping ultrarrápido a Supabase para verificar si la red realmente transmite datos (rechaza portales cautivos HTML)
   const checkRealOnline = useCallback(async (): Promise<boolean> => {
@@ -241,17 +249,51 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     if (!user) {
       setModoCampoState(false);
+      setAuthRequired(false);
       try { localStorage.removeItem('agrogestion_modo_campo'); } catch {}
     }
   }, [user]);
 
-  const ejecutarSincronizacion = useCallback(async (fincaId: string): Promise<{ procesados: number; errores: number }> => {
+  useEffect(() => {
+    const onAuthReq = () => setAuthRequired(true);
+    window.addEventListener('offline-auth-required', onAuthReq);
+    return () => window.removeEventListener('offline-auth-required', onAuthReq);
+  }, []);
+
+  const ejecutarSincronizacion = useCallback(async (
+    fincaId: string,
+    options?: SyncOptions
+  ): Promise<{ procesados: number; errores: number }> => {
+    const manual = Boolean(options?.manual);
     const modoCampoActual = (() => {
       try { return localStorage.getItem('agrogestion_modo_campo') === 'true'; } catch { return false; }
     })();
-    if (!navigator.onLine || modoCampoActual || !isRealOnline) {
+
+    let onlineAhora = navigator.onLine && !modoCampoActual && isRealOnline;
+    if (manual && !modoCampoActual && navigator.onLine && !onlineAhora) {
+      onlineAhora = await checkRealOnline();
+    }
+
+    if (!onlineAhora) {
+      if (manual) {
+        const pendInfo = await obtenerResumenPendientesLocales();
+        anunciarResumenSync({
+          fecha: new Date().toISOString(),
+          lineas: [],
+          exitosos: 0,
+          fallidos: 0,
+          errores: [],
+          pendientesLineas: pendInfo.lineas,
+          pendientesTotal: pendInfo.total,
+          bloqueoMotivo: modoCampoActual
+            ? 'Tienes el Modo Campo (Forzado) activado. Desactívalo en la barra superior para subir estos registros.'
+            : 'El celular no tiene conexión real a internet en este momento. Tus registros están seguros en la memoria local.'
+        });
+      }
       return { procesados: 0, errores: 0 };
     }
+
+    setConexionDegradada(false);
 
     if (syncInFlightRef.current) {
       resyncRequestedRef.current = fincaId;
@@ -268,32 +310,37 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const lineas: LineaResumenSync[] = [];
         const mensajesError: string[] = [];
 
-        // a) Colas dedicadas (compras y registros legacy pendientes)
-        if (fincaId) {
-          const r1 = await procesarSincronizacionOffline(fincaId);
-          totalProcesados += r1.procesados;
-          totalErrores += r1.errores;
-          if (r1.pesajes) lineas.push({ etiqueta: 'Creados · pesajes', cantidad: r1.pesajes, ok: true });
-          if (r1.aforos) lineas.push({ etiqueta: 'Creados · aforos', cantidad: r1.aforos, ok: true });
-          if (r1.compras) lineas.push({ etiqueta: 'Creados · lotes de compra', cantidad: r1.compras, ok: true });
-          if (r1.ventas) lineas.push({ etiqueta: 'Procesadas · ventas', cantidad: r1.ventas, ok: true });
-          if (r1.errores) lineas.push({ etiqueta: 'Registros offline con error', cantidad: r1.errores, ok: false });
-          if (r1.mensajesError?.length) mensajesError.push(...r1.mensajesError);
-        }
+        // a) Colas dedicadas (compras y registros legacy pendientes de cualquier finca)
+        const r1 = await procesarSincronizacionOffline(fincaId);
+        totalProcesados += r1.procesados;
+        totalErrores += r1.errores;
+        if (r1.pesajes) lineas.push({ etiqueta: 'Creados · pesajes', cantidad: r1.pesajes, ok: true });
+        if (r1.aforos) lineas.push({ etiqueta: 'Creados · aforos', cantidad: r1.aforos, ok: true });
+        if (r1.compras) lineas.push({ etiqueta: 'Creados · lotes de compra', cantidad: r1.compras, ok: true });
+        if (r1.ventas) lineas.push({ etiqueta: 'Procesadas · ventas', cantidad: r1.ventas, ok: true });
+        if (r1.errores) lineas.push({ etiqueta: 'Registros offline con error', cantidad: r1.errores, ok: false });
+        if (r1.mensajesError?.length) mensajesError.push(...r1.mensajesError);
 
-        // b) Cola HTTP unificada (pesajes, aforos, rotaciones, movimientos, ventas, inventario, etc.)
+        // b) Cola HTTP unificada (lluvias, pesajes, aforos, rotaciones, movimientos, ventas, inventario, etc.)
         const r2 = await sincronizarColaHttp();
         totalProcesados += r2.procesados;
         totalErrores += r2.errores;
         lineas.push(...r2.lineas);
         mensajesError.push(...r2.mensajesError);
 
+        const necesitaReauth = Boolean(r2.authRequired || r1.authRequired);
+        if (necesitaReauth) {
+          setAuthRequired(true);
+        } else if (totalProcesados > 0) {
+          setAuthRequired(false);
+        }
+
         // c) Solo refrescar caché de la nube cuando ya no queden pendientes locales por subir
         const pendientesRestantes = await actualizarConteo();
         if (totalProcesados > 0) {
           if (pendientesRestantes === 0) {
             if (fincaId) await sincronizarCacheFinca(fincaId);
-            await refrescarCacheLecturas(30);
+            await refrescarCacheLecturas(50);
           }
           window.dispatchEvent(new CustomEvent('offline-sync-completed', {
             detail: { fincaId, procesados: totalProcesados, errores: totalErrores }
@@ -301,12 +348,30 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
 
         if (totalProcesados > 0 || totalErrores > 0) {
+          const pendInfo = pendientesRestantes > 0 ? await obtenerResumenPendientesLocales() : { total: 0, lineas: [] };
           anunciarResumenSync({
             fecha: new Date().toISOString(),
             lineas,
             exitosos: totalProcesados,
             fallidos: totalErrores,
-            errores: mensajesError
+            errores: mensajesError,
+            pendientesLineas: pendInfo.lineas,
+            pendientesTotal: pendInfo.total,
+            bloqueoMotivo: r2.bloqueoMotivo,
+            authRequired: necesitaReauth
+          });
+        } else if (manual && (pendientesRestantes > 0 || necesitaReauth)) {
+          const pendInfo = await obtenerResumenPendientesLocales();
+          anunciarResumenSync({
+            fecha: new Date().toISOString(),
+            lineas: [],
+            exitosos: 0,
+            fallidos: 0,
+            errores: [],
+            pendientesLineas: pendInfo.lineas,
+            pendientesTotal: pendInfo.total,
+            bloqueoMotivo: r2.bloqueoMotivo || 'Algunos registros no pudieron subirse todavía.',
+            authRequired: necesitaReauth
           });
         }
         return { procesados: totalProcesados, errores: totalErrores };
@@ -334,7 +399,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     return resultado;
-  }, [isRealOnline, actualizarConteo]);
+  }, [isRealOnline, actualizarConteo, checkRealOnline]);
 
   const sincronizarTodo = ejecutarSincronizacion;
 
@@ -430,6 +495,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isOnline,
         isRealOnline,
         syncing: Boolean(syncing),
+        authRequired,
         conteoPendienteTotal,
         conteoFallidosTotal,
         checkRealOnline,

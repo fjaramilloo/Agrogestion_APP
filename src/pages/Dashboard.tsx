@@ -1,5 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { localDB } from '../lib/db';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -106,6 +107,7 @@ export default function Dashboard() {
     };
 
     useEffect(() => {
+        let cancelled = false;
         async function fetchDashboardData() {
             if (!fincaId) return;
             setLoading(true);
@@ -128,17 +130,39 @@ export default function Dashboard() {
                 ]);
 
                 const pDetalle = Promise.all([
-                    safePromise(supabase.from('registros_lluvia').select('fecha, milimetros, id_pluviometro').eq('id_finca', fincaId).order('fecha', { ascending: true }).limit(50000), { data: [], error: null }),
-                    safePromise(supabase.from('animales').select(`
-                        id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
-                        fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
-                        id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
-                        potreros ( nombre ),
-                        potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-                        registros_pesaje (
-                            id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted
-                        )
-                    `).eq('id_finca', fincaId).or('is_deleted.is.null,is_deleted.eq.false').limit(10000), { data: [], error: null })
+                    safePromise(
+                        fetchAllSupabasePages((from, to) =>
+                            supabase
+                                .from('registros_lluvia')
+                                .select('fecha, milimetros, id_pluviometro')
+                                .eq('id_finca', fincaId)
+                                .order('fecha', { ascending: true })
+                                .order('id', { ascending: true })
+                                .range(from, to)
+                        ),
+                        { data: [], error: null }
+                    ),
+                    safePromise(
+                        fetchAllSupabasePages((from, to) =>
+                            supabase
+                                .from('animales')
+                                .select(`
+                                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
+                                    fecha_ingreso_ceba, peso_ingreso_ceba, nombre_propietario, estado,
+                                    id_potrerada, fecha_muerte, comprador_venta, fecha_venta, observaciones_venta,
+                                    potreros ( nombre ),
+                                    potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
+                                    registros_pesaje (
+                                        id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted
+                                    )
+                                `)
+                                .eq('id_finca', fincaId)
+                                .or('is_deleted.is.null,is_deleted.eq.false')
+                                .order('id', { ascending: true })
+                                .range(from, to)
+                        ),
+                        { data: [], error: null }
+                    )
                 ]);
 
                 const [{ data: resumen }, fincaRes, configRes] = await pResumen;
@@ -450,10 +474,32 @@ export default function Dashboard() {
             } catch (err) {
                 console.error('[Dashboard] Error cargando datos del dashboard:', err);
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         }
         fetchDashboardData();
+
+        const tablasDashboard = new Set(['animales', 'registros_lluvia', 'resumen_finca', 'configuracion_kpi', 'fincas']);
+        let timerReval: ReturnType<typeof setTimeout> | null = null;
+        const refrescarSilencioso = () => {
+            if (cancelled) return;
+            if (timerReval) clearTimeout(timerReval);
+            timerReval = setTimeout(() => {
+                if (!cancelled) void fetchDashboardData();
+            }, 250);
+        };
+        const onRevalidated = (e: Event) => {
+            const tabla = (e as CustomEvent<{ tabla?: string }>).detail?.tabla;
+            if (tabla && tablasDashboard.has(tabla)) refrescarSilencioso();
+        };
+        window.addEventListener('offline-sync-completed', refrescarSilencioso);
+        window.addEventListener('offline-cache-revalidated', onRevalidated);
+        return () => {
+            cancelled = true;
+            if (timerReval) clearTimeout(timerReval);
+            window.removeEventListener('offline-sync-completed', refrescarSilencioso);
+            window.removeEventListener('offline-cache-revalidated', onRevalidated);
+        };
     }, [fincaId]);
 
     const quickFieldActions = isObserverOnly
