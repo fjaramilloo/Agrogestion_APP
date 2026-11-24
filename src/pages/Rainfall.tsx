@@ -235,15 +235,16 @@ export default function Rainfall() {
 
         try {
             const [lluviasRes, pluvRes, fincaRes, diagRes] = await Promise.all([
-                fetchAllSupabasePages((from, to) =>
-                    supabase
+                fetchAllSupabasePages((from, to, signal) => {
+                    const q = supabase
                         .from('registros_lluvia')
                         .select('*')
                         .eq('id_finca', fincaId)
                         .order('fecha', { ascending: false })
                         .order('id', { ascending: true })
-                        .range(from, to)
-                ),
+                        .range(from, to);
+                    return signal ? q.abortSignal(signal) : q;
+                }),
                 supabase
                     .from('pluviometros_finca')
                     .select('*')
@@ -281,15 +282,16 @@ export default function Rainfall() {
     const recargarRegistrosYAnalizar = async () => {
         await fetchTodo();
         if (!fincaId) return;
-        const regsActualizados = await fetchAllSupabasePages((from, to) =>
-            supabase
+        const regsActualizados = await fetchAllSupabasePages((from, to, signal) => {
+            const q = supabase
                 .from('registros_lluvia')
                 .select('fecha, milimetros, id_pluviometro')
                 .eq('id_finca', fincaId)
                 .order('fecha', { ascending: false })
                 .order('id', { ascending: true })
-                .range(from, to)
-        );
+                .range(from, to);
+            return signal ? q.abortSignal(signal) : q;
+        });
         if (regsActualizados.data.length > 0) {
             dispararAnalisisIA(regsActualizados.data as any, ubicacionFinca, municipioFinca);
         }

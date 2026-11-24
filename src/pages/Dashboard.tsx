@@ -131,20 +131,21 @@ export default function Dashboard() {
 
                 const pDetalle = Promise.all([
                     safePromise(
-                        fetchAllSupabasePages((from, to) =>
-                            supabase
+                        fetchAllSupabasePages((from, to, signal) => {
+                            const q = supabase
                                 .from('registros_lluvia')
                                 .select('fecha, milimetros, id_pluviometro')
                                 .eq('id_finca', fincaId)
                                 .order('fecha', { ascending: true })
                                 .order('id', { ascending: true })
-                                .range(from, to)
-                        ),
+                                .range(from, to);
+                            return signal ? q.abortSignal(signal) : q;
+                        }),
                         { data: [], error: null }
                     ),
                     safePromise(
-                        fetchAllSupabasePages((from, to) =>
-                            supabase
+                        fetchAllSupabasePages((from, to, signal) => {
+                            const q = supabase
                                 .from('animales')
                                 .select(`
                                     id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra,
@@ -159,8 +160,9 @@ export default function Dashboard() {
                                 .eq('id_finca', fincaId)
                                 .or('is_deleted.is.null,is_deleted.eq.false')
                                 .order('id', { ascending: true })
-                                .range(from, to)
-                        ),
+                                .range(from, to);
+                            return signal ? q.abortSignal(signal) : q;
+                        }),
                         { data: [], error: null }
                     )
                 ]);

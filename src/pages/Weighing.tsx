@@ -134,22 +134,24 @@ export default function Weighing() {
         if (isOnline && !modoCampo) {
             try {
                 const [animRes, ultRes] = await Promise.all([
-                    fetchAllSupabasePages((from, to) =>
-                        supabase
+                    fetchAllSupabasePages((from, to, signal) => {
+                        const q = supabase
                             .from('animales')
                             .select('id, numero_chapeta, peso_ingreso, peso_compra, fecha_ingreso, etapa, ok_ceba, sexo, tipo_macho, fecha_castracion, nombre_propietario, id_potrerada, potreradas:potreradas!animales_id_potrerada_fkey(nombre, etapa)')
                             .eq('id_finca', fincaId)
                             .eq('estado', 'activo')
                             .or('is_deleted.is.null,is_deleted.eq.false')
                             .order('id', { ascending: true })
-                            .range(from, to)
-                    ),
-                    fetchAllSupabasePages((from, to) =>
-                        supabase
+                            .range(from, to);
+                        return signal ? q.abortSignal(signal) : q;
+                    }),
+                    fetchAllSupabasePages((from, to, signal) => {
+                        const q = supabase
                             .rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId })
                             .order('id_animal', { ascending: true })
-                            .range(from, to)
-                    )
+                            .range(from, to);
+                        return signal ? q.abortSignal(signal) : q;
+                    })
                 ]);
 
                 if (animRes.data && animRes.data.length > 0) {

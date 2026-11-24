@@ -394,7 +394,17 @@ async function smartTableFallback(
             if (!prev) {
               pool.set(idStr, { ...row });
             } else {
-              pool.set(idStr, { ...prev, ...row });
+              const merged = { ...prev, ...row };
+              if (
+                Array.isArray(prev.registros_pesaje) &&
+                prev.registros_pesaje.length > 0 &&
+                (!Array.isArray(row.registros_pesaje) || row.registros_pesaje.length === 0)
+              ) {
+                merged.registros_pesaje = prev.registros_pesaje;
+              }
+              if (prev.potreros && !row.potreros) merged.potreros = prev.potreros;
+              if (prev.potreradas && !row.potreradas) merged.potreradas = prev.potreradas;
+              pool.set(idStr, merged);
             }
           } else {
             listSinId.push(row);
@@ -446,7 +456,8 @@ async function smartTableFallback(
     } else if (tabla === 'animales') {
       const anims = await localDB.animalesCache.toArray();
       for (const a of anims) {
-        if (!pool.has(a.id) && !idsEliminados.has(a.id)) {
+        const existing = pool.get(a.id);
+        if (!existing && !idsEliminados.has(a.id)) {
           pool.set(a.id, {
             id: a.id,
             id_finca: a.id_finca,
@@ -469,6 +480,8 @@ async function smartTableFallback(
             potreradas: a.potrerada_nombre ? { nombre: a.potrerada_nombre } : null,
             registros_pesaje: a.registros_pesaje || []
           });
+        } else if (existing && !Array.isArray(existing.registros_pesaje) && Array.isArray(a.registros_pesaje)) {
+          existing.registros_pesaje = a.registros_pesaje;
         }
       }
     } else if (tabla === 'vista_precios_mercado') {
@@ -478,7 +491,21 @@ async function smartTableFallback(
       }
     }
 
-    const todos = [...pool.values(), ...listSinId];
+    // Nunca mezclar filas sin id (p.ej. proyecciones parciales del Dashboard) cuando ya existen filas completas con id
+    let sinIdFinal = pool.size > 0 ? [] : listSinId;
+    if (sinIdFinal.length > 0 && tabla === 'registros_lluvia') {
+      const dedup = new Map<string, any>();
+      for (const r of sinIdFinal) {
+        const k = `${r.id_finca || ''}|${String(r.fecha || '').split('T')[0]}|${r.id_pluviometro || ''}`;
+        const prev = dedup.get(k);
+        if (!prev || (r.id_pluviometro && !prev.id_pluviometro)) {
+          dedup.set(k, r);
+        }
+      }
+      sinIdFinal = Array.from(dedup.values());
+    }
+
+    const todos = [...pool.values(), ...sinIdFinal];
     if (todos.length === 0) return null;
 
     const isSingle = headers.get('accept')?.includes('vnd.pgrst.object');
@@ -638,7 +665,12 @@ function ordenar(lista: any[], params: URLSearchParams) {
       if (x === y) continue;
       if (x == null) return 1;
       if (y == null) return -1;
-      const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'es');
+      const r =
+        typeof x === 'number' && typeof y === 'number'
+          ? x - y
+          : col === 'id'
+            ? (String(x) < String(y) ? -1 : String(x) > String(y) ? 1 : 0)
+            : String(x).localeCompare(String(y), 'es');
       if (r !== 0) return desc ? -r : r;
     }
     return 0;
@@ -1205,10 +1237,10 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
   // ── LECTURAS (CACHE-FIRST CON REVALIDACIÓN RÁPIDA O NETWORK-FIRST PARA PRECARGA) ──
   if (esLectura) {
     const key = `${method} ${url}${esLecturaRpc ? ' ' + bodyStr : ''}`;
-    const deCache = async () => {
+    const deCache = async (permitirSmartFallback = true) => {
       const c = await localDB.httpReadCache.get(key);
       if (c) return respuestaDesdeCache(c);
-      if (!info.isRpc) {
+      if (permitirSmartFallback && !info.isRpc) {
         const fallback = await smartTableFallback(info.tabla, info.u, headers, method);
         if (fallback) return fallback;
       }
@@ -1268,8 +1300,18 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
       throw new TypeError('Failed to fetch (Sin conexión ni datos guardados)');
     }
 
-    // Caso B0: Petición explícita Network-First (precarga/sincronización: nunca responder caché vieja de 350ms)
+    // Caso B0: Petición explícita Network-First (precarga/sincronización/paginación: nunca mezclar caché vieja)
     if (isNetworkFirst) {
+      try {
+        const hayPendientesTabla = await localDB.httpWriteQueue
+          .filter(op => op.status !== 'failed' && op.tabla === info.tabla)
+          .count();
+        if (hayPendientesTabla > 0) {
+          const exacto = await localDB.httpReadCache.get(key);
+          if (exacto) return respuestaDesdeCache(exacto);
+        }
+      } catch { /* noop */ }
+
       try {
         const res = await intentarConRefresh401(init, TIMEOUT_PRECACHE_MS);
         if (res.ok) {
@@ -1281,12 +1323,12 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
         if (res.status === 401 && typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('offline-jwt-expired'));
         }
-        const r = await deCache();
+        const r = await deCache(true);
         if (r) return r;
         return res;
       } catch (e) {
         if (esErrorDeRed(e)) setConexionDegradada(true);
-        const r = await deCache();
+        const r = await deCache(true);
         if (r) return r;
         const fb = respuestaSeguraFallback();
         if (fb) return fb;
@@ -1294,8 +1336,8 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
       }
     }
 
-    // Caso B: En línea con red (Stale-While-Revalidate / Cache-First)
-    const cachedResp = await deCache();
+    // Caso B: En línea con red — solo usar caché EXACTA en la carrera, nunca smartTableFallback
+    const cachedResp = await deCache(false);
 
     if (cachedResp) {
       // Si la tabla tiene escrituras locales aún pendientes de subir, respetar el estado optimista local

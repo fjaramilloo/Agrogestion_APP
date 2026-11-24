@@ -163,8 +163,8 @@ export default function Inventory() {
                     .select('umbral_alto_gmp, umbral_medio_gmp, precio_venta_promedio')
                     .eq('id_finca', fincaId)
                     .single(),
-                fetchAllSupabasePages((from, to) =>
-                    supabase
+                fetchAllSupabasePages((from, to, signal) => {
+                    const q = supabase
                         .from('animales')
                         .select(`
                             id, numero_chapeta, nombre_propietario, especie, sexo, etapa,
@@ -178,14 +178,16 @@ export default function Inventory() {
                         .or('is_deleted.is.null,is_deleted.eq.false')
                         .order('creado_en', { ascending: false })
                         .order('id', { ascending: true })
-                        .range(from, to)
-                ),
-                fetchAllSupabasePages((from, to) =>
-                    supabase
+                        .range(from, to);
+                    return signal ? q.abortSignal(signal) : q;
+                }),
+                fetchAllSupabasePages((from, to, signal) => {
+                    const q = supabase
                         .rpc('get_ultimos_pesajes_finca', { p_finca_id: fincaId })
                         .order('id_animal', { ascending: true })
-                        .range(from, to)
-                ),
+                        .range(from, to);
+                    return signal ? q.abortSignal(signal) : q;
+                }),
                 supabase
                     .from('potreradas')
                     .select('id, nombre, etapa')
