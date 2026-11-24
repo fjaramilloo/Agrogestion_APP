@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Bell, ShoppingCart, Activity, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { fetchAllSupabasePages } from '../lib/supabasePagination';
 import { differenceInDays, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -107,32 +108,37 @@ export default function NotificationCenter() {
             const fincaIds = userFincas.map(f => f.id_finca);
             const fincaNamesMap = new Map(userFincas.map(f => [f.id_finca, f.nombre_finca]));
 
-            // 1. Obtener animales de TODAS las fincas
-            const { data: animals, error } = await supabase
-                .from('animales')
-                .select(`
-                    id,
-                    numero_chapeta,
-                    etapa,
-                    fecha_ingreso,
-                    peso_ingreso,
-                    peso_compra,
-                    fecha_ingreso_ceba,
-                    peso_ingreso_ceba,
-                    id_potrerada,
-                    id_finca,
-                    registros_pesaje (
-                        peso,
-                        fecha,
+            // 1. Obtener animales de TODAS las fincas (paginado para cuentas > 1,000 animales)
+            const { data: animals, error } = await fetchAllSupabasePages((from, to, signal) => {
+                const q = supabase
+                    .from('animales')
+                    .select(`
+                        id,
+                        numero_chapeta,
                         etapa,
-                        gmp_calculada,
-                        is_deleted
-                    )
-                `)
-                .in('id_finca', fincaIds)
-                .eq('estado', 'activo')
-                .or('is_deleted.is.null,is_deleted.eq.false')
-                .order('fecha', { foreignTable: 'registros_pesaje', ascending: false });
+                        fecha_ingreso,
+                        peso_ingreso,
+                        peso_compra,
+                        fecha_ingreso_ceba,
+                        peso_ingreso_ceba,
+                        id_potrerada,
+                        id_finca,
+                        registros_pesaje (
+                            peso,
+                            fecha,
+                            etapa,
+                            gmp_calculada,
+                            is_deleted
+                        )
+                    `)
+                    .in('id_finca', fincaIds)
+                    .eq('estado', 'activo')
+                    .or('is_deleted.is.null,is_deleted.eq.false')
+                    .order('id', { ascending: true })
+                    .order('fecha', { foreignTable: 'registros_pesaje', ascending: false })
+                    .range(from, to);
+                return signal ? q.abortSignal(signal) : q;
+            });
 
             if (error) {
                 console.error("Error fetching animals for notifications:", error);
