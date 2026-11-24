@@ -517,6 +517,14 @@ export default function Weighing() {
             setMsjError(`Este animal ya tiene un pesaje registrado para la fecha ${fechaPesaje}.`);
             return;
         }
+        try {
+            const cachedAnimal = await localDB.animalesCache.get(animal.id);
+            const regs = Array.isArray(cachedAnimal?.registros_pesaje) ? cachedAnimal.registros_pesaje : [];
+            if (regs.some((r: any) => !r.is_deleted && r.fecha?.split('T')[0] === fechaPesaje)) {
+                setMsjError(`Este animal ya tiene un pesaje registrado para la fecha ${fechaPesaje}.`);
+                return;
+            }
+        } catch { /* non-blocking cache check */ }
         if (animal.ultimo_peso && animal.fecha_ultimo_peso) {
             const fechaUltimo = animal.fecha_ultimo_peso.split('T')[0];
             if (fechaPesaje === fechaUltimo) {
@@ -600,6 +608,7 @@ export default function Weighing() {
 
         // ── PERSISTENCIA CONFIRMADA (CON REVERSIÓN Y AVISO ANTE ERROR) ──
         void (async () => {
+            let weighingPersisted = false;
             try {
                 const { error } = await supabase.from('registros_pesaje').insert({
                     id: pesajeId,
@@ -611,6 +620,7 @@ export default function Weighing() {
                     gmp_calculada: gdpCalculada * 30
                 });
                 if (error) throw error;
+                weighingPersisted = true;
 
                 if (Object.keys(updateAnimalData).length > 0) {
                     const { error: errAnimal } = await supabase
@@ -644,14 +654,20 @@ export default function Weighing() {
                 }
             } catch (err: any) {
                 console.error('[Weighing] Error al guardar pesaje:', err);
-                animalesRamRef.current.set(keyChapeta, animalSnapshot);
-                if (fechaSnapshot === hoyIso) {
-                    setPesajesHoy(prev => prev.filter(p => p.id !== pesajeId));
+                if (!weighingPersisted) {
+                    animalesRamRef.current.set(keyChapeta, animalSnapshot);
+                    if (fechaSnapshot === hoyIso) {
+                        setPesajesHoy(prev => prev.filter(p => p.id !== pesajeId));
+                    }
+                    const errText = `No se pudo guardar el pesaje de #${animalSnapshot.numero_chapeta} (${pesoFloat} kg): ${err?.message || 'error de conexión/permisos'}`;
+                    setMsjExito('');
+                    setMsjError(errText);
+                    toast(errText, 'error');
+                } else {
+                    const warnText = `El pesaje de #${animalSnapshot.numero_chapeta} (${pesoFloat} kg) se guardó, pero no se pudo actualizar el estado adicional: ${err?.message || 'error de conexión'}`;
+                    setMsjError(warnText);
+                    toast(warnText, 'warning');
                 }
-                const errText = `No se pudo guardar el pesaje de #${animalSnapshot.numero_chapeta} (${pesoFloat} kg): ${err?.message || 'error de conexión/permisos'}`;
-                setMsjExito('');
-                setMsjError(errText);
-                toast(errText, 'error');
             }
         })();
     };

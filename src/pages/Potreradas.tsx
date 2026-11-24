@@ -165,7 +165,7 @@ export default function Potreradas() {
             const animalesSinPotrerada: any[] = [];
 
             const animalesProcesados: AnimalPotrero[] = (animals || []).map((a: any) => {
-                const registros = a.registros_pesaje || [];
+                const registros = normalizarPesajesDesc(a.registros_pesaje);
                 const firstReg = registros[0];
 
                 if (!a.id_potrerada && a.estado === 'activo') {
@@ -665,8 +665,10 @@ export default function Potreradas() {
         if (!confirmed) return;
         setLoading(true);
         try {
-            await supabase.from('animales').update({ id_potrerada: null, id_potrero_actual: null }).eq('id_potrerada', id);
-            await supabase.from('animales').update({ ultima_potrerada_id: null }).eq('ultima_potrerada_id', id);
+            const { error: unlinkPotErr } = await supabase.from('animales').update({ id_potrerada: null, id_potrero_actual: null }).eq('id_potrerada', id);
+            if (unlinkPotErr) throw unlinkPotErr;
+            const { error: unlinkUltErr } = await supabase.from('animales').update({ ultima_potrerada_id: null }).eq('ultima_potrerada_id', id);
+            if (unlinkUltErr) throw unlinkUltErr;
 
             const { error } = await supabase.from('potreradas').delete().eq('id', id);
             if (error) throw error;

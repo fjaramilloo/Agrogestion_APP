@@ -265,7 +265,11 @@ export default function Rotations() {
             if (error) throw error;
             fetchData();
             toast('Rotación eliminada.', 'success');
-        } catch (err: any) { console.error(err); }
+        } catch (err: any) {
+            console.error(err);
+            setMsjError(err?.message || 'Error al eliminar rotación');
+            toast(err?.message || 'Error al eliminar rotación', 'error');
+        }
     };
 
     // Agrupar

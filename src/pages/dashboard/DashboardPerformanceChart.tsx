@@ -7,6 +7,7 @@ import { TrendingUp } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayValue, getUnidadLabel, getModoLabel, type ModoGanancia } from '../../utils/ganancia';
+import { parseLocalDate } from '../../utils/dateUtils';
 import type { EvolucionItem, GmpDetailItem, SelectedGmpDetail } from './types';
 
 interface DashboardPerformanceChartProps {
@@ -93,16 +94,19 @@ export default function DashboardPerformanceChart({
             const misPesajes = pesajesPorAnimal[animal.id];
             if (!misPesajes || misPesajes.length === 0) return;
 
-            const ordenados = [...misPesajes].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+            const ordenados = [...misPesajes].sort((a, b) =>
+                String(a.fecha || '').split('T')[0].localeCompare(String(b.fecha || '').split('T')[0])
+            );
 
             let prevWeight = parseFloat(animal.peso_ingreso ?? animal.peso_compra ?? 0);
-            let prevDate = new Date(`${animal.fecha_ingreso}T01:00:00`);
+            let prevDate = parseLocalDate(animal.fecha_ingreso);
             let validWeighingCounter = 1;
 
             ordenados.forEach((p: any) => {
                 const currentWeight = parseFloat(p.peso);
-                const currentDateStr = p.fecha as string;
-                const currentDate = new Date(`${currentDateStr}T01:00:00`);
+                const currentDateStr = String(p.fecha || '').split('T')[0];
+                const currentDate = parseLocalDate(currentDateStr);
+                if (!prevDate || !currentDate || isNaN(prevDate.getTime()) || isNaN(currentDate.getTime())) return;
                 const diffDias = differenceInDays(currentDate, prevDate);
 
                 if (diffDias > 0) {

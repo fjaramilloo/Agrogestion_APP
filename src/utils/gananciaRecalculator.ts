@@ -75,26 +75,29 @@ async function syncAnimalCacheAfterRecalc(
     latest: { peso: number; fecha: string; gmp_calculada?: number; gdp_calculada?: number } | null,
     fallbackPesoBase: number,
     fallbackFechaBase: string,
-    supabaseClient: any
+    supabaseClient: any,
+    overrideRegs?: any[]
 ) {
     try {
         if (!localDB?.animalesCache) return;
         const cached = await localDB.animalesCache.get(animalId);
         if (!cached) return;
 
-        let nextRegs = cached.registros_pesaje;
-        try {
-            const { data: freshRegs } = await supabaseClient
-                .from('registros_pesaje')
-                .select('id, id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted')
-                .eq('id_animal', animalId)
-                .or('is_deleted.is.null,is_deleted.eq.false')
-                .order('fecha', { ascending: false });
-            if (Array.isArray(freshRegs)) {
-                nextRegs = freshRegs;
+        let nextRegs = overrideRegs ?? cached.registros_pesaje;
+        if (!overrideRegs) {
+            try {
+                const { data: freshRegs, error: freshErr } = await supabaseClient
+                    .from('registros_pesaje')
+                    .select('id, id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted')
+                    .eq('id_animal', animalId)
+                    .or('is_deleted.is.null,is_deleted.eq.false')
+                    .order('fecha', { ascending: false });
+                if (!freshErr && Array.isArray(freshRegs)) {
+                    nextRegs = freshRegs;
+                }
+            } catch {
+                // Keep existing cache array if offline query fails
             }
-        } catch {
-            // Keep existing cache array if offline query fails
         }
 
         await localDB.animalesCache.update(animalId, {
@@ -153,35 +156,62 @@ export async function recalcularHistorialPesajesAnimal(
             }
         }
 
-        // 1. Obtener datos maestros del animal (Fallback / offline)
-        const { data: animal, error: animError } = await supabaseClient
-            .from('animales')
-            .select('id, id_finca, etapa, peso_ingreso, peso_compra, fecha_ingreso, peso_ingreso_ceba, fecha_ingreso_ceba')
-            .eq('id', animalId)
-            .single();
-
-        if (animError || !animal) {
-            throw new Error(animError?.message || 'Animal no encontrado');
+        // 1. Obtener datos maestros del animal (Fallback / offline, con respaldo en Dexie)
+        let animal: any = null;
+        try {
+            const { data, error } = await supabaseClient
+                .from('animales')
+                .select('id, id_finca, etapa, peso_ingreso, peso_compra, fecha_ingreso, peso_ingreso_ceba, fecha_ingreso_ceba')
+                .eq('id', animalId)
+                .single();
+            if (!error && data) animal = data;
+        } catch {
+            // fallback a Dexie abajo
         }
 
-        // 2. Obtener todos los pesajes no eliminados ordenados cronológicamente
-        const { data: pesajes, error: pesajesError } = await supabaseClient
-            .from('registros_pesaje')
-            .select('id, id_animal, fecha, peso, etapa, id_potrero, creado_en')
-            .eq('id_animal', animalId)
-            .or('is_deleted.is.null,is_deleted.eq.false')
-            .order('fecha', { ascending: true })
-            .order('id', { ascending: true });
+        const cachedAnimal = localDB?.animalesCache ? await localDB.animalesCache.get(animalId).catch(() => undefined) : undefined;
+        if (!animal && cachedAnimal) {
+            animal = cachedAnimal;
+        }
+        if (!animal) {
+            throw new Error('Animal no encontrado');
+        }
 
-        if (pesajesError) {
-            throw new Error(pesajesError.message);
+        // 2. Obtener todos los pesajes no eliminados ordenados cronológicamente (con respaldo en Dexie si offline)
+        let pesajes: any[] | null = null;
+        let pesajesErrorMsg: string | null = null;
+        try {
+            const { data, error } = await supabaseClient
+                .from('registros_pesaje')
+                .select('id, id_animal, fecha, peso, etapa, id_potrero, creado_en')
+                .eq('id_animal', animalId)
+                .or('is_deleted.is.null,is_deleted.eq.false')
+                .order('fecha', { ascending: true })
+                .order('id', { ascending: true });
+            if (!error && Array.isArray(data) && (data.length > 0 || !offline)) {
+                pesajes = data;
+            } else if (error) {
+                pesajesErrorMsg = error.message;
+            }
+        } catch (err: any) {
+            pesajesErrorMsg = err?.message || 'Error leyendo pesajes';
+        }
+
+        if ((!pesajes || pesajes.length === 0) && offline && cachedAnimal && Array.isArray(cachedAnimal.registros_pesaje)) {
+            pesajes = cachedAnimal.registros_pesaje
+                .filter((r: any) => r && r.is_deleted !== true)
+                .sort((a: any, b: any) => String(a.fecha || '').localeCompare(String(b.fecha || '')));
+        }
+
+        if (pesajes === null) {
+            throw new Error(pesajesErrorMsg || 'No se pudieron obtener los pesajes del animal');
         }
 
         const pesoBaseInicial = Number(animal.peso_ingreso ?? animal.peso_compra ?? 0);
         const fechaBaseInicial = String(animal.fecha_ingreso || '');
 
-        if (!pesajes || pesajes.length === 0) {
-            await syncAnimalCacheAfterRecalc(animalId, null, pesoBaseInicial, fechaBaseInicial, supabaseClient);
+        if (pesajes.length === 0) {
+            await syncAnimalCacheAfterRecalc(animalId, null, pesoBaseInicial, fechaBaseInicial, supabaseClient, []);
             return { success: true, pesajes: [] };
         }
 
@@ -192,6 +222,7 @@ export async function recalcularHistorialPesajesAnimal(
 
         // 4. Actualizar en Supabase en batch/secuencia verificando errores
         for (const item of pesajesRecalculados) {
+            if (!item.id) continue;
             const { error: updErr } = await supabaseClient
                 .from('registros_pesaje')
                 .update({
@@ -208,7 +239,10 @@ export async function recalcularHistorialPesajesAnimal(
 
         // 5. Actualizar en caché local (IndexedDB) si existe
         const ultimoPesaje = pesajesRecalculados[pesajesRecalculados.length - 1] || null;
-        await syncAnimalCacheAfterRecalc(animalId, ultimoPesaje, pesoBaseInicial, fechaBaseInicial, supabaseClient);
+        const regsDescParaCache = [...pesajesRecalculados]
+            .reverse()
+            .map(item => ({ ...item, is_deleted: false }));
+        await syncAnimalCacheAfterRecalc(animalId, ultimoPesaje, pesoBaseInicial, fechaBaseInicial, supabaseClient, regsDescParaCache);
 
         return { success: true, pesajes: pesajesRecalculados };
     } catch (err: any) {

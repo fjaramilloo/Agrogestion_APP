@@ -267,7 +267,8 @@ export default function Purchase() {
                     .from('animales')
                     .select('numero_chapeta')
                     .eq('id_finca', fincaId)
-                    .in('numero_chapeta', chapetas);
+                    .in('numero_chapeta', chapetas)
+                    .or('is_deleted.is.null,is_deleted.eq.false');
 
                 if (checkError) throw checkError;
 

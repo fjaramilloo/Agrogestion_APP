@@ -189,6 +189,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             `)
             .eq('id_finca', fincaId)
             .eq('estado', 'vendido')
+            .or('is_deleted.is.null,is_deleted.eq.false')
             .order('fecha_venta', { ascending: false })
             .order('id', { ascending: true })
             .range(from, to)
@@ -210,6 +211,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             .eq('id_finca', fincaId)
             .eq('estado', 'vendido')
             .not('id_potrerada', 'is', null)
+            .or('is_deleted.is.null,is_deleted.eq.false')
             .order('id', { ascending: true })
             .range(from, to)
             .abortSignal(syncCtrl.signal)
@@ -232,6 +234,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
               peso_ingreso,
               peso_compra,
               etapa,
+              estado,
               registros_pesaje (
                   peso,
                   fecha,
@@ -241,6 +244,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             `)
             .eq('id_finca', fincaId)
             .not('proveedor_compra', 'is', null)
+            .or('is_deleted.is.null,is_deleted.eq.false')
             .order('fecha_ingreso', { ascending: false })
             .order('id', { ascending: true })
             .range(from, to)
@@ -601,7 +605,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
             numero_chapeta: a.numero_chapeta,
             nombre_propietario: a.nombre_propietario || prev?.nombre_propietario,
             etapa: a.etapa || prev?.etapa || 'ceba',
-            estado: prev?.estado || 'activo',
+            estado: a.estado || prev?.estado || 'activo',
             peso_ingreso: a.peso_ingreso ?? prev?.peso_ingreso,
             peso_compra: a.peso_compra ?? prev?.peso_compra,
             fecha_ingreso: a.fecha_ingreso || prev?.fecha_ingreso,
@@ -779,13 +783,17 @@ async function guardarSnapshotMapa(
               .abortSignal(ctrl.signal),
         animalesData
           ? Promise.resolve({ data: animalesData, error: null })
-          : supabase
-              .from('animales')
-              .select('id, id_potrerada, nombre_propietario, etapa, peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba, registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted)')
-              .eq('id_finca', fincaId)
-              .eq('estado', 'activo')
-              .or('is_deleted.is.null,is_deleted.eq.false')
-              .abortSignal(ctrl.signal)
+          : fetchAllSupabasePages((from, to) =>
+              supabase
+                .from('animales')
+                .select('id, id_potrerada, nombre_propietario, etapa, peso_ingreso, peso_compra, fecha_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba, registros_pesaje (peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted)')
+                .eq('id_finca', fincaId)
+                .eq('estado', 'activo')
+                .or('is_deleted.is.null,is_deleted.eq.false')
+                .order('id', { ascending: true })
+                .range(from, to)
+                .abortSignal(ctrl.signal)
+            )
       ]);
       if (potsRes.error || !potsRes.data || potsRes.data.length === 0) return;
       potsData = potsRes.data;
