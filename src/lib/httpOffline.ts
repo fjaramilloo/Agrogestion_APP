@@ -65,12 +65,20 @@ export interface RefreshTokenResult {
 }
 
 let refreshEnVuelo: Promise<RefreshTokenResult> | null = null;
+let sesionRefreshRechazada = false;
+let refreshCooldownHasta = 0;
 
 /**
  * Intenta renovar el access_token con el refresh_token local sin disparar recursión en offlineAwareFetch.
  * Se deduplica si varias peticiones necesitan renovar al tiempo al volver a cobertura.
  */
 export async function refrescarTokenEstado(): Promise<RefreshTokenResult> {
+  if (sesionRefreshRechazada) {
+    return { token: null, authInvalid: true };
+  }
+  if (Date.now() < refreshCooldownHasta) {
+    return { token: null, authInvalid: false };
+  }
   if (refreshEnVuelo) return refreshEnVuelo;
   refreshEnVuelo = (async (): Promise<RefreshTokenResult> => {
     try {
@@ -94,15 +102,24 @@ export async function refrescarTokenEstado(): Promise<RefreshTokenResult> {
       });
 
       if (res.status === 400 || res.status === 401 || res.status === 403) {
+        sesionRefreshRechazada = true;
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('offline-auth-required'));
         }
         return { token: null, authInvalid: true };
       }
 
+      if (res.status === 429 || res.status >= 500) {
+        refreshCooldownHasta = Date.now() + 15_000;
+        return { token: null, authInvalid: false };
+      }
+
       if (!res.ok) return { token: null, authInvalid: false };
       const data = await res.json();
       if (!data?.access_token) return { token: null, authInvalid: false };
+
+      sesionRefreshRechazada = false;
+      refreshCooldownHasta = 0;
 
       // Actualizar almacenamiento local de Supabase y copia de respaldo
       try {
@@ -165,6 +182,8 @@ export function leerSesionLocalSupabase(): any | null {
 export function guardarBackupSesionLocal(sessionObj: any) {
   try {
     if (sessionObj && sessionObj.user && sessionObj.access_token) {
+      sesionRefreshRechazada = false;
+      refreshCooldownHasta = 0;
       localStorage.setItem(SESSION_BACKUP_KEY, JSON.stringify(sessionObj));
     }
   } catch { /* noop */ }
@@ -172,6 +191,8 @@ export function guardarBackupSesionLocal(sessionObj: any) {
 
 export function limpiarBackupSesionLocal() {
   try {
+    sesionRefreshRechazada = false;
+    refreshCooldownHasta = 0;
     localStorage.removeItem(SESSION_BACKUP_KEY);
   } catch { /* noop */ }
 }
@@ -1109,17 +1130,34 @@ export async function offlineAwareFetch(input: RequestInfo | URL, init: RequestI
           if (localResp) return localResp;
         }
 
+        if (sesionRefreshRechazada) {
+          return new Response(JSON.stringify({ error: 'invalid_grant', error_description: 'Session expired' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json; charset=utf-8' }
+          });
+        }
+
         try {
           const res = await conTimeout(url, init, TIMEOUT_AUTH_REFRESH_MS);
           if (res.ok) {
+            sesionRefreshRechazada = false;
+            refreshCooldownHasta = 0;
             setConexionDegradada(false);
             res.clone().json().then(d => guardarBackupSesionLocal(d)).catch(() => {});
             return res;
           }
-          if ((res.status === 400 || res.status === 401 || res.status === 403) && typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('offline-auth-required'));
+          if (res.status === 400 || res.status === 401 || res.status === 403) {
+            sesionRefreshRechazada = true;
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('offline-auth-required'));
+            }
+            // Si estamos en línea (p. ej. PC), no disfrazar un refresh_token revocado como 200 OK
+            return res;
           }
-          // Si falla el servidor o hay portal cautivo/error en campo, conservar sesión local de lectura
+          if (res.status === 429 || res.status >= 500) {
+            refreshCooldownHasta = Date.now() + 15_000;
+          }
+          // Ante caída temporal del servidor (5xx) o rate-limit, conservar sesión local de lectura
           const localResp = responderRefreshLocal();
           if (localResp) return localResp;
           return res;

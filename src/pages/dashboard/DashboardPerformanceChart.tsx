@@ -115,70 +115,80 @@ export default function DashboardPerformanceChart({
                     }
                     const gmpVal = gdp * 30;
 
-                    // 1. Agrupar para gráfica Mensual
-                    const sortKey = currentDateStr.substring(0, 7);
-                    const labelMes = format(currentDate, 'MMM yy', { locale: es }).replace(/^\w/, c => c.toUpperCase());
+                    // Excluir de los promedios gráficos tramos muy cortos (<14 días, p.ej. correcciones al día siguiente)
+                    // o valores biológicamente imposibles (>60 o <-45 kg/mes) para no distorsionar la tendencia de la finca.
+                    const esIntervaloValidoParaGrafica =
+                        diffDias >= 14 &&
+                        Number.isFinite(gmpVal) &&
+                        gmpVal >= -45 &&
+                        gmpVal <= 60;
 
-                    if (!agrupadoPorMes[sortKey]) {
-                        agrupadoPorMes[sortKey] = {
-                            sortIndex: sortKey,
-                            label: labelMes,
-                            levanteSum: 0, levanteCount: 0,
-                            cebaSum: 0, cebaCount: 0,
-                            levanteDetalles: [], cebaDetalles: []
+                    if (esIntervaloValidoParaGrafica) {
+                        // 1. Agrupar para gráfica Mensual
+                        const sortKey = currentDateStr.substring(0, 7);
+                        const labelMes = format(currentDate, 'MMM yy', { locale: es }).replace(/^\w/, c => c.toUpperCase());
+
+                        if (!agrupadoPorMes[sortKey]) {
+                            agrupadoPorMes[sortKey] = {
+                                sortIndex: sortKey,
+                                label: labelMes,
+                                levanteSum: 0, levanteCount: 0,
+                                cebaSum: 0, cebaCount: 0,
+                                levanteDetalles: [], cebaDetalles: []
+                            };
+                        }
+
+                        // 2. Agrupar para gráfica por Número de Pesaje
+                        if (!agrupadoPorNum[numPesaje]) {
+                            agrupadoPorNum[numPesaje] = { sumLevante: 0, countLevante: 0, sumCeba: 0, countCeba: 0, sumDiasLevante: 0, sumDiasCeba: 0 };
+                        }
+
+                        const detail: GmpDetailItem = {
+                            id_animal: animal.id,
+                            chapeta: animal.numero_chapeta || 'N/A',
+                            propietario: animal.nombre_propietario || 'Sin Propietario',
+                            potrerada: animal.potreradas?.nombre || 'Sin lote',
+                            fechaAnterior: format(prevDate, 'dd/MM/yyyy'),
+                            pesoAnterior: prevWeight,
+                            fechaActual: format(currentDate, 'dd/MM/yyyy'),
+                            pesoActual: currentWeight,
+                            gmp: parseFloat(gmpVal.toFixed(1))
                         };
+
+                        if (p.etapa === 'levante') {
+                            agrupadoPorMes[sortKey].levanteSum += gmpVal;
+                            agrupadoPorMes[sortKey].levanteCount++;
+                            agrupadoPorMes[sortKey].levanteDetalles.push(detail);
+
+                            agrupadoPorNum[numPesaje].sumLevante += gmpVal;
+                            agrupadoPorNum[numPesaje].countLevante++;
+                            agrupadoPorNum[numPesaje].sumDiasLevante += diffDias;
+                        } else {
+                            agrupadoPorMes[sortKey].cebaSum += gmpVal;
+                            agrupadoPorMes[sortKey].cebaCount++;
+                            agrupadoPorMes[sortKey].cebaDetalles.push(detail);
+
+                            agrupadoPorNum[numPesaje].sumCeba += gmpVal;
+                            agrupadoPorNum[numPesaje].countCeba++;
+                            agrupadoPorNum[numPesaje].sumDiasCeba += diffDias;
+                        }
+
+                        // 3. Agrupar por Rango de Peso (Tomamos el peso al INICIO del intervalo)
+                        const pesoRef = prevWeight;
+                        const c1 = Number(cortesPeso.corte1) || 430;
+                        const c2 = Number(cortesPeso.corte2) || 480;
+                        const c3 = Number(cortesPeso.corte3) || 530;
+
+                        let targetRango = '';
+                        if (pesoRef <= c1) targetRango = 'rango1';
+                        else if (pesoRef <= c2) targetRango = 'rango2';
+                        else if (pesoRef <= c3) targetRango = 'rango3';
+                        else targetRango = 'rango4';
+
+                        agrupadoPorRango[targetRango].sum += gmpVal;
+                        agrupadoPorRango[targetRango].count++;
+                        agrupadoPorRango[targetRango].sumDias += diffDias;
                     }
-
-                    // 2. Agrupar para gráfica por Número de Pesaje
-                    if (!agrupadoPorNum[numPesaje]) {
-                        agrupadoPorNum[numPesaje] = { sumLevante: 0, countLevante: 0, sumCeba: 0, countCeba: 0, sumDiasLevante: 0, sumDiasCeba: 0 };
-                    }
-
-                    const detail: GmpDetailItem = {
-                        id_animal: animal.id,
-                        chapeta: animal.numero_chapeta || 'N/A',
-                        propietario: animal.nombre_propietario || 'Sin Propietario',
-                        potrerada: animal.potreradas?.nombre || 'Sin lote',
-                        fechaAnterior: format(prevDate, 'dd/MM/yyyy'),
-                        pesoAnterior: prevWeight,
-                        fechaActual: format(currentDate, 'dd/MM/yyyy'),
-                        pesoActual: currentWeight,
-                        gmp: parseFloat(gmpVal.toFixed(1))
-                    };
-
-                    if (p.etapa === 'levante') {
-                        agrupadoPorMes[sortKey].levanteSum += gmpVal;
-                        agrupadoPorMes[sortKey].levanteCount++;
-                        agrupadoPorMes[sortKey].levanteDetalles.push(detail);
-
-                        agrupadoPorNum[numPesaje].sumLevante += gmpVal;
-                        agrupadoPorNum[numPesaje].countLevante++;
-                        agrupadoPorNum[numPesaje].sumDiasLevante += diffDias;
-                    } else {
-                        agrupadoPorMes[sortKey].cebaSum += gmpVal;
-                        agrupadoPorMes[sortKey].cebaCount++;
-                        agrupadoPorMes[sortKey].cebaDetalles.push(detail);
-
-                        agrupadoPorNum[numPesaje].sumCeba += gmpVal;
-                        agrupadoPorNum[numPesaje].countCeba++;
-                        agrupadoPorNum[numPesaje].sumDiasCeba += diffDias;
-                    }
-
-                    // 3. Agrupar por Rango de Peso (Tomamos el peso al INICIO del intervalo)
-                    const pesoRef = prevWeight;
-                    const c1 = Number(cortesPeso.corte1) || 430;
-                    const c2 = Number(cortesPeso.corte2) || 480;
-                    const c3 = Number(cortesPeso.corte3) || 530;
-
-                    let targetRango = '';
-                    if (pesoRef <= c1) targetRango = 'rango1';
-                    else if (pesoRef <= c2) targetRango = 'rango2';
-                    else if (pesoRef <= c3) targetRango = 'rango3';
-                    else targetRango = 'rango4';
-
-                    agrupadoPorRango[targetRango].sum += gmpVal;
-                    agrupadoPorRango[targetRango].count++;
-                    agrupadoPorRango[targetRango].sumDias += diffDias;
                 }
 
                 prevWeight = currentWeight;

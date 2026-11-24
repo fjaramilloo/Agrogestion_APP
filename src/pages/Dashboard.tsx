@@ -228,7 +228,7 @@ export default function Dashboard() {
                                 potreros: a.potrero_nombre ? { nombre: a.potrero_nombre } : null,
                                 potreradas: a.potrerada_nombre ? { nombre: a.potrerada_nombre } : null,
                                 registros_pesaje: Array.isArray(a.registros_pesaje) && a.registros_pesaje.length > 0
-                                    ? a.registros_pesaje
+                                    ? a.registros_pesaje.map((p: any) => ({ ...p, id_animal: p.id_animal || a.id }))
                                     : (a.ultimo_peso ? [{
                                         id_animal: a.id,
                                         peso: a.ultimo_peso,
@@ -253,14 +253,16 @@ export default function Dashboard() {
                     if (a.registros_pesaje && Array.isArray(a.registros_pesaje)) {
                         const sorted = a.registros_pesaje.sort((x: any, y: any) => new Date(x.fecha || 0).getTime() - new Date(y.fecha || 0).getTime());
                         const uniqueFechas = new Set();
-                        const deduplicated = sorted.filter((p: any) => {
-                            if (!p || !p.fecha) return false;
-                            if (p.is_deleted === true) return false;
-                            const dateOnly = typeof p.fecha === 'string' ? p.fecha.split('T')[0] : '';
-                            if (!dateOnly || uniqueFechas.has(dateOnly)) return false;
-                            uniqueFechas.add(dateOnly);
-                            return true;
-                        });
+                        const deduplicated = sorted
+                            .filter((p: any) => {
+                                if (!p || !p.fecha) return false;
+                                if (p.is_deleted === true) return false;
+                                const dateOnly = typeof p.fecha === 'string' ? p.fecha.split('T')[0] : '';
+                                if (!dateOnly || uniqueFechas.has(dateOnly)) return false;
+                                uniqueFechas.add(dateOnly);
+                                return true;
+                            })
+                            .map((p: any) => (p.id_animal ? p : { ...p, id_animal: a.id }));
                         pesajesMap[a.id] = deduplicated;
                         pesajesFlat.push(...deduplicated);
                     } else {

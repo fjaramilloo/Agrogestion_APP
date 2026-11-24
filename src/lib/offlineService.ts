@@ -119,7 +119,7 @@ export async function sincronizarCacheFinca(fincaId: string): Promise<void> {
               id_potrerada, id_potrero_actual,
               potreros ( nombre ),
               potreradas:potreradas!animales_id_potrerada_fkey ( nombre ),
-              registros_pesaje ( peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
+              registros_pesaje ( id, id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada, is_deleted )
             `)
             .eq('id_finca', fincaId)
             .eq('estado', 'activo')

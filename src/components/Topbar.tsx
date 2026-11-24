@@ -11,7 +11,7 @@ interface TopbarProps {
 }
 
 export default function Topbar({ onToggleSidebar }: TopbarProps) {
-    const { role, isSuperAdmin, profile, fincaId } = useAuth();
+    const { role, isSuperAdmin, profile, fincaId, signOut } = useAuth();
     const {
         modoCampo,
         toggleModoCampo,
@@ -28,6 +28,15 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     const handleSync = async () => {
         if (syncing) return;
         await sincronizarTodo(fincaId || '', { manual: true });
+    };
+
+    const handleRelogin = async () => {
+        if (conteoPendienteTotal > 0) {
+            await handleSync();
+            return;
+        }
+        await signOut();
+        window.location.href = '/login';
     };
 
     const getUserDisplay = () => {
@@ -110,6 +119,19 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                         <span className="topbar-btn-label">
                             {syncing ? 'Subiendo...' : authRequired ? 'Reingresar' : isOnline ? 'Sincronizar' : 'en celular'}
                         </span>
+                    </button>
+                )}
+
+                {/* Alerta cuando la sesión expiró (incluso sin pendientes, p. ej. en PC) */}
+                {authRequired && conteoPendienteTotal === 0 && (
+                    <button
+                        type="button"
+                        onClick={handleRelogin}
+                        className="topbar-btn-action topbar-btn-sync has-errors"
+                        title="Tu sesión expiró. Clic para iniciar sesión nuevamente y ver datos actualizados."
+                    >
+                        <AlertTriangle size={14} aria-hidden="true" />
+                        <span className="topbar-btn-label">Sesión vencida · Reingresar</span>
                     </button>
                 )}
 
